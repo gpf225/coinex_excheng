@@ -10,7 +10,7 @@ REDIS_SENTINEL_LIST = [("192.168.0.62", 26379), ("192.168.0.63", 26379), ("192.1
 
 def send_email(to_address, subject, content):
     ses = boto3.client('ses')
-    r = ses.send_email(Source = '"viabtc-exchange-alert" <alert@mail.viabtc.cn>',
+    r = ses.send_email(Source = '"coinex-exchange-alert" <alert@mail.coinex.cn>',
             Destination = {'ToAddresses': [to_address]},
             Message = {'Subject': { 'Data': subject, 'Charset': 'utf-8'},
                 'Body': {'Text': {'Data': content, 'Charset': 'utf-8'}}})
@@ -30,7 +30,7 @@ def main():
         last_send = current_timestamp
         message = r[1]
         for email in ALERT_EMAILS:
-            send_email(email, "viabtc server error", message)
+            send_email(email, "coinex server error", message)
 
 if __name__ == '__main__':
     main()
