@@ -46,7 +46,7 @@ Ubuntu 14.04 or Ubuntu 16.04. Not yet tested on other systems.
 
 **Requirements**
 
-See [requirements](https://github.com/viabtc/coinex_exchange_server/wiki/requirements). Install the mentioned system or library.
+See [Requirements](https://github.com/viabtc/coinex_exchange_server/wiki/Requirements). Install the mentioned system or library.
 
 You MUST use the depends/hiredis to install the hiredis library. Or it may not be compatible.
 
