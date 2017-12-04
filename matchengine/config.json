@@ -61,10 +61,6 @@
             "prec_save": 12,
             "prec_show": 8
         }, {
-            "name": "XMR",
-            "prec_save": 12,
-            "prec_show": 8
-        }, {
             "name": "DSH",
             "prec_save": 12,
             "prec_show": 8
@@ -119,17 +115,6 @@
             "name": "ZECBCH",
             "stock": {
                 "name": "ZEC",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
-            "min_amount": "0.001"
-        }, {
-            "name": "XMRBCH",
-            "stock": {
-                "name": "XMR",
                 "prec": 8
             },
             "money": {
