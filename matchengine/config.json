@@ -61,7 +61,7 @@
             "prec_save": 12,
             "prec_show": 8
         }, {
-            "name": "DSH",
+            "name": "DASH",
             "prec_save": 12,
             "prec_show": 8
         }
@@ -123,9 +123,9 @@
             },
             "min_amount": "0.001"
         }, {
-            "name": "DSHBCH",
+            "name": "DASHBCH",
             "stock": {
-                "name": "DSH",
+                "name": "DASH",
                 "prec": 8
             },
             "money": {
