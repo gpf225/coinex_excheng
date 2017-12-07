@@ -7,12 +7,13 @@
 # define _UT_RPC_CMD_H_
 
 // monitor
-# define CMD_MONITOR_UPDATE         1
-# define CMD_MONITOR_LIST_SCOPE     2
-# define CMD_MONITOR_LIST_KEY       3
-# define CMD_MONITOR_LIST_HOST      4
-# define CMD_MONITOR_QUERY          5
-# define CMD_MONITOR_DAILY          6
+# define CMD_MONITOR_INC            1
+# define CMD_MONITOR_SET            2
+# define CMD_MONITOR_LIST_SCOPE     3
+# define CMD_MONITOR_LIST_KEY       4
+# define CMD_MONITOR_LIST_HOST      5
+# define CMD_MONITOR_QUERY          6
+# define CMD_MONITOR_DAILY          7
 
 // balance
 # define CMD_BALANCE_QUERY          101

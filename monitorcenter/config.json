@@ -17,7 +17,7 @@
             "tcp@0.0.0.0:5555",
             "udp@0.0.0.0:5555"
         ],
-        "max_pkg_size": 1024
+        "max_pkg_size": 1000000
     },
     "redis": {
         "name": "mymaster",
