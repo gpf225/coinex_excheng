@@ -43,5 +43,6 @@
 # define CMD_MARKET_USER_DEALS      306
 # define CMD_MARKET_LIST            307
 # define CMD_MARKET_SUMMARY         308
+# define CMD_MARKET_DEALS_EXT       309
 
 # endif

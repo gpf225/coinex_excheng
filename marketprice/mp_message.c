@@ -424,7 +424,7 @@ static time_t get_day_start(time_t timestamp)
     return mktime(&dtm);
 }
 
-static int market_update(const char *market, double timestamp, mpd_t *price, mpd_t *amount, int side, uint64_t id)
+static int market_update(double timestamp, uint64_t id, const char *market, int side, uint32_t ask_user_id, uint32_t bid_user_id, mpd_t *price, mpd_t *amount)
 {
     struct market_info *info = market_query(market);
     if (info == NULL) {
@@ -499,9 +499,11 @@ static int market_update(const char *market, double timestamp, mpd_t *price, mpd
     json_t *deal = json_object();
     json_object_set_new(deal, "id", json_integer(id));
     json_object_set_new(deal, "time", json_real(timestamp));
+    json_object_set_new(deal, "ask_user_id", json_integer(ask_user_id));
+    json_object_set_new(deal, "bid_user_id", json_integer(bid_user_id));
     json_object_set_new_mpd(deal, "price", price);
     json_object_set_new_mpd(deal, "amount", amount);
-    if (side == MARKET_ORDER_SIDE_ASK) {
+    if (side == MARKET_TRADE_SIDE_SELL) {
         json_object_set_new(deal, "type", json_string("sell"));
     } else {
         json_object_set_new(deal, "type", json_string("buy"));
@@ -531,35 +533,42 @@ static void on_deals_message(sds message, int64_t offset)
     mpd_t *price = NULL;
     mpd_t *amount = NULL;
 
-    if (!json_is_array(obj) || json_array_size(obj) < 12) {
+    if (!json_is_array(obj) || json_array_size(obj) < 15) {
         goto cleanup;
     }
     double timestamp = json_real_value(json_array_get(obj, 0));
     if (timestamp == 0) {
         goto cleanup;
     }
-    const char *market = json_string_value(json_array_get(obj, 1));
-    if (!market) {
-        goto cleanup;
-    }
-    const char *price_str = json_string_value(json_array_get(obj, 6));
-    if (!price_str || (price = decimal(price_str, 0)) == NULL) {
-        goto cleanup;
-    }
-    const char *amount_str = json_string_value(json_array_get(obj, 7));
-    if (!amount_str || (amount = decimal(amount_str, 0)) == NULL) {
-        goto cleanup;
-    }
-    int side = json_integer_value(json_array_get(obj, 10));
-    if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID) {
-        goto cleanup;
-    }
-    uint64_t id = json_integer_value(json_array_get(obj, 11));
+    uint64_t id = json_integer_value(json_array_get(obj, 1));
     if (id == 0) {
         goto cleanup;
     }
+    const char *market = json_string_value(json_array_get(obj, 2));
+    if (!market) {
+        goto cleanup;
+    }
+    int side = json_integer_value(json_array_get(obj, 5));
+    if (side != MARKET_TRADE_SIDE_SELL && side != MARKET_TRADE_SIDE_BUY) {
+        goto cleanup;
+    }
+    uint32_t ask_user_id = json_integer_value(json_array_get(obj, 8));
+    if (ask_user_id == 0) {
+        goto cleanup;
+    }
+    uint32_t bid_user_id = json_integer_value(json_array_get(obj, 9));
+    if (ask_user_id == 0) {
+        goto cleanup;
+    }
+    const char *price_str = json_string_value(json_array_get(obj, 10));
+    if (!price_str || (price = decimal(price_str, 0)) == NULL) {
+        goto cleanup;
+    }
+    const char *amount_str = json_string_value(json_array_get(obj, 11));
+    if (!amount_str || (amount = decimal(amount_str, 0)) == NULL)
+        goto cleanup;
 
-    int ret = market_update(market, timestamp, price, amount, side, id);
+    int ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
     if (ret < 0) {
         log_error("market_update fail %d, message: %s", ret, message);
         goto cleanup;
@@ -1343,6 +1352,39 @@ json_t *get_market_kline_month(const char *market, time_t start, time_t end, int
 }
 
 json_t *get_market_deals(const char *market, int limit, uint64_t last_id)
+{
+    struct market_info *info = market_query(market);
+    if (info == NULL)
+        return NULL;
+
+    int count = 0;
+    json_t *result = json_array();
+    list_iter *iter = list_get_iterator(info->deals_json, LIST_START_HEAD);
+    list_node *node;
+    while ((node = list_next(iter)) != NULL) {
+        json_t *deal = node->value;
+        uint64_t id = json_integer_value(json_object_get(deal, "id"));
+        if (id <= last_id) {
+            break;
+        }
+        json_t *item = json_object();
+        json_object_set(item, "id", json_object_get(deal, "id"));
+        json_object_set(item, "time", json_object_get(deal, "time"));
+        json_object_set(item, "type", json_object_get(deal, "type"));
+        json_object_set(item, "price", json_object_get(deal, "price"));
+        json_object_set(item, "amount", json_object_get(deal, "amount"));
+        json_array_append_new(result, deal);
+        count += 1;
+        if (count == limit) {
+            break;
+        }
+    }
+    list_release_iterator(iter);
+
+    return result;
+}
+
+json_t *get_market_deals_ext(const char *market, int limit, uint64_t last_id)
 {
     struct market_info *info = market_query(market);
     if (info == NULL)
