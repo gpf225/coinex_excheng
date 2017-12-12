@@ -204,24 +204,24 @@ int push_order_message(uint32_t event, order_t *order, market_t *market)
     return 0;
 }
 
-int push_deal_message(double t, const char *market, order_t *ask, order_t *bid, mpd_t *price, mpd_t *amount,
-        mpd_t *ask_fee, mpd_t *bid_fee, int side, uint64_t id, const char *stock, const char *money)
+int push_deal_message(double t, uint64_t id, market_t *market, int side, order_t *ask, order_t *bid, mpd_t *price, mpd_t *amount, mpd_t *deal, mpd_t *ask_fee, mpd_t *bid_fee)
 {
     json_t *message = json_array();
     json_array_append_new(message, json_real(t));
-    json_array_append_new(message, json_string(market));
+    json_array_append_new(message, json_integer(id));
+    json_array_append_new(message, json_string(market->name));
+    json_array_append_new(message, json_string(market->stock));
+    json_array_append_new(message, json_string(market->money));
+    json_array_append_new(message, json_integer(side));
     json_array_append_new(message, json_integer(ask->id));
     json_array_append_new(message, json_integer(bid->id));
     json_array_append_new(message, json_integer(ask->user_id));
     json_array_append_new(message, json_integer(bid->user_id));
     json_array_append_mpd(message, price);
     json_array_append_mpd(message, amount);
+    json_array_append_mpd(message, deal);
     json_array_append_mpd(message, ask_fee);
     json_array_append_mpd(message, bid_fee);
-    json_array_append_new(message, json_integer(side));
-    json_array_append_new(message, json_integer(id));
-    json_array_append_new(message, json_string(stock));
-    json_array_append_new(message, json_string(money));
 
     push_message(json_dumps(message, 0), rkt_deals, list_deals);
     json_decref(message);
