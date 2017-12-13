@@ -140,7 +140,7 @@ invalid_argument:
 
 static int on_cmd_order_history(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) < 6)
+    if (json_array_size(params) != 7)
         goto invalid_argument;
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
@@ -149,22 +149,19 @@ static int on_cmd_order_history(MYSQL *conn, json_t *params, struct job_reply *r
     const char *market = json_string_value(json_array_get(params, 1));
     if (market == NULL)
         goto invalid_argument;
-    uint64_t start_time = json_integer_value(json_array_get(params, 2));
-    uint64_t end_time   = json_integer_value(json_array_get(params, 3));
+    int side = json_integer_value(json_array_get(params, 2));
+    if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+        goto invalid_argument;
+    uint64_t start_time = json_integer_value(json_array_get(params, 3));
+    uint64_t end_time   = json_integer_value(json_array_get(params, 4));
     if (end_time && start_time > end_time)
         goto invalid_argument;
-    size_t offset = json_integer_value(json_array_get(params, 4));
-    size_t limit  = json_integer_value(json_array_get(params, 5));
+    size_t offset = json_integer_value(json_array_get(params, 5));
+    size_t limit  = json_integer_value(json_array_get(params, 6));
     if (limit == 0 || limit > QUERY_LIMIT)
         goto invalid_argument;
-    int side = 0;
-    if (json_array_size(params) >= 7) {
-        side = json_integer_value(json_array_get(params, 6));
-        if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
-            goto invalid_argument;
-    }
 
-    json_t *records = get_user_order_finished(conn, user_id, market, side, start_time, end_time, offset, limit);
+    json_t *records = get_user_order_history(conn, user_id, market, side, start_time, end_time, offset, limit);
     if (records == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
@@ -252,12 +249,19 @@ static int on_cmd_user_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
     const char *market = json_string_value(json_array_get(params, 1));
     if (market == NULL)
         goto invalid_argument;
-    size_t offset = json_integer_value(json_array_get(params, 2));
-    size_t limit  = json_integer_value(json_array_get(params, 3));
+    int side = json_integer_value(json_array_get(params, 2));
+    if (side != 0 && side != MARKET_TRADE_SIDE_SELL && side != MARKET_TRADE_SIDE_BUY)
+        goto invalid_argument;
+    uint64_t start_time = json_integer_value(json_array_get(params, 3));
+    uint64_t end_time   = json_integer_value(json_array_get(params, 4));
+    if (end_time && start_time > end_time)
+        goto invalid_argument;
+    size_t offset = json_integer_value(json_array_get(params, 5));
+    size_t limit  = json_integer_value(json_array_get(params, 6));
     if (limit == 0 || limit > QUERY_LIMIT)
         goto invalid_argument;
 
-    json_t *records = get_market_user_deals(conn, user_id, market, offset, limit);
+    json_t *records = get_user_deal_history(conn, user_id, market, side, start_time, end_time, offset, limit);
     if (records == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
