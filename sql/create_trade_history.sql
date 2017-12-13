@@ -28,6 +28,7 @@ CREATE TABLE `order_history_example` (
     `deal_stock`    DECIMAL(30,8) NOT NULL,
     `deal_money`    DECIMAL(30,16) NOT NULL,
     `deal_fee`      DECIMAL(30,16) NOT NULL,
+    INDEX `idx_user` (`user_id`),
     INDEX `idx_user_market` (`user_id`, `market`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -48,7 +49,6 @@ CREATE TABLE `order_detail_example` (
     `deal_stock`    DECIMAL(30,8) NOT NULL,
     `deal_money`    DECIMAL(30,16) NOT NULL,
     `deal_fee`      DECIMAL(30,16) NOT NULL,
-    INDEX `idx_user_market` (`user_id`, `market`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by order_id
@@ -84,5 +84,6 @@ CREATE TABLE `user_deal_history_example` (
     `deal`          DECIMAL(30,16) NOT NULL,
     `fee`           DECIMAL(30,16) NOT NULL,
     `deal_fee`      DECIMAL(30,16) NOT NULL,
+    INDEX `idx_user` (`user_id`),
     INDEX `idx_user_market` (`user_id`, `market`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
