@@ -295,7 +295,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     int ret;
     switch (pkg->command) {
-    case CMD_ORDER_BOOK_DEPTH:
+    case CMD_ORDER_DEPTH:
         ret = on_market_depth_reply(state, result);
         if (ret < 0) {
             log_error("on_market_depth_reply: %d, reply: %s", ret, reply_str);
@@ -340,7 +340,7 @@ static void on_timer(nw_timer *timer, void *privdata)
         rpc_pkg pkg;
         memset(&pkg, 0, sizeof(pkg));
         pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-        pkg.command   = CMD_ORDER_BOOK_DEPTH;
+        pkg.command   = CMD_ORDER_DEPTH;
         pkg.sequence  = state_entry->id;
         pkg.body      = json_dumps(params, 0);
         pkg.body_size = strlen(pkg.body);

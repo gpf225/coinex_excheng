@@ -127,7 +127,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     int ret;
     switch (pkg->command) {
-    case CMD_BALANCE_QUERY:
+    case CMD_ASSET_QUERY:
         ret = on_balance_query_reply(state, result);
         if (ret < 0) {
             log_error("on_balance_query_reply fail: %d, reply: %s", ret, reply_str);
@@ -268,7 +268,7 @@ int asset_on_update(uint32_t user_id, const char *asset)
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
     pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_BALANCE_QUERY;
+    pkg.command   = CMD_ASSET_QUERY;
     pkg.sequence  = state_entry->id;
     pkg.body      = json_dumps(trade_params, 0);
     pkg.body_size = strlen(pkg.body);

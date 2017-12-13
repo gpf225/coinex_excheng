@@ -197,7 +197,7 @@ static int on_cmd_order_deals(MYSQL *conn, json_t *params, struct job_reply *rsp
     if (limit == 0 || limit > QUERY_LIMIT)
         goto invalid_argument;
 
-    json_t *records = get_order_deal_details(conn, order_id, offset, limit);
+    json_t *records = get_order_deals(conn, order_id, offset, limit);
     if (records == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
@@ -218,7 +218,7 @@ invalid_argument:
     return 0;
 }
 
-static int on_cmd_order_detail_finished(MYSQL *conn, json_t *params, struct job_reply *rsp)
+static int on_cmd_order_detail(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
     if (json_array_size(params) != 1)
         goto invalid_argument;
@@ -226,7 +226,7 @@ static int on_cmd_order_detail_finished(MYSQL *conn, json_t *params, struct job_
     if (order_id == 0)
         goto invalid_argument;
 
-    rsp->result = get_finished_order_detail(conn, order_id);
+    rsp->result = get_order_detail(conn, order_id);
     if (rsp->result == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
@@ -241,7 +241,7 @@ invalid_argument:
     return 0;
 }
 
-static int on_cmd_market_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
+static int on_cmd_user_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
     if (json_array_size(params) != 4)
         goto invalid_argument;
@@ -291,16 +291,22 @@ static void on_job(nw_job_entry *entry, void *privdata)
 
     int ret;
     switch (req->command) {
-    case CMD_BALANCE_HISTORY:
+    case CMD_ASSET_HISTORY:
         ret = on_cmd_balance_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_balance_history fail: %d", ret);
         }
         break;
-    case CMD_ORDER_HISTORY:
+    case CMD_ORDER_FINISHED:
         ret = on_cmd_order_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_history fail: %d", ret);
+        }
+        break;
+    case CMD_ORDER_FINISHED_DETAIL:
+        ret = on_cmd_order_detail(conn, req->params, rsp);
+        if (ret < 0) {
+            log_error("on_cmd_order_detail fail: %d", ret);
         }
         break;
     case CMD_ORDER_DEALS:
@@ -309,16 +315,10 @@ static void on_job(nw_job_entry *entry, void *privdata)
             log_error("on_cmd_order_deals fail: %d", ret);
         }
         break;
-    case CMD_ORDER_DETAIL_FINISHED:
-        ret = on_cmd_order_detail_finished(conn, req->params, rsp);
-        if (ret < 0) {
-            log_error("on_cmd_order_detail_finished fail: %d", ret);
-        }
-        break;
     case CMD_MARKET_USER_DEALS:
-        ret = on_cmd_market_deals(conn, req->params, rsp);
+        ret = on_cmd_user_deals(conn, req->params, rsp);
         if (ret < 0) {
-            log_error("on_cmd_market_deals fail: %d", ret);
+            log_error("on_cmd_user_deals fail: %d", ret);
         }
         break;
     default:

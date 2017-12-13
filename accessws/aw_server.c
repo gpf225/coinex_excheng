@@ -249,7 +249,7 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
 
     sds key = sdsempty();
     char *params_str = json_dumps(params, 0);
-    key = sdscatprintf(key, "%u-%s", CMD_ORDER_BOOK_DEPTH, params_str);
+    key = sdscatprintf(key, "%u-%s", CMD_ORDER_DEPTH, params_str);
     int ret = process_cache(ses, id, key);
     if (ret > 0) {
         sdsfree(key);
@@ -267,7 +267,7 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
     pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ORDER_BOOK_DEPTH;
+    pkg.command   = CMD_ORDER_DEPTH;
     pkg.sequence  = entry->id;
     pkg.req_id    = id;
     pkg.body      = params_str;
@@ -606,7 +606,7 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
     pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ORDER_QUERY;
+    pkg.command   = CMD_ORDER_PENDING;
     pkg.sequence  = entry->id;
     pkg.req_id    = id;
     pkg.body      = json_dumps(trade_params, 0);
@@ -644,7 +644,7 @@ static int on_method_order_history(nw_ses *ses, uint64_t id, struct clt_info *in
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
     pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ORDER_HISTORY;
+    pkg.command   = CMD_ORDER_FINISHED;
     pkg.sequence  = entry->id;
     pkg.req_id    = id;
     pkg.body      = json_dumps(read_params, 0);
@@ -707,7 +707,7 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
     pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_BALANCE_QUERY;
+    pkg.command   = CMD_ASSET_QUERY;
     pkg.sequence  = entry->id;
     pkg.req_id    = id;
     pkg.body      = json_dumps(trade_params, 0);
@@ -745,7 +745,7 @@ static int on_method_asset_history(nw_ses *ses, uint64_t id, struct clt_info *in
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
     pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_BALANCE_HISTORY;
+    pkg.command   = CMD_ASSET_HISTORY;
     pkg.sequence  = entry->id;
     pkg.req_id    = id;
     pkg.body      = json_dumps(read_params, 0);
