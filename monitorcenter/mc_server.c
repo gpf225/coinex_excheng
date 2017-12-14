@@ -681,7 +681,7 @@ static int clear_key(time_t timestamp, const char *scope, const char *key, const
 static int aggregate_daily_scope_key_host(time_t timestamp, const char *scope, const char *key, const char *host)
 {
     sds cmd = sdsempty();
-    cmd = sdscatprintf("HMGET m:%s:%s:%s:m", scope, key, host);
+    cmd = sdscatprintf(cmd, "HMGET m:%s:%s:%s:m", scope, key, host);
     for (size_t i = 0; i < 60 * 24; ++i) {
         cmd = sdscatprintf(cmd, " %ld", timestamp + 60 * i);
     }

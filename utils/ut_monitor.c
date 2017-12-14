@@ -9,8 +9,8 @@
 # include <jansson.h>
 
 static rpc_clt *clt;
-static char *scope;
-static char *host;
+static char *process_scope;
+static char *process_host;
 
 static void on_server_connect(nw_ses *ses, bool result)
 {
@@ -42,8 +42,8 @@ int monitor_init(rpc_clt_cfg *cfg, const char *scope, const char *host)
     if (rpc_clt_start(clt) < 0)
         return -__LINE__;
 
-    scope = strdup(scope);
-    host  = strdup(host);
+    process_scope = strdup(scope);
+    process_host  = strdup(host);
 
     return 0;
 }
@@ -54,9 +54,9 @@ void monitor_inc(const char *key, uint64_t val)
         return;
 
     json_t *params = json_array();
-    json_array_append_new(params, json_string(scope));
+    json_array_append_new(params, json_string(process_scope));
     json_array_append_new(params, json_string(key));
-    json_array_append_new(params, json_string(host));
+    json_array_append_new(params, json_string(process_host));
     json_array_append_new(params, json_integer(val));
 
     rpc_pkg pkg;
@@ -77,9 +77,9 @@ void monitor_set(const char *key, uint64_t val)
         return;
 
     json_t *params = json_array();
-    json_array_append_new(params, json_string(scope));
+    json_array_append_new(params, json_string(process_scope));
     json_array_append_new(params, json_string(key));
-    json_array_append_new(params, json_string(host));
+    json_array_append_new(params, json_string(process_host));
     json_array_append_new(params, json_integer(val));
 
     rpc_pkg pkg;
