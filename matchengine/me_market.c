@@ -203,6 +203,8 @@ static int order_put(market_t *m, order_t *order)
         mpd_del(result);
     }
 
+    monitor_inc("order_put", 1);
+
     return 0;
 }
 
@@ -253,6 +255,8 @@ static int order_finish(bool real, market_t *m, order_t *order)
     }
 
     order_free(order);
+    monitor_inc("order_finish", 1);
+
     return 0;
 }
 

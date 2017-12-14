@@ -162,6 +162,7 @@ static int push_message(char *message, rd_kafka_topic_t *topic, list_t *list)
 
     int ret = rd_kafka_produce(topic, 0, RD_KAFKA_MSG_F_COPY, message, strlen(message), NULL, 0, NULL);
     if (ret == -1) {
+        monitor_inc("message_push_fail", 1);
         log_fatal("Failed to produce: %s to topic %s: %s\n", message, rd_kafka_topic_name(rkt_deals), rd_kafka_err2str(rd_kafka_last_error()));
         if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL) {
             list_add_node_tail(list_deals, message);
@@ -186,6 +187,7 @@ int push_balance_message(double t, uint32_t user_id, const char *asset, const ch
 
     push_message(json_dumps(message, 0), rkt_balances, list_balances);
     json_decref(message);
+    monitor_inc("message_balance", 1);
 
     return 0;
 }
@@ -200,6 +202,7 @@ int push_order_message(uint32_t event, order_t *order, market_t *market)
 
     push_message(json_dumps(message, 0), rkt_orders, list_orders);
     json_decref(message);
+    monitor_inc("message_order", 1);
 
     return 0;
 }
@@ -225,6 +228,7 @@ int push_deal_message(double t, uint64_t id, market_t *market, int side, order_t
 
     push_message(json_dumps(message, 0), rkt_deals, list_deals);
     json_decref(message);
+    monitor_inc("message_deal", 1);
 
     return 0;
 }

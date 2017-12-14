@@ -31,6 +31,7 @@
 # include "ut_signal.h"
 # include "ut_define.h"
 # include "ut_config.h"
+# include "ut_monitor.h"
 # include "ut_decimal.h"
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
@@ -69,6 +70,7 @@ struct settings {
     process_cfg         process;
     log_cfg             log;
     alert_cfg           alert;
+    rpc_clt_cfg         monitor;
     rpc_svr_cfg         svr;
     cli_svr_cfg         cli;
     mysql_cfg           db_log;
