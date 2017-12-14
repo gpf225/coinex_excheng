@@ -46,7 +46,7 @@ static sds on_cmd_balance_list(const char *cmd, int argc, sds *argv)
         if (key->type == BALANCE_TYPE_AVAILABLE) {
             reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", key->user_id, key->asset, "available", str);
         } else {
-            reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", key->user_id, key->asset, "freeze", str);
+            reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", key->user_id, key->asset, "frozen", str);
         }
         free(str);
     }
@@ -72,10 +72,10 @@ static sds on_cmd_balance_get(const char *cmd, int argc, sds *argv)
             reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", user_id, asset, "available", str);
             free(str);
         }
-        result = balance_get(user_id, BALANCE_TYPE_FREEZE, asset);
+        result = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
         if (result) {
             char *str = mpd_to_sci(result, 0);
-            reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", user_id, asset, "freeze", str);
+            reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", user_id, asset, "frozen", str);
             free(str);
         }
     }
@@ -89,27 +89,27 @@ error:
 static sds on_cmd_balance_summary(const char *cmd, int argc, sds *argv)
 {
     sds reply = sdsempty();
-    reply = sdscatprintf(reply, "%-16s %-30s %-10s %-30s %-10s %-30s\n", "asset", "total", "available", "available", "freeze", "freeze");
+    reply = sdscatprintf(reply, "%-16s %-30s %-10s %-30s %-10s %-30s\n", "asset", "total", "available", "available", "frozen", "frozen");
 
     size_t available_count;
-    size_t freeze_count;
+    size_t frozen_count;
     mpd_t *total = mpd_new(&mpd_ctx);
     mpd_t *available = mpd_new(&mpd_ctx);
-    mpd_t *freeze = mpd_new(&mpd_ctx);
+    mpd_t *frozen = mpd_new(&mpd_ctx);
     for (size_t i = 0; i < settings.asset_num; ++i) {
-        balance_status(settings.assets[i].name, total, &available_count, available, &freeze_count, freeze);
+        balance_status(settings.assets[i].name, total, &available_count, available, &frozen_count, frozen);
         char *total_str = mpd_to_sci(total, 0);
         char *available_str = mpd_to_sci(available, 0);
-        char *freeze_str = mpd_to_sci(freeze, 0);
+        char *frozen_str = mpd_to_sci(frozen, 0);
         reply = sdscatprintf(reply, "%-16s %-30s %-10zu %-30s %-10zu %-30s\n", settings.assets[i].name,
-                total_str, available_count, available_str, freeze_count, freeze_str);
+                total_str, available_count, available_str, frozen_count, frozen_str);
         free(total_str);
         free(available_str);
-        free(freeze_str);
+        free(frozen_str);
     }
     mpd_del(total);
     mpd_del(available);
-    mpd_del(freeze);
+    mpd_del(frozen);
 
     return reply;
 }

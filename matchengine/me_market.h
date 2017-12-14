@@ -25,7 +25,7 @@ typedef struct order_t {
     mpd_t           *taker_fee;
     mpd_t           *maker_fee;
     mpd_t           *left;
-    mpd_t           *freeze;
+    mpd_t           *frozen;
     mpd_t           *deal_stock;
     mpd_t           *deal_money;
     mpd_t           *deal_fee;

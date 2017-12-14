@@ -9,7 +9,7 @@
 # include "me_config.h"
 
 # define BALANCE_TYPE_AVAILABLE 1
-# define BALANCE_TYPE_FREEZE    2
+# define BALANCE_TYPE_FROZEN    2
 
 extern dict_t *dict_balance;
 
@@ -34,7 +34,7 @@ mpd_t *balance_freeze(uint32_t user_id, const char *asset, mpd_t *amount);
 mpd_t *balance_unfreeze(uint32_t user_id, const char *asset, mpd_t *amount);
 
 mpd_t *balance_total(uint32_t user_id, const char *asset);
-int balance_status(const char *asset, mpd_t *total, size_t *available_count, mpd_t *available, size_t *freeze_count, mpd_t *freeze);
+int balance_status(const char *asset, mpd_t *total, size_t *available_count, mpd_t *available, size_t *frozen_count, mpd_t *frozen);
 
 # endif
 

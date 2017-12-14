@@ -153,23 +153,23 @@ static int on_cmd_asset_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static json_t *get_asset_summary(const char *name)
 {
     size_t available_count;
-    size_t freeze_count;
+    size_t frozen_count;
     mpd_t *total = mpd_new(&mpd_ctx);
     mpd_t *available = mpd_new(&mpd_ctx);
-    mpd_t *freeze = mpd_new(&mpd_ctx);
-    balance_status(name, total, &available_count, available, &freeze_count, freeze);
+    mpd_t *frozen = mpd_new(&mpd_ctx);
+    balance_status(name, total, &available_count, available, &frozen_count, frozen);
 
     json_t *obj = json_object();
     json_object_set_new(obj, "name", json_string(name));
     json_object_set_new_mpd(obj, "total_balance", total);
     json_object_set_new(obj, "available_count", json_integer(available_count));
     json_object_set_new_mpd(obj, "available_balance", available);
-    json_object_set_new(obj, "freeze_count", json_integer(freeze_count));
-    json_object_set_new_mpd(obj, "freeze_balance", freeze);
+    json_object_set_new(obj, "frozen_count", json_integer(frozen_count));
+    json_object_set_new_mpd(obj, "frozen_balance", frozen);
 
     mpd_del(total);
     mpd_del(available);
-    mpd_del(freeze);
+    mpd_del(frozen);
 
     return obj;
 }
@@ -208,18 +208,18 @@ static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
                 json_object_set_new(unit, "available", json_string("0"));
             }
 
-            mpd_t *freeze = balance_get(user_id, BALANCE_TYPE_FREEZE, asset);
-            if (freeze) {
+            mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
+            if (frozen) {
                 if (prec_save != prec_show) {
-                    mpd_t *show = mpd_qncopy(freeze);
+                    mpd_t *show = mpd_qncopy(frozen);
                     mpd_rescale(show, show, -prec_show, &mpd_ctx);
-                    json_object_set_new_mpd(unit, "freeze", show);
+                    json_object_set_new_mpd(unit, "frozen", show);
                     mpd_del(show);
                 } else {
-                    json_object_set_new_mpd(unit, "freeze", freeze);
+                    json_object_set_new_mpd(unit, "frozen", frozen);
                 }
             } else {
-                json_object_set_new(unit, "freeze", json_string("0"));
+                json_object_set_new(unit, "frozen", json_string("0"));
             }
 
             json_object_set_new(result, asset, unit);
@@ -249,18 +249,18 @@ static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
                 json_object_set_new(unit, "available", json_string("0"));
             }
 
-            mpd_t *freeze = balance_get(user_id, BALANCE_TYPE_FREEZE, asset);
-            if (freeze) {
+            mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
+            if (frozen) {
                 if (prec_save != prec_show) {
-                    mpd_t *show = mpd_qncopy(freeze);
+                    mpd_t *show = mpd_qncopy(frozen);
                     mpd_rescale(show, show, -prec_show, &mpd_ctx);
-                    json_object_set_new_mpd(unit, "freeze", show);
+                    json_object_set_new_mpd(unit, "frozen", show);
                     mpd_del(show);
                 } else {
-                    json_object_set_new_mpd(unit, "freeze", freeze);
+                    json_object_set_new_mpd(unit, "frozen", frozen);
                 }
             } else {
-                json_object_set_new(unit, "freeze", json_string("0"));
+                json_object_set_new(unit, "frozen", json_string("0"));
             }
 
             json_object_set_new(result, asset, unit);

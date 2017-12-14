@@ -280,7 +280,7 @@ mpd_t *balance_freeze(uint32_t user_id, const char *asset, mpd_t *amount)
     if (mpd_cmp(available, amount, &mpd_ctx) < 0)
         return NULL;
 
-    if (balance_add(user_id, BALANCE_TYPE_FREEZE, asset, amount) == 0)
+    if (balance_add(user_id, BALANCE_TYPE_FROZEN, asset, amount) == 0)
         return NULL;
     mpd_sub(available, available, amount, &mpd_ctx);
     if (mpd_cmp(available, mpd_zero, &mpd_ctx) == 0) {
@@ -300,22 +300,22 @@ mpd_t *balance_unfreeze(uint32_t user_id, const char *asset, mpd_t *amount)
 
     if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0)
         return NULL;
-    mpd_t *freeze = balance_get(user_id, BALANCE_TYPE_FREEZE, asset);
-    if (freeze == NULL)
+    mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
+    if (frozen == NULL)
         return NULL;
-    if (mpd_cmp(freeze, amount, &mpd_ctx) < 0)
+    if (mpd_cmp(frozen, amount, &mpd_ctx) < 0)
         return NULL;
 
     if (balance_add(user_id, BALANCE_TYPE_AVAILABLE, asset, amount) == 0)
         return NULL;
-    mpd_sub(freeze, freeze, amount, &mpd_ctx);
-    if (mpd_cmp(freeze, mpd_zero, &mpd_ctx) == 0) {
-        balance_del(user_id, BALANCE_TYPE_FREEZE, asset);
+    mpd_sub(frozen, frozen, amount, &mpd_ctx);
+    if (mpd_cmp(frozen, mpd_zero, &mpd_ctx) == 0) {
+        balance_del(user_id, BALANCE_TYPE_FROZEN, asset);
         return mpd_zero;
     }
-    mpd_rescale(freeze, freeze, -at->prec_save, &mpd_ctx);
+    mpd_rescale(frozen, frozen, -at->prec_save, &mpd_ctx);
 
-    return freeze;
+    return frozen;
 }
 
 mpd_t *balance_total(uint32_t user_id, const char *asset)
@@ -326,20 +326,20 @@ mpd_t *balance_total(uint32_t user_id, const char *asset)
     if (available) {
         mpd_add(balance, balance, available, &mpd_ctx);
     }
-    mpd_t *freeze = balance_get(user_id, BALANCE_TYPE_FREEZE, asset);
-    if (freeze) {
-        mpd_add(balance, balance, freeze, &mpd_ctx);
+    mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
+    if (frozen) {
+        mpd_add(balance, balance, frozen, &mpd_ctx);
     }
 
     return balance;
 }
 
-int balance_status(const char *asset, mpd_t *total, size_t *available_count, mpd_t *available, size_t *freeze_count, mpd_t *freeze)
+int balance_status(const char *asset, mpd_t *total, size_t *available_count, mpd_t *available, size_t *frozen_count, mpd_t *frozen)
 {
-    *freeze_count = 0;
+    *frozen_count = 0;
     *available_count = 0;
     mpd_copy(total, mpd_zero, &mpd_ctx);
-    mpd_copy(freeze, mpd_zero, &mpd_ctx);
+    mpd_copy(frozen, mpd_zero, &mpd_ctx);
     mpd_copy(available, mpd_zero, &mpd_ctx);
 
     dict_entry *entry;
@@ -353,8 +353,8 @@ int balance_status(const char *asset, mpd_t *total, size_t *available_count, mpd
             *available_count += 1;
             mpd_add(available, available, entry->val, &mpd_ctx);
         } else {
-            *freeze_count += 1;
-            mpd_add(freeze, freeze, entry->val, &mpd_ctx);
+            *frozen_count += 1;
+            mpd_add(frozen, frozen, entry->val, &mpd_ctx);
         }
     }
     dict_release_iterator(iter);

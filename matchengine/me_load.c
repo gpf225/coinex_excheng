@@ -16,7 +16,7 @@ int load_orders(MYSQL *conn, const char *table)
     while (true) {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, "
-                "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `freeze`, `deal_stock`, `deal_money`, `deal_fee` FROM `%s` "
+                "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee` FROM `%s` "
                 "WHERE `id` > %"PRIu64" ORDER BY `id` LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -50,13 +50,13 @@ int load_orders(MYSQL *conn, const char *table)
             order->taker_fee = decimal(row[9], market->fee_prec);
             order->maker_fee = decimal(row[10], market->fee_prec);
             order->left = decimal(row[11], market->stock_prec);
-            order->freeze = decimal(row[12], 0);
+            order->frozen = decimal(row[12], 0);
             order->deal_stock = decimal(row[13], 0);
             order->deal_money = decimal(row[14], 0);
             order->deal_fee = decimal(row[15], 0);
 
             if (!order->market || !order->price || !order->amount || !order->taker_fee || !order->maker_fee || !order->left ||
-                    !order->freeze || !order->deal_stock || !order->deal_money || !order->deal_fee) {
+                    !order->frozen || !order->deal_stock || !order->deal_money || !order->deal_fee) {
                 log_error("get order detail of order id: %"PRIu64" fail", order->id);
                 mysql_free_result(result);
                 return -__LINE__;
