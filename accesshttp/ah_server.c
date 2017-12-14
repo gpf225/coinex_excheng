@@ -14,6 +14,7 @@ static rpc_clt *listener;
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
 static rpc_clt *readhistory;
+static rpc_clt *monitorcenter;
 
 struct state_info {
     nw_ses  *ses;
@@ -285,6 +286,14 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("market.deals_ext", marketprice, CMD_MARKET_DEALS_EXT));
     ERR_RET_LN(add_handler("market.user_deals", readhistory, CMD_MARKET_USER_DEALS));
 
+    ERR_RET_LN(add_handler("monitor.inc", monitorcenter, CMD_MONITOR_INC));
+    ERR_RET_LN(add_handler("monitor.set", monitorcenter, CMD_MONITOR_SET));
+    ERR_RET_LN(add_handler("monitor.list_scope", monitorcenter, CMD_MONITOR_LIST_SCOPE));
+    ERR_RET_LN(add_handler("monitor.list_key", monitorcenter, CMD_MONITOR_LIST_KEY));
+    ERR_RET_LN(add_handler("monitor.list_host", monitorcenter, CMD_MONITOR_LIST_HOST));
+    ERR_RET_LN(add_handler("monitor.query_minute", monitorcenter, CMD_MONITOR_QUERY));
+    ERR_RET_LN(add_handler("monitor.query_daily", monitorcenter, CMD_MONITOR_DAILY));
+
     return 0;
 }
 
@@ -329,6 +338,12 @@ int init_server(void)
     if (readhistory == NULL)
         return -__LINE__;
     if (rpc_clt_start(readhistory) < 0)
+        return -__LINE__;
+
+    monitorcenter = rpc_clt_create(&settings.monitorcenter, &ct);
+    if (monitorcenter == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(monitorcenter) < 0)
         return -__LINE__;
 
     svr = http_svr_create(&settings.svr, on_http_request);
