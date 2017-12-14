@@ -33,7 +33,12 @@
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
 
+# define MAX_SCOPE_LENGTH   10
+# define MAX_KEY_LENGTH     40
+# define MAX_HOST_LENGTH    20
+
 struct settings {
+    bool                debug;
     process_cfg         process;
     log_cfg             log;
     alert_cfg           alert;
