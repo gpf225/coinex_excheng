@@ -24,9 +24,10 @@ static void on_server_connect(nw_ses *ses, bool result)
 
 static void on_server_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
+    return;
 }
 
-int init_monitor(rpc_clt_cfg *cfg, const char *scope, const char *host)
+int monitor_init(rpc_clt_cfg *cfg, const char *scope, const char *host)
 {
     if (strlen(scope) == 0 || strlen(host) == 0)
         return -__LINE__;
