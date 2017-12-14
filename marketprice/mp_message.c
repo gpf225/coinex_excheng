@@ -563,6 +563,7 @@ static void on_deals_message(sds message, int64_t offset)
         goto cleanup;
     }
     last_offset = offset;
+    monitor_inc("new_message", 1);
 
     mpd_del(price);
     mpd_del(amount);
@@ -752,6 +753,7 @@ static int flush_market(void)
 
     last_flush = current_timestamp();
     redisFree(context);
+    monitor_inc("flush_market_success", 1);
 
     return 0;
 }

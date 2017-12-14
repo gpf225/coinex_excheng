@@ -13,6 +13,11 @@
         "host": "marketprice",
         "addr": "127.0.0.1:4444"
     },
+    "monitor": {
+        "name": "monitor",
+        "addr": "tcp@127.0.0.1:5555",
+        "max_pkg_size": 1024
+    },
     "svr": {
         "bind": "tcp@0.0.0.0:7416",
         "max_pkg_size": 10240

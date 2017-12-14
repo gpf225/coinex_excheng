@@ -64,16 +64,19 @@ static int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
 
 static int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
 {
+    monitor_inc("error_invalid_argument", 1);
     return reply_error(ses, pkg, 1, "invalid argument");
 }
 
 static int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)
 {
+    monitor_inc("error_internal_error", 1);
     return reply_error(ses, pkg, 2, "internal error");
 }
 
 static int reply_error_service_unavailable(nw_ses *ses, rpc_pkg *pkg)
 {
+    monitor_inc("error_service_unavailable", 1);
     return reply_error(ses, pkg, 3, "service unavailable");
 }
 
@@ -1018,6 +1021,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     switch (pkg->command) {
     case CMD_ASSET_LIST:
         log_trace("from: %s cmd asset list, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_asset_list", 1);
         ret = on_cmd_asset_list(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_list %s fail: %d", params_str, ret);
@@ -1025,6 +1029,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_ASSET_SUMMARY:
         log_trace("from: %s cmd asset summary, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_asset_summary", 1);
         ret = on_cmd_asset_summary(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_summary %s fail: %d", params_str, ret);
@@ -1032,6 +1037,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_ASSET_QUERY:
         log_trace("from: %s cmd balance query, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_asset_query", 1);
         ret = on_cmd_asset_query(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_query %s fail: %d", params_str, ret);
@@ -1045,6 +1051,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             goto cleanup;
         }
         log_trace("from: %s cmd balance update, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_asset_update", 1);
         ret = on_cmd_asset_update(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_update %s fail: %d", params_str, ret);
@@ -1058,6 +1065,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             goto cleanup;
         }
         log_trace("from: %s cmd order put limit, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_order_put_limit", 1);
         ret = on_cmd_order_put_limit(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_put_limit %s fail: %d", params_str, ret);
@@ -1071,6 +1079,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             goto cleanup;
         }
         log_trace("from: %s cmd order put market, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_order_put_market", 1);
         ret = on_cmd_order_put_market(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_put_market %s fail: %d", params_str, ret);
@@ -1084,6 +1093,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             goto cleanup;
         }
         log_trace("from: %s cmd order cancel, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_order_cancel", 1);
         ret = on_cmd_order_cancel(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_cancel %s fail: %d", params_str, ret);
@@ -1091,6 +1101,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_ORDER_PENDING:
         log_trace("from: %s cmd order query, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_order_pending", 1);
         ret = on_cmd_order_pending(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_pending %s fail: %d", params_str, ret);
@@ -1098,6 +1109,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_ORDER_BOOK:
         log_trace("from: %s cmd order book, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_order_book", 1);
         ret = on_cmd_order_book(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_book %s fail: %d", params_str, ret);
@@ -1105,6 +1117,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_ORDER_DEPTH:
         log_trace("from: %s cmd order book depth, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_order_depth", 1);
         ret = on_cmd_order_depth(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_depth %s fail: %d", params_str, ret);
@@ -1112,6 +1125,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_ORDER_PENDING_DETAIL:
         log_trace("from: %s cmd order detail, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_order_detail", 1);
         ret = on_cmd_order_detail(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_detail %s fail: %d", params_str, ret);
@@ -1119,6 +1133,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_MARKET_LIST:
         log_trace("from: %s cmd market list, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_market_list", 1);
         ret = on_cmd_market_list(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_list %s fail: %d", params_str, ret);
@@ -1126,6 +1141,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_MARKET_SUMMARY:
         log_trace("from: %s cmd market summary, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_market_summary", 1);
         ret = on_cmd_market_summary(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_summary%s fail: %d", params_str, ret);
