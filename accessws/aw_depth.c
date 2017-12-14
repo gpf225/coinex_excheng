@@ -219,6 +219,7 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
     }
     dict_release_iterator(iter);
     json_decref(params);
+    monitor_inc("depth.update", dict_size(sessions));
 
     return 0;
 }
@@ -495,5 +496,19 @@ int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char
     }
 
     return 0;
+}
+
+size_t depth_subscribe_number(void)
+{
+    size_t count = 0;
+    dict_iterator *iter = dict_get_iterator(dict_depth);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        struct depth_val *obj = entry->val;
+        count += dict_size(obj->sessions);
+    }
+    dict_release_iterator(iter);
+
+    return count;
 }
 

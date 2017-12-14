@@ -107,6 +107,7 @@ static int on_market_status_today_reply(struct state_data *state, json_t *result
         }
         dict_release_iterator(iter);
         json_decref(params);
+        monitor_inc("today.update", dict_size(obj->sessions));
     }
 
     free(last_str);
@@ -305,5 +306,19 @@ int today_send_last(nw_ses *ses, const char *market)
     json_decref(params);
 
     return 0;
+}
+
+size_t today_subscribe_number(void)
+{
+    size_t count = 0;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        struct market_val *obj = entry->val;
+        count += dict_size(obj->sessions);
+    }
+    dict_release_iterator(iter);
+
+    return count;
 }
 

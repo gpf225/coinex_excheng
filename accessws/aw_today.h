@@ -11,6 +11,7 @@ int init_today(void);
 int today_subscribe(nw_ses *ses, const char *market);
 int today_unsubscribe(nw_ses *ses);
 int today_send_last(nw_ses *ses, const char *market);
+size_t today_subscribe_number(void);
 
 # endif
 

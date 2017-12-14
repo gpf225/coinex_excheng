@@ -22,7 +22,7 @@ static dict_t *backend_cache;
 static rpc_clt *listener;
 static nw_state *state_context;
 static nw_cache *privdata_cache;
-static nw_timer cache_timer;
+static nw_timer timer;
 
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
@@ -72,31 +72,37 @@ int send_error(nw_ses *ses, uint64_t id, int code, const char *message)
 
 int send_error_invalid_argument(nw_ses *ses, uint64_t id)
 {
+    monitor_inc("error_invalid_argument", 1);
     return send_error(ses, id, 1, "invalid argument");
 }
 
 int send_error_internal_error(nw_ses *ses, uint64_t id)
 {
+    monitor_inc("error_internal_error", 1);
     return send_error(ses, id, 2, "internal error");
 }
 
 int send_error_service_unavailable(nw_ses *ses, uint64_t id)
 {
+    monitor_inc("error_service_unavailable", 1);
     return send_error(ses, id, 3, "service unavailable");
 }
 
 int send_error_method_notfound(nw_ses *ses, uint64_t id)
 {
+    monitor_inc("error_method_notfound", 1);
     return send_error(ses, id, 4, "method not found");
 }
 
 int send_error_service_timeout(nw_ses *ses, uint64_t id)
 {
+    monitor_inc("error_service_timeout", 1);
     return send_error(ses, id, 5, "service timeout");
 }
 
 int send_error_require_auth(nw_ses *ses, uint64_t id)
 {
+    monitor_inc("error_require_auth", 1);
     return send_error(ses, id, 6, "require authentication");
 }
 
@@ -120,6 +126,7 @@ int send_success(nw_ses *ses, uint64_t id)
 
     int ret = send_result(ses, id, result);
     json_decref(result);
+    monitor_inc("success", 1);
 
     return ret;
 }
@@ -177,6 +184,8 @@ static int process_cache(nw_ses *ses, uint64_t id, sds key)
     }
 
     send_result(ses, id, cache->result);
+    monitor_inc("hit_cache", 1);
+
     return 1;
 }
 
@@ -820,9 +829,12 @@ static int on_message(nw_ses *ses, const char *remote, const char *url, void *me
         int ret = handler(ses, _id, info, params);
         if (ret < 0) {
             log_error("remote: %"PRIu64":%s, request fail: %d, request: %s", ses->id, remote, ret, _msg);
+        } else {
+            monitor_inc(json_string_value(method), 1);
         }
     } else {
         log_error("remote: %"PRIu64":%s, unknown method, request: %s", ses->id, remote, _msg);
+        send_error_method_notfound(ses, json_integer_value(id));
     }
 
     sdsfree(_msg);
@@ -844,6 +856,7 @@ static void on_upgrade(nw_ses *ses, const char *remote)
     log_trace("remote: %"PRIu64":%s upgrade to websocket", ses->id, remote);
     struct clt_info *info = ws_ses_privdata(ses);
     memset(info, 0, sizeof(struct clt_info));
+    monitor_inc("connection_new", 1);
 }
 
 static void on_close(nw_ses *ses, const char *remote)
@@ -861,6 +874,7 @@ static void on_close(nw_ses *ses, const char *remote)
         order_unsubscribe(info->user_id, ses);
         asset_unsubscribe(info->user_id, ses);
     }
+    monitor_inc("connection_close", 1);
 }
 
 static void *on_privdata_alloc(void *svr)
@@ -1023,6 +1037,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_trace("send response to: %"PRIu64", size: %zu, message: %s", state->ses->id, sdslen(message), message);
         ws_send_text(state->ses, message);
         sdsfree(message);
+        monitor_inc("success", 1);
     }
     if (state->cache_key) {
         json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
@@ -1077,9 +1092,21 @@ static void cache_dict_val_free(void *val)
     free(val);
 }
 
-static void on_cache_timer(nw_timer *timer, void *privdata)
+static void on_timer(nw_timer *timer, void *privdata)
 {
     dict_clear(backend_cache);
+
+    monitor_set("connections", svr->raw_svr->clt_count);
+    monitor_set("subscribe_asset", asset_subscribe_number());
+    monitor_set("subscribe_order", order_subscribe_number());
+    monitor_set("subscribe_deals", deals_subscribe_number());
+    monitor_set("subscribe_depth", depth_subscribe_number());
+    monitor_set("subscribe_kline", kline_subscribe_number());
+    monitor_set("subscribe_price", price_subscribe_number());
+    monitor_set("subscribe_state", state_subscribe_number());
+    monitor_set("subscribe_today", today_subscribe_number());
+    monitor_set("pending_auth", pending_auth_request());
+    monitor_set("pending_sign", pending_sign_request());
 }
 
 static int init_backend(void)
@@ -1120,8 +1147,8 @@ static int init_backend(void)
     if (backend_cache == NULL)
         return -__LINE__;
 
-    nw_timer_set(&cache_timer, 60, true, on_cache_timer, NULL);
-    nw_timer_start(&cache_timer);
+    nw_timer_set(&timer, 60, true, on_timer, NULL);
+    nw_timer_start(&timer);
 
     return 0;
 }

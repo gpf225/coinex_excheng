@@ -80,6 +80,7 @@ static void on_result(struct state_data *state, sds token, json_t *result)
             goto error;
         log_error("auth fail, token: %s, code: %d, message: %s", token, error_code, message);
         send_error(state->ses, state->request_id, 11, message);
+        monitor_inc("auth_fail", 1);
         return;
     }
 
@@ -100,6 +101,7 @@ static void on_result(struct state_data *state, sds token, json_t *result)
     info->user_id = user_id;
     log_info("auth success, token: %s, user_id: %u", token, info->user_id);
     send_success(state->ses, state->request_id);
+    monitor_inc("auth_success", 1);
 
     return;
 
@@ -183,5 +185,10 @@ int init_auth(void)
         return -__LINE__;
 
     return 0;
+}
+
+size_t pending_auth_request(void)
+{
+    return job_context->request_count;
 }
 

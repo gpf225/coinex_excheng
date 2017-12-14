@@ -85,6 +85,7 @@ static int on_balance_query_reply(struct state_data *state, json_t *result)
         struct sub_unit *unit = node->value;
         if (strcmp(unit->asset, state->asset) == 0) {
             send_notify(unit->ses, "asset.update", params);
+            monitor_inc("asset.update", 1);
         }
     }
     list_release_iterator(iter);
@@ -280,5 +281,10 @@ int asset_on_update(uint32_t user_id, const char *asset)
     json_decref(trade_params);
 
     return 0;
+}
+
+size_t asset_subscribe_number(void)
+{
+    return dict_size(dict_sub);
 }
 

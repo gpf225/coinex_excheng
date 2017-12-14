@@ -98,6 +98,9 @@ int main(int argc, char *argv[])
         if (pid < 0) {
             error(EXIT_FAILURE, errno, "fork error");
         } else if (pid == 0) {
+            char host[1024];
+            snprintf(host, sizeof(host), "%s_%d", settings.alert.host, i);
+            monitor_init(&settings.monitor, __process__, host);
             process_title_set("%s_worker_%d", __process__, i);
             if (i != 0) {
                 dlog_set_no_shift(default_dlog);

@@ -140,11 +140,17 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
         struct sub_unit *unit = node->value;
         if (strcmp(unit->market, market) == 0) {
             send_notify(unit->ses, "order.update", params);
+            monitor_inc("order.update", 1);
         }
     }
     list_release_iterator(iter);
     json_decref(params);
 
     return 0;
+}
+
+size_t order_subscribe_number(void)
+{
+    return dict_size(dict_sub);
 }
 

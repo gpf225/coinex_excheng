@@ -92,6 +92,7 @@ static int broadcast_update(dict_t *sessions, json_t *result)
         send_notify(entry->key, "kline.update", result);
     }
     dict_release_iterator(iter);
+    monitor_inc("kline.update", dict_size(sessions));
 
     return 0;
 }
@@ -310,5 +311,19 @@ int kline_unsubscribe(nw_ses *ses)
     dict_release_iterator(iter);
 
     return 0;
+}
+
+size_t kline_subscribe_number(void)
+{
+    size_t count = 0;
+    dict_iterator *iter = dict_get_iterator(dict_kline);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        struct kline_val *obj = entry->val;
+        count += dict_size(obj->sessions);
+    }
+    dict_release_iterator(iter);
+
+    return count;
 }
 

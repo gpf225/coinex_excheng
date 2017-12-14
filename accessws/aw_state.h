@@ -11,6 +11,7 @@ int init_state(void);
 int state_subscribe(nw_ses *ses, const char *market);
 int state_unsubscribe(nw_ses *ses);
 int state_send_last(nw_ses *ses, const char *market);
+size_t state_subscribe_number(void);
 
 # endif
 

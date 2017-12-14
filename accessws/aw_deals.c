@@ -123,6 +123,7 @@ static int on_order_deals_reply(struct state_data *state, json_t *result)
     }
     dict_release_iterator(iter);
     json_decref(params);
+    monitor_inc("deals.update", dict_size(obj->sessions));
 
     return 0;
 }
@@ -335,5 +336,19 @@ int deals_unsubscribe(nw_ses *ses)
     dict_release_iterator(iter);
 
     return 0;
+}
+
+size_t deals_subscribe_number(void)
+{
+    size_t count = 0;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        const struct market_val *obj = entry->val;
+        count += dict_size(obj->sessions);
+    }
+    dict_release_iterator(iter);
+
+    return count;
 }
 
