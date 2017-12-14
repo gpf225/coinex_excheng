@@ -1352,7 +1352,7 @@ json_t *get_market_deals(const char *market, int limit, uint64_t last_id)
         json_object_set(item, "type", json_object_get(deal, "type"));
         json_object_set(item, "price", json_object_get(deal, "price"));
         json_object_set(item, "amount", json_object_get(deal, "amount"));
-        json_array_append_new(result, deal);
+        json_array_append_new(result, item);
         count += 1;
         if (count == limit) {
             break;
