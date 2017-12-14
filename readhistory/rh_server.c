@@ -240,7 +240,7 @@ invalid_argument:
 
 static int on_cmd_user_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 4)
+    if (json_array_size(params) != 7)
         goto invalid_argument;
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
