@@ -14,13 +14,8 @@
         "addr": "127.0.0.1:4444"
     },
     "svr": {
-        "bind": [
-            "tcp@0.0.0.0:7416",
-            "udp@0.0.0.0:7416"
-        ],
-        "buf_limit": 100,
-        "max_pkg_size": 1000000,
-        "heartbeat_check": false
+        "bind": "tcp@0.0.0.0:7416",
+        "max_pkg_size": 10240
     },
     "deals": {
         "brokers": "127.0.0.1:9092",

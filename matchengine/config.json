@@ -14,13 +14,8 @@
         "addr": "127.0.0.1:4444"
     },
     "svr": {
-        "bind": [
-            "tcp@0.0.0.0:7316",
-            "udp@0.0.0.0:7316"
-        ],
-        "buf_limit": 100,
-        "max_pkg_size": 10240,
-        "heartbeat_check": false
+        "bind": "tcp@0.0.0.0:7316",
+        "max_pkg_size": 10240
     },
     "cli": "tcp@127.0.0.1:7317",
     "db_log": {

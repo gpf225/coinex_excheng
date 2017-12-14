@@ -806,8 +806,10 @@ static int clear_key(redisContext *context, const char *key, time_t end)
         if (timestamp >= end)
             continue;
         redisReply *r = redisCmd(context, "HDEL %s %ld", key, timestamp);
-        if (r == NULL)
+        if (r == NULL) {
+            freeReplyObject(reply);
             return -__LINE__;
+        }
         freeReplyObject(r);
     }
     freeReplyObject(reply);
