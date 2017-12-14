@@ -20,10 +20,6 @@
         "max_pkg_size": 102400,
         "protocol": "chat"
     },
-    "monitor": {
-        "bind": "tcp@0.0.0.0:8091",
-        "max_pkg_size": 1024
-    },
     "worker_num": 1,
     "timeout": 1.0,
     "matchengine": {

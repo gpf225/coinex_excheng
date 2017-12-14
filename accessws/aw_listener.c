@@ -7,7 +7,6 @@
 # include "aw_listener.h"
 
 static nw_svr *listener_svr;
-static nw_svr *monitor_svr;
 static rpc_svr *worker_svr;
 
 static int listener_decode_pkg(nw_ses *ses, void *data, size_t max)
@@ -104,31 +103,6 @@ static int init_worker_svr(void)
     return 0;
 }
 
-static int monitor_decode_pkg(nw_ses *ses, void *data, size_t max)
-{
-    return max;
-}
-static void monitor_on_recv_pkg(nw_ses *ses, void *data, size_t size)
-{
-    return;
-}
-
-static int init_monitor_svr(void)
-{
-    nw_svr_type type;
-    memset(&type, 0, sizeof(type));
-    type.decode_pkg = monitor_decode_pkg;
-    type.on_recv_pkg = monitor_on_recv_pkg;
-
-    monitor_svr = nw_svr_create(&settings.monitor, &type, NULL);
-    if (monitor_svr == NULL)
-        return -__LINE__;
-    if (nw_svr_start(monitor_svr) < 0)
-        return -__LINE__;
-
-    return 0;
-}
-
 int init_listener(void)
 {
     int ret;
@@ -136,9 +110,6 @@ int init_listener(void)
     if (ret < 0)
         return ret;
     ret = init_worker_svr();
-    if (ret < 0)
-        return ret;
-    ret = init_monitor_svr();
     if (ret < 0)
         return ret;
 

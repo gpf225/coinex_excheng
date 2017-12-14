@@ -66,11 +66,6 @@ static int read_config_from_json(json_t *root)
         printf("load svr config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_svr(root, "monitor", &settings.monitor);
-    if (ret < 0) {
-        printf("load monitor config fail: %d\n", ret);
-        return -__LINE__;
-    }
     ret = load_cfg_rpc_clt(root, "matchengine", &settings.matchengine);
     if (ret < 0) {
         printf("load matchengine clt config fail: %d\n", ret);
