@@ -9,8 +9,11 @@
 static rpc_svr *svr;
 static redis_sentinel_t *redis;
 static redisContext *redis_store;
-static dict_t *key_set;
-static dict_t *key_val;
+static dict_t *monitor_set;
+static dict_t *monitor_val;
+static time_t last_aggregate_hosts;
+static time_t last_aggregate_daily;
+static nw_timer timer;
 
 struct monitor_key {
     char key[100];
@@ -170,7 +173,7 @@ void *redis_query(const char *format, ...)
 
 static int update_key_list(char *full_key, const char *scope, const char *key, const char *host)
 {
-    dict_entry *entry = dict_find(key_set, full_key);
+    dict_entry *entry = dict_find(monitor_set, full_key);
     if (entry) {
         return 0;
     }
@@ -193,14 +196,14 @@ static int update_key_list(char *full_key, const char *scope, const char *key, c
         return -__LINE__;
     freeReplyObject(reply);
 
-    dict_add(key_set, full_key, NULL);
+    dict_add(monitor_set, full_key, NULL);
 
     return 0;
 }
 
 static int update_key_inc(struct monitor_key *mkey, uint64_t val)
 {
-    dict_entry *entry = dict_find(key_val, mkey);
+    dict_entry *entry = dict_find(monitor_val, mkey);
     if (entry) {
         struct monitor_val *mval = entry->val;
         mval->val += val;
@@ -208,14 +211,14 @@ static int update_key_inc(struct monitor_key *mkey, uint64_t val)
     }
 
     struct monitor_val mval = { .val = val };
-    dict_add(key_val, mkey, &mval);
+    dict_add(monitor_val, mkey, &mval);
 
     return 0;
 }
 
 static int update_key_set(struct monitor_key *mkey, uint64_t val)
 {
-    dict_entry *entry = dict_find(key_val, mkey);
+    dict_entry *entry = dict_find(monitor_val, mkey);
     if (entry) {
         struct monitor_val *mval = entry->val;
         mval->val = val;
@@ -223,7 +226,7 @@ static int update_key_set(struct monitor_key *mkey, uint64_t val)
     }
 
     struct monitor_val mval = { .val = val };
-    dict_add(key_val, mkey, &mval);
+    dict_add(monitor_val, mkey, &mval);
 
     return 0;
 }
@@ -536,6 +539,276 @@ decode_error:
     return;
 }
 
+static int flush_dict(time_t end)
+{
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(monitor_val);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct monitor_key *k = entry->key;
+        if (k->timestamp >= end)
+            continue;
+        struct monitor_val *v = entry->val;
+        redisReply *reply = redis_query("HSET m:%s:m %"PRIu64, k->key, v->val);
+        if (reply == NULL) {
+            dict_release_iterator(iter);
+            return -__LINE__;
+        }
+        freeReplyObject(reply);
+    }
+    dict_release_iterator(iter);
+
+    return 0;
+}
+
+static int get_monitor_value(time_t timestamp, const char *scope, const char *key, const char *host, uint64_t *val)
+{
+    redisReply *reply = redis_query("HGET m:%s:%s:%s:m %ld", scope, key, host, timestamp);
+    if (reply == NULL)
+        return -__LINE__;
+    if (reply->type == REDIS_REPLY_STRING) {
+        *val = strtoull(reply->str, NULL, 0);
+    } else {
+        *val = 0;
+    }
+    freeReplyObject(reply);
+    return 0;
+}
+
+static int set_monitor_value(time_t timestamp, const char *scope, const char *key, const char *host, uint64_t val)
+{
+    redisReply *reply = redis_query("HSET m:%s:%s:%s:m %ld %"PRIu64, scope, key, host, timestamp, val);
+    if (reply == NULL)
+        return -__LINE__;
+    return 0;
+}
+
+static int aggregate_hosts_scope_key(time_t timestamp, const char *scope, const char *key)
+{
+    redisReply *reply = redis_query("SMEMBERS m:%s:%s:hosts", scope, key);
+    if (reply == NULL)
+        return -__LINE__;
+    uint64_t total_val = 0;
+    for (size_t i = 0; i < reply->elements; ++i) {
+        uint64_t val;
+        int ret = get_monitor_value(timestamp, scope, key, reply->element[i]->str, &val);
+        if (ret < 0) {
+            freeReplyObject(reply);
+            return ret;
+        }
+        total_val += val;
+    }
+    freeReplyObject(reply);
+    ERR_RET(set_monitor_value(timestamp, scope, key, "", total_val));
+
+    return 0;
+}
+
+static int aggregate_hosts_scope(time_t timestamp, const char *scope)
+{
+    redisReply *reply = redis_query("SMEMBERS m:%s:keys", scope);
+    if (reply == NULL)
+        return -__LINE__;
+    for (size_t i = 0; i < reply->elements; ++i) {
+        int ret = aggregate_hosts_scope_key(timestamp, scope, reply->element[i]->str);
+        if (ret < 0) {
+            freeReplyObject(reply);
+            return -__LINE__;
+        }
+    }
+    freeReplyObject(reply);
+
+    return 0;
+}
+
+static int aggregate_hosts(time_t timestamp)
+{
+    redisReply *reply = redis_query("SMEMBERS m:scopes");
+    if (reply == NULL)
+        return -__LINE__;
+    for (size_t i = 0; i < reply->elements; ++i) {
+        int ret = aggregate_hosts_scope(timestamp, reply->element[i]->str);
+        if (ret < 0) {
+            freeReplyObject(reply);
+            return ret;
+        }
+    }
+    freeReplyObject(reply);
+
+    return 0;
+}
+
+static int clear_key(time_t timestamp, const char *scope, const char *key, const char *host)
+{
+    time_t end = timestamp - settings.keep_days * 86400;
+    redisReply *reply = redis_query("HGETALL m:%s:%s:%s:m", scope, key, host);
+    if (reply == NULL)
+        return -__LINE__;
+    for (size_t i = 0; i < reply->elements; i += 2) {
+        time_t t = strtol(reply->element[i]->str, NULL, 0);
+        if (t >= end)
+            continue;
+        redisReply *r = redis_query("HDEL m:%s:%s:%s:m %ld", scope, key, host, t);
+        if (r == NULL) {
+            freeReplyObject(reply);
+            return -__LINE__;
+        }
+        freeReplyObject(r);
+    }
+    freeReplyObject(reply);
+
+    return 0;
+}
+
+static int aggregate_daily_scope_key_host(time_t timestamp, const char *scope, const char *key, const char *host)
+{
+    sds cmd = sdsempty();
+    cmd = sdscatprintf("HMGET m:%s:%s:%s:m", scope, key, host);
+    for (size_t i = 0; i < 60 * 24; ++i) {
+        cmd = sdscatprintf(cmd, " %ld", timestamp + 60 * i);
+    }
+
+    uint64_t total_val = 0;
+    redisReply *reply = redis_query(cmd);
+    if (reply == NULL)
+        return -__LINE__;
+    for (int i = 0; i < reply->elements; i += 2) {
+        if (reply->element[i + 1]->type == REDIS_REPLY_STRING) {
+            total_val += strtoull(reply->element[i + 1]->str, NULL, 0);
+        }
+    }
+    freeReplyObject(reply);
+
+    reply = redis_query("HSET m:%s:%s:%s:d %ld %"PRIu64, scope, key, host, timestamp, total_val);
+    if (reply == NULL)
+        return -__LINE__;
+    freeReplyObject(reply);
+
+    ERR_RET(clear_key(timestamp, scope, key, host));
+
+    return 0;
+}
+
+static int aggregate_daily_scope_key(time_t timestamp, const char *scope, const char *key)
+{
+    ERR_RET(aggregate_daily_scope_key_host(timestamp, scope, key, ""));
+
+    redisReply *reply = redis_query("SMEMBERS m:%s:%s:hosts", scope, key);
+    if (reply == NULL)
+        return -__LINE__;
+    for (size_t i = 0; i < reply->elements; ++i) {
+        int ret = aggregate_daily_scope_key_host(timestamp, scope, key, reply->element[i]->str);
+        if (ret < 0) {
+            freeReplyObject(reply);
+            return ret;
+        }
+    }
+    freeReplyObject(reply);
+
+    return 0;
+}
+
+static int aggregate_daily_scope(time_t timestamp, const char *scope)
+{
+    redisReply *reply = redis_query("SMEMBERS m:%s:keys", scope);
+    if (reply == NULL)
+        return -__LINE__;
+    for (size_t i = 0; i < reply->elements; ++i) {
+        int ret = aggregate_daily_scope_key(timestamp, scope, reply->element[i]->str);
+        if (ret < 0) {
+            freeReplyObject(reply);
+            return -__LINE__;
+        }
+    }
+    freeReplyObject(reply);
+
+    return 0;
+}
+
+static int aggregate_daily(time_t timestamp)
+{
+    redisReply *reply = redis_query("SMEMBERS m:scopes");
+    if (reply == NULL)
+        return -__LINE__;
+    for (size_t i = 0; i < reply->elements; ++i) {
+        int ret = aggregate_daily_scope(timestamp, reply->element[i]->str);
+        if (ret < 0) {
+            freeReplyObject(reply);
+            return -__LINE__;
+        }
+    }
+    freeReplyObject(reply);
+
+    return 0;
+}
+
+static int set_last_aggregate_time(const char *key, time_t val)
+{
+    redisReply *reply = redis_query("SET %s %ld", key, val);
+    if (reply == NULL)
+        return -__LINE__;
+    freeReplyObject(reply);
+    return 0;
+}
+
+static int check_aggregate(time_t now)
+{
+    time_t m_start = now / 60 * 60;
+    while (last_aggregate_hosts < (m_start - 60)) {
+        ERR_RET(aggregate_hosts(last_aggregate_hosts + 60));
+        last_aggregate_hosts += 60;
+    }
+    ERR_RET(set_last_aggregate_time("m:last_aggregate_hosts", last_aggregate_hosts));
+
+    time_t d_start = get_day_start(now);
+    while (last_aggregate_daily < (d_start - 86400)) {
+        ERR_RET(aggregate_daily(last_aggregate_daily + 86400));
+        last_aggregate_daily += 86400;
+    }
+    ERR_RET(set_last_aggregate_time("m:last_aggregate_daily", last_aggregate_daily));
+
+    return 0;
+}
+
+static int flush_data(time_t now)
+{
+    double begin = current_timestamp();
+    ERR_RET(flush_dict(now / 60 * 60));
+    ERR_RET(check_aggregate(now));
+    double end = current_timestamp();
+    log_info("flush data success, cost time: %f", end - begin);
+
+    return 0;
+}
+
+static void on_timer(nw_timer *timer, void *privdata)
+{
+    static bool flush_error = false;
+    static time_t flush_last = 0;
+    static time_t flush_error_start = 0;
+
+    time_t now = time(NULL);
+    if (flush_error) {
+        int ret = flush_data(now);
+        if (ret < 0) {
+            log_error("flush_data to redis fail: %d", ret);
+            if ((now - flush_error_start) >= 60) {
+                log_fatal("flush_data to redis fail last %ld seconds!", now - flush_error_start);
+            }
+        } else {
+            flush_error = false;
+            flush_error_start = 0;
+        }
+    } else if (now - flush_last >= 60) {
+        flush_last = now / 60 * 60;
+        int ret = flush_data(now);
+        if (ret < 0) {
+            log_error("flush_data to redis fail: %d", ret);
+            flush_error = true;
+            flush_error_start = now;
+        }
+    }
+}
+
 static void svr_on_new_connection(nw_ses *ses)
 {
     log_trace("new connection: %s", nw_sock_human_addr(&ses->peer_addr));
@@ -609,8 +882,8 @@ static int init_dict(void)
     type.key_dup        = set_dict_key_dup;
     type.key_destructor = set_dict_key_free;
 
-    key_set = dict_create(&type, 64);
-    if (key_set == NULL)
+    monitor_set = dict_create(&type, 64);
+    if (monitor_set == NULL)
         return -__LINE__;
 
     memset(&type, 0, sizeof(type));
@@ -621,17 +894,44 @@ static int init_dict(void)
     type.val_dup        = val_dict_val_dup;
     type.val_destructor = val_dict_val_free;
 
-    key_val = dict_create(&type, 64);
-    if (key_val == NULL)
+    monitor_val = dict_create(&type, 64);
+    if (monitor_val == NULL)
         return -__LINE__;
+
+    return 0;
+}
+
+static int init_time(void)
+{
+    time_t now = time(NULL);
+    redisReply *reply;
+
+    reply = redis_query("GET k:last_aggregate_hosts");
+    if (reply == NULL)
+        return -__LINE__;
+    if (reply->type == REDIS_REPLY_STRING) {
+        last_aggregate_hosts = strtol(reply->str, NULL, 0);
+    } else {
+        last_aggregate_hosts = now / 60 * 60 - 60;
+    }
+    freeReplyObject(reply);
+
+    reply = redis_query("GET k:last_aggregate_daily");
+    if (reply == NULL)
+        return -__LINE__;
+
+    if (reply->type == REDIS_REPLY_STRING) {
+        last_aggregate_daily = strtol(reply->str, NULL, 0);
+    } else {
+        last_aggregate_daily = get_day_start(now) - 86400;
+    }
+    freeReplyObject(reply);
 
     return 0;
 }
 
 int init_server(void)
 {
-    ERR_RET(init_dict());
-
     rpc_svr_type type;
     memset(&type, 0, sizeof(type));
     type.on_recv_pkg = svr_on_recv_pkg;
@@ -646,9 +946,16 @@ int init_server(void)
 
     redis = redis_sentinel_create(&settings.redis);
     if (redis == NULL)
+        return -__LINE__;
     redis_store = redis_sentinel_connect_master(redis);
     if (redis_store == NULL)
         return -__LINE__;
+
+    ERR_RET(init_dict());
+    ERR_RET(init_time());
+
+    nw_timer_set(&timer, 1.0, true, on_timer, NULL);
+    nw_timer_start(&timer);
 
     return 0;
 }

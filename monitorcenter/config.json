@@ -1,4 +1,5 @@
 {
+    "debug": true,
     "process": {
         "file_limit": 1000000,
         "core_limit": 1000000000
@@ -13,11 +14,8 @@
         "addr": "127.0.0.1:4444"
     },
     "svr": {
-        "bind": [
-            "tcp@0.0.0.0:5555",
-            "udp@0.0.0.0:5555"
-        ],
-        "max_pkg_size": 1000000
+        "bind": "tcp@0.0.0.0:5555",
+        "max_pkg_size": 10240
     },
     "redis": {
         "name": "mymaster",
