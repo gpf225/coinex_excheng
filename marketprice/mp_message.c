@@ -413,17 +413,6 @@ static void add_update(struct market_info *info, int type, time_t timestamp)
     dict_add(info->update, &key, NULL);
 }
 
-static time_t get_day_start(time_t timestamp)
-{
-    struct tm *timeinfo = localtime(&timestamp);
-    struct tm dtm;
-    memset(&dtm, 0, sizeof(dtm));
-    dtm.tm_year = timeinfo->tm_year;
-    dtm.tm_mon  = timeinfo->tm_mon;
-    dtm.tm_mday = timeinfo->tm_mday;
-    return mktime(&dtm);
-}
-
 static int market_update(double timestamp, uint64_t id, const char *market, int side, uint32_t ask_user_id, uint32_t bid_user_id, mpd_t *price, mpd_t *amount)
 {
     struct market_info *info = market_query(market);
@@ -1278,16 +1267,6 @@ json_t *get_market_kline_week(const char *market, time_t start, time_t end, int 
         kline_info_free(klast);
 
     return result;
-}
-
-static time_t get_month_start(int tm_year, int tm_mon)
-{
-    struct tm mtm;
-    memset(&mtm, 0, sizeof(mtm));
-    mtm.tm_year = tm_year;
-    mtm.tm_mon  = tm_mon;
-    mtm.tm_mday = 1;
-    return mktime(&mtm);
 }
 
 static time_t get_next_month(int *tm_year, int *tm_mon)

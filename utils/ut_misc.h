@@ -32,11 +32,13 @@ void reverse_mem(char *mem, size_t len);
 void strtolower(char *str);
 void strtoupper(char *str);
 void strclearblank(char *str);
+char *sstrncpy(char *dest, const char *src, size_t n);
 
 int urandom(void *buf, size_t size);
 
-char *sstrncpy(char *dest, const char *src, size_t n);
 time_t get_timezone_offset(void);
+time_t get_day_start(time_t timestamp);
+time_t get_month_start(int tm_year, int tm_mon);
 
 # undef ERR_RET
 # define ERR_RET(x) do { \

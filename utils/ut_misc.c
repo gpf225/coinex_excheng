@@ -340,3 +340,24 @@ time_t get_timezone_offset(void)
     }
 }
 
+time_t get_day_start(time_t timestamp)
+{
+    struct tm *timeinfo = localtime(&timestamp);
+    struct tm dtm;
+    memset(&dtm, 0, sizeof(dtm));
+    dtm.tm_year = timeinfo->tm_year;
+    dtm.tm_mon  = timeinfo->tm_mon;
+    dtm.tm_mday = timeinfo->tm_mday;
+    return mktime(&dtm);
+}
+
+time_t get_month_start(int tm_year, int tm_mon)
+{
+    struct tm mtm;
+    memset(&mtm, 0, sizeof(mtm));
+    mtm.tm_year = tm_year;
+    mtm.tm_mon  = tm_mon;
+    mtm.tm_mday = 1;
+    return mktime(&mtm);
+}
+
