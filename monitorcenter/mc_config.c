@@ -41,11 +41,6 @@ static int read_config_from_json(json_t *root)
         printf("load kafka deals config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = read_cfg_int(root, "keep_days", &settings.keep_days, false, 30);
-    if (ret < 0) {
-        printf("load keep_days fail: %d", ret);
-        return -__LINE__;
-    }
 
     return 0;
 }

@@ -36,6 +36,8 @@
 # define MAX_SCOPE_LENGTH   10
 # define MAX_KEY_LENGTH     40
 # define MAX_HOST_LENGTH    20
+# define MAX_KEEP_DAYS      7
+# define MAX_QUERY_POINTS   10080
 
 struct settings {
     bool                debug;
@@ -44,7 +46,6 @@ struct settings {
     alert_cfg           alert;
     rpc_svr_cfg         svr;
     redis_sentinel_cfg  redis;
-    int                 keep_days;
 };
 
 extern struct settings settings;

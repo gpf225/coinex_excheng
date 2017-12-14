@@ -7,6 +7,7 @@
 # define MC_SERVER_H
 
 int init_server(void);
+void writer_flush(void);
 
 # endif
 

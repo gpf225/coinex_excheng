@@ -381,7 +381,7 @@ static int on_cmd_monitor_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!host || (strlen(host) > 0 && !is_good_host(host)))
         return reply_error_invalid_argument(ses, pkg);
     size_t points = json_integer_value(json_array_get(params, 3));
-    if (points == 0)
+    if (points == 0 || points > MAX_QUERY_POINTS)
         return reply_error_invalid_argument(ses, pkg);
 
     sds cmd = sdsempty();
@@ -395,10 +395,15 @@ static int on_cmd_monitor_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     sdsfree(cmd);
     if (reply == NULL)
         return reply_error_internal_error(ses, pkg);
+
     json_t *result = json_array();
-    for (size_t i = 0; i < reply->elements; i += 2) {
-        time_t timestamp = strtol(reply->element[i]->str, NULL, 0);
-        uint64_t value = strtoull(reply->element[i + 1]->str, NULL, 0);
+    for (size_t i = 0; i < reply->elements; ++i) {
+        time_t timestamp = start + i * 60;
+        uint64_t value = 0;
+        if (reply->element[i]->type == REDIS_REPLY_STRING) {
+            value = strtoull(reply->element[i]->str, NULL, 0);
+        }
+
         json_t *unit = json_array();
         json_array_append_new(unit, json_integer(timestamp));
         json_array_append_new(unit, json_integer(value));
@@ -426,7 +431,7 @@ static int on_cmd_monitor_daily(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!host || (strlen(host) > 0 && !is_good_host(host)))
         return reply_error_invalid_argument(ses, pkg);
     size_t points = json_integer_value(json_array_get(params, 3));
-    if (points == 0)
+    if (points == 0 || points > MAX_QUERY_POINTS)
         return reply_error_invalid_argument(ses, pkg);
 
     sds cmd = sdsempty();
@@ -441,10 +446,15 @@ static int on_cmd_monitor_daily(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     sdsfree(cmd);
     if (reply == NULL)
         return reply_error_internal_error(ses, pkg);
+
     json_t *result = json_array();
-    for (size_t i = 0; i < reply->elements; i += 2) {
-        time_t timestamp = strtol(reply->element[i]->str, NULL, 0);
-        uint64_t value = strtoull(reply->element[i + 1]->str, NULL, 0);
+    for (size_t i = 0; i < reply->elements; ++i) {
+        time_t timestamp = start + i * 60;
+        uint64_t value = 0;
+        if (reply->element[i]->type == REDIS_REPLY_STRING) {
+            value = strtoull(reply->element[i]->str, NULL, 0);
+        }
+
         json_t *unit = json_array();
         json_array_append_new(unit, json_integer(timestamp));
         json_array_append_new(unit, json_integer(value));
@@ -548,12 +558,13 @@ static int flush_dict(time_t end)
         if (k->timestamp >= end)
             continue;
         struct monitor_val *v = entry->val;
-        redisReply *reply = redis_query("HSET m:%s:m %"PRIu64, k->key, v->val);
+        redisReply *reply = redis_query("HINCRBY m:%s:m %ld %"PRIu64, k->key, k->timestamp, v->val);
         if (reply == NULL) {
             dict_release_iterator(iter);
             return -__LINE__;
         }
         freeReplyObject(reply);
+        dict_delete(monitor_val, k);
     }
     dict_release_iterator(iter);
 
@@ -574,14 +585,6 @@ static int get_monitor_value(time_t timestamp, const char *scope, const char *ke
     return 0;
 }
 
-static int set_monitor_value(time_t timestamp, const char *scope, const char *key, const char *host, uint64_t val)
-{
-    redisReply *reply = redis_query("HSET m:%s:%s:%s:m %ld %"PRIu64, scope, key, host, timestamp, val);
-    if (reply == NULL)
-        return -__LINE__;
-    return 0;
-}
-
 static int aggregate_hosts_scope_key(time_t timestamp, const char *scope, const char *key)
 {
     redisReply *reply = redis_query("SMEMBERS m:%s:%s:hosts", scope, key);
@@ -598,7 +601,13 @@ static int aggregate_hosts_scope_key(time_t timestamp, const char *scope, const 
         total_val += val;
     }
     freeReplyObject(reply);
-    ERR_RET(set_monitor_value(timestamp, scope, key, "", total_val));
+
+    if (total_val) {
+        reply = redis_query("HSET m:%s:%s::m %ld %"PRIu64, scope, key, timestamp, total_val);
+        if (reply == NULL)
+            return -__LINE__;
+        freeReplyObject(reply);
+    }
 
     return 0;
 }
@@ -639,22 +648,32 @@ static int aggregate_hosts(time_t timestamp)
 
 static int clear_key(time_t timestamp, const char *scope, const char *key, const char *host)
 {
-    time_t end = timestamp - settings.keep_days * 86400;
+    time_t end = timestamp - MAX_KEEP_DAYS * 86400;
     redisReply *reply = redis_query("HGETALL m:%s:%s:%s:m", scope, key, host);
     if (reply == NULL)
         return -__LINE__;
+
+    sds cmd = sdsempty();
+    cmd = sdscatprintf(cmd, "HDEL m:%s:%s:%s:m", scope, key, host);
+
+    bool has_delete = false;
     for (size_t i = 0; i < reply->elements; i += 2) {
         time_t t = strtol(reply->element[i]->str, NULL, 0);
         if (t >= end)
             continue;
-        redisReply *r = redis_query("HDEL m:%s:%s:%s:m %ld", scope, key, host, t);
-        if (r == NULL) {
-            freeReplyObject(reply);
-            return -__LINE__;
-        }
-        freeReplyObject(r);
+        cmd = sdscatprintf(cmd, " %ld", t);
+        has_delete = true;
     }
     freeReplyObject(reply);
+
+    if (has_delete) {
+        reply = redis_query(cmd);
+        if (reply == NULL) {
+            sdsfree(cmd);
+            return -__LINE__;
+        }
+    }
+    sdsfree(cmd);
 
     return 0;
 }
@@ -678,10 +697,12 @@ static int aggregate_daily_scope_key_host(time_t timestamp, const char *scope, c
     }
     freeReplyObject(reply);
 
-    reply = redis_query("HSET m:%s:%s:%s:d %ld %"PRIu64, scope, key, host, timestamp, total_val);
-    if (reply == NULL)
-        return -__LINE__;
-    freeReplyObject(reply);
+    if (total_val) {
+        reply = redis_query("HSET m:%s:%s:%s:d %ld %"PRIu64, scope, key, host, timestamp, total_val);
+        if (reply == NULL)
+            return -__LINE__;
+        freeReplyObject(reply);
+    }
 
     ERR_RET(clear_key(timestamp, scope, key, host));
 
@@ -752,19 +773,27 @@ static int set_last_aggregate_time(const char *key, time_t val)
 
 static int check_aggregate(time_t now)
 {
+    bool m_update = false;
     time_t m_start = now / 60 * 60;
     while (last_aggregate_hosts < (m_start - 60)) {
         ERR_RET(aggregate_hosts(last_aggregate_hosts + 60));
         last_aggregate_hosts += 60;
+        m_update = true;
     }
-    ERR_RET(set_last_aggregate_time("m:last_aggregate_hosts", last_aggregate_hosts));
+    if (m_update) {
+        ERR_RET(set_last_aggregate_time("m:last_aggregate_hosts", last_aggregate_hosts));
+    }
 
+    bool d_update = false;
     time_t d_start = get_day_start(now);
     while (last_aggregate_daily < (d_start - 86400)) {
         ERR_RET(aggregate_daily(last_aggregate_daily + 86400));
         last_aggregate_daily += 86400;
+        d_update = true;
     }
-    ERR_RET(set_last_aggregate_time("m:last_aggregate_daily", last_aggregate_daily));
+    if (d_update) {
+        ERR_RET(set_last_aggregate_time("m:last_aggregate_daily", last_aggregate_daily));
+    }
 
     return 0;
 }
@@ -958,5 +987,10 @@ int init_server(void)
     nw_timer_start(&timer);
 
     return 0;
+}
+
+void writer_flush(void)
+{
+    flush_data(time(NULL));
 }
 
