@@ -13,15 +13,16 @@
         "host": "accesshttp",
         "addr": "127.0.0.1:4444"
     },
+    "monitor": {
+        "name": "monitor",
+        "addr": "tcp@127.0.0.1:5555",
+        "max_pkg_size": 1024
+    },
     "svr": {
         "bind": [
             "tcp@0.0.0.0:8080"
         ],
         "max_pkg_size": 102400
-    },
-    "monitor": {
-        "bind": "tcp@0.0.0.0:8081",
-        "max_pkg_size": 1024
     },
     "worker_num": 4,
     "timeout": 1.0,
