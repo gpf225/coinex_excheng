@@ -558,12 +558,14 @@ static int flush_dict(time_t end)
         if (k->timestamp >= end)
             continue;
         struct monitor_val *v = entry->val;
-        redisReply *reply = redis_query("HINCRBY m:%s:m %ld %"PRIu64, k->key, k->timestamp, v->val);
-        if (reply == NULL) {
-            dict_release_iterator(iter);
-            return -__LINE__;
+        if (v->val != 0) {
+            redisReply *reply = redis_query("HINCRBY m:%s:m %ld %"PRIu64, k->key, k->timestamp, v->val);
+            if (reply == NULL) {
+                dict_release_iterator(iter);
+                return -__LINE__;
+            }
+            freeReplyObject(reply);
         }
-        freeReplyObject(reply);
         dict_delete(monitor_val, k);
     }
     dict_release_iterator(iter);
