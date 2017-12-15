@@ -658,12 +658,10 @@ static int clear_key(time_t timestamp, const char *scope, const char *key, const
     sds cmd = sdsempty();
     cmd = sdscatprintf(cmd, "HDEL m:%s:%s:%s:m", scope, key, host);
 
-    bool has_value = false;
     bool has_delete = false;
     for (size_t i = 0; i < reply->elements; i += 2) {
         time_t t = strtol(reply->element[i]->str, NULL, 0);
         if (t >= end) {
-            has_value = true;
             continue;
         }
         cmd = sdscatprintf(cmd, " %ld", t);
@@ -679,18 +677,6 @@ static int clear_key(time_t timestamp, const char *scope, const char *key, const
         }
     }
     sdsfree(cmd);
-
-    if (!has_value) {
-        reply = redis_query("DEL m:%s:%s:hosts", scope, key);
-        if (reply == NULL)
-            return -__LINE__;
-        freeReplyObject(reply);
-
-        reply = redis_query("SREM m:%s:keys %s", scope, key);
-        if (reply == NULL)
-            return -__LINE__;
-        freeReplyObject(reply);
-    }
 
     return 0;
 }
