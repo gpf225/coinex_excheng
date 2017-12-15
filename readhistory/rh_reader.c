@@ -170,10 +170,10 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id,
         sql = sdscatprintf(sql, " AND `side` = %d", side);
     }
     if (start_time) {
-        sql = sdscatprintf(sql, " AND `create_time` >= %"PRIu64, start_time);
+        sql = sdscatprintf(sql, " AND `time` >= %"PRIu64, start_time);
     }
     if (end_time) {
-        sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
+        sql = sdscatprintf(sql, " AND `time` < %"PRIu64, end_time);
     }
 
     sql = sdscatprintf(sql, " ORDER BY `id` DESC");
