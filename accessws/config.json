@@ -44,7 +44,7 @@
     "readhistory": {
         "name": "readhistory",
         "addr": [
-            "tcp@127.0.0.1:7424"
+            "tcp@127.0.0.1:7516"
         ],
         "max_pkg_size": 2000000
     },
