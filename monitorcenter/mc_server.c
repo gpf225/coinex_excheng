@@ -449,7 +449,7 @@ static int on_cmd_monitor_daily(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     json_t *result = json_array();
     for (size_t i = 0; i < reply->elements; ++i) {
-        time_t timestamp = start + i * 60;
+        time_t timestamp = start + i * 86400;
         uint64_t value = 0;
         if (reply->element[i]->type == REDIS_REPLY_STRING) {
             value = strtoull(reply->element[i]->str, NULL, 0);
