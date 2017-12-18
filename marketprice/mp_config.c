@@ -57,8 +57,6 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.45));
     ERR_RET_LN(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
 
-    settings.timezone = get_timezone_offset();
-
     return 0;
 }
 
