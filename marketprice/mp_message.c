@@ -522,40 +522,38 @@ static void on_deals_message(sds message, int64_t offset)
     mpd_t *price = NULL;
     mpd_t *amount = NULL;
 
-    if (!json_is_array(obj) || json_array_size(obj) < 15) {
-        goto cleanup;
-    }
-    double timestamp = json_real_value(json_array_get(obj, 0));
+    double timestamp = json_real_value(json_object_get(obj, "timestamp"));
     if (timestamp == 0) {
         goto cleanup;
     }
-    uint64_t id = json_integer_value(json_array_get(obj, 1));
+    uint64_t id = json_integer_value(json_object_get(obj, "id"));
     if (id == 0) {
         goto cleanup;
     }
-    const char *market = json_string_value(json_array_get(obj, 2));
+    const char *market = json_string_value(json_object_get(obj, "market"));
     if (!market) {
         goto cleanup;
     }
-    int side = json_integer_value(json_array_get(obj, 5));
+    int side = json_integer_value(json_object_get(obj, "side"));
     if (side != MARKET_TRADE_SIDE_SELL && side != MARKET_TRADE_SIDE_BUY) {
         goto cleanup;
     }
-    uint32_t ask_user_id = json_integer_value(json_array_get(obj, 8));
+    uint32_t ask_user_id = json_integer_value(json_object_get(obj, "ask_user_id"));
     if (ask_user_id == 0) {
         goto cleanup;
     }
-    uint32_t bid_user_id = json_integer_value(json_array_get(obj, 9));
+    uint32_t bid_user_id = json_integer_value(json_object_get(obj, "bid_user_id"));
     if (ask_user_id == 0) {
         goto cleanup;
     }
-    const char *price_str = json_string_value(json_array_get(obj, 10));
+    const char *price_str = json_string_value(json_object_get(obj, "price"));
     if (!price_str || (price = decimal(price_str, 0)) == NULL) {
         goto cleanup;
     }
-    const char *amount_str = json_string_value(json_array_get(obj, 11));
-    if (!amount_str || (amount = decimal(amount_str, 0)) == NULL)
+    const char *amount_str = json_string_value(json_object_get(obj, "amount"));
+    if (!amount_str || (amount = decimal(amount_str, 0)) == NULL) {
         goto cleanup;
+    }
 
     int ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
     if (ret < 0) {

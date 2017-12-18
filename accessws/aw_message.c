@@ -52,8 +52,8 @@ static void on_orders_message(sds message, int64_t offset)
 
 static int process_balances_message(json_t *msg)
 {
-    uint32_t user_id = json_integer_value(json_array_get(msg, 1));
-    const char *asset = json_string_value(json_array_get(msg, 2));
+    uint32_t user_id = json_integer_value(json_object_get(msg, "user_id"));
+    const char *asset = json_string_value(json_object_get(msg, "asset"));
     if (user_id == 0 || asset == NULL) {
         return -__LINE__;
     }

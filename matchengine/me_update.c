@@ -126,7 +126,7 @@ int update_user_balance(bool real, uint32_t user_id, const char *asset, const ch
         char *detail_str = json_dumps(detail, 0);
         append_user_balance_history(now, user_id, asset, business, change, detail_str);
         free(detail_str);
-        push_balance_message(now, user_id, asset, business, change);
+        push_balance_message(now, user_id, asset, business, change, result);
     }
 
     return 0;
