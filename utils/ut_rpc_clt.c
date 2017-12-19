@@ -129,6 +129,7 @@ rpc_clt *rpc_clt_create(rpc_clt_cfg *cfg, rpc_clt_type *type)
 
     rpc_clt *clt = malloc(sizeof(rpc_clt));
     assert(clt != NULL);
+    memset(clt, 0, sizeof(rpc_clt));
 
     clt->raw_clt = nw_clt_create(&raw_cfg, &raw_type, clt);
     if (clt->raw_clt == NULL) {
