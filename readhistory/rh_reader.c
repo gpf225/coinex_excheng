@@ -278,7 +278,7 @@ json_t *get_order_deals(MYSQL *conn, uint64_t order_id, size_t offset, size_t li
 {
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `deal_id`, `role`, `price`, `amount`, `deal`, `fee`, `deal_order_id` "
-            "FROM `deal_history_%u` where `order_id` = %"PRIu64" ORDER BY `id` DESC", (uint32_t)(order_id % HISTORY_HASH_NUM), order_id);
+            "FROM `order_deal_history_%u` where `order_id` = %"PRIu64" ORDER BY `id` DESC", (uint32_t)(order_id % HISTORY_HASH_NUM), order_id);
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
