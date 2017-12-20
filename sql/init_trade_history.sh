@@ -25,8 +25,8 @@ done
 
 for i in `seq 0 99`
 do
-    echo "create table deal_history_$i"
-    mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "CREATE TABLE deal_history_$i LIKE deal_history_example;"
+    echo "create table order_deal_history_$i"
+    mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "CREATE TABLE order_deal_history_$i LIKE order_deal_history_example;"
 done
 
 for i in `seq 0 99`

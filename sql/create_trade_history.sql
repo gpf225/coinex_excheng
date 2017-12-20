@@ -7,8 +7,9 @@ CREATE TABLE `balance_history_example` (
     `change`        DECIMAL(40,8) NOT NULL,
     `balance`       DECIMAL(40,20) NOT NULL,
     `detail`        TEXT NOT NULL,
-    INDEX `idx_user_asset` (`user_id`, `asset`),
-    INDEX `idx_user_asset_business` (`user_id`, `asset`, `business`)
+    INDEX `idx_user_time` (`user_id`, `time`),
+    INDEX `idx_user_business_time` (`user_id`, `business`, `time`),
+    INDEX `idx_user_asset_business_time` (`user_id`, `asset`, `business`, `time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id
@@ -28,8 +29,8 @@ CREATE TABLE `order_history_example` (
     `deal_stock`    DECIMAL(40,8) NOT NULL,
     `deal_money`    DECIMAL(40,16) NOT NULL,
     `deal_fee`      DECIMAL(40,20) NOT NULL,
-    INDEX `idx_user` (`user_id`),
-    INDEX `idx_user_market` (`user_id`, `market`)
+    INDEX `idx_user_market_time` (`user_id`, `market`, `create_time`),
+    INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by id, aka orer_id
@@ -52,7 +53,7 @@ CREATE TABLE `order_detail_example` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by order_id
-CREATE TABLE `deal_history_example` (
+CREATE TABLE `order_deal_history_example` (
     `id`            BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `time`          DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
@@ -84,6 +85,6 @@ CREATE TABLE `user_deal_history_example` (
     `deal`          DECIMAL(40,16) NOT NULL,
     `fee`           DECIMAL(40,20) NOT NULL,
     `deal_fee`      DECIMAL(40,20) NOT NULL,
-    INDEX `idx_user` (`user_id`),
-    INDEX `idx_user_market` (`user_id`, `market`)
+    INDEX `idx_user_market_time` (`user_id`, `market`, `time`),
+    INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

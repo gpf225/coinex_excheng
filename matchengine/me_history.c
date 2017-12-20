@@ -250,7 +250,7 @@ static int append_order_deal(double t, uint32_t user_id, uint64_t deal_id, uint6
         return -__LINE__;
 
     if (sdslen(sql) == 0) {
-        sql = sdscatprintf(sql, "INSERT INTO `deal_history_%u` (`id`, `time`, `user_id`, `deal_id`, `order_id`, `deal_order_id`, `role`, `price`, `amount`, `deal`, `fee`, `deal_fee`) VALUES ", key.hash);
+        sql = sdscatprintf(sql, "INSERT INTO `order_deal_history_%u` (`id`, `time`, `user_id`, `deal_id`, `order_id`, `deal_order_id`, `role`, `price`, `amount`, `deal`, `fee`, `deal_fee`) VALUES ", key.hash);
     } else {
         sql = sdscatprintf(sql, ", ");
     }
