@@ -33,9 +33,9 @@
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
 
-# define MAX_SCOPE_LENGTH   10
-# define MAX_KEY_LENGTH     40
-# define MAX_HOST_LENGTH    20
+# define MAX_SCOPE_LENGTH   16
+# define MAX_KEY_LENGTH     64
+# define MAX_HOST_LENGTH    64
 # define MAX_KEEP_DAYS      7
 # define MAX_QUERY_POINTS   10080
 
