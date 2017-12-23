@@ -587,24 +587,10 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
 
     if (!info->auth)
         return send_error_require_auth(ses, id);
-    if (json_array_size(params) != 3)
-        return send_error_invalid_argument(ses, id);
-
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (market == NULL)
-        return send_error_invalid_argument(ses, id);
-    if (!json_is_integer(json_array_get(params, 1)))
-        return send_error_invalid_argument(ses, id);
-    int offset = json_integer_value(json_array_get(params, 1));
-    if (!json_is_integer(json_array_get(params, 2)))
-        return send_error_invalid_argument(ses, id);
-    int limit = json_integer_value(json_array_get(params, 2));
 
     json_t *trade_params = json_array();
     json_array_append_new(trade_params, json_integer(info->user_id));
-    json_array_append_new(trade_params, json_string(market));
-    json_array_append_new(trade_params, json_integer(offset));
-    json_array_append_new(trade_params, json_integer(limit));
+    json_array_extend(trade_params, params);
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;
