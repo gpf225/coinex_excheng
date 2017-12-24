@@ -30,14 +30,14 @@ static int dump_orders_list(MYSQL *conn, const char *table, skiplist_t *list)
     while ((node = skiplist_next(iter)) != NULL) {
         order_t *order = node->value;
         if (index == 0) {
-            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, "
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, `source`, "
                     "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
 
-        sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, '%s' , ",
-                order->id, order->type, order->side, order->create_time, order->update_time, order->user_id, order->market);
+        sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, '%s', '%s', ",
+                order->id, order->type, order->side, order->create_time, order->update_time, order->user_id, order->market, order->source);
         sql = sql_append_mpd(sql, order->price, true);
         sql = sql_append_mpd(sql, order->amount, true);
         sql = sql_append_mpd(sql, order->taker_fee, true);

@@ -14,6 +14,7 @@ CREATE TABLE `slice_order_example` (
     `update_time`   DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
     `market`        VARCHAR(30) NOT NULL,
+    `source`        VARCHAR(30) NOT NULL,
     `price`         DECIMAL(40,8) NOT NULL,
     `amount`        DECIMAL(40,8) NOT NULL,
     `taker_fee`     DECIMAL(40,4) NOT NULL,
