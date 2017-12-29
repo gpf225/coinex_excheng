@@ -804,10 +804,21 @@ static int check_aggregate(time_t now)
 static int flush_data(time_t now)
 {
     double begin = current_timestamp();
-    ERR_RET(flush_dict(now / 60 * 60));
-    ERR_RET(check_aggregate(now));
+    int ret = flush_dict(now / 60 * 60);
     double end = current_timestamp();
-    log_info("flush data success, cost time: %f", end - begin);
+    log_info("flush data success, cost time: %f, result: %d", end - begin, ret);
+
+    int pid = fork();
+    if (pid < 0) {
+        log_fatal("fork fail: %d", pid);
+        return -__LINE__;
+    } else if (pid == 0) {
+        ret = check_aggregate(now);
+        if (ret < 0) {
+            log_error("check_aggregate fail: %d", ret);
+        }
+        exit(0);
+    }
 
     return 0;
 }
