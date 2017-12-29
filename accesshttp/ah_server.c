@@ -70,9 +70,13 @@ static void reply_time_out(nw_ses *ses, int64_t id)
 static int on_http_request(nw_ses *ses, http_request_t *request)
 {
     log_trace("new http request, url: %s, method: %u", request->url, request->method);
-    if (request->method != HTTP_POST || !request->body) {
-        reply_bad_request(ses);
-        return -__LINE__;
+    if (request->method == HTTP_GET) {
+        return send_http_response_simple(ses, 200, "ok\n", 3);
+    } else {
+        if (request->method != HTTP_POST || !request->body) {
+            reply_bad_request(ses);
+            return -__LINE__;
+        }
     }
 
     json_t *body = json_loadb(request->body, sdslen(request->body), 0, NULL);
