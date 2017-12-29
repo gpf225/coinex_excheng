@@ -15,7 +15,6 @@ static void on_cron_check(nw_timer *timer, void *data)
 {
     dlog_check_all();
     if (signal_exit) {
-        writer_flush();
         nw_loop_break();
         signal_exit = 0;
     }
@@ -90,6 +89,7 @@ int main(int argc, char *argv[])
     log_vip("server start");
     log_stderr("server start");
     nw_loop_run();
+    writer_flush();
     log_vip("server stop");
 
     return 0;
