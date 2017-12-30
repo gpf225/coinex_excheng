@@ -691,6 +691,7 @@ static int aggregate_daily_scope_key_host(time_t timestamp, const char *scope, c
 
     uint64_t total_val = 0;
     redisReply *reply = redis_query(cmd);
+    sdsfree(cmd);
     if (reply == NULL)
         return -__LINE__;
     for (int i = 0; i < reply->elements; i += 2) {
@@ -813,6 +814,8 @@ static int flush_data(time_t now)
         log_fatal("fork fail: %d", pid);
         return -__LINE__;
     } else if (pid == 0) {
+        // force redis reconnect after fork
+        redis_store = NULL;
         ret = check_aggregate(now);
         if (ret < 0) {
             log_error("check_aggregate fail: %d", ret);
