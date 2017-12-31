@@ -11,8 +11,6 @@ static redis_sentinel_t *redis;
 static redisContext *redis_store;
 static dict_t *monitor_set;
 static dict_t *monitor_val;
-static time_t last_aggregate_hosts;
-static time_t last_aggregate_daily;
 static nw_timer timer;
 
 struct monitor_key {
@@ -766,6 +764,20 @@ static int aggregate_daily(time_t timestamp)
     return 0;
 }
 
+static time_t get_last_aggregate_time(const char *key)
+{
+    time_t last = 0;
+    redisReply *reply = redis_query("GET %s", key);
+    if (reply == NULL)
+        return 0;
+    if (reply->type == REDIS_REPLY_STRING) {
+        last = strtol(reply->str, NULL, 0);
+    }
+    freeReplyObject(reply);
+
+    return last;
+}
+
 static int set_last_aggregate_time(const char *key, time_t val)
 {
     redisReply *reply = redis_query("SET %s %ld", key, val);
@@ -779,24 +791,30 @@ static int check_aggregate(time_t now)
 {
     bool m_update = false;
     time_t m_start = now / 60 * 60;
+    time_t last_aggregate_hosts = get_last_aggregate_time("m:last_aggregate_hosts");
+    if (last_aggregate_hosts == 0)
+        last_aggregate_hosts = m_start - 60 * 2;
     while (last_aggregate_hosts < (m_start - 60)) {
         ERR_RET(aggregate_hosts(last_aggregate_hosts + 60));
         last_aggregate_hosts += 60;
         m_update = true;
     }
     if (m_update) {
-        ERR_RET(set_last_aggregate_time("m:last_aggregate_hosts", last_aggregate_hosts));
+        set_last_aggregate_time("m:last_aggregate_hosts", last_aggregate_hosts);
     }
 
     bool d_update = false;
     time_t d_start = get_day_start(now);
+    time_t last_aggregate_daily = get_last_aggregate_time("m:last_aggregate_daily");
+    if (last_aggregate_daily == 0)
+        last_aggregate_daily = d_start - 86400 * 2;
     while (last_aggregate_daily < (d_start - 86400)) {
         ERR_RET(aggregate_daily(last_aggregate_daily + 86400));
         last_aggregate_daily += 86400;
         d_update = true;
     }
     if (d_update) {
-        ERR_RET(set_last_aggregate_time("m:last_aggregate_daily", last_aggregate_daily));
+        set_last_aggregate_time("m:last_aggregate_daily", last_aggregate_daily);
     }
 
     return 0;
@@ -948,35 +966,6 @@ static int init_dict(void)
     return 0;
 }
 
-static int init_time(void)
-{
-    time_t now = time(NULL);
-    redisReply *reply;
-
-    reply = redis_query("GET k:last_aggregate_hosts");
-    if (reply == NULL)
-        return -__LINE__;
-    if (reply->type == REDIS_REPLY_STRING) {
-        last_aggregate_hosts = strtol(reply->str, NULL, 0);
-    } else {
-        last_aggregate_hosts = now / 60 * 60 - 60;
-    }
-    freeReplyObject(reply);
-
-    reply = redis_query("GET k:last_aggregate_daily");
-    if (reply == NULL)
-        return -__LINE__;
-
-    if (reply->type == REDIS_REPLY_STRING) {
-        last_aggregate_daily = strtol(reply->str, NULL, 0);
-    } else {
-        last_aggregate_daily = get_day_start(now) - 86400;
-    }
-    freeReplyObject(reply);
-
-    return 0;
-}
-
 int init_server(void)
 {
     rpc_svr_type type;
@@ -999,7 +988,6 @@ int init_server(void)
         return -__LINE__;
 
     ERR_RET(init_dict());
-    ERR_RET(init_time());
 
     nw_timer_set(&timer, 1.0, true, on_timer, NULL);
     nw_timer_start(&timer);
