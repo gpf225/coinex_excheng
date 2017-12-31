@@ -48,6 +48,21 @@ static int on_http_message_begin(http_parser* parser)
     return 0;
 }
 
+static int send_empty_reply(nw_ses *ses)
+{
+    http_response_t *response = http_response_new();
+    response->status = 200;
+    response->content = "";
+    response->content_size = 0;
+    sds message = http_response_encode(response);
+    nw_ses_send(ses, message, sdslen(message));
+
+    sdsfree(message);
+    http_response_release(response);
+
+    return 0;
+}
+
 static int send_hand_shake_reply(nw_ses *ses, char *protocol, const char *key)
 {
     unsigned char hash[20];
@@ -73,6 +88,7 @@ static int send_hand_shake_reply(nw_ses *ses, char *protocol, const char *key)
 
     sdsfree(message);
     sdsfree(b4message);
+    http_response_release(response);
 
     return 0;
 }
@@ -126,12 +142,14 @@ static int on_http_message_complete(http_parser* parser)
     if (version < 1.1)
         goto error;
     const char *upgrade = http_request_get_header(info->request, "Upgrade");
-    if (upgrade == NULL || strcasecmp(upgrade, "websocket") != 0)
-        goto error;
+    if (upgrade == NULL || strcasecmp(upgrade, "websocket") != 0) {
+        return send_empty_reply(info->ses);
+    }
+
     const char *connection = http_request_get_header(info->request, "Connection");
-    if (connection == NULL)
+    if (connection == NULL) {
         goto error;
-    else {
+    } else {
         bool found_upgrade = false;
         int count;
         sds *tokens = sdssplitlen(connection, strlen(connection), ",", 1, &count); 
