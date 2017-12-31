@@ -809,6 +809,7 @@ static int flush_data(time_t now)
     double end = current_timestamp();
     log_info("flush data success, cost time: %f, result: %d", end - begin, ret);
 
+    dlog_flush_all();
     int pid = fork();
     if (pid < 0) {
         log_fatal("fork fail: %d", pid);

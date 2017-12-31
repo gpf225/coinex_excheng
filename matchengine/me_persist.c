@@ -374,6 +374,7 @@ cleanup:
 
 int make_slice(time_t timestamp)
 {
+    dlog_flush_all();
     int pid = fork();
     if (pid < 0) {
         log_fatal("fork fail: %d", pid);
