@@ -1011,27 +1011,35 @@ skiplist_t *market_get_order_list(market_t *m, uint32_t user_id)
     return NULL;
 }
 
-int market_get_status(market_t *m, size_t *ask_count, mpd_t *ask_amount, size_t *bid_count, mpd_t *bid_amount)
+int market_get_status(market_t *m, size_t *ask_count, mpd_t *ask_amount, mpd_t *ask_value, size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value)
 {
+    mpd_t *value = mpd_new(&mpd_ctx);
     *ask_count = m->asks->len;
     *bid_count = m->bids->len;
     mpd_copy(ask_amount, mpd_zero, &mpd_ctx);
+    mpd_copy(ask_value,  mpd_zero, &mpd_ctx);
     mpd_copy(bid_amount, mpd_zero, &mpd_ctx);
+    mpd_copy(bid_value,  mpd_zero, &mpd_ctx);
 
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(m->asks);
     while ((node = skiplist_next(iter)) != NULL) {
         order_t *order = node->value;
+        mpd_mul(value, order->left, order->price, &mpd_ctx);
         mpd_add(ask_amount, ask_amount, order->left, &mpd_ctx);
+        mpd_add(ask_value, ask_value, value, &mpd_ctx);
     }
     skiplist_release_iterator(iter);
 
     iter = skiplist_get_iterator(m->bids);
     while ((node = skiplist_next(iter)) != NULL) {
         order_t *order = node->value;
+        mpd_mul(value, order->left, order->price, &mpd_ctx);
         mpd_add(bid_amount, bid_amount, order->left, &mpd_ctx);
+        mpd_add(bid_value, bid_value, value, &mpd_ctx);
     }
 
+    mpd_del(value);
     return 0;
 }
 

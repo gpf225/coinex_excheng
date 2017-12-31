@@ -972,19 +972,25 @@ static json_t *get_market_summary(const char *name)
     size_t ask_count;
     size_t bid_count;
     mpd_t *ask_amount = mpd_new(&mpd_ctx);
+    mpd_t *ask_value  = mpd_new(&mpd_ctx);
     mpd_t *bid_amount = mpd_new(&mpd_ctx);
+    mpd_t *bid_value  = mpd_new(&mpd_ctx);
     market_t *market = get_market(name);
-    market_get_status(market, &ask_count, ask_amount, &bid_count, bid_amount);
+    market_get_status(market, &ask_count, ask_amount, ask_value, &bid_count, bid_amount, bid_value);
     
     json_t *obj = json_object();
     json_object_set_new(obj, "name", json_string(name));
     json_object_set_new(obj, "ask_count", json_integer(ask_count));
     json_object_set_new_mpd(obj, "ask_amount", ask_amount);
+    json_object_set_new_mpd(obj, "ask_value", ask_value);
     json_object_set_new(obj, "bid_count", json_integer(bid_count));
     json_object_set_new_mpd(obj, "bid_amount", bid_amount);
+    json_object_set_new_mpd(obj, "bid_value", bid_value);
 
     mpd_del(ask_amount);
+    mpd_del(ask_value);
     mpd_del(bid_amount);
+    mpd_del(bid_value);
 
     return obj;
 }
