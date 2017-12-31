@@ -155,15 +155,17 @@ static int on_cmd_asset_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static json_t *get_asset_summary(const char *name)
 {
+    size_t total_count;
     size_t available_count;
     size_t frozen_count;
     mpd_t *total = mpd_new(&mpd_ctx);
     mpd_t *available = mpd_new(&mpd_ctx);
     mpd_t *frozen = mpd_new(&mpd_ctx);
-    balance_status(name, total, &available_count, available, &frozen_count, frozen);
+    balance_status(name, &total_count, total, &available_count, available, &frozen_count, frozen);
 
     json_t *obj = json_object();
     json_object_set_new(obj, "name", json_string(name));
+    json_object_set_new(obj, "total_count", json_integer(total_count));
     json_object_set_new_mpd(obj, "total_balance", total);
     json_object_set_new(obj, "available_count", json_integer(available_count));
     json_object_set_new_mpd(obj, "available_balance", available);
@@ -969,6 +971,7 @@ static int on_cmd_market_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static json_t *get_market_summary(const char *name)
 {
+    size_t user_count;
     size_t ask_count;
     size_t bid_count;
     mpd_t *ask_amount = mpd_new(&mpd_ctx);
@@ -976,10 +979,11 @@ static json_t *get_market_summary(const char *name)
     mpd_t *bid_amount = mpd_new(&mpd_ctx);
     mpd_t *bid_value  = mpd_new(&mpd_ctx);
     market_t *market = get_market(name);
-    market_get_status(market, &ask_count, ask_amount, ask_value, &bid_count, bid_amount, bid_value);
+    market_get_status(market, &user_count, &ask_count, ask_amount, ask_value, &bid_count, bid_amount, bid_value);
     
     json_t *obj = json_object();
     json_object_set_new(obj, "name", json_string(name));
+    json_object_set_new(obj, "user_count", json_integer(user_count));
     json_object_set_new(obj, "ask_count", json_integer(ask_count));
     json_object_set_new_mpd(obj, "ask_amount", ask_amount);
     json_object_set_new_mpd(obj, "ask_value", ask_value);

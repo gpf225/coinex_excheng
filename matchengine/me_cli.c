@@ -89,20 +89,21 @@ error:
 static sds on_cmd_balance_summary(const char *cmd, int argc, sds *argv)
 {
     sds reply = sdsempty();
-    reply = sdscatprintf(reply, "%-16s %-30s %-10s %-30s %-10s %-30s\n", "asset", "total", "available", "available", "frozen", "frozen");
+    reply = sdscatprintf(reply, "%-16s %-10s %-30s %-10s %-30s %-10s %-30s\n", "asset", "total", "total", "available", "available", "frozen", "frozen");
 
+    size_t total_count;
     size_t available_count;
     size_t frozen_count;
     mpd_t *total = mpd_new(&mpd_ctx);
     mpd_t *available = mpd_new(&mpd_ctx);
     mpd_t *frozen = mpd_new(&mpd_ctx);
     for (size_t i = 0; i < settings.asset_num; ++i) {
-        balance_status(settings.assets[i].name, total, &available_count, available, &frozen_count, frozen);
+        balance_status(settings.assets[i].name, &total_count, total, &available_count, available, &frozen_count, frozen);
         char *total_str = mpd_to_sci(total, 0);
         char *available_str = mpd_to_sci(available, 0);
         char *frozen_str = mpd_to_sci(frozen, 0);
-        reply = sdscatprintf(reply, "%-16s %-30s %-10zu %-30s %-10zu %-30s\n", settings.assets[i].name,
-                total_str, available_count, available_str, frozen_count, frozen_str);
+        reply = sdscatprintf(reply, "%-16s %-10zu %-30s %-10zu %-30s %-10zu %-30s\n", settings.assets[i].name,
+                total_count, total_str, available_count, available_str, frozen_count, frozen_str);
         free(total_str);
         free(available_str);
         free(frozen_str);
@@ -135,8 +136,10 @@ error:
 static sds on_cmd_market_summary(const char *cmd, int argc, sds *argv)
 {
     sds reply = sdsempty();
-    reply = sdscatprintf(reply, "%-10s %-10s %-20s %-20s %-10s %-20s %-20s\n", "market", "ask count", "ask amount", "ask value", "bid count", "bid amount", "bid value");
+    reply = sdscatprintf(reply, "%-10s %-10s %-10s %-20s %-20s %-10s %-20s %-20s\n", "market",
+            "user count", "ask count", "ask amount", "ask value", "bid count", "bid amount", "bid value");
 
+    size_t user_count;
     size_t ask_count;
     size_t bid_count;
     mpd_t *ask_amount = mpd_new(&mpd_ctx);
@@ -145,12 +148,13 @@ static sds on_cmd_market_summary(const char *cmd, int argc, sds *argv)
     mpd_t *bid_value  = mpd_new(&mpd_ctx);
     for (size_t i = 0; i < settings.market_num; ++i) {
         market_t *market = get_market(settings.markets[i].name);
-        market_get_status(market, &ask_count, ask_amount, ask_value, &bid_count, bid_amount, bid_value);
+        market_get_status(market, &user_count, &ask_count, ask_amount, ask_value, &bid_count, bid_amount, bid_value);
         char *ask_amount_str = mpd_to_sci(ask_amount, 0);
         char *ask_value_str  = mpd_to_sci(ask_value,  0);
         char *bid_amount_str = mpd_to_sci(bid_amount, 0);
         char *bid_value_str  = mpd_to_sci(bid_value,  0);
-        reply = sdscatprintf(reply, "%-10s %-10zu %-20s %-20s %-10zu %-20s %-20s\n", market->name, ask_count, ask_amount_str, ask_value_str, bid_count, bid_amount_str, bid_value_str);
+        reply = sdscatprintf(reply, "%-10s %-10zu %-10zu %-20s %-20s %-10zu %-20s %-20s\n", market->name,
+                user_count, ask_count, ask_amount_str, ask_value_str, bid_count, bid_amount_str, bid_value_str);
         free(ask_amount_str);
         free(ask_value_str);
         free(bid_amount_str);

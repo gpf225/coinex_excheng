@@ -5,6 +5,7 @@
 
 # include "me_config.h"
 # include "me_balance.h"
+# include "ut_comm_dict.h"
 
 dict_t *dict_balance;
 static dict_t *dict_asset;
@@ -334,15 +335,16 @@ mpd_t *balance_total(uint32_t user_id, const char *asset)
     return balance;
 }
 
-int balance_status(const char *asset, mpd_t *total, size_t *available_count, mpd_t *available, size_t *frozen_count, mpd_t *frozen)
+int balance_status(const char *asset, size_t *total_user, mpd_t *total, size_t *available_user, mpd_t *available, size_t *frozen_user, mpd_t *frozen)
 {
     int prec = asset_prec_show(asset);
     if (prec < 0)
         return -__LINE__;
     mpd_t *balance = mpd_new(&mpd_ctx);
+    dict_t *user_set = uint32_set_create();
 
-    *frozen_count = 0;
-    *available_count = 0;
+    *frozen_user = 0;
+    *available_user = 0;
     mpd_copy(total, mpd_zero, &mpd_ctx);
     mpd_copy(frozen, mpd_zero, &mpd_ctx);
     mpd_copy(available, mpd_zero, &mpd_ctx);
@@ -357,15 +359,19 @@ int balance_status(const char *asset, mpd_t *total, size_t *available_count, mpd
         if (mpd_cmp(balance, mpd_zero, &mpd_ctx) == 0)
             continue;
         mpd_add(total, total, balance, &mpd_ctx);
+        uint32_set_add(user_set, key->user_id);
         if (key->type == BALANCE_TYPE_AVAILABLE) {
-            *available_count += 1;
+            *available_user += 1;
             mpd_add(available, available, balance, &mpd_ctx);
         } else {
-            *frozen_count += 1;
+            *frozen_user += 1;
             mpd_add(frozen, frozen, balance, &mpd_ctx);
         }
     }
     dict_release_iterator(iter);
+
+    *total_user = uint32_set_num(user_set);
+    uint32_set_release(user_set);
     mpd_del(balance);
 
     return 0;

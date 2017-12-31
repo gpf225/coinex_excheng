@@ -34,7 +34,7 @@ mpd_t *balance_freeze(uint32_t user_id, const char *asset, mpd_t *amount);
 mpd_t *balance_unfreeze(uint32_t user_id, const char *asset, mpd_t *amount);
 
 mpd_t *balance_total(uint32_t user_id, const char *asset);
-int balance_status(const char *asset, mpd_t *total, size_t *available_count, mpd_t *available, size_t *frozen_count, mpd_t *frozen);
+int balance_status(const char *asset, size_t *total_user, mpd_t *total, size_t *available_user, mpd_t *available, size_t *frozen_user, mpd_t *frozen);
 
 # endif
 
