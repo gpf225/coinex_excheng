@@ -336,6 +336,11 @@ mpd_t *balance_total(uint32_t user_id, const char *asset)
 
 int balance_status(const char *asset, mpd_t *total, size_t *available_count, mpd_t *available, size_t *frozen_count, mpd_t *frozen)
 {
+    int prec = asset_prec_show(asset);
+    if (prec < 0)
+        return -__LINE__;
+    mpd_t *balance = mpd_new(&mpd_ctx);
+
     *frozen_count = 0;
     *available_count = 0;
     mpd_copy(total, mpd_zero, &mpd_ctx);
@@ -348,16 +353,20 @@ int balance_status(const char *asset, mpd_t *total, size_t *available_count, mpd
         struct balance_key *key = entry->key;
         if (strcmp(key->asset, asset) != 0)
             continue;
-        mpd_add(total, total, entry->val, &mpd_ctx);
+        mpd_rescale(balance, entry->val, -prec, &mpd_ctx);
+        if (mpd_cmp(balance, mpd_zero, &mpd_ctx) == 0)
+            continue;
+        mpd_add(total, total, balance, &mpd_ctx);
         if (key->type == BALANCE_TYPE_AVAILABLE) {
             *available_count += 1;
-            mpd_add(available, available, entry->val, &mpd_ctx);
+            mpd_add(available, available, balance, &mpd_ctx);
         } else {
             *frozen_count += 1;
-            mpd_add(frozen, frozen, entry->val, &mpd_ctx);
+            mpd_add(frozen, frozen, balance, &mpd_ctx);
         }
     }
     dict_release_iterator(iter);
+    mpd_del(balance);
 
     return 0;
 }
