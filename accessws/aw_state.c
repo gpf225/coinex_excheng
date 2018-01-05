@@ -311,7 +311,7 @@ int state_send_last(nw_ses *ses, const char *market)
 
 size_t state_subscribe_number(void)
 {
-    size_t count;
+    size_t count = 0;
     dict_iterator *iter = dict_get_iterator(dict_market);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
