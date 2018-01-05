@@ -553,10 +553,9 @@ static int flush_dict(time_t end)
     dict_iterator *iter = dict_get_iterator(monitor_val);
     while ((entry = dict_next(iter)) != NULL) {
         struct monitor_key *k = entry->key;
-        if (k->timestamp >= end)
-            continue;
         struct monitor_val *v = entry->val;
         if (v->val != 0) {
+            log_trace("flush m:%s:m %ld %"PRIu64, k->key, k->timestamp, v->val);
             redisReply *reply = redis_query("HINCRBY m:%s:m %ld %"PRIu64, k->key, k->timestamp, v->val);
             if (reply == NULL) {
                 dict_release_iterator(iter);
