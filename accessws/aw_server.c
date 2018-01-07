@@ -26,7 +26,6 @@ static nw_timer timer;
 
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
-static rpc_clt *readhistory;
 
 struct state_data {
     nw_ses      *ses;
@@ -616,44 +615,6 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
     return 0;
 }
 
-static int on_method_order_history(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!rpc_clt_connected(readhistory))
-        return send_error_internal_error(ses, id);
-
-    if (!info->auth)
-        return send_error_require_auth(ses, id);
-    if (json_array_size(params) != 6)
-        return send_error_invalid_argument(ses, id);
-
-    json_t *read_params = json_array();
-    json_array_append_new(read_params, json_integer(info->user_id));
-    json_array_extend(read_params, params);
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ORDER_FINISHED;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(read_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(readhistory, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(readhistory)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
-    json_decref(read_params);
-
-    return 0;
-}
-
 static int on_method_order_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
@@ -713,44 +674,6 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
             nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
     json_decref(trade_params);
-
-    return 0;
-}
-
-static int on_method_asset_history(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!rpc_clt_connected(readhistory))
-        return send_error_internal_error(ses, id);
-
-    if (!info->auth)
-        return send_error_require_auth(ses, id);
-    if (json_array_size(params) != 6)
-        return send_error_invalid_argument(ses, id);
-
-    json_t *read_params = json_array();
-    json_array_append_new(read_params, json_integer(info->user_id));
-    json_array_extend(read_params, params);
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ASSET_HISTORY;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(read_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(readhistory, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(readhistory)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
-    json_decref(read_params);
 
     return 0;
 }
@@ -987,12 +910,10 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("deals.unsubscribe", on_method_deals_unsubscribe));
 
     ERR_RET_LN(add_handler("order.query",       on_method_order_query));
-    ERR_RET_LN(add_handler("order.history",     on_method_order_history));
     ERR_RET_LN(add_handler("order.subscribe",   on_method_order_subscribe));
     ERR_RET_LN(add_handler("order.unsubscribe", on_method_order_unsubscribe));
 
     ERR_RET_LN(add_handler("asset.query",       on_method_asset_query));
-    ERR_RET_LN(add_handler("asset.history",     on_method_asset_history));
     ERR_RET_LN(add_handler("asset.subscribe",   on_method_asset_subscribe));
     ERR_RET_LN(add_handler("asset.unsubscribe", on_method_asset_unsubscribe));
 
@@ -1112,12 +1033,6 @@ static int init_backend(void)
     if (marketprice == NULL)
         return -__LINE__;
     if (rpc_clt_start(marketprice) < 0)
-        return -__LINE__;
-
-    readhistory = rpc_clt_create(&settings.readhistory, &ct);
-    if (readhistory == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(readhistory) < 0)
         return -__LINE__;
 
     dict_types dt;

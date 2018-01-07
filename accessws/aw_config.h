@@ -63,7 +63,6 @@ struct settings {
     ws_svr_cfg          svr;
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
-    rpc_clt_cfg         readhistory;
     kafka_consumer_cfg  orders;
     kafka_consumer_cfg  balances;
 
