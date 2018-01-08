@@ -156,7 +156,7 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id,
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `deal_id`, `side`, `role`, `price`, `amount`, `deal`, `fee`, `deal_order_id` "
+    sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `deal_id`, `market`, `side`, `role`, `price`, `amount`, `deal`, `fee`, `deal_order_id` "
             "FROM `user_deal_history_%u` where `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
 
     size_t market_len = strlen(market);
@@ -204,17 +204,18 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id,
         json_object_set_new(record, "user", json_integer(user_id));
         uint64_t deal_id = strtoull(row[2], NULL, 0);
         json_object_set_new(record, "id", json_integer(deal_id));
-        int side = atoi(row[3]);
+        json_object_set_new(record, "market", json_string(row[3]));
+        int side = atoi(row[4]);
         json_object_set_new(record, "side", json_integer(side));
-        int role = atoi(row[4]);
+        int role = atoi(row[5]);
         json_object_set_new(record, "role", json_integer(role));
 
-        json_object_set_new(record, "price", json_string(rstripzero(row[5])));
-        json_object_set_new(record, "amount", json_string(rstripzero(row[6])));
-        json_object_set_new(record, "deal", json_string(rstripzero(row[7])));
-        json_object_set_new(record, "fee", json_string(rstripzero(row[8])));
+        json_object_set_new(record, "price", json_string(rstripzero(row[6])));
+        json_object_set_new(record, "amount", json_string(rstripzero(row[7])));
+        json_object_set_new(record, "deal", json_string(rstripzero(row[8])));
+        json_object_set_new(record, "fee", json_string(rstripzero(row[9])));
 
-        uint64_t deal_order_id = strtoull(row[9], NULL, 0);
+        uint64_t deal_order_id = strtoull(row[10], NULL, 0);
         json_object_set_new(record, "deal_order_id", json_integer(deal_order_id));
 
         json_array_append_new(records, record);
