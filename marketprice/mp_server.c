@@ -229,6 +229,8 @@ static int on_cmd_market_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     int interval = json_integer_value(json_array_get(params, 3));
     if (interval <= 0)
         return reply_error_invalid_argument(ses, pkg);
+    if ((end - start) > interval * settings.kline_max)
+        return reply_error_invalid_argument(ses, pkg);
 
     sds cache_key = NULL;
     if (process_cache(ses, pkg, &cache_key))
