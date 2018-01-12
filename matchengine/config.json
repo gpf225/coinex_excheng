@@ -64,6 +64,10 @@
             "name": "DASH",
             "prec_save": 12,
             "prec_show": 8
+        }, {
+            "name": "CDY",
+            "prec_save": 12,
+            "prec_show": 8
         }
     ],
     "markets": [
@@ -126,6 +130,17 @@
             "name": "DASHBCH",
             "stock": {
                 "name": "DASH",
+                "prec": 8
+            },
+            "money": {
+                "name": "BCH",
+                "prec": 8
+            },
+            "min_amount": "0.001"
+        }, {
+            "name": "CDYBCH",
+            "stock": {
+                "name": "CDY",
                 "prec": 8
             },
             "money": {
