@@ -999,10 +999,28 @@ static void cache_dict_val_free(void *val)
     free(val);
 }
 
+static size_t get_online_user_count(void)
+{
+    dict_t *user_set = uint32_set_create();
+    nw_ses *curr = svr->raw_svr->clt_list_head;
+    while (curr) {
+        struct clt_info *info = ws_ses_privdata(curr);
+        if (info->user_id) {
+            uint32_set_add(user_set, info->user_id);
+        }
+        curr = curr->next;
+    }
+
+    size_t count = uint32_set_num(user_set);
+    uint32_set_release(user_set);
+    return count;
+}
+
 static void on_timer(nw_timer *timer, void *privdata)
 {
     dict_clear(backend_cache);
 
+    monitor_inc("onlineusers", get_online_user_count());
     monitor_set("connections", svr->raw_svr->clt_count);
     monitor_set("subscribe_asset", asset_subscribe_number());
     monitor_set("subscribe_order", order_subscribe_number());
