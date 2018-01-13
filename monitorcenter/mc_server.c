@@ -691,7 +691,7 @@ static int aggregate_daily_scope_key_host(time_t timestamp, const char *scope, c
     sdsfree(cmd);
     if (reply == NULL)
         return -__LINE__;
-    for (int i = 0; i < reply->elements; i += 2) {
+    for (int i = 0; i < reply->elements; ++i) {
         if (reply->element[i + 1]->type == REDIS_REPLY_STRING) {
             total_val += strtoull(reply->element[i + 1]->str, NULL, 0);
         }
