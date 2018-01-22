@@ -65,7 +65,15 @@
             "prec_save": 12,
             "prec_show": 8
         }, {
+            "name": "DOGE",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
             "name": "CDY",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
+            "name": "BTV",
             "prec_save": 12,
             "prec_show": 8
         }
@@ -138,9 +146,31 @@
             },
             "min_amount": "0.001"
         }, {
+            "name": "DOGEBCH",
+            "stock": {
+                "name": "DOGE",
+                "prec": 8
+            },
+            "money": {
+                "name": "BCH",
+                "prec": 8
+            },
+            "min_amount": "0.001"
+        }, {
             "name": "CDYBCH",
             "stock": {
                 "name": "CDY",
+                "prec": 8
+            },
+            "money": {
+                "name": "BCH",
+                "prec": 8
+            },
+            "min_amount": "0.001"
+        }, {
+            "name": "BTVBCH",
+            "stock": {
+                "name": "BTV",
                 "prec": 8
             },
             "money": {
