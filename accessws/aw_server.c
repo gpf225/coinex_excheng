@@ -685,12 +685,18 @@ static int on_method_asset_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
 
     asset_unsubscribe(info->user_id, ses);
     size_t params_size = json_array_size(params);
-    for (size_t i = 0; i < params_size; ++i) {
-        const char *asset = json_string_value(json_array_get(params, i));
-        if (asset == NULL || strlen(asset) >= ASSET_NAME_MAX_LEN)
-            return send_error_invalid_argument(ses, id);
-        if (asset_subscribe(info->user_id, ses, asset) < 0)
+    if (params_size == 0) {
+        // subscribe all
+        if (asset_subscribe(info->user_id, ses, "") < 0)
             return send_error_internal_error(ses, id);
+    } else {
+        for (size_t i = 0; i < params_size; ++i) {
+            const char *asset = json_string_value(json_array_get(params, i));
+            if (asset == NULL || strlen(asset) >= ASSET_NAME_MAX_LEN)
+                return send_error_invalid_argument(ses, id);
+            if (asset_subscribe(info->user_id, ses, asset) < 0)
+                return send_error_internal_error(ses, id);
+        }
     }
 
     return send_success(ses, id);

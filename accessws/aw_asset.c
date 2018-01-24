@@ -83,7 +83,7 @@ static int on_balance_query_reply(struct state_data *state, json_t *result)
     list_node *node;
     while ((node = list_next(iter)) != NULL) {
         struct sub_unit *unit = node->value;
-        if (strcmp(unit->asset, state->asset) == 0) {
+        if (strlen(unit->asset) == 0 || strcmp(unit->asset, state->asset) == 0) {
             send_notify(unit->ses, "asset.update", params);
             monitor_inc("asset.update", 1);
         }
@@ -248,7 +248,7 @@ int asset_on_update(uint32_t user_id, const char *asset)
     list_node *node;
     while ((node = list_next(iter)) != NULL) {
         struct sub_unit *unit = node->value;
-        if (strcmp(unit->asset, asset) == 0) {
+        if (strlen(unit->asset) == 0 || strcmp(unit->asset, asset) == 0) {
             notify = true;
             break;
         }
