@@ -42,7 +42,7 @@
             "prec_show": 8
         }, {
             "name": "BTC",
-            "prec_save": 12,
+            "prec_save": 20,
             "prec_show": 8
         }, {
             "name": "LTC",
@@ -54,6 +54,10 @@
             "prec_show": 8
         }, {
             "name": "ETC",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
+            "name": "EOS",
             "prec_save": 12,
             "prec_show": 8
         }, {
@@ -85,113 +89,98 @@
     "markets": [
         {
             "name": "BTCBCH",
-            "stock": {
-                "name": "BTC",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
+            "stock": { "name": "BTC", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
             "name": "LTCBCH",
-            "stock": {
-                "name": "LTC",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
+            "stock": { "name": "LTC", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
             "name": "ETHBCH",
-            "stock": {
-                "name": "ETH",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
+            "stock": { "name": "ETH", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
             "name": "ETCBCH",
-            "stock": {
-                "name": "ETC",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
+            "stock": { "name": "ETC", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "EOSBCH",
+            "stock": { "name": "EOS", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
             "name": "XMRBCH",
-            "stock": {
-                "name": "XMR",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
+            "stock": { "name": "XMR", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
             "name": "ZECBCH",
-            "stock": {
-                "name": "ZEC",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
+            "stock": { "name": "ZEC", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
             "name": "DASHBCH",
-            "stock": {
-                "name": "DASH",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
+            "stock": { "name": "DASH", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
             "name": "DOGEBCH",
-            "stock": {
-                "name": "DOGE",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
+            "stock": { "name": "DOGE", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
             "name": "CDYBCH",
-            "stock": {
-                "name": "CDY",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
+            "stock": { "name": "CDY", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
             "name": "BTVBCH",
-            "stock": {
-                "name": "BTV",
-                "prec": 8
-            },
-            "money": {
-                "name": "BCH",
-                "prec": 8
-            },
+            "stock": { "name": "BTV", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "LTCBTC",
+            "stock": { "name": "LTC", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "ETHBTC",
+            "stock": { "name": "ETH", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "ETCBTC",
+            "stock": { "name": "ETC", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "EOSBTC",
+            "stock": { "name": "EOS", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "XMRBTC",
+            "stock": { "name": "XMR", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "ZECBTC",
+            "stock": { "name": "ZEC", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "DASHBTC",
+            "stock": { "name": "DASH", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "DOGEBTC",
+            "stock": { "name": "DOGE", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
             "min_amount": "0.001"
         }
     ],
