@@ -12,7 +12,6 @@
 # include "aw_depth.h"
 # include "aw_price.h"
 # include "aw_state.h"
-# include "aw_today.h"
 # include "aw_deals.h"
 # include "aw_order.h"
 # include "aw_asset.h"
@@ -147,10 +146,6 @@ server:
     ret = init_state();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init state fail: %d", ret);
-    }
-    ret = init_today();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init today fail: %d", ret);
     }
     ret = init_deals();
     if (ret < 0) {
