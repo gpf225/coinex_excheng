@@ -295,7 +295,6 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("market.last", marketprice, CMD_MARKET_LAST));
     ERR_RET_LN(add_handler("market.kline", marketprice, CMD_MARKET_KLINE));
     ERR_RET_LN(add_handler("market.status", marketprice, CMD_MARKET_STATUS));
-    ERR_RET_LN(add_handler("market.status_today", marketprice, CMD_MARKET_STATUS_TODAY));
     ERR_RET_LN(add_handler("market.deals", marketprice, CMD_MARKET_DEALS));
     ERR_RET_LN(add_handler("market.deals_ext", marketprice, CMD_MARKET_DEALS_EXT));
     ERR_RET_LN(add_handler("market.user_deals", readhistory, CMD_MARKET_USER_DEALS));

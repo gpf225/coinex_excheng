@@ -38,7 +38,6 @@
 # define CMD_MARKET_LIST            301
 # define CMD_MARKET_SUMMARY         302
 # define CMD_MARKET_STATUS          303
-# define CMD_MARKET_STATUS_TODAY    304
 # define CMD_MARKET_LAST            305
 # define CMD_MARKET_KLINE           306
 # define CMD_MARKET_DEALS           307

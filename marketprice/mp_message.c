@@ -976,66 +976,6 @@ json_t *get_market_status(const char *market, int period)
     return result;
 }
 
-json_t *get_market_status_today(const char *market)
-{
-    struct market_info *info = market_query(market);
-    if (info == NULL)
-        return NULL;
-
-    json_t *result = json_object();
-    time_t now = time(NULL);
-    time_t start = now / 86400 * 86400;
-    struct kline_info *klast = get_last_kline(info->day, start - 86400, start - 86400 * 30, 86400);
-    dict_entry *entry = dict_find(info->day, &start);
-    if (entry) {
-        struct kline_info *today = entry->val;
-        json_object_set_new_mpd(result, "open", today->open);
-        json_object_set_new_mpd(result, "last", today->close);
-        json_object_set_new_mpd(result, "high", today->high);
-        json_object_set_new_mpd(result, "low",  today->low);
-    } else if (klast) {
-        json_object_set_new_mpd(result, "open", klast->close);
-        json_object_set_new_mpd(result, "last", klast->close);
-        json_object_set_new_mpd(result, "high", klast->close);
-        json_object_set_new_mpd(result, "low",  klast->close);
-    } else {
-        json_object_set_new(result, "open", json_string("0"));
-        json_object_set_new(result, "last", json_string("0"));
-        json_object_set_new(result, "high", json_string("0"));
-        json_object_set_new(result, "low",  json_string("0"));
-    }
-
-    mpd_t *volume = mpd_qncopy(mpd_zero);
-    mpd_t *deal = mpd_qncopy(mpd_zero);
-    time_t start_24h = now - 86400;
-    time_t start_min = start_24h / 60 * 60 + 60;
-
-    for (time_t timestamp = start_24h; timestamp < start_min; timestamp++) {
-        dict_entry *entry = dict_find(info->sec, &timestamp);
-        if (!entry)
-            continue;
-        struct kline_info *info = entry->val;
-        mpd_add(volume, volume, info->volume, &mpd_ctx);
-        mpd_add(deal, deal, info->deal, &mpd_ctx);
-    }
-
-    for (time_t timestamp = start_min; timestamp < now; timestamp += 60) {
-        dict_entry *entry = dict_find(info->min, &timestamp);
-        if (!entry)
-            continue;
-        struct kline_info *info = entry->val;
-        mpd_add(volume, volume, info->volume, &mpd_ctx);
-        mpd_add(deal, deal, info->deal, &mpd_ctx);
-    }
-
-    json_object_set_new_mpd(result, "volume", volume);
-    json_object_set_new_mpd(result, "deal", deal);
-    mpd_del(volume);
-    mpd_del(deal);
-
-    return result;
-}
-
 static int append_kinfo(json_t *result, time_t timestamp, struct kline_info *kinfo, const char *market)
 {
     json_t *unit = json_array();
