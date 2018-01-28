@@ -358,20 +358,10 @@ static int on_method_state_query(nw_ses *ses, uint64_t id, struct clt_info *info
 
 static int on_method_state_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    state_unsubscribe(ses);
-    size_t params_size = json_array_size(params);
-    for (size_t i = 0; i < params_size; ++i) {
-        const char *market = json_string_value(json_array_get(params, i));
-        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN)
-            return send_error_invalid_argument(ses, id);
-        if (state_subscribe(ses, market) < 0)
-            return send_error_internal_error(ses, id);
-    }
-
+    if (state_subscribe(ses, params) < 0)
+        return send_error_internal_error(ses, id);
     send_success(ses, id);
-    for (size_t i = 0; i < params_size; ++i) {
-        state_send_last(ses, json_string_value(json_array_get(params, i)));
-    }
+    state_send_last(ses);
 
     return 0;
 }

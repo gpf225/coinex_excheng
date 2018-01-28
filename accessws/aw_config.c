@@ -104,6 +104,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET(read_cfg_real(root, "state_interval", &settings.state_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "kline_interval", &settings.kline_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "depth_interval", &settings.depth_interval, false, 0.5));
+    ERR_RET(read_cfg_real(root, "market_interval", &settings.market_interval, false, 60));
 
     ERR_RET(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET(read_depth_merge_cfg(root, "depth_merge"));
