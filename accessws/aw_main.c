@@ -6,6 +6,7 @@
 # include "ut_title.h"
 # include "aw_config.h"
 # include "aw_server.h"
+# include "aw_http.h"
 # include "aw_auth.h"
 # include "aw_sign.h"
 # include "aw_kline.h"
@@ -122,6 +123,10 @@ server:
     daemon(1, 1);
     process_keepalive();
 
+    ret = init_http();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init http fail: %d", ret);
+    }
     ret = init_auth();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init auth fail: %d", ret);
