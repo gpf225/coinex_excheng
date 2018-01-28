@@ -286,7 +286,7 @@ static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *us
     return size * nmemb;
 }
 
-static json_t *send_market_list_req(void)
+static json_t *get_market_list(void)
 {
     json_t *reply  = NULL;
     json_t *error  = NULL;
@@ -354,7 +354,7 @@ static int init_market(void)
     redisContext *context = redis_sentinel_connect_master(redis);
     if (context == NULL)
         return -__LINE__;
-    json_t *r = send_market_list_req();
+    json_t *r = get_market_list();
     if (r == NULL) {
         log_error("get market list fail");
         redisFree(context);
@@ -421,6 +421,7 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
         if (info == NULL) {
             return -__LINE__;
         }
+        log_info("add market: %s", market);
     }
 
     // update sec
@@ -901,6 +902,29 @@ int init_message(void)
 
     nw_timer_set(&redis_timer, 86400, true, on_redis_timer, NULL);
     nw_timer_start(&redis_timer);
+
+    return 0;
+}
+
+int update_market_list(void)
+{
+    json_t *r = get_market_list();
+    if (r == NULL)
+        return -__LINE__;
+    for (size_t i = 0; i < json_array_size(r); ++i) {
+        json_t *item = json_array_get(r, i);
+        const char *name = json_string_value(json_object_get(item, "name"));
+        struct market_info *info = market_query(name);
+        if (info == NULL) {
+            info = create_market(name);
+            if (info == NULL) {
+                json_decref(r);
+                return -__LINE__;
+            }
+            log_info("add market: %s", name);
+        }
+    }
+    json_decref(r);
 
     return 0;
 }

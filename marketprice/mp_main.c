@@ -6,6 +6,7 @@
 # include "mp_config.h"
 # include "mp_message.h"
 # include "mp_server.h"
+# include "mp_cli.h"
 
 const char *__process__ = "marketprice";
 const char *__version__ = "0.1.0";
@@ -88,6 +89,10 @@ int main(int argc, char *argv[])
     ret = init_message();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init message fail: %d", ret);
+    }
+    ret = init_cli();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init cli fail: %d", ret);
     }
     ret = init_server();
     if (ret < 0) {

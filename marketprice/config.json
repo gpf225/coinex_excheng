@@ -22,6 +22,7 @@
         "bind": "tcp@0.0.0.0:7416",
         "max_pkg_size": 10240
     },
+    "cli": "tcp@127.0.0.1:7417",
     "deals": {
         "brokers": "127.0.0.1:9092",
         "topic": "deals",

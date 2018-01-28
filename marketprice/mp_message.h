@@ -12,6 +12,7 @@
 # define MARKET_NAME_MAX    12
 
 int init_message(void);
+int update_market_list(void);
 bool market_exist(const char *market);
 
 json_t *get_market_status(const char *market, int period);
