@@ -25,7 +25,6 @@ static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *us
 static json_t *http_request(const char *method, json_t *params)
 {
     json_t *reply  = NULL;
-    json_t *error  = NULL;
     json_t *result = NULL;
 
     json_t *request = json_object();
@@ -57,7 +56,7 @@ static json_t *http_request(const char *method, json_t *params)
     reply = json_loads(reply_str, 0, NULL);
     if (reply == NULL)
         goto cleanup;
-    error = json_object_get(reply, "error");
+    json_t *error = json_object_get(reply, "error");
     if (!json_is_null(error)) {
         log_error("http request: %s fail: %s", method, reply_str);
         goto cleanup;

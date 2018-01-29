@@ -84,7 +84,9 @@ static int dict_ses_key_compare(const void *key1, const void *key2)
 
 static void dict_ses_val_free(void *val)
 {
-    list_release(val);
+    if (val) {
+        list_release(val);
+    }
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)
