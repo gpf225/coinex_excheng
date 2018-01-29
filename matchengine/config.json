@@ -77,6 +77,10 @@
             "prec_save": 12,
             "prec_show": 8
         }, {
+            "name": "BTM",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
             "name": "CDY",
             "prec_save": 12,
             "prec_show": 8
@@ -133,6 +137,11 @@
             "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
+            "name": "BTMBCH",
+            "stock": { "name": "BTM", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
             "name": "CDYBCH",
             "stock": { "name": "CDY", "prec": 8 },
             "money": { "name": "BCH", "prec": 8 },
@@ -180,6 +189,11 @@
         }, {
             "name": "DOGEBTC",
             "stock": { "name": "DOGE", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "BTMBTC",
+            "stock": { "name": "BTM", "prec": 8 },
             "money": { "name": "BTC", "prec": 8 },
             "min_amount": "0.001"
         }
