@@ -109,7 +109,7 @@ int init_http(void)
     type.on_finish = on_worker_finish;
     type.on_cleanup = on_worker_cleanup;
 
-    worker = nw_job_create(&type, 2);
+    worker = nw_job_create(&type, 1);
     if (worker == NULL)
         return -__LINE__;
 
