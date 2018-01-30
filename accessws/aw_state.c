@@ -233,7 +233,7 @@ static void on_notify_timer(nw_timer *timer, void *privdata)
         }
         if (json_object_size(result) != 0) {
             json_t *params = json_array();
-            json_array_append_new(params, result);
+            json_array_append(params, result);
             send_notify(entry->key, "state.update", params);
             json_decref(params);
             count += 1;
