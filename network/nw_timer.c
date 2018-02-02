@@ -14,11 +14,17 @@ static void on_timer(struct ev_loop *loop, ev_timer *ev, int events)
 void nw_timer_set(nw_timer *timer, double interval, bool repeated, nw_timer_callback callback, void *privdata)
 {
     nw_loop_init();
+
+    if (ev_is_active(&timer->ev)) {
+        ev_timer_stop(timer->loop, &timer->ev);
+    }
+
     if (repeated) {
         ev_timer_init(&timer->ev, on_timer, interval, interval);
     } else {
         ev_timer_init(&timer->ev, on_timer, interval, 0);
     }
+
     timer->loop = nw_default_loop;
     timer->interval = interval;
     timer->callback = callback;
