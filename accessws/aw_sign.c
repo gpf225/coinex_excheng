@@ -36,8 +36,8 @@ static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *us
 
 static void on_job(nw_job_entry *entry, void *privdata)
 {
-    CURL *curl = curl_easy_init();
     struct sign_request *request = entry->request;
+    CURL *curl = curl_easy_init();
 
     sds reply = sdsempty();
     sds token = sdsempty();

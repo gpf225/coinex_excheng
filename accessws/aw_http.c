@@ -7,9 +7,9 @@
 # include "aw_config.h"
 # include "aw_http.h"
 
-static nw_job *worker;
+static nw_job *job_context;
 
-struct worker_request {
+struct http_request {
     char *method;
     json_t *params;
     result_callback callback;
@@ -47,6 +47,7 @@ static json_t *http_request(const char *method, json_t *params)
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, (long)(1000));
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request_data);
 
+    log_trace("http request: %s", request_data);
     CURLcode ret = curl_easy_perform(curl);
     if (ret != CURLE_OK) {
         log_fatal("curl_easy_perform fail: %s", curl_easy_strerror(ret));
@@ -75,23 +76,23 @@ cleanup:
     return result;
 }
 
-static void on_worker(nw_job_entry *entry, void *privdata)
+static void on_job(nw_job_entry *entry, void *privdata)
 {
-    struct worker_request *request = entry->request;
+    struct http_request *request = entry->request;
     entry->reply = http_request(request->method, request->params);
 }
 
-static void on_worker_finish(nw_job_entry *entry)
+static void on_job_finish(nw_job_entry *entry)
 {
     if (!entry->reply)
         return;
-    struct worker_request *request = entry->request;
+    struct http_request *request = entry->request;
     request->callback(entry->reply);
 }
 
-static void on_worker_cleanup(nw_job_entry *entry)
+static void on_job_cleanup(nw_job_entry *entry)
 {
-    struct worker_request *request = entry->request;
+    struct http_request *request = entry->request;
     free(request->method);
     json_decref(request->params);
     free(request);
@@ -105,12 +106,12 @@ int init_http(void)
 {
     nw_job_type type;
     memset(&type, 0, sizeof(type));
-    type.on_job = on_worker;
-    type.on_finish = on_worker_finish;
-    type.on_cleanup = on_worker_cleanup;
+    type.on_job = on_job;
+    type.on_finish = on_job_finish;
+    type.on_cleanup = on_job_cleanup;
 
-    worker = nw_job_create(&type, 1);
-    if (worker == NULL)
+    job_context = nw_job_create(&type, 1);
+    if (job_context == NULL)
         return -__LINE__;
 
     return 0;
@@ -118,10 +119,10 @@ int init_http(void)
 
 int send_http_request(const char *method, json_t *params, result_callback callback)
 {
-    struct worker_request *request = malloc(sizeof(struct worker_request));
+    struct http_request *request = malloc(sizeof(struct http_request));
     request->method = strdup(method);
     request->params = params;
     request->callback = callback;
-    return nw_job_add(worker, 0, request);
+    return nw_job_add(job_context, 0, request);
 }
 
