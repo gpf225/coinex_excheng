@@ -116,7 +116,7 @@ static void on_result(struct state_data *state, struct sign_request *request, js
 
     info->auth = true;
     info->user_id = user_id;
-    log_error("sign success, access_id: %s, user_id: %u", request->access_id, user_id);
+    log_info("sign success, access_id: %s, user_id: %u", request->access_id, user_id);
     send_success(state->ses, state->request_id);
     monitor_inc("sign_success", 1);
 
@@ -179,7 +179,7 @@ int send_sign_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *p
     state->request_id = id;
     state->info = info;
 
-    log_info("send sign request, access_id: %s, authorisation: %s, tonce: %"PRIu64, access_id, authorisation, tonce);
+    log_trace("send sign request, access_id: %s, authorisation: %s, tonce: %"PRIu64, access_id, authorisation, tonce);
     info->source = strdup("api");
 
     struct sign_request *request = malloc(sizeof(struct sign_request));

@@ -211,6 +211,7 @@ static json_t *get_notify_list(list_t *list, double last_notify)
             json_object_set(result, entry->key, info->last);
         }
     }
+    list_release_iterator(iter);
     return result;
 }
 
@@ -370,9 +371,10 @@ int init_state(void)
     nw_timer_set(&update_timer, settings.state_interval, true, on_update_timer, NULL);
     nw_timer_start(&update_timer);
 
-    on_market_timer(NULL, NULL);
-    nw_timer_set(&market_timer, settings.state_interval, true, on_market_timer, NULL);
+    nw_timer_set(&market_timer, settings.market_interval, true, on_market_timer, NULL);
     nw_timer_start(&market_timer);
+
+    on_market_timer(NULL, NULL);
 
     return 0;
 }

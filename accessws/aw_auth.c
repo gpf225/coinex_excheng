@@ -156,7 +156,7 @@ int send_auth_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *p
     state->request_id = id;
     state->info = info;
 
-    log_info("send auth request, token: %s, source: %s", token, source);
+    log_trace("send auth request, token: %s, source: %s", token, source);
     info->source = strdup(source);
     nw_job_add(job_context, entry->id, sdsnew(token));
 
