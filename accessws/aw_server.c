@@ -860,7 +860,7 @@ static size_t get_online_user_count(void)
     nw_ses *curr = svr->raw_svr->clt_list_head;
     while (curr) {
         struct clt_info *info = ws_ses_privdata(curr);
-        if (info->user_id) {
+        if (info && info->user_id) {
             uint32_set_add(user_set, info->user_id);
         }
         curr = curr->next;
