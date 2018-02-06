@@ -9,6 +9,13 @@
 # include "mp_message.h"
 # include "mp_kline.h"
 
+enum {
+    INTERVAL_SEC,
+    INTERVAL_MIN,
+    INTERVAL_HOUR,
+    INTERVAL_DAY,
+};
+
 struct market_info {
     char   *name;
     mpd_t  *last;
@@ -22,15 +29,8 @@ struct market_info {
     double update_time;
 };
 
-enum {
-    KLINE_SEC,
-    KLINE_MIN,
-    KLINE_HOUR,
-    KLINE_DAY,
-};
-
 struct update_key {
-    int kline_type;
+    int interval_type;
     time_t timestamp;
 };
 
@@ -40,7 +40,7 @@ static dict_t *dict_market;
 
 static double   last_flush;
 static int64_t  last_offset;
-static nw_timer market_timer;
+static nw_timer flush_timer;
 static nw_timer clear_timer;
 static nw_timer redis_timer;
 
@@ -405,10 +405,10 @@ static struct kline_info *kline_query(dict_t *dict, time_t timestamp)
     return entry->val;
 }
 
-static void add_update(struct market_info *info, int type, time_t timestamp)
+static void add_kline_update(struct market_info *info, int type, time_t timestamp)
 {
     struct update_key key;
-    key.kline_type = type;
+    key.interval_type = type;
     key.timestamp = timestamp;
     dict_add(info->update, &key, NULL);
 }
@@ -438,7 +438,7 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
         dict_add(info->sec, &time_sec, kinfo);
     }
     kline_info_update(kinfo, price, amount);
-    add_update(info, KLINE_SEC, time_sec);
+    add_kline_update(info, INTERVAL_SEC, time_sec);
 
     // update min
     time_t time_min = time_sec / 60 * 60;
@@ -452,7 +452,7 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
         dict_add(info->min, &time_min, kinfo);
     }
     kline_info_update(kinfo, price, amount);
-    add_update(info, KLINE_MIN, time_min);
+    add_kline_update(info, INTERVAL_MIN, time_min);
 
     // update hour
     time_t time_hour = time_sec / 3600 * 3600;
@@ -466,7 +466,7 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
         dict_add(info->hour, &time_hour, kinfo);
     }
     kline_info_update(kinfo, price, amount);
-    add_update(info, KLINE_HOUR, time_hour);
+    add_kline_update(info, INTERVAL_HOUR, time_hour);
 
     // update day
     time_t time_day = time_sec / 86400 * 86400;
@@ -480,7 +480,7 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
         dict_add(info->day, &time_day, kinfo);
     }
     kline_info_update(kinfo, price, amount);
-    add_update(info, KLINE_DAY, time_day);
+    add_kline_update(info, INTERVAL_DAY, time_day);
 
     // update last
     mpd_copy(info->last, price, &mpd_ctx);
@@ -627,13 +627,13 @@ static int flush_kline(redisContext *context, struct market_info *info, struct u
 {
     sds key = sdsempty();
     struct kline_info *kinfo = NULL;
-    if (ukey->kline_type == KLINE_SEC) {
+    if (ukey->interval_type == INTERVAL_SEC) {
         key = sdscatprintf(key, "k:%s:1s", info->name);
         kinfo = kline_query(info->sec, ukey->timestamp);
-    } else if (ukey->kline_type == KLINE_MIN) {
+    } else if (ukey->interval_type == INTERVAL_MIN) {
         key = sdscatprintf(key, "k:%s:1m", info->name);
         kinfo = kline_query(info->min, ukey->timestamp);
-    } else if (ukey->kline_type == KLINE_HOUR) {
+    } else if (ukey->interval_type == INTERVAL_HOUR) {
         key = sdscatprintf(key, "k:%s:1h", info->name);
         kinfo = kline_query(info->hour, ukey->timestamp);
     } else {
@@ -696,10 +696,10 @@ static int flush_update(redisContext *context, struct market_info *info)
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
         struct update_key *key = entry->key;
-        log_trace("flush_kline type: %d, timestamp: %ld", key->kline_type, key->timestamp);
+        log_trace("flush_kline type: %d, timestamp: %ld", key->interval_type, key->timestamp);
         int ret = flush_kline(context, info, key);
         if (ret < 0) {
-            log_fatal("flush_kline fail: %d, type: %d, timestamp: %ld", ret, key->kline_type, key->timestamp);
+            log_fatal("flush_kline fail: %d, type: %d, timestamp: %ld", ret, key->interval_type, key->timestamp);
         }
         dict_delete(info->update, entry->key);
     }
@@ -784,7 +784,7 @@ static void clear_kline(void)
     dict_release_iterator(iter);
 }
 
-static void on_market_timer(nw_timer *timer, void *privdata)
+static void on_flush_timer(nw_timer *timer, void *privdata)
 {
     int ret = flush_market();
     if (ret < 0) {
@@ -894,8 +894,8 @@ int init_message(void)
         return -__LINE__;
     }
 
-    nw_timer_set(&market_timer, 10, true, on_market_timer, NULL);
-    nw_timer_start(&market_timer);
+    nw_timer_set(&flush_timer, 10, true, on_flush_timer, NULL);
+    nw_timer_start(&flush_timer);
 
     nw_timer_set(&clear_timer, 3600, true, on_clear_timer, NULL);
     nw_timer_start(&clear_timer);
