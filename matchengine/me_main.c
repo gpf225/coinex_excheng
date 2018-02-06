@@ -101,6 +101,10 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init trade fail: %d", ret);
     }
+    ret = init_market();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
+    }
 
     daemon(1, 1);
     process_keepalive();

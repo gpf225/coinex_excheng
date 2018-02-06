@@ -48,6 +48,8 @@ typedef struct market_t {
     skiplist_t      *bids;
 } market_t;
 
+int init_market(void);
+
 market_t *market_create(struct market *conf);
 int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t *ask_amount, mpd_t *ask_value, size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value);
 

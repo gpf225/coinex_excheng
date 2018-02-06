@@ -10,6 +10,8 @@
 # include "me_message.h"
 # include "ut_comm_dict.h"
 
+dict_t *dict_users;
+
 uint64_t order_id_start;
 uint64_t deals_id_start;
 
@@ -185,6 +187,24 @@ static int order_put(market_t *m, order_t *order)
             return -__LINE__;
     }
 
+    entry = dict_find(dict_users, &user_key);
+    if (entry) {
+        skiplist_t *order_list = entry->val;
+        if (skiplist_insert(order_list, order) == NULL)
+            return -__LINE__;
+    } else {
+        skiplist_type type;
+        memset(&type, 0, sizeof(type));
+        type.compare = order_id_compare;
+        skiplist_t *order_list = skiplist_create(&type);
+        if (order_list == NULL)
+            return -__LINE__;
+        if (skiplist_insert(order_list, order) == NULL)
+            return -__LINE__;
+        if (dict_add(dict_users, &user_key, order_list) == NULL)
+            return -__LINE__;
+    }
+
     if (order->side == MARKET_ORDER_SIDE_ASK) {
         if (skiplist_insert(m->asks, order) == NULL)
             return -__LINE__;
@@ -246,6 +266,15 @@ static int order_finish(bool real, market_t *m, order_t *order)
         }
     }
 
+    entry = dict_find(dict_users, &user_key);
+    if (entry) {
+        skiplist_t *order_list = entry->val;
+        skiplist_node *node = skiplist_find(order_list, order);
+        if (node) {
+            skiplist_delete(order_list, node);
+        }
+    }
+
     if (real) {
         if (mpd_cmp(order->deal_stock, mpd_zero, &mpd_ctx) > 0) {
             int ret = append_order_history(order);
@@ -257,6 +286,23 @@ static int order_finish(bool real, market_t *m, order_t *order)
 
     order_free(order);
     monitor_inc("order_finish", 1);
+
+    return 0;
+}
+
+int init_market(void)
+{
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function    = dict_user_hash_function;
+    dt.key_compare      = dict_user_key_compare;
+    dt.key_dup          = dict_user_key_dup;
+    dt.key_destructor   = dict_user_key_free;
+    dt.val_destructor   = dict_user_val_free;
+
+    dict_users = dict_create(&dt, 1024);
+    if (dict_users == NULL)
+        return -__LINE__;
 
     return 0;
 }
@@ -1005,10 +1051,18 @@ order_t *market_get_order(market_t *m, uint64_t order_id)
 skiplist_t *market_get_order_list(market_t *m, uint32_t user_id)
 {
     struct dict_user_key key = { .user_id = user_id };
-    dict_entry *entry = dict_find(m->users, &key);
-    if (entry) {
-        return entry->val;
+    if (m) {
+        dict_entry *entry = dict_find(m->users, &key);
+        if (entry) {
+            return entry->val;
+        }
+    } else {
+        dict_entry *entry = dict_find(dict_users, &key);
+        if (entry) {
+            return entry->val;
+        }
     }
+
     return NULL;
 }
 
