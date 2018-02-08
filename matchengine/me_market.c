@@ -264,6 +264,9 @@ static int order_finish(bool real, market_t *m, order_t *order)
         if (node) {
             skiplist_delete(order_list, node);
         }
+        if (skiplist_len(order_list) == 0) {
+            dict_delete(m->users, &user_key);
+        }
     }
 
     entry = dict_find(dict_users, &user_key);
@@ -272,6 +275,9 @@ static int order_finish(bool real, market_t *m, order_t *order)
         skiplist_node *node = skiplist_find(order_list, order);
         if (node) {
             skiplist_delete(order_list, node);
+        }
+        if (skiplist_len(order_list) == 0) {
+            dict_delete(dict_users, &user_key);
         }
     }
 
@@ -1107,6 +1113,7 @@ int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t 
 
 sds market_status(sds reply)
 {
+    reply = sdscatprintf(reply, "total user: %u\n", dict_size(dict_users));
     reply = sdscatprintf(reply, "order last ID: %"PRIu64"\n", order_id_start);
     reply = sdscatprintf(reply, "deals last ID: %"PRIu64"\n", deals_id_start);
     return reply;
