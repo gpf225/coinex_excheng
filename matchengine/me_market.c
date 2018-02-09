@@ -1074,8 +1074,8 @@ skiplist_t *market_get_order_list(market_t *m, uint32_t user_id)
 
 int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t *ask_amount, mpd_t *ask_value, size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value)
 {
+    *user_count = dict_size(m->users);
     mpd_t *value = mpd_new(&mpd_ctx);
-    dict_t *user_set = uint32_set_create();
 
     *ask_count = m->asks->len;
     *bid_count = m->bids->len;
@@ -1088,7 +1088,6 @@ int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t 
     skiplist_iter *iter = skiplist_get_iterator(m->asks);
     while ((node = skiplist_next(iter)) != NULL) {
         order_t *order = node->value;
-        uint32_set_add(user_set, order->user_id);
         mpd_mul(value, order->left, order->price, &mpd_ctx);
         mpd_add(ask_amount, ask_amount, order->left, &mpd_ctx);
         mpd_add(ask_value, ask_value, value, &mpd_ctx);
@@ -1098,14 +1097,11 @@ int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t 
     iter = skiplist_get_iterator(m->bids);
     while ((node = skiplist_next(iter)) != NULL) {
         order_t *order = node->value;
-        uint32_set_add(user_set, order->user_id);
         mpd_mul(value, order->left, order->price, &mpd_ctx);
         mpd_add(bid_amount, bid_amount, order->left, &mpd_ctx);
         mpd_add(bid_value, bid_value, value, &mpd_ctx);
     }
 
-    *user_count = uint32_set_num(user_set);
-    uint32_set_release(user_set);
     mpd_del(value);
 
     return 0;
