@@ -103,7 +103,7 @@
             "name": "CETBCH",
             "stock": { "name": "CET", "prec": 8 },
             "money": { "name": "BCH", "prec": 8 },
-            "min_amount": "0.001"
+            "min_amount": "1"
         }, {
             "name": "BTCBCH",
             "stock": { "name": "BTC", "prec": 8 },
@@ -128,7 +128,7 @@
             "name": "EOSBCH",
             "stock": { "name": "EOS", "prec": 8 },
             "money": { "name": "BCH", "prec": 8 },
-            "min_amount": "0.001"
+            "min_amount": "0.01"
         }, {
             "name": "XMRBCH",
             "stock": { "name": "XMR", "prec": 8 },
@@ -148,22 +148,22 @@
             "name": "DOGEBCH",
             "stock": { "name": "DOGE", "prec": 8 },
             "money": { "name": "BCH", "prec": 8 },
-            "min_amount": "0.001"
+            "min_amount": "1"
         }, {
             "name": "BTMBCH",
             "stock": { "name": "BTM", "prec": 8 },
             "money": { "name": "BCH", "prec": 8 },
-            "min_amount": "0.001"
+            "min_amount": "1"
         }, {
             "name": "CDYBCH",
             "stock": { "name": "CDY", "prec": 8 },
             "money": { "name": "BCH", "prec": 8 },
-            "min_amount": "0.001"
+            "min_amount": "1"
         }, {
             "name": "BTVBCH",
             "stock": { "name": "BTV", "prec": 8 },
             "money": { "name": "BCH", "prec": 8 },
-            "min_amount": "0.001"
+            "min_amount": "0.1"
         }, {
             "name": "LTCBTC",
             "stock": { "name": "LTC", "prec": 8 },
@@ -183,7 +183,7 @@
             "name": "EOSBTC",
             "stock": { "name": "EOS", "prec": 8 },
             "money": { "name": "BTC", "prec": 8 },
-            "min_amount": "0.001"
+            "min_amount": "0.1"
         }, {
             "name": "XMRBTC",
             "stock": { "name": "XMR", "prec": 8 },
@@ -203,12 +203,12 @@
             "name": "DOGEBTC",
             "stock": { "name": "DOGE", "prec": 8 },
             "money": { "name": "BTC", "prec": 8 },
-            "min_amount": "0.001"
+            "min_amount": "1"
         }, {
             "name": "BTMBTC",
             "stock": { "name": "BTM", "prec": 8 },
             "money": { "name": "BTC", "prec": 8 },
-            "min_amount": "0.001"
+            "min_amount": "1"
         }, {
             "name": "BTCUSDT",
             "stock": { "name": "BTC", "prec": 8 },
