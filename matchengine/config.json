@@ -49,6 +49,10 @@
             "prec_save": 20,
             "prec_show": 2
         }, {
+            "name": "CET",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
             "name": "LTC",
             "prec_save": 12,
             "prec_show": 8
@@ -153,6 +157,11 @@
         }, {
             "name": "BTVBCH",
             "stock": { "name": "BTV", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "0.001"
+        }, {
+            "name": "CETBCH",
+            "stock": { "name": "CET", "prec": 8 },
             "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.001"
         }, {
