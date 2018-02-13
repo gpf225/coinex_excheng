@@ -321,7 +321,6 @@ int init_market(void)
     if (dict_users == NULL)
         return -__LINE__;
 
-    status_report();
     nw_timer_set(&timer, 60, true, on_timer, NULL);
     nw_timer_start(&timer);
 
