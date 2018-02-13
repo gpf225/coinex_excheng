@@ -10,7 +10,8 @@
 # include "me_message.h"
 # include "ut_comm_dict.h"
 
-dict_t *dict_users;
+static dict_t *dict_users;
+static nw_timer timer;
 
 uint64_t order_id_start;
 uint64_t deals_id_start;
@@ -296,6 +297,16 @@ static int order_finish(bool real, market_t *m, order_t *order)
     return 0;
 }
 
+static void status_report(void)
+{
+    monitor_set("pending_users", dict_size(dict_users));
+}
+
+static void on_timer(nw_timer *timer, void *privdata)
+{
+    status_report();
+}
+
 int init_market(void)
 {
     dict_types dt;
@@ -309,6 +320,10 @@ int init_market(void)
     dict_users = dict_create(&dt, 1024);
     if (dict_users == NULL)
         return -__LINE__;
+
+    status_report();
+    nw_timer_set(&timer, 60, true, on_timer, NULL);
+    nw_timer_start(&timer);
 
     return 0;
 }
