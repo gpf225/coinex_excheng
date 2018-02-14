@@ -656,7 +656,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         mpd_del(require);
     }
 
-    if (mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
+    if (real && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
         return -2;
     }
 
@@ -949,17 +949,11 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         if (!balance || mpd_cmp(balance, amount, &mpd_ctx) < 0) {
             return -1;
         }
-
-        skiplist_iter *iter = skiplist_get_iterator(m->bids);
-        skiplist_node *node = skiplist_next(iter);
-        if (node == NULL) {
-            skiplist_release_iterator(iter);
-            return -3;
-        }
-        skiplist_release_iterator(iter);
-
-        if (mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
+        if (real && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
             return -2;
+        }
+        if (skiplist_len(m->bids) == 0) {
+            return -3;
         }
     } else {
         mpd_t *balance = balance_get(user_id, BALANCE_TYPE_AVAILABLE, m->money);
@@ -975,14 +969,16 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         }
         skiplist_release_iterator(iter);
 
-        order_t *order = node->value;
-        mpd_t *require = mpd_new(&mpd_ctx);
-        mpd_mul(require, order->price, m->min_amount, &mpd_ctx);
-        if (mpd_cmp(amount, require, &mpd_ctx) < 0) {
+        if (real) {
+            order_t *order = node->value;
+            mpd_t *require = mpd_new(&mpd_ctx);
+            mpd_mul(require, order->price, m->min_amount, &mpd_ctx);
+            if (mpd_cmp(amount, require, &mpd_ctx) < 0) {
+                mpd_del(require);
+                return -2;
+            }
             mpd_del(require);
-            return -2;
         }
-        mpd_del(require);
     }
 
     order_t *order = malloc(sizeof(order_t));
