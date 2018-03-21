@@ -243,6 +243,8 @@ static int on_cmd_monitor_inc(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!host || !is_good_host(host))
         return reply_error_invalid_argument(ses, pkg);
     uint64_t val = json_integer_value(json_array_get(params, 3));
+    if (val > UINT32_MAX)
+        return reply_error_invalid_argument(ses, pkg);
 
     struct monitor_key mkey;
     memset(&mkey, 0, sizeof(mkey));
@@ -278,6 +280,8 @@ static int on_cmd_monitor_set(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!host || !is_good_host(host))
         return reply_error_invalid_argument(ses, pkg);
     uint64_t val = json_integer_value(json_array_get(params, 3));
+    if (val > UINT32_MAX)
+        return reply_error_invalid_argument(ses, pkg);
 
     struct monitor_key mkey;
     memset(&mkey, 0, sizeof(mkey));
