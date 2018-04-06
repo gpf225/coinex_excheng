@@ -89,11 +89,47 @@
             "prec_save": 12,
             "prec_show": 8
         }, {
+            "name": "SC",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
             "name": "CDY",
             "prec_save": 12,
             "prec_show": 8
         }, {
             "name": "BTV",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
+            "name": "VEN",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
+            "name": "OMG",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
+            "name": "NEO",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
+            "name": "QUTM",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
+            "name": "USCA",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
+            "name": "USCB",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
+            "name": "USHA",
+            "prec_save": 12,
+            "prec_show": 8
+        }, {
+            "name": "USHB",
             "prec_save": 12,
             "prec_show": 8
         }
@@ -155,6 +191,11 @@
             "money": { "name": "BCH", "prec": 8 },
             "min_amount": "1"
         }, {
+            "name": "SCBCH",
+            "stock": { "name": "SC", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "1"
+        }, {
             "name": "CDYBCH",
             "stock": { "name": "CDY", "prec": 8 },
             "money": { "name": "BCH", "prec": 8 },
@@ -162,6 +203,36 @@
         }, {
             "name": "BTVBCH",
             "stock": { "name": "BTV", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "0.1"
+        }, {
+            "name": "VENBCH",
+            "stock": { "name": "VEN", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "0.1"
+        }, {
+            "name": "OMGBCH",
+            "stock": { "name": "OMG", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "0.1"
+        }, {
+            "name": "NEOBCH",
+            "stock": { "name": "NEO", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "0.1"
+        }, {
+            "name": "QUTMBCH",
+            "stock": { "name": "QUTM", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "0.1"
+        }, {
+            "name": "USHABCH",
+            "stock": { "name": "USHA", "prec": 8 },
+            "money": { "name": "BCH", "prec": 8 },
+            "min_amount": "0.1"
+        }, {
+            "name": "USHBBCH",
+            "stock": { "name": "USHB", "prec": 8 },
             "money": { "name": "BCH", "prec": 8 },
             "min_amount": "0.1"
         }, {
@@ -209,6 +280,36 @@
             "stock": { "name": "BTM", "prec": 8 },
             "money": { "name": "BTC", "prec": 8 },
             "min_amount": "1"
+        }, {
+            "name": "SCBTC",
+            "stock": { "name": "SC", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "1"
+        }, {
+            "name": "VENBTC",
+            "stock": { "name": "VEN", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.1"
+        }, {
+            "name": "OMGBTC",
+            "stock": { "name": "OMG", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.1"
+        }, {
+            "name": "NEOBTC",
+            "stock": { "name": "NEO", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.1"
+        }, {
+            "name": "USCABTC",
+            "stock": { "name": "USCA", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.1"
+        }, {
+            "name": "USCBBTC",
+            "stock": { "name": "USCB", "prec": 8 },
+            "money": { "name": "BTC", "prec": 8 },
+            "min_amount": "0.1"
         }, {
             "name": "BTCUSDT",
             "stock": { "name": "BTC", "prec": 8 },
