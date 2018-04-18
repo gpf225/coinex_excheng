@@ -273,9 +273,18 @@ static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
     uint64_t last_id = json_integer_value(json_array_get(params, 2));
 
+    sds cache_key = NULL;
+    if (process_cache(ses, pkg, &cache_key))
+        return 0;
+
     json_t *result = get_market_deals(market, limit, last_id);
-    if (result == NULL)
+    if (result == NULL) {
+        sdsfree(cache_key);
         return reply_error_internal_error(ses, pkg);
+    }
+
+    add_cache(cache_key, result);
+    sdsfree(cache_key);
 
     int ret = reply_result(ses, pkg, result);
     json_decref(result);
