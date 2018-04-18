@@ -319,6 +319,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     sds params_str = sdsnewlen(pkg->body, pkg->body_size);
 
     int ret;
+    double start = current_timestamp();
     switch (pkg->command) {
     case CMD_MARKET_STATUS:
         log_debug("from: %s cmd market status, squence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
@@ -365,6 +366,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     }
 
+    log_trace("cmd: %u params_str: %s process time: %.6f", pkg->command, params_str, current_timestamp() - start);
     sdsfree(params_str);
     json_decref(params);
     return;

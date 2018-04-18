@@ -625,6 +625,7 @@ static int volume_update(double timestamp, const char *market, mpd_t *amount)
 
 static void on_deals_message(sds message, int64_t offset)
 {
+    double start = current_timestamp();
     log_trace("deals message: %s, offset: %"PRIi64, message, offset);
     json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
     if (obj == NULL) {
@@ -703,6 +704,7 @@ static void on_deals_message(sds message, int64_t offset)
     last_offset = offset;
     monitor_inc("new_message", 1);
 
+    log_trace("process deal message cost: %.6f", current_timestamp() - start);
     mpd_del(price);
     mpd_del(amount);
     mpd_del(deal);
@@ -928,10 +930,12 @@ static void clear_kline(void)
 
 static void on_flush_timer(nw_timer *timer, void *privdata)
 {
+    double start = current_timestamp();
     int ret = flush_market();
     if (ret < 0) {
         log_fatal("flush_market fail: %d", ret);
     }
+    log_trace("flush market cost: %.6f", current_timestamp() - start);
 }
 
 static void on_clear_timer(nw_timer *timer, void *privdata)
