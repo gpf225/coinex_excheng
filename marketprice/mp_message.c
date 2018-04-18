@@ -1127,6 +1127,7 @@ json_t *get_market_status(const char *market, int period)
     time_t now = time(NULL);
     time_t start = now - period;
     time_t start_min = start / 60 * 60 + 60;
+    time_t start_hour = start / 3600 * 3600 + 3600;
 
     for (time_t timestamp = start; timestamp < start_min; timestamp++) {
         dict_entry *entry = dict_find(info->sec, &timestamp);
@@ -1139,8 +1140,19 @@ json_t *get_market_status(const char *market, int period)
         kline_info_merge(kinfo, sinfo);
     }
 
-    for (time_t timestamp = start_min; timestamp < now; timestamp += 60) {
+    for (time_t timestamp = start_min; timestamp < start_hour; timestamp += 60) {
         dict_entry *entry = dict_find(info->min, &timestamp);
+        if (!entry)
+            continue;
+        struct kline_info *sinfo = entry->val;
+        if (kinfo == NULL) {
+            kinfo = kline_info_new(sinfo->open);
+        }
+        kline_info_merge(kinfo, sinfo);
+    }
+
+    for (time_t timestamp = start_hour; timestamp < now; timestamp += 3600) {
+        dict_entry *entry = dict_find(info->hour, &timestamp);
         if (!entry)
             continue;
         struct kline_info *sinfo = entry->val;
