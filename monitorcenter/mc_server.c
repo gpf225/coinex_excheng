@@ -14,7 +14,7 @@ static dict_t *monitor_val;
 static nw_timer timer;
 
 struct monitor_key {
-    char key[100];
+    char key[160];
     time_t timestamp;
 };
 
@@ -247,7 +247,6 @@ static int on_cmd_monitor_inc(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
 
     struct monitor_key mkey;
-    memset(&mkey, 0, sizeof(mkey));
     snprintf(mkey.key, sizeof(mkey.key), "%s:%s:%s", scope, key, host);
     mkey.timestamp = time(NULL) / 60 * 60;
 
@@ -284,7 +283,6 @@ static int on_cmd_monitor_set(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
 
     struct monitor_key mkey;
-    memset(&mkey, 0, sizeof(mkey));
     snprintf(mkey.key, sizeof(mkey.key), "%s:%s:%s", scope, key, host);
     mkey.timestamp = time(NULL) / 60 * 60;
 
