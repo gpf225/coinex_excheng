@@ -136,7 +136,7 @@ error:
 static sds on_cmd_market_summary(const char *cmd, int argc, sds *argv)
 {
     sds reply = sdsempty();
-    reply = sdscatprintf(reply, "%-10s %-10s %-10s %-20s %-20s %-10s %-20s %-20s %-20s\n", "market",
+    reply = sdscatprintf(reply, "%-10s %-10s %-10s %-20s %-30s %-10s %-20s %-30s %-20s\n", "market",
             "user count", "ask count", "ask amount", "ask value", "bid count", "bid amount", "bid value", "last");
 
     size_t user_count;
@@ -155,7 +155,7 @@ static sds on_cmd_market_summary(const char *cmd, int argc, sds *argv)
         char *bid_amount_str = mpd_to_sci(bid_amount, 0);
         char *bid_value_str  = mpd_to_sci(bid_value,  0);
         char *last_str       = mpd_to_sci(last,       0);
-        reply = sdscatprintf(reply, "%-10s %-10zu %-10zu %-20s %-20s %-10zu %-20s %-20s %-20s\n", market->name,
+        reply = sdscatprintf(reply, "%-10s %-10zu %-10zu %-20s %-30s %-10zu %-20s %-30s %-20s\n", market->name,
                 user_count, ask_count, ask_amount_str, ask_value_str, bid_count, bid_amount_str, bid_value_str, last_str);
         free(ask_amount_str);
         free(ask_value_str);
