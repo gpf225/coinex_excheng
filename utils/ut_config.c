@@ -49,7 +49,7 @@ int load_cfg_log(json_t *root, const char *key, log_cfg *cfg)
         return -__LINE__;
 
     ERR_RET(read_cfg_str(node, "path", &cfg->path, NULL));
-    ERR_RET(read_cfg_str(node, "flag", &cfg->flag, NULL));
+    ERR_RET(read_cfg_str(node, "flag", &cfg->flag, "fatal,error"));
 
     cfg->shift = 0;
     char *shift;

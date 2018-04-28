@@ -1,0 +1,13 @@
+{
+    "instances": [
+        {
+            "port": 7777,
+            "log": {
+                "path": "/var/log/pool/web_server",
+                "fork": false,
+                "pid":  false,
+                "num":  20
+            }
+        }
+    ]
+}
