@@ -10,6 +10,7 @@
 
 int init_trade(void);
 market_t *get_market(const char *name);
+json_t *get_market_last_info(void);
 
 # endif
 

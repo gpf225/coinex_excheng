@@ -7,6 +7,7 @@
 # include "me_persist.h"
 # include "me_operlog.h"
 # include "me_market.h"
+# include "me_trade.h"
 # include "me_load.h"
 # include "me_dump.h"
 
@@ -25,10 +26,37 @@ static time_t get_today_start(void)
     return mktime(&t);
 }
 
+static int update_market_last(const char *market_price)
+{
+    json_error_t error;
+    json_t *info = json_loads(market_price, 0, &error);
+    if (info == NULL) {
+        log_error("load market last info from: %s fail: %s in line: %d", market_price, error.text, error.line);
+        return -__LINE__;
+    }
+
+    const char *key;
+    json_t *value;
+    json_object_foreach(info, key, value) {
+        market_t *m = get_market(key);
+        if (m == NULL)
+            continue;
+        mpd_t *last = decimal(json_string_value(value), 0);
+        if (last) {
+            mpd_copy(m->last, last, &mpd_ctx);
+            mpd_del(last);
+            log_trace("market: %s last: %s", m->name, json_string_value(value));
+        }
+    }
+    json_decref(info);
+
+    return 0;
+}
+
 static int get_last_slice(MYSQL *conn, time_t *timestamp, uint64_t *last_oper_id, uint64_t *last_order_id, uint64_t *last_deals_id)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `time`, `end_oper_id`, `end_order_id`, `end_deals_id` from `slice_history` ORDER BY `id` DESC LIMIT 1");
+    sql = sdscatprintf(sql, "SELECT `time`, `end_oper_id`, `end_order_id`, `end_deals_id`, `market_price` from `slice_history` ORDER BY `id` DESC LIMIT 1");
     log_stderr("get last slice time");
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -52,6 +80,10 @@ static int get_last_slice(MYSQL *conn, time_t *timestamp, uint64_t *last_oper_id
     *last_oper_id  = strtoull(row[1], NULL, 0);
     *last_order_id = strtoull(row[2], NULL, 0);
     *last_deals_id = strtoull(row[3], NULL, 0);
+    if (row[4]) {
+        update_market_last(row[4]);
+    }
+    printf("market_price: %s\n", row[4]);
     mysql_free_result(result);
 
     return 0;
@@ -204,10 +236,20 @@ static int dump_balance_to_db(MYSQL *conn, time_t end)
 
 int update_slice_history(MYSQL *conn, time_t end)
 {
+    json_t *market_last_info = get_market_last_info();
+    if (market_last_info == NULL)
+        return -__LINE__;
+    char *market_price = json_dumps(market_last_info, 0);
+    json_decref(market_last_info);
+
+    char info[100 * 1024];
+    mysql_real_escape_string(conn, info, market_price, strlen(market_price));
+    free(market_price);
+
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "INSERT INTO `slice_history` (`id`, `time`, `end_oper_id`, `end_order_id`, `end_deals_id`) VALUES (NULL, %ld, %"PRIu64", %"PRIu64", %"PRIu64")",
-            end, operlog_id_start, order_id_start, deals_id_start);
-    log_info("update slice history to: %ld", end);
+    sql = sdscatprintf(sql, "INSERT INTO `slice_history` (`id`, `time`, `end_oper_id`, `end_order_id`, `end_deals_id`, `market_price`) "
+            "VALUES (NULL, %ld, %"PRIu64", %"PRIu64", %"PRIu64", '%s')",
+            end, operlog_id_start, order_id_start, deals_id_start, info);
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
     if (ret < 0) {
@@ -216,6 +258,7 @@ int update_slice_history(MYSQL *conn, time_t end)
         return -__LINE__;
     }
     sdsfree(sql);
+    log_info("update slice history to: %ld", end);
 
     return 0;
 }

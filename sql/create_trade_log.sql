@@ -31,7 +31,8 @@ CREATE TABLE `slice_history` (
     `time`          BIGINT NOT NULL,
     `end_oper_id`   BIGINT UNSIGNED NOT NULL,
     `end_order_id`  BIGINT UNSIGNED NOT NULL,
-    `end_deals_id`  BIGINT UNSIGNED NOT NULL
+    `end_deals_id`  BIGINT UNSIGNED NOT NULL,
+    `market_price`  TEXT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE `operlog_example` (

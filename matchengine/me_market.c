@@ -347,6 +347,7 @@ market_t *market_create(struct market *conf)
     m->money_prec       = conf->money_prec;
     m->fee_prec         = conf->fee_prec;
     m->min_amount       = mpd_qncopy(conf->min_amount);
+    m->last             = mpd_qncopy(mpd_zero);
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
@@ -522,6 +523,8 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
                 push_order_message(ORDER_EVENT_UPDATE, maker, m);
             }
         }
+
+        mpd_copy(m->last, price, &mpd_ctx);
     }
     skiplist_release_iterator(iter);
 
@@ -625,6 +628,8 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
                 push_order_message(ORDER_EVENT_UPDATE, maker, m);
             }
         }
+
+        mpd_copy(m->last, price, &mpd_ctx);
     }
     skiplist_release_iterator(iter);
 
@@ -815,6 +820,8 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
                 push_order_message(ORDER_EVENT_UPDATE, maker, m);
             }
         }
+
+        mpd_copy(m->last, price, &mpd_ctx);
     }
     skiplist_release_iterator(iter);
 
@@ -929,6 +936,8 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
                 push_order_message(ORDER_EVENT_UPDATE, maker, m);
             }
         }
+
+        mpd_copy(m->last, price, &mpd_ctx);
     }
     skiplist_release_iterator(iter);
 
@@ -1082,7 +1091,7 @@ skiplist_t *market_get_order_list(market_t *m, uint32_t user_id)
     return NULL;
 }
 
-int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t *ask_amount, mpd_t *ask_value, size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value)
+int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t *ask_amount, mpd_t *ask_value, size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value, mpd_t *last)
 {
     *user_count = dict_size(m->users);
     mpd_t *value = mpd_new(&mpd_ctx);
@@ -1093,6 +1102,7 @@ int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t 
     mpd_copy(ask_value,  mpd_zero, &mpd_ctx);
     mpd_copy(bid_amount, mpd_zero, &mpd_ctx);
     mpd_copy(bid_value,  mpd_zero, &mpd_ctx);
+    mpd_copy(last, m->last, &mpd_ctx);
 
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(m->asks);

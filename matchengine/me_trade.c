@@ -61,3 +61,17 @@ market_t *get_market(const char *name)
     return NULL;
 }
 
+json_t *get_market_last_info(void)
+{
+    json_t *result = json_object();
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        market_t *m = entry->val;
+        json_object_set_new_mpd(result, m->name, m->last);
+    }
+    dict_release_iterator(iter);
+
+    return result;
+}
+

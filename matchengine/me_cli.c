@@ -136,8 +136,8 @@ error:
 static sds on_cmd_market_summary(const char *cmd, int argc, sds *argv)
 {
     sds reply = sdsempty();
-    reply = sdscatprintf(reply, "%-10s %-10s %-10s %-20s %-20s %-10s %-20s %-20s\n", "market",
-            "user count", "ask count", "ask amount", "ask value", "bid count", "bid amount", "bid value");
+    reply = sdscatprintf(reply, "%-10s %-10s %-10s %-20s %-20s %-10s %-20s %-20s %-20s\n", "market",
+            "user count", "ask count", "ask amount", "ask value", "bid count", "bid amount", "bid value", "last");
 
     size_t user_count;
     size_t ask_count;
@@ -146,24 +146,28 @@ static sds on_cmd_market_summary(const char *cmd, int argc, sds *argv)
     mpd_t *ask_value  = mpd_new(&mpd_ctx);
     mpd_t *bid_amount = mpd_new(&mpd_ctx);
     mpd_t *bid_value  = mpd_new(&mpd_ctx);
+    mpd_t *last       = mpd_new(&mpd_ctx);
     for (size_t i = 0; i < settings.market_num; ++i) {
         market_t *market = get_market(settings.markets[i].name);
-        market_get_status(market, &user_count, &ask_count, ask_amount, ask_value, &bid_count, bid_amount, bid_value);
+        market_get_status(market, &user_count, &ask_count, ask_amount, ask_value, &bid_count, bid_amount, bid_value, last);
         char *ask_amount_str = mpd_to_sci(ask_amount, 0);
         char *ask_value_str  = mpd_to_sci(ask_value,  0);
         char *bid_amount_str = mpd_to_sci(bid_amount, 0);
         char *bid_value_str  = mpd_to_sci(bid_value,  0);
-        reply = sdscatprintf(reply, "%-10s %-10zu %-10zu %-20s %-20s %-10zu %-20s %-20s\n", market->name,
-                user_count, ask_count, ask_amount_str, ask_value_str, bid_count, bid_amount_str, bid_value_str);
+        char *last_str       = mpd_to_sci(last,       0);
+        reply = sdscatprintf(reply, "%-10s %-10zu %-10zu %-20s %-20s %-10zu %-20s %-20s %-20s\n", market->name,
+                user_count, ask_count, ask_amount_str, ask_value_str, bid_count, bid_amount_str, bid_value_str, last_str);
         free(ask_amount_str);
         free(ask_value_str);
         free(bid_amount_str);
         free(bid_value_str);
+        free(last_str);
     }
     mpd_del(ask_amount);
     mpd_del(ask_value);
     mpd_del(bid_amount);
     mpd_del(bid_value);
+    mpd_del(last);
 
     return reply;
 }
