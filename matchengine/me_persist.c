@@ -28,6 +28,9 @@ static time_t get_today_start(void)
 
 static int update_market_last(const char *market_price)
 {
+    if (market_price == NULL)
+        return -__LINE__;
+
     json_error_t error;
     json_t *info = json_loads(market_price, 0, &error);
     if (info == NULL) {
@@ -80,10 +83,7 @@ static int get_last_slice(MYSQL *conn, time_t *timestamp, uint64_t *last_oper_id
     *last_oper_id  = strtoull(row[1], NULL, 0);
     *last_order_id = strtoull(row[2], NULL, 0);
     *last_deals_id = strtoull(row[3], NULL, 0);
-    if (row[4]) {
-        update_market_last(row[4]);
-    }
-    printf("market_price: %s\n", row[4]);
+    update_market_last(row[4]);
     mysql_free_result(result);
 
     return 0;
