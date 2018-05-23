@@ -24,6 +24,7 @@ static nw_timer timer;
 
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
+static rpc_clt *readhistory;
 
 struct state_data {
     nw_ses      *ses;
@@ -411,15 +412,51 @@ static int on_method_deals_query(nw_ses *ses, uint64_t id, struct clt_info *info
     return 0;
 }
 
+static int on_method_deals_query_user(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!rpc_clt_connected(readhistory))
+        return send_error_internal_error(ses, id);
+
+    if (!info->auth)
+        return send_error_require_auth(ses, id);
+
+    json_t *query_params = json_array();
+    json_array_append_new(query_params, json_integer(info->user_id));
+    json_array_extend(query_params, params);
+
+    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
+    struct state_data *state = entry->data;
+    state->ses = ses;
+    state->ses_id = ses->id;
+    state->request_id = id;
+
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
+    pkg.command   = CMD_MARKET_USER_DEALS;
+    pkg.sequence  = entry->id;
+    pkg.req_id    = id;
+    pkg.body      = json_dumps(query_params, 0);
+    pkg.body_size = strlen(pkg.body);
+
+    rpc_clt_send(readhistory, &pkg);
+    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
+            nw_sock_human_addr(rpc_clt_peer_addr(readhistory)), pkg.command, pkg.sequence, (char *)pkg.body);
+    free(pkg.body);
+    json_decref(query_params);
+
+    return 0;
+}
+
 static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    deals_unsubscribe(ses);
+    deals_unsubscribe(ses, info->user_id);
     size_t params_size = json_array_size(params);
     for (size_t i = 0; i < params_size; ++i) {
         const char *market = json_string_value(json_array_get(params, i));
         if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN)
             return send_error_invalid_argument(ses, id);
-        if (deals_subscribe(ses, market) < 0)
+        if (deals_subscribe(ses, market, info->user_id) < 0)
             return send_error_internal_error(ses, id);
     }
 
@@ -433,7 +470,7 @@ static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
 
 static int on_method_deals_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    deals_unsubscribe(ses);
+    deals_unsubscribe(ses, info->user_id);
     return send_success(ses, id);
 }
 
@@ -445,9 +482,9 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
     if (!info->auth)
         return send_error_require_auth(ses, id);
 
-    json_t *trade_params = json_array();
-    json_array_append_new(trade_params, json_integer(info->user_id));
-    json_array_extend(trade_params, params);
+    json_t *query_params = json_array();
+    json_array_append_new(query_params, json_integer(info->user_id));
+    json_array_extend(query_params, params);
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;
@@ -461,14 +498,14 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
     pkg.command   = CMD_ORDER_PENDING;
     pkg.sequence  = entry->id;
     pkg.req_id    = id;
-    pkg.body      = json_dumps(trade_params, 0);
+    pkg.body      = json_dumps(query_params, 0);
     pkg.body_size = strlen(pkg.body);
 
     rpc_clt_send(matchengine, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
             nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
-    json_decref(trade_params);
+    json_decref(query_params);
 
     return 0;
 }
@@ -508,9 +545,9 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
     if (!rpc_clt_connected(matchengine))
         return send_error_internal_error(ses, id);
 
-    json_t *trade_params = json_array();
-    json_array_append_new(trade_params, json_integer(info->user_id));
-    json_array_extend(trade_params, params);
+    json_t *query_params = json_array();
+    json_array_append_new(query_params, json_integer(info->user_id));
+    json_array_extend(query_params, params);
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;
@@ -524,14 +561,14 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
     pkg.command   = CMD_ASSET_QUERY;
     pkg.sequence  = entry->id;
     pkg.req_id    = id;
-    pkg.body      = json_dumps(trade_params, 0);
+    pkg.body      = json_dumps(query_params, 0);
     pkg.body_size = strlen(pkg.body);
 
     rpc_clt_send(matchengine, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
             nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
-    json_decref(trade_params);
+    json_decref(query_params);
 
     return 0;
 }
@@ -634,14 +671,14 @@ static void on_upgrade(nw_ses *ses, const char *remote)
 
 static void on_close(nw_ses *ses, const char *remote)
 {
+    struct clt_info *info = ws_ses_privdata(ses);
     log_trace("remote: %"PRIu64":%s websocket connection close", ses->id, remote);
 
     kline_unsubscribe(ses);
     depth_unsubscribe(ses);
     state_unsubscribe(ses);
-    deals_unsubscribe(ses);
+    deals_unsubscribe(ses, info->user_id);
 
-    struct clt_info *info = ws_ses_privdata(ses);
     if (info->auth) {
         order_unsubscribe(info->user_id, ses);
         asset_unsubscribe(info->user_id, ses);
@@ -761,6 +798,7 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("state.unsubscribe", on_method_state_unsubscribe));
 
     ERR_RET_LN(add_handler("deals.query",       on_method_deals_query));
+    ERR_RET_LN(add_handler("deals.query_user",  on_method_deals_query_user));
     ERR_RET_LN(add_handler("deals.subscribe",   on_method_deals_subscribe));
     ERR_RET_LN(add_handler("deals.unsubscribe", on_method_deals_unsubscribe));
 
@@ -904,6 +942,12 @@ static int init_backend(void)
     if (marketprice == NULL)
         return -__LINE__;
     if (rpc_clt_start(marketprice) < 0)
+        return -__LINE__;
+
+    readhistory = rpc_clt_create(&settings.readhistory, &ct);
+    if (readhistory == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(readhistory) < 0)
         return -__LINE__;
 
     dict_types dt;

@@ -29,6 +29,7 @@
 # include "ut_misc.h"
 # include "ut_list.h"
 # include "ut_kafka.h"
+# include "ut_define.h"
 # include "ut_signal.h"
 # include "ut_config.h"
 # include "ut_monitor.h"
@@ -62,8 +63,12 @@ struct settings {
     alert_cfg           alert;
     rpc_clt_cfg         monitor;
     ws_svr_cfg          svr;
+
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
+    rpc_clt_cfg         readhistory;
+
+    kafka_consumer_cfg  deals;
     kafka_consumer_cfg  orders;
     kafka_consumer_cfg  balances;
 

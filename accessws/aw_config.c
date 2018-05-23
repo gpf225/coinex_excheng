@@ -71,6 +71,7 @@ static int read_config_from_json(json_t *root)
         printf("load svr config fail: %d\n", ret);
         return -__LINE__;
     }
+
     ret = load_cfg_rpc_clt(root, "matchengine", &settings.matchengine);
     if (ret < 0) {
         printf("load matchengine clt config fail: %d\n", ret);
@@ -79,6 +80,17 @@ static int read_config_from_json(json_t *root)
     ret = load_cfg_rpc_clt(root, "marketprice", &settings.marketprice);
     if (ret < 0) {
         printf("load marketprice clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_rpc_clt(root, "readhistory", &settings.readhistory);
+    if (ret < 0) {
+        printf("load readhistory clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
+
+    ret = load_cfg_kafka_consumer(root, "deals", &settings.deals);
+    if (ret < 0) {
+        printf("load kafka deals config fail: %d\n", ret);
         return -__LINE__;
     }
     ret = load_cfg_kafka_consumer(root, "orders", &settings.orders);

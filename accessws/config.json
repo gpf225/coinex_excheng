@@ -41,6 +41,13 @@
         ],
         "max_pkg_size": 2000000
     },
+    "readhistory": {
+        "name": "readhistory",
+        "addr": [
+            "tcp@127.0.0.1:7516"
+        ],
+        "max_pkg_size": 2000000
+    },
     "deals": {
         "brokers": "127.0.0.1:9092",
         "topic": "deals",
