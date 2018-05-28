@@ -38,7 +38,7 @@
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
 
-# define QUERY_LIMIT    101
+# define QUERY_LIMIT    1001
 
 struct settings {
     bool                debug;
