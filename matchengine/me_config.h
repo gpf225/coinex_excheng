@@ -78,9 +78,11 @@ struct settings {
 
     size_t              asset_num;
     struct asset        *assets;
+    char                *asset_url;
 
     size_t              market_num;
     struct market       *markets;
+    char                *market_url;
 
     char                *brokers;
     int                 slice_interval;
@@ -92,6 +94,8 @@ struct settings {
 extern struct settings settings;
 
 int init_config(const char *path);
+int update_asset_config(void);
+int update_market_config(void);
 
 # endif
 

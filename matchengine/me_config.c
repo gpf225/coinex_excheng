@@ -3,17 +3,62 @@
  *     History: yang@haipo.me, 2017/03/16, create
  */
 
+# include <curl/curl.h>
 # include "me_config.h"
 
 struct settings settings;
 
-static int load_assets(json_t *root, const char *key)
+static size_t write_callback_func(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
-    json_t *node = json_object_get(root, key);
-    if (!node || !json_is_array(node)) {
-        return -__LINE__;
+    sds *reply = userdata;
+    *reply = sdscatlen(*reply, ptr, size * nmemb);
+    return size * nmemb;
+}
+
+static json_t *request_json(const char *url)
+{
+    json_t *reply  = NULL;
+    json_t *result = NULL;
+
+    CURL *curl = curl_easy_init();
+    sds reply_str = sdsempty();
+
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback_func);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &reply_str);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, (long)(3000));
+
+    CURLcode ret = curl_easy_perform(curl);
+    if (ret != CURLE_OK) {
+        log_fatal("get %s fail: %s", url, curl_easy_strerror(ret));
+        goto cleanup;
     }
 
+    reply = json_loads(reply_str, 0, NULL);
+    if (reply == NULL) {
+        log_error("parse %s reply fail: %s", url, reply_str);
+        goto cleanup;
+    }
+    int code = json_integer_value(json_object_get(reply, "code"));
+    if (code != 0) {
+        log_error("reply error: %s: %s", url, reply_str);
+        goto cleanup;
+    }
+    result = json_object_get(reply, "data");
+    json_incref(result);
+
+cleanup:
+    curl_easy_cleanup(curl);
+    sdsfree(reply_str);
+    if (reply)
+        json_decref(reply);
+
+    return result;
+}
+
+static int load_assets(json_t *node)
+{
     settings.asset_num = json_array_size(node);
     settings.assets = malloc(sizeof(struct asset) * settings.asset_num);
     for (size_t i = 0; i < settings.asset_num; ++i) {
@@ -30,13 +75,8 @@ static int load_assets(json_t *root, const char *key)
     return 0;
 }
 
-static int load_markets(json_t *root, const char *key)
+static int load_markets(json_t *node)
 {
-    json_t *node = json_object_get(root, key);
-    if (!node || !json_is_array(node)) {
-        return -__LINE__;
-    }
-
     settings.market_num = json_array_size(node);
     settings.markets = malloc(sizeof(struct market) * settings.market_num);
     for (size_t i = 0; i < settings.market_num; ++i) {
@@ -111,14 +151,14 @@ static int read_config_from_json(json_t *root)
         printf("load history db config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_assets(root, "assets");
+    ret = read_cfg_str(root, "asset_url", &settings.asset_url, NULL);
     if (ret < 0) {
-        printf("load assets config fail: %d\n", ret);
+        printf("load asset url config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_markets(root, "markets");
+    ret = read_cfg_str(root, "market_url", &settings.market_url, NULL);
     if (ret < 0) {
-        printf("load markets config fail: %d\n", ret);
+        printf("load market url config fail: %d\n", ret);
         return -__LINE__;
     }
     ret = read_cfg_str(root, "brokers", &settings.brokers, NULL);
@@ -147,6 +187,43 @@ static int read_config_from_json(json_t *root)
     return 0;
 }
 
+int update_asset_config(void)
+{
+    json_t *data = request_json(settings.asset_url);
+    if (data == NULL)
+        return -__LINE__;
+
+    if (settings.assets) {
+        free(settings.assets);
+        settings.asset_num = 0;
+        settings.assets = NULL;
+    }
+
+    int ret = load_assets(data);
+    json_decref(data);
+    return ret;
+}
+
+int update_market_config(void)
+{
+    json_t *data = request_json(settings.market_url);
+    if (data == NULL)
+        return -__LINE__;
+
+    if (settings.markets) {
+        for (size_t i = 0; i < settings.market_num; ++i) {
+            mpd_del(settings.markets[i].min_amount);
+        }
+        free(settings.markets);
+        settings.market_num = 0;
+        settings.markets = NULL;
+    }
+
+    int ret = load_markets(data);
+    json_decref(data);
+    return ret;
+}
+
 int init_config(const char *path)
 {
     json_error_t error;
@@ -166,6 +243,9 @@ int init_config(const char *path)
         return ret;
     }
     json_decref(root);
+
+    ERR_RET(update_asset_config());
+    ERR_RET(update_market_config());
 
     return 0;
 }
