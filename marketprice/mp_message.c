@@ -43,6 +43,7 @@ static int64_t  last_offset;
 static nw_timer flush_timer;
 static nw_timer clear_timer;
 static nw_timer redis_timer;
+static nw_timer market_timer;
 
 static uint32_t dict_sds_key_hash_func(const void *key)
 {
@@ -1000,6 +1001,16 @@ static void on_redis_timer(nw_timer *timer, void *privdata)
     }
 }
 
+static void on_market_timer(nw_timer *timer, void *privdata)
+{
+    int ret = update_market_list();
+    if (ret < 0) {
+        log_error("update_market_list fail: %d", ret);
+    } else {
+        log_info("update_market_list success");
+    }
+}
+
 static int64_t get_message_offset(void)
 {
     redisContext *context = redis_sentinel_connect_master(redis);
@@ -1048,6 +1059,9 @@ int init_message(void)
 
     nw_timer_set(&redis_timer, 86400, true, on_redis_timer, NULL);
     nw_timer_start(&redis_timer);
+
+    nw_timer_set(&market_timer, 60, true, on_market_timer, NULL);
+    nw_timer_start(&market_timer);
 
     return 0;
 }
