@@ -44,4 +44,8 @@
 # define CMD_MARKET_DEALS_EXT       308
 # define CMD_MARKET_USER_DEALS      309
 
+// config
+# define CMD_CONFIG_UPDATE_ASSET    401
+# define CMD_CONFIG_UPDATE_MARKET   402
+
 # endif

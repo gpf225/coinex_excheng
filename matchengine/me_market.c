@@ -383,6 +383,13 @@ market_t *market_create(struct market *conf)
     return m;
 }
 
+int market_update(market_t *m, struct market *conf)
+{
+    mpd_copy(m->min_amount, conf->min_amount, &mpd_ctx);
+
+    return 0;
+}
+
 static int append_balance_trade_add(order_t *order, const char *asset, mpd_t *change, mpd_t *price, mpd_t *amount)
 {
     json_t *detail = json_object();

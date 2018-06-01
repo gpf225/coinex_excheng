@@ -307,6 +307,9 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("monitor.query_minute", monitorcenter, CMD_MONITOR_QUERY));
     ERR_RET_LN(add_handler("monitor.query_daily", monitorcenter, CMD_MONITOR_DAILY));
 
+    ERR_RET_LN(add_handler("config.update_asset", matchengine, CMD_CONFIG_UPDATE_ASSET));
+    ERR_RET_LN(add_handler("config.update_market", matchengine, CMD_CONFIG_UPDATE_MARKET));
+
     return 0;
 }
 

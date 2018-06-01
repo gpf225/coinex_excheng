@@ -1030,6 +1030,32 @@ invalid_argument:
     return reply_error_invalid_argument(ses, pkg);
 }
 
+static int on_cmd_update_asset_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    int ret;
+    ret = update_asset_config();
+    if (ret < 0)
+        return reply_error_internal_error(ses, pkg);
+    ret = update_balance();
+    if (ret < 0)
+        return reply_error_internal_error(ses, pkg);
+    log_info("update asset config success!");
+    return reply_success(ses, pkg);
+}
+
+static int on_cmd_update_market_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    int ret;
+    ret = update_market_config();
+    if (ret < 0)
+        return reply_error_internal_error(ses, pkg);
+    ret = update_trade();
+    if (ret < 0)
+        return reply_error_internal_error(ses, pkg);
+    log_info("update market config success!");
+    return reply_success(ses, pkg);
+}
+
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     json_t *params = json_loadb(pkg->body, pkg->body_size, 0, NULL);
@@ -1165,7 +1191,23 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         monitor_inc("cmd_market_summary", 1);
         ret = on_cmd_market_summary(ses, pkg, params);
         if (ret < 0) {
-            log_error("on_cmd_market_summary%s fail: %d", params_str, ret);
+            log_error("on_cmd_market_summary %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_CONFIG_UPDATE_ASSET:
+        log_info("from: %s cmd update asset config", nw_sock_human_addr(&ses->peer_addr));
+        monitor_inc("cmd_config_update_asset", 1);
+        ret = on_cmd_update_asset_config(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_update_asset_config fail: %d", ret);
+        }
+        break;
+    case CMD_CONFIG_UPDATE_MARKET:
+        log_info("from: %s cmd update market config", nw_sock_human_addr(&ses->peer_addr));
+        monitor_inc("cmd_config_update_market", 1);
+        ret = on_cmd_update_market_config(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_update_market_config fail: %d", ret);
         }
         break;
     default:

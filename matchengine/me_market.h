@@ -53,6 +53,7 @@ typedef struct market_t {
 int init_market(void);
 
 market_t *market_create(struct market *conf);
+int market_update(market_t *m, struct market *conf);
 int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t *ask_amount, mpd_t *ask_value, size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value, mpd_t *last);
 
 int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount, mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source);

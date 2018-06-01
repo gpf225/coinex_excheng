@@ -53,6 +53,23 @@ int init_trade(void)
     return 0;
 }
 
+int update_trade(void)
+{
+    for (size_t i = 0; i < settings.market_num; ++i) {
+        dict_entry *entry = dict_find(dict_market, settings.markets[i].name);
+        if (!entry) {
+            market_t *m = market_create(&settings.markets[i]);
+            if (m == NULL)
+                return -__LINE__;
+            dict_add(dict_market, settings.markets[i].name, m);
+        } else {
+            market_update(entry->val, &settings.markets[i]);
+        }
+    }
+
+    return 0;
+}
+
 market_t *get_market(const char *name)
 {
     dict_entry *entry = dict_find(dict_market, name);

@@ -128,6 +128,27 @@ int init_balance()
     return 0;
 }
 
+int update_balance(void)
+{
+    for (size_t i = 0; i < settings.asset_num; ++i) {
+        dict_entry *entry = dict_find(dict_asset, settings.assets[i].name);
+        if (!entry) {
+            struct asset_type type;
+            type.prec_save = settings.assets[i].prec_save;
+            type.prec_show = settings.assets[i].prec_show;
+            if (dict_add(dict_asset, settings.assets[i].name, &type) == NULL)
+                return -__LINE__;
+        } else {
+            struct asset_type *type = entry->val;
+            if (type->prec_save < settings.assets[i].prec_save)
+                type->prec_save = settings.assets[i].prec_save;
+            type->prec_show = settings.assets[i].prec_show;
+        }
+    }
+
+    return 0;
+}
+
 static struct asset_type *get_asset_type(const char *asset)
 {
     dict_entry *entry = dict_find(dict_asset, asset);
