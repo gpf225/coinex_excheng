@@ -92,3 +92,13 @@ json_t *get_market_last_info(void)
     return result;
 }
 
+mpd_t *get_fee_price(market_t *m, const char *asset)
+{
+    char name[100];
+    snprintf(name, sizeof(name), "%s%s", asset, m->money);
+    market_t *m_fee = get_market(name);
+    if (m_fee == NULL)
+        return NULL;
+    return m_fee->last;
+}
+

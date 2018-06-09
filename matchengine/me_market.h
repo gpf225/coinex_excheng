@@ -20,6 +20,7 @@ typedef struct order_t {
     uint32_t        user_id;
     char            *market;
     char            *source;
+    char            *fee_asset;
     mpd_t           *price;
     mpd_t           *amount;
     mpd_t           *taker_fee;
@@ -29,6 +30,9 @@ typedef struct order_t {
     mpd_t           *deal_stock;
     mpd_t           *deal_money;
     mpd_t           *deal_fee;
+    mpd_t           *asset_fee;
+
+    mpd_t           *fee_price;
 } order_t;
 
 typedef struct market_t {
@@ -54,12 +58,17 @@ int init_market(void);
 
 market_t *market_create(struct market *conf);
 int market_update(market_t *m, struct market *conf);
-int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t *ask_amount, mpd_t *ask_value, size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value, mpd_t *last);
 
-int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount, mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source);
-int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount, mpd_t *taker_fee, const char *source);
+int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t *ask_amount, mpd_t *ask_value,
+        size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value, mpd_t *last);
+
+int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount,
+        mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset);
+
+int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount,
+        mpd_t *taker_fee, const char *source, const char *fee_asset);
+
 int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order);
-
 int market_put_order(market_t *m, order_t *order);
 
 json_t *get_order_info(order_t *order);

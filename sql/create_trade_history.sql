@@ -2,8 +2,8 @@ CREATE TABLE `balance_history_example` (
     `id`            BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `time`          DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
-    `asset`         VARCHAR(40) NOT NULL,
-    `business`      VARCHAR(40) NOT NULL,
+    `asset`         VARCHAR(30) NOT NULL,
+    `business`      VARCHAR(30) NOT NULL,
     `change`        DECIMAL(40,8) NOT NULL,
     `balance`       DECIMAL(40,20) NOT NULL,
     `detail`        TEXT NOT NULL,
@@ -18,8 +18,9 @@ CREATE TABLE `order_history_example` (
     `create_time`   DOUBLE NOT NULL,
     `finish_time`   DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
-    `market`        VARCHAR(40) NOT NULL,
-    `source`        VARCHAR(40) NOT NULL,
+    `market`        VARCHAR(30) NOT NULL,
+    `source`        VARCHAR(30) NOT NULL,
+    `fee_asset`     VARCHAR(30) NOT NULL,
     `t`             TINYINT UNSIGNED NOT NULL,
     `side`          TINYINT UNSIGNED NOT NULL,
     `price`         DECIMAL(40,8) NOT NULL,
@@ -29,6 +30,7 @@ CREATE TABLE `order_history_example` (
     `deal_stock`    DECIMAL(40,8) NOT NULL,
     `deal_money`    DECIMAL(40,16) NOT NULL,
     `deal_fee`      DECIMAL(40,20) NOT NULL,
+    `asset_fee`     DECIMAL(40,20) NOT NULL,
     INDEX `idx_user_time` (`user_id`, `create_time`),
     INDEX `idx_user_side_time` (`user_id`, `side`, `create_time`),
     INDEX `idx_user_market_time` (`user_id`, `market`, `create_time`),
@@ -41,8 +43,9 @@ CREATE TABLE `order_detail_example` (
     `create_time`   DOUBLE NOT NULL,
     `finish_time`   DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
-    `market`        VARCHAR(40) NOT NULL,
-    `source`        VARCHAR(40) NOT NULL,
+    `market`        VARCHAR(30) NOT NULL,
+    `source`        VARCHAR(30) NOT NULL,
+    `fee_asset`     VARCHAR(30) NOT NULL,
     `t`             TINYINT UNSIGNED NOT NULL,
     `side`          TINYINT UNSIGNED NOT NULL,
     `price`         DECIMAL(40,8) NOT NULL,
@@ -52,6 +55,7 @@ CREATE TABLE `order_detail_example` (
     `deal_stock`    DECIMAL(40,8) NOT NULL,
     `deal_money`    DECIMAL(40,16) NOT NULL,
     `deal_fee`      DECIMAL(40,20) NOT NULL
+    `asset_fee`     DECIMAL(40,20) NOT NULL,
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by order_id
@@ -68,6 +72,8 @@ CREATE TABLE `order_deal_history_example` (
     `deal`          DECIMAL(40,16) NOT NULL,
     `fee`           DECIMAL(40,20) NOT NULL,
     `deal_fee`      DECIMAL(40,20) NOT NULL,
+    `fee_asset`      VARCHAR(30) NOT NULL,
+    `deal_fee_asset` VARCHAR(30) NOT NULL,
     INDEX `idx_order_id` (`order_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -76,7 +82,7 @@ CREATE TABLE `user_deal_history_example` (
     `id`            BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `time`          DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
-    `market`        VARCHAR(40) NOT NULL,
+    `market`        VARCHAR(30) NOT NULL,
     `deal_id`       BIGINT UNSIGNED NOT NULL,
     `order_id`      BIGINT UNSIGNED NOT NULL,
     `deal_order_id` BIGINT UNSIGNED NOT NULL,
@@ -87,6 +93,8 @@ CREATE TABLE `user_deal_history_example` (
     `deal`          DECIMAL(40,16) NOT NULL,
     `fee`           DECIMAL(40,20) NOT NULL,
     `deal_fee`      DECIMAL(40,20) NOT NULL,
+    `fee_asset`      VARCHAR(30) NOT NULL,
+    `deal_fee_asset` VARCHAR(30) NOT NULL,
     INDEX `idx_user_time` (`user_id`, `time`),
     INDEX `idx_user_side_time` (`user_id`, `side`, `time`),
     INDEX `idx_user_market_time` (`user_id`, `market`, `time`),

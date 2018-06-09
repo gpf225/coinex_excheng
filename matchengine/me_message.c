@@ -201,7 +201,8 @@ int push_order_message(uint32_t event, order_t *order, market_t *market)
     return 0;
 }
 
-int push_deal_message(double t, uint64_t id, market_t *market, int side, order_t *ask, order_t *bid, mpd_t *price, mpd_t *amount, mpd_t *deal, mpd_t *ask_fee, mpd_t *bid_fee)
+int push_deal_message(double t, uint64_t id, market_t *market, int side, order_t *ask, order_t *bid,
+        mpd_t *price, mpd_t *amount, mpd_t *deal, const char *ask_fee_asset, mpd_t *ask_fee, const char *bid_fee_asset, mpd_t *bid_fee)
 {
     json_t *message = json_object();
 
@@ -215,6 +216,8 @@ int push_deal_message(double t, uint64_t id, market_t *market, int side, order_t
     json_object_set_new(message, "bid_id", json_integer(bid->id));
     json_object_set_new(message, "ask_user_id", json_integer(ask->user_id));
     json_object_set_new(message, "bid_user_id", json_integer(bid->user_id));
+    json_object_set_new(message, "ask_fee_asset", json_string(ask_fee_asset));
+    json_object_set_new(message, "bid_fee_asset", json_string(bid_fee_asset));
     json_object_set_new_mpd(message, "price", price);
     json_object_set_new_mpd(message, "amount", amount);
     json_object_set_new_mpd(message, "deal", deal);
