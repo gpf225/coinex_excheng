@@ -21,6 +21,7 @@ typedef struct order_t {
     char            *market;
     char            *source;
     char            *fee_asset;
+    mpd_t           *fee_discount;
     mpd_t           *price;
     mpd_t           *amount;
     mpd_t           *taker_fee;
@@ -63,10 +64,10 @@ int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t 
         size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value, mpd_t *last);
 
 int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount,
-        mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset);
+        mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount);
 
 int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount,
-        mpd_t *taker_fee, const char *source, const char *fee_asset);
+        mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount);
 
 int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order);
 int market_put_order(market_t *m, order_t *order);

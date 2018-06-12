@@ -389,6 +389,7 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     mpd_t *price     = NULL;
     mpd_t *taker_fee = NULL;
     mpd_t *maker_fee = NULL;
+    mpd_t *fee_discount = NULL;
 
     // amount
     if (!json_is_string(json_array_get(params, 3)))
@@ -425,9 +426,9 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (strlen(source) >= SOURCE_MAX_LEN)
         goto invalid_argument;
 
-    // fee asset
     const char *fee_asset = NULL;
-    if (json_array_size(params) >= 9) {
+    if (json_array_size(params) >= 10) {
+        // fee asset
         if (json_is_string(json_array_get(params, 8))) {
             fee_asset = json_string_value(json_array_get(params, 8));
             if (!asset_exist(fee_asset))
@@ -437,15 +438,23 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         } else if (!json_is_null(json_array_get(params, 8))) {
             goto invalid_argument;
         }
+
+        // fee discount
+        if (fee_asset && json_is_string(json_array_get(params, 9))) {
+            fee_discount = decimal(json_string_value(json_array_get(params, 9)), 4);
+            if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
+                goto invalid_argument;
+        }
     }
 
     json_t *result = NULL;
-    int ret = market_put_limit_order(true, &result, market, user_id, side, amount, price, taker_fee, maker_fee, fee_asset, source);
+    int ret = market_put_limit_order(true, &result, market, user_id, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_discount);
 
     mpd_del(amount);
     mpd_del(price);
     mpd_del(taker_fee);
     mpd_del(maker_fee);
+    mpd_del(fee_discount);
 
     if (ret == -1) {
         return reply_error(ses, pkg, 10, "balance not enough");
@@ -470,6 +479,8 @@ invalid_argument:
         mpd_del(taker_fee);
     if (maker_fee)
         mpd_del(maker_fee);
+    if (fee_discount)
+        mpd_del(fee_discount);
 
     return reply_error_invalid_argument(ses, pkg);
 }
@@ -501,6 +512,7 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     mpd_t *amount = NULL;
     mpd_t *taker_fee = NULL;
+    mpd_t *fee_discount = NULL;
 
     // amount
     if (!json_is_string(json_array_get(params, 3)))
@@ -523,9 +535,9 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (strlen(source) >= SOURCE_MAX_LEN)
         goto invalid_argument;
 
-    // fee asset
     const char *fee_asset = NULL;
-    if (json_array_size(params) >= 7) {
+    if (json_array_size(params) >= 8) {
+        // fee asset
         if (json_is_string(json_array_get(params, 6))) {
             fee_asset = json_string_value(json_array_get(params, 6));
             if (!asset_exist(fee_asset))
@@ -535,13 +547,21 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         } else if (!json_is_null(json_array_get(params, 6))) {
             goto invalid_argument;
         }
+
+        // fee discount
+        if (fee_asset && json_is_string(json_array_get(params, 7))) {
+            fee_discount = decimal(json_string_value(json_array_get(params, 7)), 4);
+            if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
+                goto invalid_argument;
+        }
     }
 
     json_t *result = NULL;
-    int ret = market_put_market_order(true, &result, market, user_id, side, amount, taker_fee, fee_asset, source);
+    int ret = market_put_market_order(true, &result, market, user_id, side, amount, taker_fee, source, fee_asset, fee_discount);
 
     mpd_del(amount);
     mpd_del(taker_fee);
+    mpd_del(fee_discount);
 
     if (ret == -1) {
         return reply_error(ses, pkg, 10, "balance not enough");
@@ -564,6 +584,8 @@ invalid_argument:
         mpd_del(amount);
     if (taker_fee)
         mpd_del(taker_fee);
+    if (fee_discount)
+        mpd_del(fee_discount);
 
     return reply_error_invalid_argument(ses, pkg);
 }

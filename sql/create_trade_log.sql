@@ -16,6 +16,7 @@ CREATE TABLE `slice_order_example` (
     `market`        VARCHAR(30) NOT NULL,
     `source`        VARCHAR(30) NOT NULL,
     `fee_asset`     VARCHAR(30) NOT NULL,
+    `fee_discount`  DECIMAL(40,4) NOT NULL,
     `price`         DECIMAL(40,8) NOT NULL,
     `amount`        DECIMAL(40,8) NOT NULL,
     `taker_fee`     DECIMAL(40,4) NOT NULL,
