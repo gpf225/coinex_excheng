@@ -39,7 +39,7 @@ static int dump_orders_list(MYSQL *conn, const char *table, skiplist_t *list)
         sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, '%s', '%s', '%s', ",
                 order->id, order->type, order->side, order->create_time, order->update_time, order->user_id,
                 order->market, order->source, order->fee_asset ? order->fee_asset : "");
-        sql = sql_append_mpd(sql, order->fee_discount ? order->fee_discount : mpd_zero, true);
+        sql = sql_append_mpd(sql, order->fee_discount, true);
         sql = sql_append_mpd(sql, order->price, true);
         sql = sql_append_mpd(sql, order->amount, true);
         sql = sql_append_mpd(sql, order->taker_fee, true);

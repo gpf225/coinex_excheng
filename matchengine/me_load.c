@@ -53,6 +53,9 @@ int load_orders(MYSQL *conn, const char *table)
                 order->fee_asset = NULL;
             } else {
                 order->fee_asset = strdup(row[8]);
+                order->fee_price = get_fee_price(market, order->fee_asset);
+                if (order->fee_price == NULL)
+                    return -__LINE__;
             }
             order->fee_discount = decimal(row[9],  4);
             order->price        = decimal(row[10], market->money_prec);
@@ -178,7 +181,7 @@ static int load_update_balance(json_t *params)
 
 static int load_limit_order(json_t *params)
 {
-    if (json_array_size(params) != 8)
+    if (json_array_size(params) < 8)
         return -__LINE__;
 
     // user_id
@@ -277,7 +280,8 @@ static int load_limit_order(json_t *params)
     mpd_del(price);
     mpd_del(taker_fee);
     mpd_del(maker_fee);
-    mpd_del(fee_discount);
+    if (fee_discount)
+        mpd_del(fee_discount);
 
     return ret;
 
@@ -298,7 +302,7 @@ error:
 
 static int load_market_order(json_t *params)
 {
-    if (json_array_size(params) != 6)
+    if (json_array_size(params) < 6)
         return -__LINE__;
 
     // user_id

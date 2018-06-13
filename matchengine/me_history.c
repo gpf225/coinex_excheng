@@ -188,7 +188,7 @@ static int append_user_order(order_t *order)
     if (sdslen(sql) == 0) {
         sql = sdscatprintf(sql, "INSERT INTO `order_history_%u` (`id`, `create_time`, `finish_time`, `user_id`, "
                 "`market`, `source`, `fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, "
-                "`deal_stock`, `deal_money`, `deal_fee`, `asset_fee`) VALUES ", key.hash);
+                "`deal_stock`, `deal_money`, `deal_fee`, `asset_fee`, `fee_discount`) VALUES ", key.hash);
     } else {
         sql = sdscatprintf(sql, ", ");
     }
@@ -202,7 +202,8 @@ static int append_user_order(order_t *order)
     sql = sql_append_mpd(sql, order->deal_stock, true);
     sql = sql_append_mpd(sql, order->deal_money, true);
     sql = sql_append_mpd(sql, order->deal_fee, true);
-    sql = sql_append_mpd(sql, order->asset_fee, false);
+    sql = sql_append_mpd(sql, order->asset_fee, true);
+    sql = sql_append_mpd(sql, order->fee_discount, false);
     sql = sdscatprintf(sql, ")");
 
     set_sql(&key, sql);
@@ -222,7 +223,7 @@ static int append_order_detail(order_t *order)
     if (sdslen(sql) == 0) {
         sql = sdscatprintf(sql, "INSERT INTO `order_detail_%u` (`id`, `create_time`, `finish_time`, `user_id`, "
                 "`market`, `source`, `fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, "
-                "`deal_stock`, `deal_money`, `deal_fee`, `asset_fee`) VALUES ", key.hash);
+                "`deal_stock`, `deal_money`, `deal_fee`, `asset_fee`, `fee_discount`) VALUES ", key.hash);
     } else {
         sql = sdscatprintf(sql, ", ");
     }
@@ -236,7 +237,8 @@ static int append_order_detail(order_t *order)
     sql = sql_append_mpd(sql, order->deal_stock, true);
     sql = sql_append_mpd(sql, order->deal_money, true);
     sql = sql_append_mpd(sql, order->deal_fee, true);
-    sql = sql_append_mpd(sql, order->asset_fee, false);
+    sql = sql_append_mpd(sql, order->asset_fee, true);
+    sql = sql_append_mpd(sql, order->fee_discount, false);
     sql = sdscatprintf(sql, ")");
 
     set_sql(&key, sql);
@@ -267,7 +269,7 @@ static int append_order_deal(double t, uint32_t user_id, uint64_t deal_id, uint6
     sql = sql_append_mpd(sql, deal, true);
     sql = sql_append_mpd(sql, fee, true);
     sql = sql_append_mpd(sql, deal_fee, true);
-    sql = sdscatprintf(sql, "'%s', %s')", fee_asset, deal_fee_asset);
+    sql = sdscatprintf(sql, "'%s', '%s')", fee_asset, deal_fee_asset);
 
     set_sql(&key, sql);
 

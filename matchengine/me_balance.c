@@ -121,6 +121,7 @@ int init_balance()
         struct asset_type type;
         type.prec_save = settings.assets[i].prec_save;
         type.prec_show = settings.assets[i].prec_show;
+        log_stderr("init asset: %s", settings.assets[i].name);
         if (dict_add(dict_asset, settings.assets[i].name, &type) == NULL)
             return -__LINE__;
     }

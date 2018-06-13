@@ -42,6 +42,7 @@ int init_trade(void)
         return -__LINE__;
 
     for (size_t i = 0; i < settings.market_num; ++i) {
+        log_stderr("create market: %s", settings.markets[i].name);
         market_t *m = market_create(&settings.markets[i]);
         if (m == NULL) {
             return -__LINE__;

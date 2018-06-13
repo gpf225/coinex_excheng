@@ -362,7 +362,7 @@ invalid_argument:
 
 static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 8)
+    if (json_array_size(params) < 8)
         return reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -431,10 +431,13 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         // fee asset
         if (json_is_string(json_array_get(params, 8))) {
             fee_asset = json_string_value(json_array_get(params, 8));
+            log_debug("fee asset: %s", fee_asset);
             if (!asset_exist(fee_asset))
                 goto invalid_argument;
-            if (!get_fee_price(market, fee_asset))
+            if (!get_fee_price(market, fee_asset)) {
+                log_error("get fee price fail: %s", fee_asset);
                 goto invalid_argument;
+            }
         } else if (!json_is_null(json_array_get(params, 8))) {
             goto invalid_argument;
         }
@@ -454,7 +457,8 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     mpd_del(price);
     mpd_del(taker_fee);
     mpd_del(maker_fee);
-    mpd_del(fee_discount);
+    if (fee_discount)
+        mpd_del(fee_discount);
 
     if (ret == -1) {
         return reply_error(ses, pkg, 10, "balance not enough");
@@ -487,7 +491,7 @@ invalid_argument:
 
 static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 6)
+    if (json_array_size(params) < 6)
         return reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -561,7 +565,8 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     mpd_del(amount);
     mpd_del(taker_fee);
-    mpd_del(fee_discount);
+    if (fee_discount)
+        mpd_del(fee_discount);
 
     if (ret == -1) {
         return reply_error(ses, pkg, 10, "balance not enough");
