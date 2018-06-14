@@ -509,7 +509,7 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
         }
 
         // calculate bid fee
-        if (maker->fee_asset != NULL && strcmp(maker->fee_asset, m->money) != 0 && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        if (maker->fee_asset != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             mpd_mul(result, deal, maker->maker_fee, &mpd_ctx);
             mpd_div(result, result, maker->fee_price, &mpd_ctx);
             mpd_mul(result, result, maker->fee_discount, &mpd_ctx);
@@ -648,7 +648,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
 
         // calculate ask fee
         mpd_mul(deal, price, amount, &mpd_ctx);
-        if (maker->fee_asset != NULL && strcmp(maker->fee_asset, m->stock) != 0 && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        if (maker->fee_asset != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             mpd_mul(result, deal, maker->maker_fee, &mpd_ctx);
             mpd_div(result, result, maker->fee_price, &mpd_ctx);
             mpd_mul(result, result, maker->fee_discount, &mpd_ctx);
@@ -926,7 +926,7 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
         }
 
         // calculate bid fee
-        if (maker->fee_asset != NULL && strcmp(maker->fee_asset, m->money) != 0 && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        if (maker->fee_asset != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             mpd_mul(result, deal, maker->maker_fee, &mpd_ctx);
             mpd_div(result, result, maker->fee_price, &mpd_ctx);
             mpd_mul(result, result, maker->fee_discount, &mpd_ctx);
@@ -1074,7 +1074,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
 
         // calculate ask fee
         mpd_mul(deal, price, amount, &mpd_ctx);
-        if (maker->fee_asset != NULL && strcmp(maker->fee_asset, m->stock) != 0 && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        if (maker->fee_asset != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             mpd_mul(result, deal, maker->maker_fee, &mpd_ctx);
             mpd_div(result, result, maker->fee_price, &mpd_ctx);
             mpd_mul(result, result, maker->fee_discount, &mpd_ctx);
