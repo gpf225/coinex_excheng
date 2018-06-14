@@ -379,7 +379,8 @@ static int load_market_order(json_t *params)
 
     mpd_del(amount);
     mpd_del(taker_fee);
-    mpd_del(fee_discount);
+    if (fee_discount)
+        mpd_del(fee_discount);
 
     return ret;
 
