@@ -33,6 +33,11 @@
 # define CMD_ORDER_DEALS            208
 # define CMD_ORDER_FINISHED         209
 # define CMD_ORDER_FINISHED_DETAIL  210
+# define CMD_ORDER_PUT_STOP_LIMIT   211
+# define CMD_ORDER_PUT_STOP_MARKET  212
+# define CMD_ORDER_CANCEL_STOP      213
+# define CMD_ORDER_PENDING_STOP     214
+# define CMD_ORDER_FINISHED_STOP    215
 
 // market
 # define CMD_MARKET_LIST            301

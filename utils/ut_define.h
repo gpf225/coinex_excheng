@@ -19,6 +19,10 @@
 # define MARKET_ROLE_MAKER          1
 # define MARKET_ROLE_TAKER          2
 
+# define MARKET_STOP_STATUS_ACTIVE  1
+# define MARKET_STOP_STATUS_FAIL    2
+# define MARKET_STOP_STATUS_CANCEL  3
+
 # define HISTORY_HASH_NUM           100
 
 # endif

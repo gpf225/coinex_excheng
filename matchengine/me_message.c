@@ -11,10 +11,12 @@
 static rd_kafka_t *rk;
 
 static rd_kafka_topic_t *rkt_deals;
+static rd_kafka_topic_t *rkt_stops;
 static rd_kafka_topic_t *rkt_orders;
 static rd_kafka_topic_t *rkt_balances;
 
 static list_t *list_deals;
+static list_t *list_stops;
 static list_t *list_orders;
 static list_t *list_balances;
 
@@ -110,6 +112,11 @@ int init_message(void)
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
+    rkt_stops = rd_kafka_topic_new(rk, "stops", NULL);
+    if (rkt_deals == NULL) {
+        log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
+        return -__LINE__;
+    }
 
     list_type lt;
     memset(&lt, 0, sizeof(lt));
@@ -117,6 +124,9 @@ int init_message(void)
 
     list_deals = list_create(&lt);
     if (list_deals == NULL)
+        return -__LINE__;
+    list_stops = list_create(&lt);
+    if (list_stops == NULL)
         return -__LINE__;
     list_orders = list_create(&lt);
     if (list_orders == NULL)
@@ -139,6 +149,7 @@ int fini_message(void)
     rd_kafka_topic_destroy(rkt_balances);
     rd_kafka_topic_destroy(rkt_orders);
     rd_kafka_topic_destroy(rkt_deals);
+    rd_kafka_topic_destroy(rkt_stops);
     rd_kafka_destroy(rk);
 
     return 0;
@@ -201,6 +212,19 @@ int push_order_message(uint32_t event, order_t *order, market_t *market)
     return 0;
 }
 
+int push_stop_message(uint32_t event, stop_t *stop, market_t *market)
+{
+    json_t *message = json_object();
+    json_object_set_new(message, "event", json_integer(event));
+    json_object_set_new(message, "order", get_stop_info(stop));
+
+    push_message(json_dumps(message, 0), rkt_stops, list_stops);
+    json_decref(message);
+    monitor_inc("message_order", 1);
+
+    return 0;
+}
+
 int push_deal_message(double t, uint64_t id, market_t *market, int side, order_t *ask, order_t *bid,
         mpd_t *price, mpd_t *amount, mpd_t *deal, const char *ask_fee_asset, mpd_t *ask_fee, const char *bid_fee_asset, mpd_t *bid_fee)
 {
@@ -235,6 +259,8 @@ bool is_message_block(void)
 {
     if (list_deals->len >= MAX_PENDING_MESSAGE)
         return true;
+    if (list_stops->len >= MAX_PENDING_MESSAGE)
+        return true;
     if (list_orders->len >= MAX_PENDING_MESSAGE)
         return true;
     if (list_balances->len >= MAX_PENDING_MESSAGE)
@@ -246,6 +272,7 @@ bool is_message_block(void)
 sds message_status(sds reply)
 {
     reply = sdscatprintf(reply, "message deals pending: %lu\n", list_deals->len);
+    reply = sdscatprintf(reply, "message stops pending: %lu\n", list_stops->len);
     reply = sdscatprintf(reply, "message orders pending: %lu\n", list_orders->len);
     reply = sdscatprintf(reply, "message balances pending: %lu\n", list_balances->len);
     return reply;

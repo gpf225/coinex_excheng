@@ -19,6 +19,108 @@ static sds sql_append_mpd(sds sql, mpd_t *val, bool comma)
     return sql;
 }
 
+static int dump_stops_list(MYSQL *conn, const char *table, skiplist_t *list)
+{
+    sds sql = sdsempty();
+
+    size_t insert_limit = 1000;
+    size_t index = 0;
+    skiplist_iter *iter = skiplist_get_iterator(list);
+    skiplist_node *node;
+    while ((node = skiplist_next(iter)) != NULL) {
+        stop_t *stop = node->value;
+        if (index == 0) {
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, `source`, "
+                    "`fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`) VALUES ", table);
+        } else {
+            sql = sdscatprintf(sql, ", ");
+        }
+
+        sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, '%s', '%s', '%s', ",
+                stop->id, stop->type, stop->side, stop->create_time, stop->update_time,
+                stop->user_id, stop->market, stop->source, stop->fee_asset);
+        sql = sql_append_mpd(sql, stop->fee_discount, true);
+        sql = sql_append_mpd(sql, stop->stop_price, true);
+        sql = sql_append_mpd(sql, stop->price, true);
+        sql = sql_append_mpd(sql, stop->amount, true);
+        sql = sql_append_mpd(sql, stop->taker_fee, true);
+        sql = sql_append_mpd(sql, stop->maker_fee, false);
+        sql = sdscatprintf(sql, ")");
+
+        index += 1;
+        if (index == insert_limit) {
+            log_trace("exec sql: %s", sql);
+            int ret = mysql_real_query(conn, sql, sdslen(sql));
+            if (ret < 0) {
+                log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+                skiplist_release_iterator(iter);
+                sdsfree(sql);
+                return -__LINE__;
+            }
+            sdsclear(sql);
+            index = 0;
+        }
+    }
+    skiplist_release_iterator(iter);
+
+    if (index > 0) {
+        log_trace("exec sql: %s", sql);
+        int ret = mysql_real_query(conn, sql, sdslen(sql));
+        if (ret < 0) {
+            log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+            sdsfree(sql);
+            return -__LINE__;
+        }
+    }
+
+    sdsfree(sql);
+    return 0;
+}
+
+int dump_stops(MYSQL *conn, const char *table)
+{
+    sds sql = sdsempty();
+    sql = sdscatprintf(sql, "DROP TABLE IF EXISTS `%s`", table);
+    log_trace("exec sql: %s", sql);
+    int ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        sdsfree(sql);
+        return -__LINE__;
+    }
+    sdsclear(sql);
+
+    sql = sdscatprintf(sql, "CREATE TABLE IF NOT EXISTS `%s` LIKE `slice_stop_example`", table);
+    log_trace("exec sql: %s", sql);
+    ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        sdsfree(sql);
+        return -__LINE__;
+    }
+    sdsfree(sql);
+
+    for (int i = 0; i < settings.market_num; ++i) {
+        market_t *market = get_market(settings.markets[i].name);
+        if (market == NULL) {
+            return -__LINE__;
+        }
+        int ret;
+        ret = dump_stops_list(conn, table, market->stop_asks);
+        if (ret < 0) {
+            log_error("dump market: %s asks stops list fail: %d", market->name, ret);
+            return -__LINE__;
+        }
+        ret = dump_stops_list(conn, table, market->stop_bids);
+        if (ret < 0) {
+            log_error("dump market: %s bids stops list fail: %d", market->name, ret);
+            return -__LINE__;
+        }
+    }
+
+    return 0;
+}
+
 static int dump_orders_list(MYSQL *conn, const char *table, skiplist_t *list)
 {
     sds sql = sdsempty();

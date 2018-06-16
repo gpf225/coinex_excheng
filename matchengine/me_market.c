@@ -11,11 +11,13 @@
 # include "me_message.h"
 # include "ut_comm_dict.h"
 
-static dict_t *dict_users;
-static nw_timer timer;
+static dict_t *dict_user_orders;
+static dict_t *dict_user_stops;
 
 uint64_t order_id_start;
 uint64_t deals_id_start;
+
+static nw_timer timer;
 
 struct dict_user_key {
     uint32_t    user_id;
@@ -93,9 +95,6 @@ static int order_match_compare(const void *value1, const void *value2)
     if (order1->id == order2->id) {
         return 0;
     }
-    if (order1->type != order2->type) {
-        return 1;
-    }
 
     int cmp;
     if (order1->side == MARKET_ORDER_SIDE_ASK) {
@@ -114,11 +113,47 @@ static int order_id_compare(const void *value1, const void *value2)
 {
     const order_t *order1 = value1;
     const order_t *order2 = value2;
+
     if (order1->id == order2->id) {
         return 0;
     }
 
     return order1->id > order2->id ? -1 : 1;
+}
+
+static int stop_match_compare(const void *value1, const void *value2)
+{
+    const stop_t *stop1 = value1;
+    const stop_t *stop2 = value2;
+
+    if (stop1->id == stop2->id) {
+        return 0;
+    }
+
+    int cmp;
+    if (stop1->side == MARKET_ORDER_SIDE_ASK) {
+        cmp = mpd_cmp(stop2->price, stop1->price, &mpd_ctx);
+    } else {
+        cmp = mpd_cmp(stop1->price, stop2->price, &mpd_ctx);
+    }
+
+    if (cmp != 0) {
+        return cmp;
+    }
+
+    return stop1->id > stop2->id ? 1 : -1;
+}
+
+static int stop_id_compare(const void *value1, const void *value2)
+{
+    const stop_t *stop1 = value1;
+    const stop_t *stop2 = value2;
+
+    if (stop1->id == stop2->id) {
+        return 0;
+    }
+
+    return stop1->id > stop2->id ? 1 : -1;
 }
 
 static void order_free(order_t *order)
@@ -143,17 +178,32 @@ static void order_free(order_t *order)
     free(order);
 }
 
+static void stop_free(stop_t *stop)
+{
+    mpd_del(stop->fee_discount);
+    mpd_del(stop->stop_price);
+    mpd_del(stop->price);
+    mpd_del(stop->amount);
+    mpd_del(stop->taker_fee);
+    mpd_del(stop->maker_fee);
+    free(stop->market);
+    free(stop->source);
+    free(stop->fee_asset);
+
+    free(stop);
+}
+
 json_t *get_order_info(order_t *order)
 {
     json_t *info = json_object();
     json_object_set_new(info, "id", json_integer(order->id));
-    json_object_set_new(info, "market", json_string(order->market));
-    json_object_set_new(info, "source", json_string(order->source));
     json_object_set_new(info, "type", json_integer(order->type));
     json_object_set_new(info, "side", json_integer(order->side));
     json_object_set_new(info, "user", json_integer(order->user_id));
     json_object_set_new(info, "ctime", json_real(order->create_time));
     json_object_set_new(info, "mtime", json_real(order->update_time));
+    json_object_set_new(info, "market", json_string(order->market));
+    json_object_set_new(info, "source", json_string(order->source));
 
     json_object_set_new_mpd(info, "price", order->price);
     json_object_set_new_mpd(info, "amount", order->amount);
@@ -175,7 +225,29 @@ json_t *get_order_info(order_t *order)
     return info;
 }
 
-static int order_put(market_t *m, order_t *order)
+json_t *get_stop_info(stop_t *stop)
+{
+    json_t *info = json_object();
+    json_object_set_new(info, "id", json_integer(stop->id));
+    json_object_set_new(info, "type", json_integer(stop->type));
+    json_object_set_new(info, "side", json_integer(stop->side));
+    json_object_set_new(info, "user", json_integer(stop->user_id));
+    json_object_set_new(info, "ctime", json_real(stop->create_time));
+    json_object_set_new(info, "mtime", json_real(stop->update_time));
+    json_object_set_new(info, "market", json_string(stop->market));
+    json_object_set_new(info, "source", json_string(stop->source));
+    json_object_set_new(info, "fee_asset", json_string(stop->fee_asset));
+
+    json_object_set_new_mpd(info, "price", stop->price);
+    json_object_set_new_mpd(info, "amount", stop->amount);
+    json_object_set_new_mpd(info, "taker_fee", stop->taker_fee);
+    json_object_set_new_mpd(info, "maker_fee", stop->maker_fee);
+    json_object_set_new_mpd(info, "fee_discount", stop->fee_discount);
+
+    return info;
+}
+
+static int put_order(market_t *m, order_t *order)
 {
     if (order->type != MARKET_ORDER_TYPE_LIMIT)
         return -__LINE__;
@@ -185,7 +257,7 @@ static int order_put(market_t *m, order_t *order)
         return -__LINE__;
 
     struct dict_user_key user_key = { .user_id = order->user_id };
-    dict_entry *entry = dict_find(m->users, &user_key);
+    dict_entry *entry = dict_find(m->user_orders, &user_key);
     if (entry) {
         skiplist_t *order_list = entry->val;
         if (skiplist_insert(order_list, order) == NULL)
@@ -199,11 +271,11 @@ static int order_put(market_t *m, order_t *order)
             return -__LINE__;
         if (skiplist_insert(order_list, order) == NULL)
             return -__LINE__;
-        if (dict_add(m->users, &user_key, order_list) == NULL)
+        if (dict_add(m->user_orders, &user_key, order_list) == NULL)
             return -__LINE__;
     }
 
-    entry = dict_find(dict_users, &user_key);
+    entry = dict_find(dict_user_orders, &user_key);
     if (entry) {
         skiplist_t *order_list = entry->val;
         if (skiplist_insert(order_list, order) == NULL)
@@ -217,7 +289,7 @@ static int order_put(market_t *m, order_t *order)
             return -__LINE__;
         if (skiplist_insert(order_list, order) == NULL)
             return -__LINE__;
-        if (dict_add(dict_users, &user_key, order_list) == NULL)
+        if (dict_add(dict_user_orders, &user_key, order_list) == NULL)
             return -__LINE__;
     }
 
@@ -240,12 +312,10 @@ static int order_put(market_t *m, order_t *order)
         mpd_del(result);
     }
 
-    monitor_inc("order_put", 1);
-
     return 0;
 }
 
-static int order_finish(bool real, market_t *m, order_t *order)
+static int finish_order(bool real, market_t *m, order_t *order)
 {
     if (order->side == MARKET_ORDER_SIDE_ASK) {
         skiplist_node *node = skiplist_find(m->asks, order);
@@ -273,7 +343,7 @@ static int order_finish(bool real, market_t *m, order_t *order)
     dict_delete(m->orders, &order_key);
 
     struct dict_user_key user_key = { .user_id = order->user_id };
-    dict_entry *entry = dict_find(m->users, &user_key);
+    dict_entry *entry = dict_find(m->user_orders, &user_key);
     if (entry) {
         skiplist_t *order_list = entry->val;
         skiplist_node *node = skiplist_find(order_list, order);
@@ -281,11 +351,11 @@ static int order_finish(bool real, market_t *m, order_t *order)
             skiplist_delete(order_list, node);
         }
         if (skiplist_len(order_list) == 0) {
-            dict_delete(m->users, &user_key);
+            dict_delete(m->user_orders, &user_key);
         }
     }
 
-    entry = dict_find(dict_users, &user_key);
+    entry = dict_find(dict_user_orders, &user_key);
     if (entry) {
         skiplist_t *order_list = entry->val;
         skiplist_node *node = skiplist_find(order_list, order);
@@ -293,7 +363,7 @@ static int order_finish(bool real, market_t *m, order_t *order)
             skiplist_delete(order_list, node);
         }
         if (skiplist_len(order_list) == 0) {
-            dict_delete(dict_users, &user_key);
+            dict_delete(dict_user_orders, &user_key);
         }
     }
 
@@ -307,14 +377,128 @@ static int order_finish(bool real, market_t *m, order_t *order)
     }
 
     order_free(order);
-    monitor_inc("order_finish", 1);
+    if (real) {
+        monitor_inc("finish_order", 1);
+    }
+
+    return 0;
+}
+
+static int put_stop(market_t *m, stop_t *stop)
+{
+    struct dict_order_key order_key = { .order_id = stop->id };
+    if (dict_add(m->stops, &order_key, stop) == NULL)
+        return -__LINE__;
+
+    struct dict_user_key user_key = { .user_id = stop->user_id };
+    dict_entry *entry = dict_find(m->user_stops, &user_key);
+    if (entry) {
+        skiplist_t *stop_list = entry->val;
+        if (skiplist_insert(stop_list, stop) == NULL)
+            return -__LINE__;
+    } else {
+        skiplist_type type;
+        memset(&type, 0, sizeof(type));
+        type.compare = stop_id_compare;
+        skiplist_t *stop_list = skiplist_create(&type);
+        if (stop_list == NULL)
+            return -__LINE__;
+        if (skiplist_insert(stop_list, stop) == NULL)
+            return -__LINE__;
+        if (dict_add(m->user_stops, &user_key, stop_list) == NULL)
+            return -__LINE__;
+    }
+
+    entry = dict_find(dict_user_stops, &user_key);
+    if (entry) {
+        skiplist_t *stop_list = entry->val;
+        if (skiplist_insert(stop_list, stop) == NULL)
+            return -__LINE__;
+    } else {
+        skiplist_type type;
+        memset(&type, 0, sizeof(type));
+        type.compare = stop_id_compare;
+        skiplist_t *stop_list = skiplist_create(&type);
+        if (stop_list == NULL)
+            return -__LINE__;
+        if (skiplist_insert(stop_list, stop) == NULL)
+            return -__LINE__;
+        if (dict_add(dict_user_stops, &user_key, stop_list) == NULL)
+            return -__LINE__;
+    }
+
+    if (stop->side == MARKET_ORDER_SIDE_ASK) {
+        if (skiplist_insert(m->stop_asks, stop) == NULL)
+            return -__LINE__;
+    } else {
+        if (skiplist_insert(m->stop_bids, stop) == NULL)
+            return -__LINE__;
+    }
+
+    return 0;
+}
+
+static int finish_stop(bool real, market_t *m, stop_t *stop, int status)
+{
+    if (stop->side == MARKET_ORDER_SIDE_ASK) {
+        skiplist_node *node = skiplist_find(m->stop_asks, stop);
+        if (node) {
+            skiplist_delete(m->asks, node);
+        }
+    } else {
+        skiplist_node *node = skiplist_find(m->stop_bids, stop);
+        if (node) {
+            skiplist_delete(m->bids, node);
+        }
+    }
+
+    struct dict_order_key order_key = { .order_id = stop->id };
+    dict_delete(m->stops, &order_key);
+
+    struct dict_user_key user_key = { .user_id = stop->user_id };
+    dict_entry *entry = dict_find(m->user_stops, &user_key);
+    if (entry) {
+        skiplist_t *stop_list = entry->val;
+        skiplist_node *node = skiplist_find(stop_list, stop);
+        if (node) {
+            skiplist_delete(stop_list, node);
+        }
+        if (skiplist_len(stop_list) == 0) {
+            dict_delete(m->user_stops, &user_key);
+        }
+    }
+
+    entry = dict_find(dict_user_stops, &user_key);
+    if (entry) {
+        skiplist_t *stop_list = entry->val;
+        skiplist_node *node = skiplist_find(stop_list, stop);
+        if (node) {
+            skiplist_delete(stop_list, node);
+        }
+        if (skiplist_len(stop_list) == 0) {
+            dict_delete(dict_user_stops, &user_key);
+        }
+    }
+
+    if (real) {
+        stop->update_time = current_timestamp();
+        int ret = append_stop_history(stop, status);
+        if (ret < 0) {
+            log_fatal("append_stop_history fail: %d, order: %"PRIu64"", ret, stop->id);
+        }
+    }
+
+    stop_free(stop);
+    if (real) {
+        monitor_inc("finish_stop", 1);
+    }
 
     return 0;
 }
 
 static void status_report(void)
 {
-    monitor_set("pending_users", dict_size(dict_users));
+    monitor_set("pending_users", dict_size(dict_user_orders));
 }
 
 static void on_timer(nw_timer *timer, void *privdata)
@@ -332,8 +516,12 @@ int init_market(void)
     dt.key_destructor   = dict_user_key_free;
     dt.val_destructor   = dict_user_val_free;
 
-    dict_users = dict_create(&dt, 1024);
-    if (dict_users == NULL)
+    dict_user_orders = dict_create(&dt, 1024);
+    if (dict_user_orders == NULL)
+        return -__LINE__;
+
+    dict_user_stops = dict_create(&dt, 1024);
+    if (dict_user_stops == NULL)
         return -__LINE__;
 
     nw_timer_set(&timer, 60, true, on_timer, NULL);
@@ -372,8 +560,11 @@ market_t *market_create(struct market *conf)
     dt.key_destructor   = dict_user_key_free;
     dt.val_destructor   = dict_user_val_free;
 
-    m->users = dict_create(&dt, 1024);
-    if (m->users == NULL)
+    m->user_orders = dict_create(&dt, 1024);
+    if (m->user_orders == NULL)
+        return NULL;
+    m->user_stops = dict_create(&dt, 1024);
+    if (m->user_stops == NULL)
         return NULL;
 
     memset(&dt, 0, sizeof(dt));
@@ -385,6 +576,9 @@ market_t *market_create(struct market *conf)
     m->orders = dict_create(&dt, 1024);
     if (m->orders == NULL)
         return NULL;
+    m->stops = dict_create(&dt, 1024);
+    if (m->stops == NULL)
+        return NULL;
 
     skiplist_type lt;
     memset(&lt, 0, sizeof(lt));
@@ -393,6 +587,14 @@ market_t *market_create(struct market *conf)
     m->asks = skiplist_create(&lt);
     m->bids = skiplist_create(&lt);
     if (m->asks == NULL || m->bids == NULL)
+        return NULL;
+
+    memset(&lt, 0, sizeof(lt));
+    lt.compare          = stop_match_compare;
+
+    m->stop_asks = skiplist_create(&lt);
+    m->stop_bids = skiplist_create(&lt);
+    if (m->stop_asks == NULL || m->stop_bids == NULL)
         return NULL;
 
     return m;
@@ -452,6 +654,73 @@ static int append_balance_trade_fee(order_t *order, const char *asset, mpd_t *ch
     free(detail_str);
     json_decref(detail);
     return ret;
+}
+
+static int active_stop_limit(bool real, market_t *m, stop_t *stop)
+{
+    int status = MARKET_STOP_STATUS_ACTIVE;
+    int ret = market_put_limit_order(real, NULL, m, stop->user_id, stop->side, stop->amount, stop->price,
+                stop->taker_fee, stop->maker_fee, stop->source, stop->fee_asset, stop->fee_discount);
+    if (ret < 0) {
+        status = MARKET_STOP_STATUS_FAIL;
+    }
+
+    return finish_stop(real, m, stop, status);
+}
+
+static int active_stop_market(bool real, market_t *m, stop_t *stop)
+{
+    int status = MARKET_STOP_STATUS_ACTIVE;
+    int ret = market_put_market_order(real, NULL, m, stop->user_id, stop->side, stop->amount,
+                stop->taker_fee, stop->source, stop->fee_asset, stop->fee_discount);
+    if (ret < 0) {
+        status = MARKET_STOP_STATUS_FAIL;
+    }
+
+    return finish_stop(real, m, stop, status);
+}
+
+static int active_stop(bool real, market_t *m, stop_t *stop)
+{
+    if (stop->type == MARKET_ORDER_TYPE_LIMIT) {
+        return active_stop_limit(real, m, stop);
+    } else {
+        return active_stop_market(real, m, stop);
+    }
+}
+
+static int check_stop_asks(bool real, market_t *m)
+{
+    skiplist_node *node;
+    skiplist_iter *iter = skiplist_get_iterator(m->stop_asks);
+    while ((node = skiplist_next(iter)) != NULL) {
+        stop_t *stop = node->value;
+        if (mpd_cmp(stop->stop_price, m->last, &mpd_ctx) >= 0) {
+            active_stop(real, m, stop);
+        } else {
+            break;
+        }
+    }
+    skiplist_release_iterator(iter);
+
+    return 0;
+}
+
+static int check_stop_bids(bool real, market_t *m)
+{
+    skiplist_node *node;
+    skiplist_iter *iter = skiplist_get_iterator(m->stop_bids);
+    while ((node = skiplist_next(iter)) != NULL) {
+        stop_t *stop = node->value;
+        if (mpd_cmp(stop->stop_price, m->last, &mpd_ctx) <= 0) {
+            active_stop(real, m, stop);
+        } else {
+            break;
+        }
+    }
+    skiplist_release_iterator(iter);
+
+    return 0;
 }
 
 static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
@@ -589,7 +858,7 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, maker, m);
             }
-            order_finish(real, m, maker);
+            finish_order(real, m, maker);
         } else {
             if (real) {
                 push_order_message(ORDER_EVENT_UPDATE, maker, m);
@@ -745,7 +1014,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, maker, m);
             }
-            order_finish(real, m, maker);
+            finish_order(real, m, maker);
         } else {
             if (real) {
                 push_order_message(ORDER_EVENT_UPDATE, maker, m);
@@ -826,7 +1095,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     mpd_copy(order->asset_fee, mpd_zero, &mpd_ctx);
     mpd_copy(order->fee_discount, mpd_zero, &mpd_ctx);
 
-    if (fee_asset) {
+    if (fee_asset && strlen(fee_asset) > 0) {
         order->fee_asset = strdup(fee_asset);
         order->fee_price = get_fee_price(m, fee_asset);
         if (order->fee_price == NULL)
@@ -857,18 +1126,30 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
                 log_fatal("append_order_history fail: %d, order: %"PRIu64"", ret, order->id);
             }
             push_order_message(ORDER_EVENT_FINISH, order, m);
-            *result = get_order_info(order);
+            if (result) {
+                *result = get_order_info(order);
+            }
         }
         order_free(order);
     } else {
         if (real) {
             push_order_message(ORDER_EVENT_PUT, order, m);
-            *result = get_order_info(order);
+            if (result) {
+                *result = get_order_info(order);
+            }
         }
-        ret = order_put(m, order);
+        ret = put_order(m, order);
         if (ret < 0) {
-            log_fatal("order_put fail: %d, order: %"PRIu64"", ret, order->id);
+            log_fatal("put_order fail: %d, order: %"PRIu64"", ret, order->id);
+        } else if (real) {
+            monitor_inc("put_order", 1);
         }
+    }
+
+    if (side == MARKET_ORDER_SIDE_ASK) {
+        check_stop_asks(real, m);
+    } else {
+        check_stop_bids(real, m);
     }
 
     return 0;
@@ -1005,7 +1286,7 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, maker, m);
             }
-            order_finish(real, m, maker);
+            finish_order(real, m, maker);
         } else {
             if (real) {
                 push_order_message(ORDER_EVENT_UPDATE, maker, m);
@@ -1170,7 +1451,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, maker, m);
             }
-            order_finish(real, m, maker);
+            finish_order(real, m, maker);
         } else {
             if (real) {
                 push_order_message(ORDER_EVENT_UPDATE, maker, m);
@@ -1268,7 +1549,7 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
     mpd_copy(order->asset_fee, mpd_zero, &mpd_ctx);
     mpd_copy(order->fee_discount, mpd_zero, &mpd_ctx);
 
-    if (fee_asset) {
+    if (fee_asset && strlen(fee_asset) > 0) {
         order->fee_asset = strdup(fee_asset);
         order->fee_price = get_fee_price(m, fee_asset);
         if (order->fee_price == NULL)
@@ -1298,10 +1579,164 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
             log_fatal("append_order_history fail: %d, order: %"PRIu64"", ret, order->id);
         }
         push_order_message(ORDER_EVENT_FINISH, order, m);
-        *result = get_order_info(order);
+        if (result) {
+            *result = get_order_info(order);
+        }
     }
 
     order_free(order);
+
+    if (side == MARKET_ORDER_SIDE_ASK) {
+        check_stop_asks(real, m);
+    } else {
+        check_stop_bids(real, m);
+    }
+
+    return 0;
+}
+
+int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount, mpd_t *stop_price, mpd_t *price,
+        mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount)
+{
+    if (side == MARKET_ORDER_SIDE_ASK) {
+        mpd_t *balance = balance_get(user_id, BALANCE_TYPE_AVAILABLE, m->stock);
+        if (!balance || mpd_cmp(balance, amount, &mpd_ctx) < 0) {
+            return -1;
+        }
+        if (mpd_cmp(stop_price, m->last, &mpd_ctx) >= 0) {
+            return -2;
+        }
+    } else {
+        mpd_t *balance = balance_get(user_id, BALANCE_TYPE_AVAILABLE, m->money);
+        mpd_t *require = mpd_new(&mpd_ctx);
+        mpd_mul(require, amount, price, &mpd_ctx);
+        if (!balance || mpd_cmp(balance, require, &mpd_ctx) < 0) {
+            mpd_del(require);
+            return -1;
+        }
+        mpd_del(require);
+        if (mpd_cmp(stop_price, m->last, &mpd_ctx) <= 0) {
+            return -2;
+        }
+    }
+
+    if (real && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
+        return -3;
+    }
+
+    stop_t *stop = malloc(sizeof(stop_t));
+    if (stop == NULL)
+        return -__LINE__;
+    memset(stop, 0, sizeof(stop_t));
+
+    stop->id            = ++order_id_start;
+    stop->type          = MARKET_ORDER_TYPE_LIMIT;
+    stop->side          = side;
+    stop->create_time   = current_timestamp();
+    stop->update_time   = stop->create_time;
+    stop->user_id       = user_id;
+    stop->market        = strdup(m->name);
+    stop->source        = strdup(source);
+    stop->fee_asset     = strdup(fee_asset);
+    stop->fee_discount  = mpd_new(&mpd_ctx);
+    stop->stop_price    = mpd_new(&mpd_ctx);
+    stop->price         = mpd_new(&mpd_ctx);
+    stop->amount        = mpd_new(&mpd_ctx);
+    stop->taker_fee     = mpd_new(&mpd_ctx);
+    stop->maker_fee     = mpd_new(&mpd_ctx);
+
+    mpd_copy(stop->stop_price, stop_price, &mpd_ctx);
+    mpd_copy(stop->price, price, &mpd_ctx);
+    mpd_copy(stop->amount, amount, &mpd_ctx);
+    mpd_copy(stop->taker_fee, taker_fee, &mpd_ctx);
+    mpd_copy(stop->maker_fee, maker_fee, &mpd_ctx);
+    if (fee_discount) {
+        mpd_copy(stop->fee_discount, fee_discount, &mpd_ctx);
+    } else {
+        mpd_copy(stop->fee_discount, mpd_one, &mpd_ctx);
+    }
+
+    int ret = put_stop(m, stop);
+    if (ret < 0) {
+        log_fatal("put_stop fail: %d", ret);
+    } else if (real) {
+        monitor_inc("put_stop", 1);
+    }
+
+    if (real) {
+        push_stop_message(STOP_EVENT_PUT, stop, m);
+    }
+
+    return 0;
+}
+
+int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount, mpd_t *stop_price,
+        mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount)
+{
+    if (side == MARKET_ORDER_SIDE_ASK) {
+        mpd_t *balance = balance_get(user_id, BALANCE_TYPE_AVAILABLE, m->stock);
+        if (!balance || mpd_cmp(balance, amount, &mpd_ctx) < 0) {
+            return -1;
+        }
+        if (mpd_cmp(stop_price, m->last, &mpd_ctx) >= 0) {
+            return -2;
+        }
+        if (real && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
+            return -2;
+        }
+    } else {
+        mpd_t *balance = balance_get(user_id, BALANCE_TYPE_AVAILABLE, m->money);
+        if (!balance || mpd_cmp(balance, amount, &mpd_ctx) < 0) {
+            return -1;
+        }
+        if (mpd_cmp(stop_price, m->last, &mpd_ctx) <= 0) {
+            return -2;
+        }
+    }
+
+    stop_t *stop = malloc(sizeof(stop_t));
+    if (stop == NULL)
+        return -__LINE__;
+    memset(stop, 0, sizeof(stop_t));
+
+    stop->id            = ++order_id_start;
+    stop->type          = MARKET_ORDER_TYPE_MARKET;
+    stop->side          = side;
+    stop->create_time   = current_timestamp();
+    stop->update_time   = stop->create_time;
+    stop->user_id       = user_id;
+    stop->market        = strdup(m->name);
+    stop->source        = strdup(source);
+    stop->fee_asset     = strdup(fee_asset);
+    stop->fee_discount  = mpd_new(&mpd_ctx);
+    stop->stop_price    = mpd_new(&mpd_ctx);
+    stop->price         = mpd_new(&mpd_ctx);
+    stop->amount        = mpd_new(&mpd_ctx);
+    stop->taker_fee     = mpd_new(&mpd_ctx);
+    stop->maker_fee     = mpd_new(&mpd_ctx);
+
+    mpd_copy(stop->stop_price, stop_price, &mpd_ctx);
+    mpd_copy(stop->price, mpd_zero, &mpd_ctx);
+    mpd_copy(stop->amount, amount, &mpd_ctx);
+    mpd_copy(stop->taker_fee, taker_fee, &mpd_ctx);
+    mpd_copy(stop->maker_fee, mpd_zero, &mpd_ctx);
+    if (fee_discount) {
+        mpd_copy(stop->fee_discount, fee_discount, &mpd_ctx);
+    } else {
+        mpd_copy(stop->fee_discount, mpd_one, &mpd_ctx);
+    }
+
+    int ret = put_stop(m, stop);
+    if (ret < 0) {
+        log_fatal("put_stop fail: %d", ret);
+    } else if (real) {
+        monitor_inc("put_stop", 1);
+    }
+
+    if (real) {
+        push_stop_message(STOP_EVENT_PUT, stop, m);
+    }
+
     return 0;
 }
 
@@ -1311,13 +1746,28 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
         push_order_message(ORDER_EVENT_FINISH, order, m);
         *result = get_order_info(order);
     }
-    order_finish(real, m, order);
+    finish_order(real, m, order);
+    return 0;
+}
+
+int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop)
+{
+    if (real) {
+        push_stop_message(STOP_EVENT_CANCEL, stop, m);
+        *result = get_stop_info(stop);
+    }
+    finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
     return 0;
 }
 
 int market_put_order(market_t *m, order_t *order)
 {
-    return order_put(m, order);
+    return put_order(m, order);
+}
+
+int market_put_stop(market_t *m, stop_t *stop)
+{
+    return put_stop(m, stop);
 }
 
 order_t *market_get_order(market_t *m, uint64_t order_id)
@@ -1330,16 +1780,44 @@ order_t *market_get_order(market_t *m, uint64_t order_id)
     return NULL;
 }
 
+stop_t *market_get_stop(market_t *m, uint64_t order_id)
+{
+    struct dict_order_key key = { .order_id = order_id };
+    dict_entry *entry = dict_find(m->stops, &key);
+    if (entry) {
+        return entry->val;
+    }
+    return NULL;
+}
+
 skiplist_t *market_get_order_list(market_t *m, uint32_t user_id)
 {
     struct dict_user_key key = { .user_id = user_id };
     if (m) {
-        dict_entry *entry = dict_find(m->users, &key);
+        dict_entry *entry = dict_find(m->user_orders, &key);
         if (entry) {
             return entry->val;
         }
     } else {
-        dict_entry *entry = dict_find(dict_users, &key);
+        dict_entry *entry = dict_find(dict_user_orders, &key);
+        if (entry) {
+            return entry->val;
+        }
+    }
+
+    return NULL;
+}
+
+skiplist_t *market_get_stop_list(market_t *m, uint32_t user_id)
+{
+    struct dict_user_key key = { .user_id = user_id };
+    if (m) {
+        dict_entry *entry = dict_find(m->user_stops, &key);
+        if (entry) {
+            return entry->val;
+        }
+    } else {
+        dict_entry *entry = dict_find(dict_user_stops, &key);
         if (entry) {
             return entry->val;
         }
@@ -1350,11 +1828,12 @@ skiplist_t *market_get_order_list(market_t *m, uint32_t user_id)
 
 int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t *ask_amount, mpd_t *ask_value, size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value, mpd_t *last)
 {
-    *user_count = dict_size(m->users);
+    *user_count = dict_size(m->user_stops);
     mpd_t *value = mpd_new(&mpd_ctx);
 
     *ask_count = m->asks->len;
     *bid_count = m->bids->len;
+
     mpd_copy(ask_amount, mpd_zero, &mpd_ctx);
     mpd_copy(ask_value,  mpd_zero, &mpd_ctx);
     mpd_copy(bid_amount, mpd_zero, &mpd_ctx);
@@ -1386,7 +1865,7 @@ int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t 
 
 sds market_status(sds reply)
 {
-    reply = sdscatprintf(reply, "total user: %u\n", dict_size(dict_users));
+    reply = sdscatprintf(reply, "total user: %u\n", dict_size(dict_user_orders));
     reply = sdscatprintf(reply, "order last ID: %"PRIu64"\n", order_id_start);
     reply = sdscatprintf(reply, "deals last ID: %"PRIu64"\n", deals_id_start);
     return reply;

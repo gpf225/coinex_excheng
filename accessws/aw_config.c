@@ -93,6 +93,11 @@ static int read_config_from_json(json_t *root)
         printf("load kafka deals config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_kafka_consumer(root, "stops", &settings.stops);
+    if (ret < 0) {
+        printf("load kafka stops config fail: %d\n", ret);
+        return -__LINE__;
+    }
     ret = load_cfg_kafka_consumer(root, "orders", &settings.orders);
     if (ret < 0) {
         printf("load kafka orders config fail: %d\n", ret);

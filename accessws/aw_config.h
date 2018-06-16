@@ -69,6 +69,7 @@ struct settings {
     rpc_clt_cfg         readhistory;
 
     kafka_consumer_cfg  deals;
+    kafka_consumer_cfg  stops;
     kafka_consumer_cfg  orders;
     kafka_consumer_cfg  balances;
 
