@@ -137,11 +137,14 @@ static int on_cmd_market_status(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (process_cache(ses, pkg, &cache_key))
         return 0;
 
+    double task_start = current_timestamp();
     json_t *result = get_market_status(market, period);
     if (result == NULL) {
         sdsfree(cache_key);
         return reply_error_internal_error(ses, pkg);
     }
+    monitor_inc("profile_status_times", 1);
+    monitor_inc("profile_status_costs", (int)((current_timestamp() - task_start) * 1000000));
 
     add_cache(cache_key, result);
     sdsfree(cache_key);
@@ -207,6 +210,7 @@ static int on_cmd_market_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (process_cache(ses, pkg, &cache_key))
         return 0;
 
+    double task_start = current_timestamp();
     json_t *result = NULL;
     if (interval < 60) {
         if (60 % interval != 0) {
@@ -245,6 +249,9 @@ static int on_cmd_market_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         sdsfree(cache_key);
         return reply_error_internal_error(ses, pkg);
     }
+
+    monitor_inc("profile_kline_times", 1);
+    monitor_inc("profile_kline_costs", (int)((current_timestamp() - task_start) * 1000000));
 
     add_cache(cache_key, result);
     sdsfree(cache_key);

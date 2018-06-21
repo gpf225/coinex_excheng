@@ -514,7 +514,7 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
 
 static void on_deals_message(sds message, int64_t offset)
 {
-    double start = current_timestamp();
+    double task_start = current_timestamp();
     log_trace("deals message: %s, offset: %"PRIi64, message, offset);
     json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
     if (obj == NULL) {
@@ -564,10 +564,10 @@ static void on_deals_message(sds message, int64_t offset)
         goto cleanup;
     }
 
-    last_offset = offset;
     monitor_inc("new_message", 1);
+    monitor_inc("new_message_costs", (int)((current_timestamp() - task_start) * 1000000));
 
-    log_trace("process deal message cost: %.6f", current_timestamp() - start);
+    last_offset = offset;
     mpd_del(price);
     mpd_del(amount);
     json_decref(obj);
