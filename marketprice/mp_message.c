@@ -379,42 +379,6 @@ static int init_market(void)
             redisFree(context);
             return -__LINE__;
         }
-
-        const char *stock = json_string_value(json_object_get(item, "stock"));
-        if (!market_exist(stock)) {
-            log_stderr("init market %s", stock);
-            info = create_market(stock);
-            if (info == NULL) {
-                log_error("create market %s fail", stock);
-                json_decref(r);
-                redisFree(context);
-                return -__LINE__;
-            }
-            ret = load_market(context, info);
-            if (ret < 0) {
-                log_error("load market %s fail: %d", stock, ret);
-                json_decref(r);
-                redisFree(context);
-            }
-        }
-
-        const char *money = json_string_value(json_object_get(item, "money"));
-        if (!market_exist(money)) {
-            log_stderr("init market %s", money);
-            info = create_market(money);
-            if (info == NULL) {
-                log_error("create market %s fail", money);
-                json_decref(r);
-                redisFree(context);
-                return -__LINE__;
-            }
-            ret = load_market(context, info);
-            if (ret < 0) {
-                log_error("load market %s fail: %d", money, ret);
-                json_decref(r);
-                redisFree(context);
-            }
-        }
     }
     json_decref(r);
     redisFree(context);
@@ -548,82 +512,6 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
     return 0;
 }
 
-static int volume_update(double timestamp, const char *market, mpd_t *amount)
-{
-    mpd_t *price = mpd_zero;
-    struct market_info *info = market_query(market);
-    if (info == NULL) {
-        info = create_market(market);
-        if (info == NULL) {
-            return -__LINE__;
-        }
-        log_info("add market: %s", market);
-    }
-
-    // update sec
-    time_t time_sec = (time_t)timestamp;
-    dict_entry *entry;
-    struct kline_info *kinfo = NULL;
-    entry = dict_find(info->sec, &time_sec);
-    if (entry) {
-        kinfo = entry->val;
-    } else {
-        kinfo = kline_info_new(price);
-        if (kinfo == NULL)
-            return -__LINE__;
-        dict_add(info->sec, &time_sec, kinfo);
-    }
-    kline_info_update(kinfo, price, amount);
-    add_kline_update(info, INTERVAL_SEC, time_sec);
-
-    // update min
-    time_t time_min = time_sec / 60 * 60;
-    entry = dict_find(info->min, &time_min);
-    if (entry) {
-        kinfo = entry->val;
-    } else {
-        kinfo = kline_info_new(price);
-        if (kinfo == NULL)
-            return -__LINE__;
-        dict_add(info->min, &time_min, kinfo);
-    }
-    kline_info_update(kinfo, price, amount);
-    add_kline_update(info, INTERVAL_MIN, time_min);
-
-    // update hour
-    time_t time_hour = time_sec / 3600 * 3600;
-    entry = dict_find(info->hour, &time_hour);
-    if (entry) {
-        kinfo = entry->val;
-    } else {
-        kinfo = kline_info_new(price);
-        if (kinfo == NULL)
-            return -__LINE__;
-        dict_add(info->hour, &time_hour, kinfo);
-    }
-    kline_info_update(kinfo, price, amount);
-    add_kline_update(info, INTERVAL_HOUR, time_hour);
-
-    // update day
-    time_t time_day = time_sec / 86400 * 86400;
-    entry = dict_find(info->day, &time_day);
-    if (entry) {
-        kinfo = entry->val;
-    } else {
-        kinfo = kline_info_new(price);
-        if (kinfo == NULL)
-            return -__LINE__;
-        dict_add(info->day, &time_day, kinfo);
-    }
-    kline_info_update(kinfo, price, amount);
-    add_kline_update(info, INTERVAL_DAY, time_day);
-
-    // update time
-    info->update_time = current_timestamp();
-
-    return 0;
-}
-
 static void on_deals_message(sds message, int64_t offset)
 {
     double start = current_timestamp();
@@ -636,7 +524,6 @@ static void on_deals_message(sds message, int64_t offset)
 
     mpd_t *price    = NULL;
     mpd_t *amount   = NULL;
-    mpd_t *deal     = NULL;
 
     double timestamp = json_real_value(json_object_get(obj, "timestamp"));
     if (timestamp == 0) {
@@ -648,14 +535,6 @@ static void on_deals_message(sds message, int64_t offset)
     }
     const char *market = json_string_value(json_object_get(obj, "market"));
     if (!market) {
-        goto cleanup;
-    }
-    const char *stock = json_string_value(json_object_get(obj, "stock"));
-    if (!stock) {
-        goto cleanup;
-    }
-    const char *money = json_string_value(json_object_get(obj, "money"));
-    if (!money) {
         goto cleanup;
     }
     int side = json_integer_value(json_object_get(obj, "side"));
@@ -678,27 +557,10 @@ static void on_deals_message(sds message, int64_t offset)
     if (!amount_str || (amount = decimal(amount_str, 0)) == NULL) {
         goto cleanup;
     }
-    const char *deal_str = json_string_value(json_object_get(obj, "deal"));
-    if (!deal_str || (deal = decimal(deal_str, 0)) == NULL) {
-        goto cleanup;
-    }
 
-    int ret;
-    ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
+    int ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
     if (ret < 0) {
         log_error("market_update fail %d, message: %s", ret, message);
-        goto cleanup;
-    }
-
-    ret = volume_update(timestamp, stock, amount);
-    if (ret < 0) {
-        log_error("volume_update fail %d, message: %s", ret, message);
-        goto cleanup;
-    }
-
-    ret = volume_update(timestamp, money, deal);
-    if (ret < 0) {
-        log_error("volume_update fail %d, message: %s", ret, message);
         goto cleanup;
     }
 
@@ -708,7 +570,6 @@ static void on_deals_message(sds message, int64_t offset)
     log_trace("process deal message cost: %.6f", current_timestamp() - start);
     mpd_del(price);
     mpd_del(amount);
-    mpd_del(deal);
     json_decref(obj);
     return;
 
@@ -718,8 +579,6 @@ cleanup:
         mpd_del(price);
     if (amount)
         mpd_del(amount);
-    if (deal)
-        mpd_del(deal);
     json_decref(obj);
 }
 
@@ -1082,28 +941,6 @@ int update_market_list(void)
                 return -__LINE__;
             }
             log_info("add market: %s", name);
-        }
-
-        const char *stock = json_string_value(json_object_get(item, "stock"));
-        info = market_query(stock);
-        if (info == NULL) {
-            info = create_market(stock);
-            if (info == NULL) {
-                json_decref(r);
-                return -__LINE__;
-            }
-            log_info("add market: %s", stock);
-        }
-
-        const char *money = json_string_value(json_object_get(item, "money"));
-        info = market_query(money);
-        if (info == NULL) {
-            info = create_market(money);
-            if (info == NULL) {
-                json_decref(r);
-                return -__LINE__;
-            }
-            log_info("add market: %s", money);
         }
     }
     json_decref(r);
