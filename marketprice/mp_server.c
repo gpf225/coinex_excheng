@@ -333,12 +333,11 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         goto decode_error;
     }
     sds params_str = sdsnewlen(pkg->body, pkg->body_size);
+    log_trace("from: %s cmd: %u , squence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, params_str);
 
     int ret;
-    double start = current_timestamp();
     switch (pkg->command) {
     case CMD_MARKET_STATUS:
-        log_debug("from: %s cmd market status, squence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
         monitor_inc("cmd_market_status", 1);
         ret = on_cmd_market_status(ses, pkg, params);
         if (ret < 0) {
@@ -347,7 +346,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_MARKET_LAST:
         monitor_inc("cmd_market_last", 1);
-        log_debug("from: %s cmd market last, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
         ret = on_cmd_market_last(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_last %s fail: %d", params_str, ret);
@@ -355,7 +353,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_MARKET_KLINE:
         monitor_inc("cmd_market_kline", 1);
-        log_debug("from: %s cmd market kline, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
         ret = on_cmd_market_kline(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_kline %s fail: %d", params_str, ret);
@@ -363,7 +360,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_MARKET_DEALS:
         monitor_inc("cmd_market_deals", 1);
-        log_debug("from: %s cmd market deals, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
         ret = on_cmd_market_deals(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_deals %s fail: %d", params_str, ret);
@@ -371,7 +367,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_MARKET_DEALS_EXT:
         monitor_inc("cmd_market_deals_ext", 1);
-        log_debug("from: %s cmd market deals ext, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
         ret = on_cmd_market_deals_ext(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_deals_ext %s fail: %d", params_str, ret);
@@ -382,7 +377,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     }
 
-    log_trace("cmd: %u params_str: %s process time: %.6f", pkg->command, params_str, current_timestamp() - start);
     sdsfree(params_str);
     json_decref(params);
     return;
