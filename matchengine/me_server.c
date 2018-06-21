@@ -305,6 +305,76 @@ static int on_cmd_asset_update(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return reply_success(ses, pkg);
 }
 
+static int on_cmd_asset_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // asset
+    if (!json_is_string(json_array_get(params, 1)))
+        return reply_error_invalid_argument(ses, pkg);
+    const char *asset = json_string_value(json_array_get(params, 1));
+    int prec = asset_prec_show(asset);
+    if (prec < 0)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // amount
+    if (!json_is_string(json_array_get(params, 2)))
+        return reply_error_invalid_argument(ses, pkg);
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 2)), prec);
+    if (amount == NULL)
+        return reply_error_invalid_argument(ses, pkg);
+
+    if (balance_freeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+        mpd_del(amount);
+        return reply_error(ses, pkg, 10, "balance not enough");
+    }
+
+    mpd_del(amount);
+    append_operlog("asset_lock", params);
+    return reply_success(ses, pkg);
+}
+
+static int on_cmd_asset_unlock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // asset
+    if (!json_is_string(json_array_get(params, 1)))
+        return reply_error_invalid_argument(ses, pkg);
+    const char *asset = json_string_value(json_array_get(params, 1));
+    int prec = asset_prec_show(asset);
+    if (prec < 0)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // amount
+    if (!json_is_string(json_array_get(params, 2)))
+        return reply_error_invalid_argument(ses, pkg);
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 2)), prec);
+    if (amount == NULL)
+        return reply_error_invalid_argument(ses, pkg);
+
+    if (balance_unfreeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+        mpd_del(amount);
+        return reply_error(ses, pkg, 10, "balance not enough");
+    }
+
+    mpd_del(amount);
+    append_operlog("asset_unlock", params);
+    return reply_success(ses, pkg);
+}
+
 static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     json_t *result = json_array();
@@ -1129,6 +1199,34 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_asset_update(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_update %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_LOCK:
+        if (is_operlog_block() || is_history_block() || is_message_block()) {
+            log_fatal("service unavailable, operlog: %d, history: %d, message: %d",
+                    is_operlog_block(), is_history_block(), is_message_block());
+            reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
+        log_trace("from: %s cmd balance lock, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_asset_lock", 1);
+        ret = on_cmd_asset_lock(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_lock %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_UNLOCK:
+        if (is_operlog_block() || is_history_block() || is_message_block()) {
+            log_fatal("service unavailable, operlog: %d, history: %d, message: %d",
+                    is_operlog_block(), is_history_block(), is_message_block());
+            reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
+        log_trace("from: %s cmd balance unlock, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        monitor_inc("cmd_asset_unlock", 1);
+        ret = on_cmd_asset_unlock(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_unlock %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_PUT_LIMIT:

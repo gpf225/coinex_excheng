@@ -179,6 +179,74 @@ static int load_update_balance(json_t *params)
     return 0;
 }
 
+static int load_asset_lock(json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return -__LINE__;
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return -__LINE__;
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // asset
+    if (!json_is_string(json_array_get(params, 1)))
+        return -__LINE__;
+    const char *asset = json_string_value(json_array_get(params, 1));
+    int prec = asset_prec(asset);
+    if (prec < 0)
+        return 0;
+
+    // amount
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 2)), prec);
+    if (amount == NULL)
+        return -__LINE__;
+
+    if (balance_freeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+        mpd_del(amount);
+        return -__LINE__;
+    }
+
+    mpd_del(amount);
+    return 0;
+}
+
+static int load_asset_unlock(json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return -__LINE__;
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return -__LINE__;
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // asset
+    if (!json_is_string(json_array_get(params, 1)))
+        return -__LINE__;
+    const char *asset = json_string_value(json_array_get(params, 1));
+    int prec = asset_prec(asset);
+    if (prec < 0)
+        return 0;
+
+    // amount
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 2)), prec);
+    if (amount == NULL)
+        return -__LINE__;
+
+    if (balance_unfreeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+        mpd_del(amount);
+        return -__LINE__;
+    }
+
+    mpd_del(amount);
+    return 0;
+}
+
 static int load_limit_order(json_t *params)
 {
     if (json_array_size(params) < 8)
@@ -444,6 +512,10 @@ static int load_oper(json_t *detail)
     int ret = 0;
     if (strcmp(method, "update_balance") == 0) {
         ret = load_update_balance(params);
+    } else if (strcmp(method, "asset_lock") == 0) {
+        ret = load_asset_lock(params);
+    } else if (strcmp(method, "asset_unlock") == 0) {
+        ret = load_asset_unlock(params);
     } else if (strcmp(method, "limit_order") == 0) {
         ret = load_limit_order(params);
     } else if (strcmp(method, "market_order") == 0) {
