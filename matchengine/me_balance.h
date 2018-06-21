@@ -10,6 +10,7 @@
 
 # define BALANCE_TYPE_AVAILABLE 1
 # define BALANCE_TYPE_FROZEN    2
+# define BALANCE_TYPE_LOCK      3
 
 extern dict_t *dict_balance;
 
@@ -31,10 +32,12 @@ void   balance_del(uint32_t user_id, uint32_t type, const char *asset);
 mpd_t *balance_set(uint32_t user_id, uint32_t type, const char *asset, mpd_t *amount);
 mpd_t *balance_add(uint32_t user_id, uint32_t type, const char *asset, mpd_t *amount);
 mpd_t *balance_sub(uint32_t user_id, uint32_t type, const char *asset, mpd_t *amount);
-mpd_t *balance_freeze(uint32_t user_id, const char *asset, mpd_t *amount);
-mpd_t *balance_unfreeze(uint32_t user_id, const char *asset, mpd_t *amount);
+mpd_t *balance_freeze(uint32_t user_id, uint32_t type, const char *asset, mpd_t *amount);
+mpd_t *balance_unfreeze(uint32_t user_id, uint32_t type, const char *asset, mpd_t *amount);
 
 mpd_t *balance_total(uint32_t user_id, const char *asset);
+mpd_t *balance_frozen(uint32_t user_id, const char *asset);
+mpd_t *balance_available(uint32_t user_id, const char *asset);
 int balance_status(const char *asset, size_t *total_user, mpd_t *total, size_t *available_user, mpd_t *available, size_t *frozen_user, mpd_t *frozen);
 
 # endif

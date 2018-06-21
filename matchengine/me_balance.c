@@ -289,8 +289,11 @@ mpd_t *balance_sub(uint32_t user_id, uint32_t type, const char *asset, mpd_t *am
     return result;
 }
 
-mpd_t *balance_freeze(uint32_t user_id, const char *asset, mpd_t *amount)
+mpd_t *balance_freeze(uint32_t user_id, uint32_t type, const char *asset, mpd_t *amount)
 {
+    if (type != BALANCE_TYPE_FROZEN && type != BALANCE_TYPE_LOCK)
+        return NULL;
+
     struct asset_type *at = get_asset_type(asset);
     if (at == NULL)
         return NULL;
@@ -303,7 +306,7 @@ mpd_t *balance_freeze(uint32_t user_id, const char *asset, mpd_t *amount)
     if (mpd_cmp(available, amount, &mpd_ctx) < 0)
         return NULL;
 
-    if (balance_add(user_id, BALANCE_TYPE_FROZEN, asset, amount) == 0)
+    if (balance_add(user_id, type, asset, amount) == 0)
         return NULL;
     mpd_sub(available, available, amount, &mpd_ctx);
     if (mpd_cmp(available, mpd_zero, &mpd_ctx) == 0) {
@@ -315,15 +318,18 @@ mpd_t *balance_freeze(uint32_t user_id, const char *asset, mpd_t *amount)
     return available;
 }
 
-mpd_t *balance_unfreeze(uint32_t user_id, const char *asset, mpd_t *amount)
+mpd_t *balance_unfreeze(uint32_t user_id, uint32_t type, const char *asset, mpd_t *amount)
 {
+    if (type != BALANCE_TYPE_FROZEN && type != BALANCE_TYPE_LOCK)
+        return NULL;
+
     struct asset_type *at = get_asset_type(asset);
     if (at == NULL)
         return NULL;
 
     if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0)
         return NULL;
-    mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
+    mpd_t *frozen = balance_get(user_id, type, asset);
     if (frozen == NULL)
         return NULL;
     if (mpd_cmp(frozen, amount, &mpd_ctx) < 0)
@@ -333,7 +339,7 @@ mpd_t *balance_unfreeze(uint32_t user_id, const char *asset, mpd_t *amount)
         return NULL;
     mpd_sub(frozen, frozen, amount, &mpd_ctx);
     if (mpd_cmp(frozen, mpd_zero, &mpd_ctx) == 0) {
-        balance_del(user_id, BALANCE_TYPE_FROZEN, asset);
+        balance_del(user_id, type, asset);
         return mpd_zero;
     }
     mpd_rescale(frozen, frozen, -at->prec_save, &mpd_ctx);
@@ -352,6 +358,38 @@ mpd_t *balance_total(uint32_t user_id, const char *asset)
     mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
     if (frozen) {
         mpd_add(balance, balance, frozen, &mpd_ctx);
+    }
+    mpd_t *lock = balance_get(user_id, BALANCE_TYPE_LOCK, asset);
+    if (lock) {
+        mpd_add(balance, balance, lock, &mpd_ctx);
+    }
+
+    return balance;
+}
+
+mpd_t *balance_frozen(uint32_t user_id, const char *asset)
+{
+    mpd_t *balance = mpd_new(&mpd_ctx);
+    mpd_copy(balance, mpd_zero, &mpd_ctx);
+    mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
+    if (frozen) {
+        mpd_add(balance, balance, frozen, &mpd_ctx);
+    }
+    mpd_t *lock = balance_get(user_id, BALANCE_TYPE_LOCK, asset);
+    if (lock) {
+        mpd_add(balance, balance, lock, &mpd_ctx);
+    }
+
+    return balance;
+}
+
+mpd_t *balance_available(uint32_t user_id, const char *asset)
+{
+    mpd_t *balance = mpd_new(&mpd_ctx);
+    mpd_copy(balance, mpd_zero, &mpd_ctx);
+    mpd_t *available = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
+    if (available) {
+        mpd_add(balance, balance, available, &mpd_ctx);
     }
 
     return balance;

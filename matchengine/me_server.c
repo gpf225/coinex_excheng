@@ -199,33 +199,19 @@ static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
             int prec_save = asset_prec(asset);
             int prec_show = asset_prec_show(asset);
 
-            mpd_t *available = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
-            if (available) {
-                if (prec_save != prec_show) {
-                    mpd_t *show = mpd_qncopy(available);
-                    mpd_rescale(show, show, -prec_show, &mpd_ctx);
-                    json_object_set_new_mpd(unit, "available", show);
-                    mpd_del(show);
-                } else {
-                    json_object_set_new_mpd(unit, "available", available);
-                }
-            } else {
-                json_object_set_new(unit, "available", json_string("0"));
+            mpd_t *available = balance_available(user_id, asset);
+            if (prec_save != prec_show) {
+                mpd_rescale(available, available, -prec_show, &mpd_ctx);
             }
+            json_object_set_new_mpd(unit, "available", available);
+            mpd_del(available);
 
-            mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
-            if (frozen) {
-                if (prec_save != prec_show) {
-                    mpd_t *show = mpd_qncopy(frozen);
-                    mpd_rescale(show, show, -prec_show, &mpd_ctx);
-                    json_object_set_new_mpd(unit, "frozen", show);
-                    mpd_del(show);
-                } else {
-                    json_object_set_new_mpd(unit, "frozen", frozen);
-                }
-            } else {
-                json_object_set_new(unit, "frozen", json_string("0"));
+            mpd_t *frozen = balance_frozen(user_id, asset);
+            if (prec_save != prec_show) {
+                mpd_rescale(frozen, frozen, -prec_show, &mpd_ctx);
             }
+            json_object_set_new_mpd(unit, "frozen", frozen);
+            mpd_del(frozen);
 
             json_object_set_new(result, asset, unit);
         }
@@ -240,33 +226,19 @@ static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
             int prec_save = asset_prec(asset);
             int prec_show = asset_prec_show(asset);
 
-            mpd_t *available = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
-            if (available) {
-                if (prec_save != prec_show) {
-                    mpd_t *show = mpd_qncopy(available);
-                    mpd_rescale(show, show, -prec_show, &mpd_ctx);
-                    json_object_set_new_mpd(unit, "available", show);
-                    mpd_del(show);
-                } else {
-                    json_object_set_new_mpd(unit, "available", available);
-                }
-            } else {
-                json_object_set_new(unit, "available", json_string("0"));
+            mpd_t *available = balance_available(user_id, asset);
+            if (prec_save != prec_show) {
+                mpd_rescale(available, available, -prec_show, &mpd_ctx);
             }
+            json_object_set_new_mpd(unit, "available", available);
+            mpd_del(available);
 
-            mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
-            if (frozen) {
-                if (prec_save != prec_show) {
-                    mpd_t *show = mpd_qncopy(frozen);
-                    mpd_rescale(show, show, -prec_show, &mpd_ctx);
-                    json_object_set_new_mpd(unit, "frozen", show);
-                    mpd_del(show);
-                } else {
-                    json_object_set_new_mpd(unit, "frozen", frozen);
-                }
-            } else {
-                json_object_set_new(unit, "frozen", json_string("0"));
+            mpd_t *frozen = balance_frozen(user_id, asset);
+            if (prec_save != prec_show) {
+                mpd_rescale(frozen, frozen, -prec_show, &mpd_ctx);
             }
+            json_object_set_new_mpd(unit, "frozen", frozen);
+            mpd_del(frozen);
 
             json_object_set_new(result, asset, unit);
         }

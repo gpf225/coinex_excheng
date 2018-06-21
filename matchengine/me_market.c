@@ -225,7 +225,7 @@ static int order_put(market_t *m, order_t *order)
         if (skiplist_insert(m->asks, order) == NULL)
             return -__LINE__;
         mpd_copy(order->frozen, order->left, &mpd_ctx);
-        if (balance_freeze(order->user_id, m->stock, order->left) == NULL)
+        if (balance_freeze(order->user_id, BALANCE_TYPE_FROZEN, m->stock, order->left) == NULL)
             return -__LINE__;
     } else {
         if (skiplist_insert(m->bids, order) == NULL)
@@ -233,7 +233,7 @@ static int order_put(market_t *m, order_t *order)
         mpd_t *result = mpd_new(&mpd_ctx);
         mpd_mul(result, order->price, order->left, &mpd_ctx);
         mpd_copy(order->frozen, result, &mpd_ctx);
-        if (balance_freeze(order->user_id, m->money, result) == NULL) {
+        if (balance_freeze(order->user_id, BALANCE_TYPE_FROZEN, m->money, result) == NULL) {
             mpd_del(result);
             return -__LINE__;
         }
@@ -253,7 +253,7 @@ static int order_finish(bool real, market_t *m, order_t *order)
             skiplist_delete(m->asks, node);
         }
         if (mpd_cmp(order->frozen, mpd_zero, &mpd_ctx) > 0) {
-            if (balance_unfreeze(order->user_id, m->stock, order->frozen) == NULL) {
+            if (balance_unfreeze(order->user_id, BALANCE_TYPE_FROZEN, m->stock, order->frozen) == NULL) {
                 return -__LINE__;
             }
         }
@@ -263,7 +263,7 @@ static int order_finish(bool real, market_t *m, order_t *order)
             skiplist_delete(m->bids, node);
         }
         if (mpd_cmp(order->frozen, mpd_zero, &mpd_ctx) > 0) {
-            if (balance_unfreeze(order->user_id, m->money, order->frozen) == NULL) {
+            if (balance_unfreeze(order->user_id, BALANCE_TYPE_FROZEN, m->money, order->frozen) == NULL) {
                 return -__LINE__;
             }
         }
