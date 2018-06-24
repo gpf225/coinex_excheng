@@ -238,6 +238,7 @@ json_t *get_stop_info(stop_t *stop)
     json_object_set_new(info, "source", json_string(stop->source));
     json_object_set_new(info, "fee_asset", json_string(stop->fee_asset));
 
+    json_object_set_new_mpd(info, "stop_price", stop->stop_price);
     json_object_set_new_mpd(info, "price", stop->price);
     json_object_set_new_mpd(info, "amount", stop->amount);
     json_object_set_new_mpd(info, "taker_fee", stop->taker_fee);
@@ -443,12 +444,12 @@ static int finish_stop(bool real, market_t *m, stop_t *stop, int status)
     if (stop->side == MARKET_ORDER_SIDE_ASK) {
         skiplist_node *node = skiplist_find(m->stop_asks, stop);
         if (node) {
-            skiplist_delete(m->asks, node);
+            skiplist_delete(m->stop_asks, node);
         }
     } else {
         skiplist_node *node = skiplist_find(m->stop_bids, stop);
         if (node) {
-            skiplist_delete(m->bids, node);
+            skiplist_delete(m->stop_bids, node);
         }
     }
 
@@ -702,6 +703,7 @@ static int check_stop_asks(bool real, market_t *m)
     while ((node = skiplist_next(iter)) != NULL) {
         stop_t *stop = node->value;
         if (mpd_cmp(stop->stop_price, m->last, &mpd_ctx) >= 0) {
+            skiplist_delete(m->stop_asks, node);
             active_stop(real, m, stop);
         } else {
             break;
@@ -719,6 +721,7 @@ static int check_stop_bids(bool real, market_t *m)
     while ((node = skiplist_next(iter)) != NULL) {
         stop_t *stop = node->value;
         if (mpd_cmp(stop->stop_price, m->last, &mpd_ctx) <= 0) {
+            skiplist_delete(m->stop_bids, node);
             active_stop(real, m, stop);
         } else {
             break;

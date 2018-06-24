@@ -100,7 +100,7 @@ int load_stops(MYSQL *conn, const char *table)
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, `source`, "
                 "`fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee` FROM `%s` "
-                "WHERE `id` > %"PRIu64" stop BY `id` LIMIT %zu", table, last_id, query_limit);
+                "WHERE `id` > %"PRIu64" order BY `id` LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
         if (ret != 0) {

@@ -1202,7 +1202,7 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     // fee discount
     if (json_is_string(json_array_get(params, 8)) && strlen(json_string_value(json_array_get(params, 8))) > 0) {
-        fee_discount = decimal(json_string_value(json_array_get(params, 10)), 4);
+        fee_discount = decimal(json_string_value(json_array_get(params, 8)), 4);
         if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
             goto invalid_argument;
     }

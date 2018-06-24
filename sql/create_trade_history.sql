@@ -58,7 +58,7 @@ CREATE TABLE `stop_history_example` (
     `status`        TINYINT UNSIGNED NOT NULL,
     INDEX `idx_user_time` (`user_id`, `create_time`),
     INDEX `idx_user_side_time` (`user_id`, `side`, `create_time`),
-    INDEX `idx_user_market_time` (`user_id`, `market`, `create_time`)
+    INDEX `idx_user_market_time` (`user_id`, `market`, `create_time`),
     INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
