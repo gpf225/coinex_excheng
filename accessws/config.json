@@ -53,7 +53,7 @@
         "topic": "deals",
         "partition": 0
     },
-    "deals": {
+    "stops": {
         "brokers": "127.0.0.1:9092",
         "topic": "stops",
         "partition": 0

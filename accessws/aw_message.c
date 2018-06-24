@@ -168,7 +168,6 @@ int init_message(void)
     }
 
     settings.orders.offset = RD_KAFKA_OFFSET_END;
-    settings.orders.offset = RD_KAFKA_OFFSET_END;
     kafka_orders = kafka_consumer_create(&settings.orders, on_orders_message);
     if (kafka_orders == NULL) {
         return -__LINE__;
