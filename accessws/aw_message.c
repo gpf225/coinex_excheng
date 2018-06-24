@@ -60,7 +60,7 @@ static int process_orders_message(json_t *msg)
     uint32_t user_id = json_integer_value(json_object_get(order, "user"));
     const char *stock = json_string_value(json_object_get(msg, "stock"));
     const char *money = json_string_value(json_object_get(msg, "money"));
-    const char *fee_asset = json_string_value(json_object_get(msg, "fee_asset"));
+    const char *fee_asset = json_string_value(json_object_get(order, "fee_asset"));
     if (user_id == 0 || stock == NULL || money == NULL)
         return -__LINE__;
 
