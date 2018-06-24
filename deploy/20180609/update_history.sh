@@ -44,11 +44,11 @@ do
 done
 
 # update user_deal_history
-mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "ALTER TABLE user_deal_history_example ADD fee_asset VARCHAR(30);"
+mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "ALTER TABLE user_deal_history_example ADD fee_asset VARCHAR(30) NOT NULL;"
 mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "ALTER TABLE user_deal_history_example ADD deal_fee_asset VARCHAR(30) NOT NULL;"
 for i in `seq 0 99`
 do
     echo "update table user_deal_history_$i"
-    mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "ALTER TABLE user_deal_history_$i ADD fee_asset VARCHAR(30) NOT NOT DEFAULT '';"
+    mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "ALTER TABLE user_deal_history_$i ADD fee_asset VARCHAR(30) NOT NULL DEFAULT '';"
     mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "ALTER TABLE user_deal_history_$i ADD deal_fee_asset VARCHAR(30) NOT NULL DEFAULT 0;"
 done
