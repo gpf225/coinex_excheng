@@ -15,7 +15,6 @@ typedef struct market_t {
     char            *name;
     char            *stock;
     char            *money;
-
     int             stock_prec;
     int             money_prec;
     int             fee_prec;
@@ -23,13 +22,11 @@ typedef struct market_t {
 
     dict_t          *orders;
     dict_t          *stops;
-
     dict_t          *user_orders;
     dict_t          *user_stops;
 
     skiplist_t      *asks;
     skiplist_t      *bids;
-
     skiplist_t      *stop_asks;
     skiplist_t      *stop_bids;
 

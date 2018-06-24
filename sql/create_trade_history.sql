@@ -41,8 +41,6 @@ CREATE TABLE `order_history_example` (
 -- split by user_id
 CREATE TABLE `stop_history_example` (
     `id`            BIGINT UNSIGNED NOT NULL PRIMARY KEY,
-    `t`             TINYINT UNSIGNED NOT NULL,
-    `side`          TINYINT UNSIGNED NOT NULL,
     `create_time`   DOUBLE NOT NULL,
     `finish_time`   DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
@@ -50,6 +48,8 @@ CREATE TABLE `stop_history_example` (
     `source`        VARCHAR(30) NOT NULL,
     `fee_asset`     VARCHAR(30) NOT NULL,
     `fee_discount`  DECIMAL(40,4) NOT NULL,
+    `t`             TINYINT UNSIGNED NOT NULL,
+    `side`          TINYINT UNSIGNED NOT NULL,
     `stop_price`    DECIMAL(40,8) NOT NULL,
     `price`         DECIMAL(40,8) NOT NULL,
     `amount`        DECIMAL(40,8) NOT NULL,

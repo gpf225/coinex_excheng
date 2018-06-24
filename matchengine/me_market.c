@@ -132,9 +132,9 @@ static int stop_match_compare(const void *value1, const void *value2)
 
     int cmp;
     if (stop1->side == MARKET_ORDER_SIDE_ASK) {
-        cmp = mpd_cmp(stop2->price, stop1->price, &mpd_ctx);
+        cmp = mpd_cmp(stop2->stop_price, stop1->stop_price, &mpd_ctx);
     } else {
-        cmp = mpd_cmp(stop1->price, stop2->price, &mpd_ctx);
+        cmp = mpd_cmp(stop1->stop_price, stop2->stop_price, &mpd_ctx);
     }
 
     if (cmp != 0) {
@@ -663,6 +663,10 @@ static int active_stop_limit(bool real, market_t *m, stop_t *stop)
         status = MARKET_STOP_STATUS_FAIL;
     }
 
+    if (real) {
+        push_stop_message(STOP_EVENT_ACTIVE, stop, m);
+    }
+
     return finish_stop(real, m, stop, status);
 }
 
@@ -673,6 +677,10 @@ static int active_stop_market(bool real, market_t *m, stop_t *stop)
                 stop->taker_fee, stop->source, stop->fee_asset, stop->fee_discount);
     if (ret < 0) {
         status = MARKET_STOP_STATUS_FAIL;
+    }
+
+    if (real) {
+        push_stop_message(STOP_EVENT_ACTIVE, stop, m);
     }
 
     return finish_stop(real, m, stop, status);
