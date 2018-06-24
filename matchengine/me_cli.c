@@ -45,8 +45,10 @@ static sds on_cmd_balance_list(const char *cmd, int argc, sds *argv)
         char *str = mpd_to_sci(val, 0);
         if (key->type == BALANCE_TYPE_AVAILABLE) {
             reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", key->user_id, key->asset, "available", str);
-        } else {
+        } else if (key->type == BALANCE_TYPE_FROZEN) {
             reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", key->user_id, key->asset, "frozen", str);
+        } else {
+            reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", key->user_id, key->asset, "lock", str);
         }
         free(str);
     }
@@ -76,6 +78,12 @@ static sds on_cmd_balance_get(const char *cmd, int argc, sds *argv)
         if (result) {
             char *str = mpd_to_sci(result, 0);
             reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", user_id, asset, "frozen", str);
+            free(str);
+        }
+        result = balance_get(user_id, BALANCE_TYPE_LOCK, asset);
+        if (result) {
+            char *str = mpd_to_sci(result, 0);
+            reply = sdscatprintf(reply, "%-10u %-16s %-10s %s\n", user_id, asset, "lock", str);
             free(str);
         }
     }
