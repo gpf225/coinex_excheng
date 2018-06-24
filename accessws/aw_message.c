@@ -55,6 +55,7 @@ static int process_orders_message(json_t *msg)
     json_t *order = json_object_get(msg, "order");
     if (order == NULL)
         return -__LINE__;
+
     uint32_t user_id = json_integer_value(json_object_get(order, "user"));
     const char *stock = json_string_value(json_object_get(msg, "stock"));
     const char *money = json_string_value(json_object_get(msg, "money"));
@@ -64,6 +65,13 @@ static int process_orders_message(json_t *msg)
     asset_on_update(user_id, stock);
     asset_on_update(user_id, money);
     order_on_update(user_id, event, order);
+
+    if (json_is_string(json_object_get(msg, "fee_asset"))) {
+        const char *fee_asset = json_string_value(json_object_get(msg, "fee_asset"));
+        if (strcmp(fee_asset, stock) != 0 && strcmp(fee_asset, money) != 0) {
+            asset_on_update(user_id, fee_asset);
+        }
+    }
 
     return 0;
 }
