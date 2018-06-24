@@ -97,18 +97,19 @@ static int load_slice_from_db(MYSQL *conn, time_t timestamp)
     log_stderr("load orders from: %s", table);
     int ret = load_orders(conn, table);
     if (ret < 0) {
-        log_error("load_orders from %s fail: %d", table, ret);
-        log_stderr("load_orders from %s fail: %d", table, ret);
+        log_error("load_orders from: %s fail: %d", table, ret);
+        log_stderr("load_orders from: %s fail: %d", table, ret);
         sdsfree(table);
         return -__LINE__;
     }
 
+    sdsclear(table);
     table = sdscatprintf(table, "slice_stop_%ld", timestamp);
     log_stderr("load stops from: %s", table);
     ret = load_stops(conn, table);
     if (ret < 0) {
-        log_error("load_stops from %s fail: %d", table, ret);
-        log_stderr("load_stops from %s fail: %d", table, ret);
+        log_error("load_stops from: %s fail: %d", table, ret);
+        log_stderr("load_stops from: %s fail: %d", table, ret);
         sdsfree(table);
         return -__LINE__;
     }
@@ -118,8 +119,8 @@ static int load_slice_from_db(MYSQL *conn, time_t timestamp)
     log_stderr("load balance from: %s", table);
     ret = load_balance(conn, table);
     if (ret < 0) {
-        log_error("load_balance from %s fail: %d", table, ret);
-        log_stderr("load_balance from %s fail: %d", table, ret);
+        log_error("load_balance from: %s fail: %d", table, ret);
+        log_stderr("load_balance from: %s fail: %d", table, ret);
         sdsfree(table);
         return -__LINE__;
     }

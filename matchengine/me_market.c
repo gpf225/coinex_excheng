@@ -582,16 +582,14 @@ market_t *market_create(struct market *conf)
 
     skiplist_type lt;
     memset(&lt, 0, sizeof(lt));
-    lt.compare          = order_match_compare;
-
+    lt.compare = order_match_compare;
     m->asks = skiplist_create(&lt);
     m->bids = skiplist_create(&lt);
     if (m->asks == NULL || m->bids == NULL)
         return NULL;
 
     memset(&lt, 0, sizeof(lt));
-    lt.compare          = stop_match_compare;
-
+    lt.compare = stop_match_compare;
     m->stop_asks = skiplist_create(&lt);
     m->stop_bids = skiplist_create(&lt);
     if (m->stop_asks == NULL || m->stop_bids == NULL)

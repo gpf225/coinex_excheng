@@ -9,71 +9,6 @@
 # include "me_update.h"
 # include "me_balance.h"
 
-int load_stops(MYSQL *conn, const char *table)
-{
-    size_t query_limit = 1000;
-    uint64_t last_id = 0;
-    while (true) {
-        sds sql = sdsempty();
-        sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, `source`, "
-                "`fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee` FROM `%s` "
-                "WHERE `id` > %"PRIu64" stop BY `id` LIMIT %zu", table, last_id, query_limit);
-        log_trace("exec sql: %s", sql);
-        int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret != 0) {
-            log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
-            sdsfree(sql);
-            return -__LINE__;
-        }
-        sdsfree(sql);
-
-        MYSQL_RES *result = mysql_store_result(conn);
-        size_t num_rows = mysql_num_rows(result);
-        for (size_t i = 0; i < num_rows; ++i) {
-            MYSQL_ROW row = mysql_fetch_row(result);
-            last_id = strtoull(row[0], NULL, 0);
-            market_t *market = get_market(row[6]);
-            if (market == NULL)
-                continue;
-
-            stop_t *stop = malloc(sizeof(stop_t));
-            if (stop == NULL)
-                return -__LINE__;
-            memset(stop, 0, sizeof(stop_t));
-
-            stop->id            = strtoull(row[0], NULL, 0);
-            stop->type          = strtoul(row[1], NULL, 0);
-            stop->side          = strtoul(row[2], NULL, 0);
-            stop->create_time   = strtod(row[3], NULL);
-            stop->update_time   = strtod(row[4], NULL);
-            stop->user_id       = strtoul(row[5], NULL, 0);
-            stop->market        = strdup(row[6]);
-            stop->source        = strdup(row[7]);
-            stop->fee_asset     = strdup(row[8]);
-            stop->fee_discount  = decimal(row[9],  4);
-            stop->stop_price    = decimal(row[10], market->money_prec);
-            stop->price         = decimal(row[11], market->money_prec);
-            stop->amount        = decimal(row[12], market->stock_prec);
-            stop->taker_fee     = decimal(row[13], market->fee_prec);
-            stop->maker_fee     = decimal(row[14], market->fee_prec);
-
-            if (!stop->market || !stop->source || !stop->stop_price || !stop->price || !stop->amount || !stop->taker_fee || !stop->maker_fee) {
-                log_error("get stop detail of stop id: %"PRIu64" fail", stop->id);
-                mysql_free_result(result);
-                return -__LINE__;
-            }
-
-            market_put_stop(market, stop);
-        }
-        mysql_free_result(result);
-
-        if (num_rows < query_limit)
-            break;
-    }
-
-    return 0;
-}
-
 int load_orders(MYSQL *conn, const char *table)
 {
     size_t query_limit = 1000;
@@ -142,6 +77,76 @@ int load_orders(MYSQL *conn, const char *table)
             }
 
             market_put_order(market, order);
+        }
+        mysql_free_result(result);
+
+        if (num_rows < query_limit)
+            break;
+    }
+
+    return 0;
+}
+
+int load_stops(MYSQL *conn, const char *table)
+{
+    if (!is_table_exists(conn, table)) {
+        log_stderr("table %s not exist", table);
+        return 0;
+    }
+
+    size_t query_limit = 1000;
+    uint64_t last_id = 0;
+    while (true) {
+        sds sql = sdsempty();
+        sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, `source`, "
+                "`fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee` FROM `%s` "
+                "WHERE `id` > %"PRIu64" stop BY `id` LIMIT %zu", table, last_id, query_limit);
+        log_trace("exec sql: %s", sql);
+        int ret = mysql_real_query(conn, sql, sdslen(sql));
+        if (ret != 0) {
+            log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+            sdsfree(sql);
+            return -__LINE__;
+        }
+        sdsfree(sql);
+
+        MYSQL_RES *result = mysql_store_result(conn);
+        size_t num_rows = mysql_num_rows(result);
+        for (size_t i = 0; i < num_rows; ++i) {
+            MYSQL_ROW row = mysql_fetch_row(result);
+            last_id = strtoull(row[0], NULL, 0);
+            market_t *market = get_market(row[6]);
+            if (market == NULL)
+                continue;
+
+            stop_t *stop = malloc(sizeof(stop_t));
+            if (stop == NULL)
+                return -__LINE__;
+            memset(stop, 0, sizeof(stop_t));
+
+            stop->id            = strtoull(row[0], NULL, 0);
+            stop->type          = strtoul(row[1], NULL, 0);
+            stop->side          = strtoul(row[2], NULL, 0);
+            stop->create_time   = strtod(row[3], NULL);
+            stop->update_time   = strtod(row[4], NULL);
+            stop->user_id       = strtoul(row[5], NULL, 0);
+            stop->market        = strdup(row[6]);
+            stop->source        = strdup(row[7]);
+            stop->fee_asset     = strdup(row[8]);
+            stop->fee_discount  = decimal(row[9],  4);
+            stop->stop_price    = decimal(row[10], market->money_prec);
+            stop->price         = decimal(row[11], market->money_prec);
+            stop->amount        = decimal(row[12], market->stock_prec);
+            stop->taker_fee     = decimal(row[13], market->fee_prec);
+            stop->maker_fee     = decimal(row[14], market->fee_prec);
+
+            if (!stop->market || !stop->source || !stop->stop_price || !stop->price || !stop->amount || !stop->taker_fee || !stop->maker_fee) {
+                log_error("get stop detail of stop id: %"PRIu64" fail", stop->id);
+                mysql_free_result(result);
+                return -__LINE__;
+            }
+
+            market_put_stop(market, stop);
         }
         mysql_free_result(result);
 
