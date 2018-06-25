@@ -348,7 +348,7 @@ int append_order_deal_history(double t, uint64_t deal_id, order_t *ask, int ask_
     append_order_deal(t, bid->user_id, deal_id, bid->id, ask->id, bid_role, price, amount, deal, bid_fee_asset, bid_fee, ask_fee_asset, ask_fee);
 
     append_user_deal(t, ask->user_id, ask->market, deal_id, ask->id, bid->id, ask->side, ask_role, price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);
-    append_user_deal(t, bid->user_id, ask->market, deal_id, bid->id, ask->id, bid->side, bid_role, price, amount, deal, ask_fee_asset, bid_fee, bid_fee_asset, ask_fee);
+    append_user_deal(t, bid->user_id, ask->market, deal_id, bid->id, ask->id, bid->side, bid_role, price, amount, deal, bid_fee_asset, bid_fee, ask_fee_asset, ask_fee);
 
     return 0;
 }
