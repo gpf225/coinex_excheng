@@ -1,11 +1,11 @@
 #!/bin/bash
 
-MYSQL_HOST="localhost"
-MYSQL_USER="root"
-MYSQL_PASS="shit"
+MYSQL_HOST="coinexdb.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com"
+MYSQL_USER="coinex"
+MYSQL_PASS="6g8nV76nYuMdFKSjA9hP"
 MYSQL_DB="trade_log"
 
-LAST_SLICE="slice_order_1528894800"
+LAST_SLICE="slice_order_1529863200"
 
 echo "update slice_order_example"
 mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASS $MYSQL_DB -e "ALTER TABLE slice_order_example ADD fee_asset VARCHAR(30) NOT NULL AFTER source;"
