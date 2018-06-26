@@ -3,7 +3,6 @@
  * All rights reserved.
  */
 
-# include "ar_http.h"
 # include "ar_config.h"
 # include "ar_ticker.h"
 
@@ -16,6 +15,7 @@ static rpc_clt *matchengine;
 static nw_state *state_context;
 
 struct state_data {
+    uint32_t cmd;
     char market[MARKET_NAME_MAX_LEN];
 };
 
@@ -69,6 +69,41 @@ static void on_backend_connect(nw_ses *ses, bool result)
     }
 }
 
+static int on_market_list_reply(struct state_data *state, json_t *result)
+{
+    static uint32_t update_id = 0;
+    update_id += 1;
+
+    for (size_t i = 0; i < json_array_size(result); ++i) {
+        json_t *item = json_array_get(result, i);
+        const char *name = json_string_value(json_object_get(item, "name"));
+        dict_entry *entry = dict_find(dict_market, name);
+        if (entry == NULL) {
+            struct market_val val;
+            memset(&val, 0, sizeof(val));
+            val.id = update_id;
+            dict_add(dict_market, (char *)name, &val);
+            log_info("add market: %s", name);
+        } else {
+            struct market_val *info = entry->val;
+            info->id = update_id;
+        }
+    }
+
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct market_val *info = entry->val;
+        if (info->id != update_id) {
+            dict_delete(dict_market, entry->key);
+            log_info("del market: %s", (char *)entry->key);
+        }
+    }
+    dict_release_iterator(iter);
+
+    return 0;
+}
+
 static int on_market_status_reply(struct state_data *state, json_t *result)
 {
     dict_entry *entry = dict_find(dict_market, state->market);
@@ -104,7 +139,7 @@ static int on_order_depth_reply(struct state_data *state, json_t *result)
         json_t *buy = json_array_get(bids, 0);
         json_object_set(info->last, "buy", json_array_get(buy, 0));
     } else {
-        json_object_set_new(info->last, "buy", json_string(""));
+        json_object_set_new(info->last, "buy", json_string("0"));
     }
 
     json_t *asks = json_object_get(result, "asks");
@@ -112,7 +147,7 @@ static int on_order_depth_reply(struct state_data *state, json_t *result)
         json_t *sell = json_array_get(asks, 0);
         json_object_set(info->last, "sell", json_array_get(sell, 0));
     } else {
-        json_object_set_new(info->last, "sell", json_string(""));
+        json_object_set_new(info->last, "sell", json_string("0"));
     }
 
     return 0;
@@ -149,6 +184,12 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     int ret;
     switch (pkg->command) {
+    case CMD_MARKET_LIST:
+        ret = on_market_list_reply(state, result);
+        if (ret < 0) {
+            log_error("on_market_list_reply: %d, reply: %s", ret, reply_str);
+        }
+        break;
     case CMD_MARKET_STATUS:
         ret = on_market_status_reply(state, result);
         if (ret < 0) {
@@ -173,7 +214,32 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
 static void on_timeout(nw_state_entry *entry)
 {
-    log_fatal("query status timeout, state id: %u", entry->id);
+    struct state_data *state = entry->data;
+    log_fatal("query status timeout, state id: %u, command: %u", entry->id, state->cmd);
+}
+
+static int query_market_list(void)
+{
+    json_t *params = json_array();
+    nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
+    struct state_data *state = state_entry->data;
+
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
+    pkg.command   = CMD_MARKET_LIST;
+    pkg.sequence  = state_entry->id;
+    pkg.body      = json_dumps(params, 0);
+    pkg.body_size = strlen(pkg.body);
+
+    state->cmd = pkg.command;
+    rpc_clt_send(matchengine, &pkg);
+    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
+            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
+    free(pkg.body);
+    json_decref(params);
+
+    return 0;
 }
 
 static int query_market_status(const char *market)
@@ -194,6 +260,7 @@ static int query_market_status(const char *market)
     pkg.body      = json_dumps(params, 0);
     pkg.body_size = strlen(pkg.body);
 
+    state->cmd = pkg.command;
     rpc_clt_send(marketprice, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
             nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), pkg.command, pkg.sequence, (char *)pkg.body);
@@ -222,6 +289,7 @@ static int query_market_depth(const char *market)
     pkg.body      = json_dumps(params, 0);
     pkg.body_size = strlen(pkg.body);
 
+    state->cmd = pkg.command;
     rpc_clt_send(matchengine, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
             nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
@@ -243,43 +311,9 @@ static void on_update_timer(nw_timer *timer, void *privdata)
     dict_release_iterator(iter);
 }
 
-static void on_market_list_callback(json_t *result)
-{
-    static uint32_t update_id = 0;
-    update_id += 1;
-
-    for (size_t i = 0; i < json_array_size(result); ++i) {
-        json_t *item = json_array_get(result, i);
-        const char *name = json_string_value(json_object_get(item, "name"));
-        dict_entry *entry = dict_find(dict_market, name);
-        if (entry == NULL) {
-            struct market_val val;
-            memset(&val, 0, sizeof(val));
-            val.id = update_id;
-            dict_add(dict_market, (char *)name, &val);
-            log_info("add market: %s", name);
-        } else {
-            struct market_val *info = entry->val;
-            info->id = update_id;
-        }
-    }
-
-    dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(dict_market);
-    while ((entry = dict_next(iter)) != NULL) {
-        struct market_val *info = entry->val;
-        if (info->id != update_id) {
-            dict_delete(dict_market, entry->key);
-            log_info("del market: %s", (char *)entry->key);
-        }
-    }
-    dict_release_iterator(iter);
-}
-
 static void on_market_timer(nw_timer *timer, void *privdata)
 {
-    json_t *params = json_array();
-    send_http_request("market.list", params, on_market_list_callback);
+    query_market_list();
 }
 
 int init_ticker(void)
