@@ -329,3 +329,89 @@ const char *http_get_remote_ip(nw_ses *ses, http_request_t *request)
     return ip;
 }
 
+static uint32_t dict_params_hash_func(const void *key)
+{
+    return dict_generic_hash_function(key, strlen(key));
+}
+
+static int dict_params_key_compare(const void *key1, const void *key2)
+{
+    return strcmp(key1, key2);
+}
+
+static void *dict_params_dup(const void *obj)
+{
+    return strdup(obj);
+}
+
+static void dict_params_free(void *obj)
+{
+    free(obj);
+}
+
+static dict_t *create_params_dict(void)
+{
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function = dict_params_hash_func;
+    dt.key_compare = dict_params_key_compare;
+    dt.key_dup = dict_params_dup;
+    dt.key_destructor = dict_params_free;
+    dt.val_dup = dict_params_dup;
+    dt.val_destructor = dict_params_free;
+
+    return dict_create(&dt, 64);
+}
+
+http_params_t *http_parse_url_params(const char *url)
+{
+    http_params_t *obj = malloc(sizeof(http_params_t));
+    if (obj == NULL)
+        return NULL;
+    memset(obj, 0, sizeof(http_params_t));
+    obj->params = create_params_dict();
+    if (obj->params == NULL)
+        return NULL;
+
+    const char *pos = strchr(url, '?');
+    if (pos) {
+        size_t path_len = pos - url;
+        obj->path = malloc(path_len + 1);
+        memcpy(obj->path, url, path_len);
+        obj->path[path_len] = 0;
+    } else {
+        obj->path = strdup(url);
+        return obj;
+    }
+
+    if (strlen(pos + 1) == 0)
+        return obj;
+    char *tmp = strdup(pos + 1);
+    char *comment = strchr(tmp, '#');
+    if (comment)
+        *comment = 0;
+
+    char *param = strtok(tmp, "&");
+    while (param) {
+        char *sep = strchr(param, '=');
+        if (sep) {
+            *sep = 0;
+            dict_add(obj->params, param, sep + 1);
+        } else {
+            dict_add(obj->params, param, "");
+        }
+        param = strtok(NULL, "&");
+    }
+
+    free(tmp);
+    return obj;
+}
+
+void http_params_release(http_params_t *obj)
+{
+    free(obj->path);
+    if (obj->params)
+        dict_release(obj->params);
+    free(obj);
+}
+
