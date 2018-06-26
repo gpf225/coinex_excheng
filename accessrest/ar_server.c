@@ -643,7 +643,9 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     if (data) {
-        reply_data(state->ses, data);
+        if (state->ses && state->ses->id == state->ses_id) {
+            reply_data(state->ses, data);
+        }
         if (state->cache_key) {
             update_cache(data, state->cache_key);
         } else {
