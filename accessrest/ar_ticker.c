@@ -364,9 +364,6 @@ int init_ticker(void)
     nw_timer_set(&market_timer, settings.market_interval, true, on_market_timer, NULL);
     nw_timer_start(&market_timer);
 
-    on_update_timer(NULL, NULL);
-    on_market_timer(NULL, NULL);
-
     return 0;
 }
 
