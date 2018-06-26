@@ -109,6 +109,11 @@ static void update_cache(json_t *data, sds cache_key)
     dict_replace(backend_cache, cache_key, &val);
 }
 
+static int on_ping(nw_ses *ses, dict_t *params)
+{
+    return send_http_response_simple(ses, 200, "pong", 4);
+}
+
 static int on_market_list(nw_ses *ses, dict_t *params)
 {
     sds cache_key = sdsempty();
@@ -531,6 +536,7 @@ static int init_svr(void)
     if (method_map == NULL)
         return -__LINE__;
 
+    add_handler("/ping",                    on_ping);
     add_handler("/v1/market/list",          on_market_list);
     add_handler("/v1/market/ticker",        on_market_ticker);
     add_handler("/v1/market/ticker/all",    on_market_ticker_all);
