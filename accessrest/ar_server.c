@@ -93,8 +93,6 @@ static int check_cache(nw_ses *ses, sds cache_key)
     }
 
     reply_data(ses, cache->data);
-    log_trace("hit cache");
-
     return 1;
 }
 
@@ -118,8 +116,8 @@ static int on_market_list(nw_ses *ses, dict_t *params)
 
     json_t *data = get_market_list();
     if (data == NULL) {
-        reply_internal_error(ses);
         sdsfree(cache_key);
+        return reply_internal_error(ses);
     }
 
     reply_data(ses, data);
@@ -147,8 +145,8 @@ static int on_market_ticker(nw_ses *ses, dict_t *params)
 
     json_t *data = get_market_ticker(market);
     if (data == NULL) {
-        reply_invalid_params(ses);
         sdsfree(cache_key);
+        return reply_invalid_params(ses);
     }
 
     reply_data(ses, data);
@@ -169,8 +167,8 @@ static int on_market_ticker_all(nw_ses *ses, dict_t *params)
 
     json_t *data = get_market_ticker_all();
     if (data == NULL) {
-        reply_internal_error(ses);
         sdsfree(cache_key);
+        return reply_internal_error(ses);
     }
 
     reply_data(ses, data);
@@ -445,22 +443,13 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         return reply_invalid_params(ses);
     }
 
-    log_trace("path: %s", params->path);
-    dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(params->params);
-    while ((entry = dict_next(iter)) != NULL) {
-        log_trace("%s:%s", (char *)entry->key, (char *)entry->val);
-    }
-    dict_release_iterator(iter);
-
-    entry = dict_find(method_map, params->path);
+    dict_entry *entry = dict_find(method_map, params->path);
     if (entry) {
+        monitor_inc(params->path, 1);
         on_request_method handler = entry->val;
         int ret = handler(ses, params->params);
         if (ret < 0) {
             log_error("request fail: %d, url: %s", ret, request->url);
-        } else {
-            monitor_inc(params->path, 1);
         }
     } else {
         reply_not_found(ses);

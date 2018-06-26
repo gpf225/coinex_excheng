@@ -9,9 +9,10 @@
 static nw_timer update_timer;
 static nw_timer market_timer;
 
-static dict_t *dict_market;
 static rpc_clt *marketprice;
 static rpc_clt *matchengine;
+
+static dict_t *dict_market;
 static nw_state *state_context;
 
 struct state_data {
@@ -117,6 +118,7 @@ static int on_market_status_reply(struct state_data *state, json_t *result)
 
     json_object_set(info->last, "vol", json_object_get(result, "volume"));
     json_object_set(info->last, "low", json_object_get(result, "low"));
+    json_object_set(info->last, "open", json_object_get(result, "open"));
     json_object_set(info->last, "high", json_object_get(result, "high"));
     json_object_set(info->last, "last", json_object_get(result, "last"));
 
@@ -163,8 +165,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         sdsfree(reply_str);
         return;
     }
-    struct state_data *state = entry->data;
 
+    struct state_data *state = entry->data;
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
         sdsfree(reply_str);
@@ -371,6 +373,7 @@ int init_ticker(void)
 json_t *get_market_list(void)
 {
     json_t *data = json_array();
+
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
@@ -402,6 +405,7 @@ json_t *get_market_ticker(const void *market)
 json_t *get_market_ticker_all(void)
 {
     json_t *ticker = json_object();
+
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
