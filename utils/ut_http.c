@@ -370,8 +370,10 @@ http_params_t *http_parse_url_params(const char *url)
         return NULL;
     memset(obj, 0, sizeof(http_params_t));
     obj->params = create_params_dict();
-    if (obj->params == NULL)
+    if (obj->params == NULL) {
+        free(obj);
         return NULL;
+    }
 
     const char *pos = strchr(url, '?');
     if (pos) {

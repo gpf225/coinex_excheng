@@ -69,6 +69,8 @@ void profile_inc(const char *key, uint64_t val)
     size_t message_len = strlen(message_str);
     message_str[message_len] = '\n';
     sendto(sockfd, message_str, message_len + 1, 0, (struct sockaddr *)&agent_addr, sizeof(agent_addr));
+
+    json_decref(message);
     free(message_str);
     free(new_key);
 }
@@ -93,6 +95,8 @@ void profile_set(const char *key, uint64_t val)
     size_t message_len = strlen(message_str);
     message_str[message_len] = '\n';
     sendto(sockfd, message_str, message_len + 1, 0, (struct sockaddr *)&agent_addr, sizeof(agent_addr));
+
+    json_decref(message);
     free(message_str);
     free(new_key);
 }
