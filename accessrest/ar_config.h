@@ -61,7 +61,6 @@ struct settings {
     rpc_clt_cfg         marketprice;
 
     int                 worker_num;
-    char                *accesshttp;
     double              backend_timeout;
     double              cache_timeout;
     double              state_interval;
