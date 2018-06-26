@@ -46,21 +46,25 @@ static int reply_error(nw_ses *ses, int code, const char *message, uint32_t stat
 
 static int reply_internal_error(nw_ses *ses)
 {
+    profile_inc("error_internal", 1);
     return reply_error(ses, 1, "internal error", 502);
 }
 
 static int reply_time_out(nw_ses *ses)
 {
+    profile_inc("error_timeout", 1);
     return reply_error(ses, 1, "service timeout", 504);
 }
 
 static int reply_not_found(nw_ses *ses)
 {
+    profile_inc("error_notfound", 1);
     return reply_error(ses, 1, "not found", 404);
 }
 
 static int reply_invalid_params(nw_ses *ses)
 {
+    profile_inc("error_invalid_params", 1);
     return reply_error(ses, 2, "invalid params", 400);
 }
 
@@ -75,6 +79,7 @@ static int reply_data(nw_ses *ses, json_t *data)
     send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
     free(reply_str);
     json_decref(reply);
+    profile_inc("success", 1);
 
     return 0;
 }
@@ -436,7 +441,7 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
 
 static int on_http_request(nw_ses *ses, http_request_t *request)
 {
-    log_trace("url: %s", request->url);
+    profile_inc("visit", 1);
     http_params_t *params = http_parse_url_params(request->url);
     if (params == NULL) {
         log_error("parse url error: %s", request->url);
@@ -445,7 +450,7 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
 
     dict_entry *entry = dict_find(method_map, params->path);
     if (entry) {
-        monitor_inc(params->path, 1);
+        profile_inc(params->path, 1);
         on_request_method handler = entry->val;
         int ret = handler(ses, params->params);
         if (ret < 0) {

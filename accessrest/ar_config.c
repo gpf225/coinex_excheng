@@ -61,11 +61,6 @@ static int read_config_from_json(json_t *root)
         printf("load alert config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_rpc_clt(root, "monitor", &settings.monitor);
-    if (ret < 0) {
-        printf("load monitor clt config fail: %d\n", ret);
-        return -__LINE__;
-    }
     ret = load_cfg_http_svr(root, "svr", &settings.svr);
     if (ret < 0) {
         printf("load svr config fail: %d\n", ret);
