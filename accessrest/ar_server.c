@@ -102,6 +102,15 @@ static int check_cache(nw_ses *ses, sds cache_key)
     return 1;
 }
 
+static struct cache_val *get_cache(sds cache_key)
+{
+    dict_entry *entry = dict_find(backend_cache, cache_key);
+    if (entry == NULL)
+        return 0;
+
+    return entry->val;
+}
+
 static void update_cache(json_t *data, sds cache_key)
 {
     struct cache_val val;
@@ -241,23 +250,37 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         }
     }
 
+    bool is_reply = false;
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_depth_%s_%s_%d", market, merge, limit);
-    int ret = check_cache(ses, cache_key);
-    if (ret > 0) {
-        sdsfree(cache_key);
-        return 0;
+    struct cache_val *cache_val = get_cache(cache_key);
+    if (cache_val) {
+        reply_data(ses, cache_val->data);
+        is_reply = true;
+        double now = current_timestamp();
+        if ((now - cache_val->time) < settings.cache_timeout) {
+            sdsfree(cache_key);
+            return 0;
+        } else {
+            cache_val->time = now;
+        }
     }
 
     if (!rpc_clt_connected(matchengine)) {
         sdsfree(cache_key);
-        return reply_internal_error(ses);
+        if (!is_reply) {
+            return reply_internal_error(ses);
+        } else {
+            return -__LINE__;
+        }
     }
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
+    if (!is_reply) {
+        state->ses = ses;
+        state->ses_id = ses->id;
+    }
     state->cache_key = cache_key;
 
     json_t *query_params = json_array();
@@ -301,23 +324,37 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
         }
     }
 
+    bool is_reply = false;
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_deals_%s_%d", market, last_id);
-    int ret = check_cache(ses, cache_key);
-    if (ret > 0) {
-        sdsfree(cache_key);
-        return 0;
+    struct cache_val *cache_val = get_cache(cache_key);
+    if (cache_val) {
+        reply_data(ses, cache_val->data);
+        is_reply = true;
+        double now = current_timestamp();
+        if ((now - cache_val->time) < settings.cache_timeout) {
+            sdsfree(cache_key);
+            return 0;
+        } else {
+            cache_val->time = now;
+        }
     }
 
     if (!rpc_clt_connected(marketprice)) {
         sdsfree(cache_key);
-        return reply_internal_error(ses);
+        if (!is_reply) {
+            return reply_internal_error(ses);
+        } else {
+            return -__LINE__;
+        }
     }
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
+    if (!is_reply) {
+        state->ses = ses;
+        state->ses_id = ses->id;
+    }
     state->cache_key = cache_key;
 
     json_t *query_params = json_array();
@@ -404,23 +441,37 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     if (interval == 0)
         return reply_invalid_params(ses);
 
+    bool is_reply = false;
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_kline_%s_%d_%d", market, limit, interval);
-    int ret = check_cache(ses, cache_key);
-    if (ret > 0) {
-        sdsfree(cache_key);
-        return 0;
+    struct cache_val *cache_val = get_cache(cache_key);
+    if (cache_val) {
+        reply_data(ses, cache_val->data);
+        is_reply = true;
+        double now = current_timestamp();
+        if ((now - cache_val->time) < settings.cache_timeout) {
+            sdsfree(cache_key);
+            return 0;
+        } else {
+            cache_val->time = now;
+        }
     }
 
     if (!rpc_clt_connected(marketprice)) {
         sdsfree(cache_key);
-        return reply_internal_error(ses);
+        if (!is_reply) {
+            return reply_internal_error(ses);
+        } else {
+            return -__LINE__;
+        }
     }
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
+    if (!is_reply) {
+        state->ses = ses;
+        state->ses_id = ses->id;
+    }
     state->cache_key = cache_key;
 
     time_t now = time(NULL);
