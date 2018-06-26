@@ -133,6 +133,7 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
     json_array_append_new(params, json_integer(event));
     json_array_append(params, order);
 
+    int count = 0;
     list_t *list = entry->val;
     list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
     list_node *node;
@@ -140,11 +141,12 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
         struct sub_unit *unit = node->value;
         if (strcmp(unit->market, market) == 0) {
             send_notify(unit->ses, "order.update", params);
-            monitor_inc("order.update", 1);
+            count += 1;
         }
     }
     list_release_iterator(iter);
     json_decref(params);
+    profile_inc("order.update", count);
 
     return 0;
 }

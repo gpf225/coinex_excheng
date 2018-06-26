@@ -248,7 +248,7 @@ static void on_notify_timer(nw_timer *timer, void *privdata)
     last_notify = current_timestamp();
 
     if (count) {
-        monitor_inc("state.update", count);
+        profile_inc("state.update", count);
     }
 }
 

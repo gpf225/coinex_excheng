@@ -92,7 +92,7 @@ static int broadcast_update(dict_t *sessions, json_t *result)
         send_notify(entry->key, "kline.update", result);
     }
     dict_release_iterator(iter);
-    monitor_inc("kline.update", dict_size(sessions));
+    profile_inc("kline.update", dict_size(sessions));
 
     return 0;
 }

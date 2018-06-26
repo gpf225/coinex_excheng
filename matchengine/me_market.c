@@ -240,7 +240,7 @@ static int order_put(market_t *m, order_t *order)
         mpd_del(result);
     }
 
-    monitor_inc("order_put", 1);
+    profile_inc("order_put", 1);
 
     return 0;
 }
@@ -307,14 +307,14 @@ static int order_finish(bool real, market_t *m, order_t *order)
     }
 
     order_free(order);
-    monitor_inc("order_finish", 1);
+    profile_inc("order_finish", 1);
 
     return 0;
 }
 
 static void status_report(void)
 {
-    monitor_set("pending_users", dict_size(dict_users));
+    profile_set("pending_users", dict_size(dict_users));
 }
 
 static void on_timer(nw_timer *timer, void *privdata)

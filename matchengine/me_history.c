@@ -92,7 +92,7 @@ static void on_timer(nw_timer *t, void *privdata)
 
     if (count) {
         log_debug("flush history count: %zu", count);
-        monitor_inc("flush_history", count);
+        profile_inc("flush_history", count);
     }
 }
 

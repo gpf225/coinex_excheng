@@ -219,7 +219,7 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
     }
     dict_release_iterator(iter);
     json_decref(params);
-    monitor_inc("depth.update", dict_size(sessions));
+    profile_inc("depth.update", dict_size(sessions));
 
     return 0;
 }
@@ -319,6 +319,7 @@ static void on_timeout(nw_state_entry *entry)
 
 static void on_timer(nw_timer *timer, void *privdata)
 {
+    size_t count = 0;
     dict_iterator *iter = dict_get_iterator(dict_depth);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
@@ -351,8 +352,10 @@ static void on_timer(nw_timer *timer, void *privdata)
                 nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
         free(pkg.body);
         json_decref(params);
+        count += 1;
     }
     dict_release_iterator(iter);
+    profile_inc("query_depth", count);
 }
 
 int init_depth(void)
@@ -493,6 +496,7 @@ int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char
         json_array_append(params, json_string(market));
         send_notify(ses, "depth.update", params);
         json_decref(params);
+        profile_inc("depth.update", 1);
     }
 
     return 0;

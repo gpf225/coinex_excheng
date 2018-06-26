@@ -437,7 +437,7 @@ int make_slice(time_t timestamp)
         log_fatal("clear_slice fail: %d", ret);
     }
 
-    monitor_inc("slice_success", 1);
+    profile_inc("slice_success", 1);
     exit(0);
 
     return 0;

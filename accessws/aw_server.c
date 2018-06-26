@@ -70,37 +70,37 @@ int send_error(nw_ses *ses, uint64_t id, int code, const char *message)
 
 int send_error_invalid_argument(nw_ses *ses, uint64_t id)
 {
-    monitor_inc("error_invalid_argument", 1);
+    profile_inc("error_invalid_argument", 1);
     return send_error(ses, id, 1, "invalid argument");
 }
 
 int send_error_internal_error(nw_ses *ses, uint64_t id)
 {
-    monitor_inc("error_internal_error", 1);
+    profile_inc("error_internal_error", 1);
     return send_error(ses, id, 2, "internal error");
 }
 
 int send_error_service_unavailable(nw_ses *ses, uint64_t id)
 {
-    monitor_inc("error_service_unavailable", 1);
+    profile_inc("error_service_unavailable", 1);
     return send_error(ses, id, 3, "service unavailable");
 }
 
 int send_error_method_notfound(nw_ses *ses, uint64_t id)
 {
-    monitor_inc("error_method_notfound", 1);
+    profile_inc("error_method_notfound", 1);
     return send_error(ses, id, 4, "method not found");
 }
 
 int send_error_service_timeout(nw_ses *ses, uint64_t id)
 {
-    monitor_inc("error_service_timeout", 1);
+    profile_inc("error_service_timeout", 1);
     return send_error(ses, id, 5, "service timeout");
 }
 
 int send_error_require_auth(nw_ses *ses, uint64_t id)
 {
-    monitor_inc("error_require_auth", 1);
+    profile_inc("error_require_auth", 1);
     return send_error(ses, id, 6, "require authentication");
 }
 
@@ -124,7 +124,7 @@ int send_success(nw_ses *ses, uint64_t id)
 
     int ret = send_result(ses, id, result);
     json_decref(result);
-    monitor_inc("success", 1);
+    profile_inc("success", 1);
 
     return ret;
 }
@@ -168,7 +168,7 @@ static int on_method_server_sign(nw_ses *ses, uint64_t id, struct clt_info *info
     return send_sign_request(ses, id, info, params);
 }
 
-static int process_cache(nw_ses *ses, uint64_t id, sds key)
+static int check_cache(nw_ses *ses, uint64_t id, sds key)
 {
     dict_entry *entry = dict_find(backend_cache, key);
     if (entry == NULL)
@@ -182,7 +182,7 @@ static int process_cache(nw_ses *ses, uint64_t id, sds key)
     }
 
     send_result(ses, id, cache->result);
-    monitor_inc("hit_cache", 1);
+    profile_inc("hit_cache", 1);
 
     return 1;
 }
@@ -195,7 +195,7 @@ static int on_method_kline_query(nw_ses *ses, uint64_t id, struct clt_info *info
     sds key = sdsempty();
     char *params_str = json_dumps(params, 0);
     key = sdscatprintf(key, "%u-%s", CMD_MARKET_KLINE, params_str);
-    int ret = process_cache(ses, id, key);
+    int ret = check_cache(ses, id, key);
     if (ret > 0) {
         sdsfree(key);
         free(params_str);
@@ -257,7 +257,7 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
     sds key = sdsempty();
     char *params_str = json_dumps(params, 0);
     key = sdscatprintf(key, "%u-%s", CMD_ORDER_DEPTH, params_str);
-    int ret = process_cache(ses, id, key);
+    int ret = check_cache(ses, id, key);
     if (ret > 0) {
         sdsfree(key);
         free(params_str);
@@ -326,7 +326,7 @@ static int on_method_state_query(nw_ses *ses, uint64_t id, struct clt_info *info
     sds key = sdsempty();
     char *params_str = json_dumps(params, 0);
     key = sdscatprintf(key, "%u-%s", CMD_MARKET_STATUS, params_str);
-    int ret = process_cache(ses, id, key);
+    int ret = check_cache(ses, id, key);
     if (ret > 0) {
         sdsfree(key);
         free(params_str);
@@ -381,7 +381,7 @@ static int on_method_deals_query(nw_ses *ses, uint64_t id, struct clt_info *info
     sds key = sdsempty();
     char *params_str = json_dumps(params, 0);
     key = sdscatprintf(key, "%u-%s", CMD_MARKET_DEALS, params_str);
-    int ret = process_cache(ses, id, key);
+    int ret = check_cache(ses, id, key);
     if (ret > 0) {
         sdsfree(key);
         free(params_str);
@@ -640,7 +640,7 @@ static int on_message(nw_ses *ses, const char *remote, const char *url, void *me
         if (ret < 0) {
             log_error("remote: %"PRIu64":%s, request fail: %d, request: %s", ses->id, remote, ret, _msg);
         } else {
-            monitor_inc(json_string_value(method), 1);
+            profile_inc(json_string_value(method), 1);
         }
     } else {
         log_error("remote: %"PRIu64":%s, unknown method, request: %s", ses->id, remote, _msg);
@@ -666,7 +666,7 @@ static void on_upgrade(nw_ses *ses, const char *remote)
     log_trace("remote: %"PRIu64":%s upgrade to websocket", ses->id, remote);
     struct clt_info *info = ws_ses_privdata(ses);
     memset(info, 0, sizeof(struct clt_info));
-    monitor_inc("connection_new", 1);
+    profile_inc("connection_new", 1);
 }
 
 static void on_close(nw_ses *ses, const char *remote)
@@ -683,7 +683,7 @@ static void on_close(nw_ses *ses, const char *remote)
         order_unsubscribe(info->user_id, ses);
         asset_unsubscribe(info->user_id, ses);
     }
-    monitor_inc("connection_close", 1);
+    profile_inc("connection_close", 1);
 }
 
 static void *on_privdata_alloc(void *svr)
@@ -837,7 +837,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_trace("send response to: %"PRIu64", size: %zu, message: %s", state->ses->id, sdslen(message), message);
         ws_send_text(state->ses, message);
         sdsfree(message);
-        monitor_inc("success", 1);
+        profile_inc("success", 1);
     }
     if (state->cache_key) {
         json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
@@ -913,16 +913,16 @@ static void on_timer(nw_timer *timer, void *privdata)
 {
     dict_clear(backend_cache);
 
-    monitor_inc("onlineusers", get_online_user_count());
-    monitor_set("connections", svr->raw_svr->clt_count);
-    monitor_set("pending_auth", pending_auth_request());
-    monitor_set("pending_sign", pending_sign_request());
-    monitor_set("subscribe_kline", kline_subscribe_number());
-    monitor_set("subscribe_depth", depth_subscribe_number());
-    monitor_set("subscribe_state", state_subscribe_number());
-    monitor_set("subscribe_deals", deals_subscribe_number());
-    monitor_set("subscribe_order", order_subscribe_number());
-    monitor_set("subscribe_asset", asset_subscribe_number());
+    profile_inc("onlineusers", get_online_user_count());
+    profile_set("connections", svr->raw_svr->clt_count);
+    profile_set("pending_auth", pending_auth_request());
+    profile_set("pending_sign", pending_sign_request());
+    profile_set("subscribe_kline", kline_subscribe_number());
+    profile_set("subscribe_depth", depth_subscribe_number());
+    profile_set("subscribe_state", state_subscribe_number());
+    profile_set("subscribe_deals", deals_subscribe_number());
+    profile_set("subscribe_order", order_subscribe_number());
+    profile_set("subscribe_asset", asset_subscribe_number());
 }
 
 static int init_backend(void)

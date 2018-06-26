@@ -58,13 +58,13 @@ static int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
 
 static int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
 {
-    monitor_inc("error_invalid_argument", 1);
+    profile_inc("error_invalid_argument", 1);
     return reply_error(ses, pkg, 1, "invalid argument");
 }
 
 static int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)
 {
-    monitor_inc("error_internal_error", 1);
+    profile_inc("error_internal_error", 1);
     return reply_error(ses, pkg, 2, "internal error");
 }
 
@@ -102,7 +102,7 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, sds *cache_key)
 
     reply_result(ses, pkg, cache->result);
     sdsfree(key);
-    monitor_inc("hit_cache", 1);
+    profile_inc("hit_cache", 1);
 
     return true;
 }
@@ -143,8 +143,8 @@ static int on_cmd_market_status(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         sdsfree(cache_key);
         return reply_error_internal_error(ses, pkg);
     }
-    monitor_inc("profile_status_times", 1);
-    monitor_inc("profile_status_costs", (int)((current_timestamp() - task_start) * 1000000));
+    profile_inc("profile_status_times", 1);
+    profile_inc("profile_status_costs", (int)((current_timestamp() - task_start) * 1000000));
 
     add_cache(cache_key, result);
     sdsfree(cache_key);
@@ -250,8 +250,8 @@ static int on_cmd_market_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
 
-    monitor_inc("profile_kline_times", 1);
-    monitor_inc("profile_kline_costs", (int)((current_timestamp() - task_start) * 1000000));
+    profile_inc("profile_kline_times", 1);
+    profile_inc("profile_kline_costs", (int)((current_timestamp() - task_start) * 1000000));
 
     add_cache(cache_key, result);
     sdsfree(cache_key);
@@ -338,35 +338,35 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     int ret;
     switch (pkg->command) {
     case CMD_MARKET_STATUS:
-        monitor_inc("cmd_market_status", 1);
+        profile_inc("cmd_market_status", 1);
         ret = on_cmd_market_status(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_status %s fail: %d", params_str, ret);
         }
         break;
     case CMD_MARKET_LAST:
-        monitor_inc("cmd_market_last", 1);
+        profile_inc("cmd_market_last", 1);
         ret = on_cmd_market_last(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_last %s fail: %d", params_str, ret);
         }
         break;
     case CMD_MARKET_KLINE:
-        monitor_inc("cmd_market_kline", 1);
+        profile_inc("cmd_market_kline", 1);
         ret = on_cmd_market_kline(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_kline %s fail: %d", params_str, ret);
         }
         break;
     case CMD_MARKET_DEALS:
-        monitor_inc("cmd_market_deals", 1);
+        profile_inc("cmd_market_deals", 1);
         ret = on_cmd_market_deals(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_deals %s fail: %d", params_str, ret);
         }
         break;
     case CMD_MARKET_DEALS_EXT:
-        monitor_inc("cmd_market_deals_ext", 1);
+        profile_inc("cmd_market_deals_ext", 1);
         ret = on_cmd_market_deals_ext(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_deals_ext %s fail: %d", params_str, ret);

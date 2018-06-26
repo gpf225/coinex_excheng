@@ -45,25 +45,25 @@ static void reply_error(nw_ses *ses, int64_t id, int code, const char *message, 
 
 static void reply_bad_request(nw_ses *ses)
 {
-    monitor_inc("error_bad_request", 1);
+    profile_inc("error_bad_request", 1);
     send_http_response_simple(ses, 400, NULL, 0);
 }
 
 static void reply_internal_error(nw_ses *ses)
 {
-    monitor_inc("error_interval_error", 1);
+    profile_inc("error_interval_error", 1);
     send_http_response_simple(ses, 500, NULL, 0);
 }
 
 static void reply_not_found(nw_ses *ses, int64_t id)
 {
-    monitor_inc("error_not_found", 1);
+    profile_inc("error_not_found", 1);
     reply_error(ses, id, 4, "method not found", 404);
 }
 
 static void reply_time_out(nw_ses *ses, int64_t id)
 {
-    monitor_inc("error_time_out", 1);
+    profile_inc("error_time_out", 1);
     reply_error(ses, id, 5, "service timeout", 504);
 }
 
@@ -99,7 +99,7 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
 
     dict_entry *entry = dict_find(methods, json_string_value(method));
     if (entry == NULL) {
-        monitor_inc("method_not_found", 1);
+        profile_inc("method_not_found", 1);
         reply_not_found(ses, json_integer_value(id));
     } else {
         struct request_info *req = entry->val;
@@ -109,7 +109,7 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             return 0;
         }
 
-        monitor_inc(json_string_value(method), 1);
+        profile_inc(json_string_value(method), 1);
         nw_state_entry *entry = nw_state_add(state, settings.timeout, 0);
         struct state_info *info = entry->data;
         info->ses = ses;
@@ -205,7 +205,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         if (info->ses->id == info->ses_id) {
             log_trace("send response to: %s", nw_sock_human_addr(&info->ses->peer_addr));
             send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
-            monitor_inc("success", 1);
+            profile_inc("success", 1);
         }
         nw_state_del(state, pkg->sequence);
     }
@@ -230,9 +230,9 @@ static void on_listener_recv_fd(nw_ses *ses, int fd)
     if (nw_svr_add_clt_fd(svr->raw_svr, fd) < 0) {
         log_error("nw_svr_add_clt_fd: %d fail: %s", fd, strerror(errno));
         close(fd);
-        monitor_inc("new_connection_fail", 1);
+        profile_inc("new_connection_fail", 1);
     } else {
-        monitor_inc("new_connection_success", 1);
+        profile_inc("new_connection_success", 1);
     }
 }
 
