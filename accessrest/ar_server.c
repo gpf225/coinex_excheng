@@ -4,6 +4,7 @@
  */
 
 # include "ar_server.h"
+# include "ar_ticker.h"
 
 static http_svr *svr;
 static rpc_clt *listener;
@@ -78,7 +79,7 @@ static int reply_data(nw_ses *ses, json_t *data)
     return 0;
 }
 
-static int process_cache(nw_ses *ses, sds cache_key)
+static int check_cache(nw_ses *ses, sds cache_key)
 {
     dict_entry *entry = dict_find(backend_cache, cache_key);
     if (entry == NULL)
@@ -97,13 +98,84 @@ static int process_cache(nw_ses *ses, sds cache_key)
     return 1;
 }
 
+static void update_cache(json_t *data, sds cache_key)
+{
+    struct cache_val val;
+    val.time = current_timestamp();
+    val.data = data;
+    dict_replace(backend_cache, cache_key, &val);
+}
+
+static int on_market_list(nw_ses *ses, dict_t *params)
+{
+    sds cache_key = sdsempty();
+    cache_key = sdscatprintf(cache_key, "market_list");
+    int ret = check_cache(ses, cache_key);
+    if (ret > 0) {
+        sdsfree(cache_key);
+        return 0;
+    }
+
+    json_t *data = get_market_list();
+    if (data == NULL) {
+        reply_internal_error(ses);
+        sdsfree(cache_key);
+    }
+
+    reply_data(ses, data);
+    update_cache(data, cache_key);
+
+    return 0;
+}
+
 static int on_market_ticker(nw_ses *ses, dict_t *params)
 {
+    dict_entry *entry;
+    entry = dict_find(params, "market");
+    if (entry == NULL)
+        return reply_invalid_params(ses);
+    char *market = entry->val;
+    strtoupper(market);
+
+    sds cache_key = sdsempty();
+    cache_key = sdscatprintf(cache_key, "market_ticker_%s", market);
+    int ret = check_cache(ses, cache_key);
+    if (ret > 0) {
+        sdsfree(cache_key);
+        return 0;
+    }
+
+    json_t *data = get_market_ticker(market);
+    if (data == NULL) {
+        reply_invalid_params(ses);
+        sdsfree(cache_key);
+    }
+
+    reply_data(ses, data);
+    update_cache(data, cache_key);
+
     return 0;
 }
 
 static int on_market_ticker_all(nw_ses *ses, dict_t *params)
 {
+    sds cache_key = sdsempty();
+    cache_key = sdscatprintf(cache_key, "market_ticker_all");
+    int ret = check_cache(ses, cache_key);
+    if (ret > 0) {
+        sdsfree(cache_key);
+        return 0;
+    }
+
+    json_t *data = get_market_ticker_all();
+    if (data == NULL) {
+        reply_internal_error(ses);
+        sdsfree(cache_key);
+    }
+
+    reply_data(ses, data);
+    update_cache(data, cache_key);
+
     return 0;
 }
 
@@ -162,7 +234,7 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
 
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_depth_%s_%s_%d", market, merge, limit);
-    int ret = process_cache(ses, cache_key);
+    int ret = check_cache(ses, cache_key);
     if (ret > 0) {
         sdsfree(cache_key);
         return 0;
@@ -221,7 +293,7 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
 
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_deals_%s_%d", market, last_id);
-    int ret = process_cache(ses, cache_key);
+    int ret = check_cache(ses, cache_key);
     if (ret > 0) {
         sdsfree(cache_key);
         return 0;
@@ -323,7 +395,7 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
 
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_kline_%s_%d_%d", market, limit, interval);
-    int ret = process_cache(ses, cache_key);
+    int ret = check_cache(ses, cache_key);
     if (ret > 0) {
         sdsfree(cache_key);
         return 0;
@@ -465,6 +537,7 @@ static int init_svr(void)
     if (method_map == NULL)
         return -__LINE__;
 
+    add_handler("/v1/market/list",          on_market_list);
     add_handler("/v1/market/ticker",        on_market_ticker);
     add_handler("/v1/market/ticker/all",    on_market_ticker_all);
     add_handler("/v1/market/depth",         on_market_depth);
@@ -568,10 +641,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     if (data) {
         reply_data(state->ses, data);
         if (state->cache_key) {
-            struct cache_val val;
-            val.time = current_timestamp();
-            val.data = data;
-            dict_replace(backend_cache, state->cache_key, &val);
+            update_cache(data, state->cache_key);
         } else {
             json_decref(data);
         }

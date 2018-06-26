@@ -36,7 +36,7 @@
         ],
         "max_pkg_size": 2000000
     },
-    "worker_num": 2,
+    "worker_num": 1,
     "accesshttp": "http://127.0.0.1:8080",
     "backend_timeout": 1.0,
     "cache_timeout": 0.5,

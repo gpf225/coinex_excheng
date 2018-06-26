@@ -38,7 +38,8 @@
 # include "ut_rpc_cmd.h"
 # include "ut_http_svr.h"
 
-# define AR_LISTENER_BIND   "seqpacket@/tmp/accessrest.sock"
+# define MARKET_NAME_MAX_LEN    16
+# define AR_LISTENER_BIND       "seqpacket@/tmp/accessrest.sock"
 
 typedef struct depth_limit_cfg {
     int     count;
@@ -65,6 +66,7 @@ struct settings {
     double              backend_timeout;
     double              cache_timeout;
     double              state_interval;
+    double              market_interval;
 
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;
