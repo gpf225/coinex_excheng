@@ -39,7 +39,7 @@
 # include "ut_http_svr.h"
 
 # define MARKET_NAME_MAX_LEN    16
-# define AR_LISTENER_BIND       "seqpacket@/tmp/accessrest.sock"
+# define AR_LISTENER_BIND       "seqpacket@/tmp/accessrest_listener.sock"
 
 typedef struct depth_limit_cfg {
     int     count;
