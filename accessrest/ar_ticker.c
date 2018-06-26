@@ -396,7 +396,7 @@ json_t *get_market_ticker(const void *market)
     }
 
     json_t *data = json_object();
-    json_object_set_new(data, "date", json_integer(time(NULL)));
+    json_object_set_new(data, "date", json_integer((uint64_t)(current_timestamp() * 1000)));
     json_object_set(data, "ticker", info->last);
 
     return data;
@@ -416,7 +416,7 @@ json_t *get_market_ticker_all(void)
     dict_release_iterator(iter);
 
     json_t *data = json_object();
-    json_object_set_new(data, "date", json_integer(time(NULL)));
+    json_object_set_new(data, "date", json_integer((uint64_t)(current_timestamp() * 1000)));
     json_object_set_new(data, "ticker", ticker);
 
     return data;
