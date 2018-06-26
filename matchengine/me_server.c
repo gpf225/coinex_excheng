@@ -103,7 +103,7 @@ static int reply_success(nw_ses *ses, rpc_pkg *pkg)
     return ret;
 }
 
-static bool process_cache(nw_ses *ses, rpc_pkg *pkg, sds *cache_key)
+static bool check_cache(nw_ses *ses, rpc_pkg *pkg, sds *cache_key)
 {
     sds key = sdsempty();
     key = sdscatprintf(key, "%u", pkg->command);
@@ -990,7 +990,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
 
     sds cache_key = NULL;
-    if (process_cache(ses, pkg, &cache_key)) {
+    if (check_cache(ses, pkg, &cache_key)) {
         mpd_del(interval);
         return 0;
     }

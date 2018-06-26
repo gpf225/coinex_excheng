@@ -19,6 +19,7 @@ static rpc_clt *marketprice;
 struct state_data {
     nw_ses      *ses;
     uint64_t    ses_id;
+    uint32_t    cmd;
     sds         cache_key;
 };
 
@@ -272,6 +273,7 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     pkg.body      = json_dumps(query_params, 0);
     pkg.body_size = strlen(pkg.body);
 
+    state->cmd = pkg.command;
     rpc_clt_send(matchengine, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
             nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
@@ -331,6 +333,7 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
     pkg.body      = json_dumps(query_params, 0);
     pkg.body_size = strlen(pkg.body);
 
+    state->cmd = pkg.command;
     rpc_clt_send(marketprice, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
             nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
@@ -435,6 +438,7 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     pkg.body      = json_dumps(query_params, 0);
     pkg.body_size = strlen(pkg.body);
 
+    state->cmd = pkg.command;
     rpc_clt_send(marketprice, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
             nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
@@ -471,8 +475,8 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
 
 static void on_timeout(nw_state_entry *entry)
 {
-    log_error("state id: %u timeout", entry->id);
     struct state_data *state = entry->data;
+    log_fatal("query timeout, state id: %u, command: %u", entry->id, state->cmd);
     reply_time_out(state->ses);
 }
 
