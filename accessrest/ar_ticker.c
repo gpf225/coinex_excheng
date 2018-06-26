@@ -217,7 +217,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 static void on_timeout(nw_state_entry *entry)
 {
     struct state_data *state = entry->data;
-    log_fatal("query status timeout, state id: %u, command: %u", entry->id, state->cmd);
+    log_fatal("query timeout, state id: %u, command: %u", entry->id, state->cmd);
 }
 
 static int query_market_list(void)
