@@ -9,6 +9,7 @@
 int profile_init(const char *scope, const char *host);
 void profile_set(const char *key, uint64_t val);
 void profile_inc(const char *key, uint64_t val);
+void profile_inc_real(const char *key, uint64_t val);
 
 # endif
 

@@ -146,18 +146,6 @@ int profile_init(const char *scope, const char *host)
     return 0;
 }
 
-void profile_inc(const char *key, uint64_t val)
-{
-    dict_entry *entry = dict_find(dict_profile, key);
-    if (entry) {
-        struct profile_val *obj = entry->val;
-        obj->val += val;
-    } else {
-        struct profile_val obj = { .val = val };
-        dict_add(dict_profile, (void *)key, &obj);
-    }
-}
-
 void profile_set(const char *key, uint64_t val)
 {
     if (sockfd == 0)
@@ -172,6 +160,44 @@ void profile_set(const char *key, uint64_t val)
 
     json_t *message = json_object();
     json_object_set_new(message, "method", json_string("monitor.set"));
+    json_object_set_new(message, "params", params);
+
+    char *message_str = json_dumps(message, 0);
+    size_t message_len = strlen(message_str);
+    message_str[message_len] = '\n';
+    sendto(sockfd, message_str, message_len + 1, 0, (struct sockaddr *)&agent_addr, sizeof(agent_addr));
+
+    json_decref(message);
+    free(message_str);
+    free(new_key);
+}
+
+void profile_inc(const char *key, uint64_t val)
+{
+    dict_entry *entry = dict_find(dict_profile, key);
+    if (entry) {
+        struct profile_val *obj = entry->val;
+        obj->val += val;
+    } else {
+        struct profile_val obj = { .val = val };
+        dict_add(dict_profile, (void *)key, &obj);
+    }
+}
+
+void profile_inc_real(const char *key, uint64_t val)
+{
+    if (sockfd == 0)
+        return;
+
+    char *new_key = escape_key(key);
+    json_t *params = json_array();
+    json_array_append_new(params, json_string(process_scope));
+    json_array_append_new(params, json_string(new_key));
+    json_array_append_new(params, json_string(process_host));
+    json_array_append_new(params, json_integer(val));
+
+    json_t *message = json_object();
+    json_object_set_new(message, "method", json_string("monitor.inc"));
     json_object_set_new(message, "params", params);
 
     char *message_str = json_dumps(message, 0);
