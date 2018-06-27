@@ -119,6 +119,11 @@ static void update_cache(json_t *data, sds cache_key)
     dict_replace(backend_cache, cache_key, &val);
 }
 
+static void clear_cache(sds cache_key)
+{
+    dict_delete(backend_cache, cache_key);
+}
+
 static int on_ping(nw_ses *ses, dict_t *params)
 {
     return send_http_response_simple(ses, 200, "pong", 4);
@@ -253,16 +258,20 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     bool is_reply = false;
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_depth_%s_%s_%d", market, merge, limit);
+    double now = current_timestamp();
     struct cache_val *cache_val = get_cache(cache_key);
     if (cache_val) {
-        reply_data(ses, cache_val->data);
-        is_reply = true;
-        double now = current_timestamp();
-        if ((now - cache_val->time) < settings.cache_timeout) {
-            sdsfree(cache_key);
-            return 0;
+        if ((now - cache_val->time) < (settings.cache_timeout * 10)) {
+            reply_data(ses, cache_val->data);
+            is_reply = true;
+            if ((now - cache_val->time) < settings.cache_timeout) {
+                sdsfree(cache_key);
+                return 0;
+            } else {
+                cache_val->time = now;
+            }
         } else {
-            cache_val->time = now;
+            clear_cache(cache_key);
         }
     }
 
@@ -327,16 +336,20 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
     bool is_reply = false;
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_deals_%s_%d", market, last_id);
+    double now = current_timestamp();
     struct cache_val *cache_val = get_cache(cache_key);
     if (cache_val) {
-        reply_data(ses, cache_val->data);
-        is_reply = true;
-        double now = current_timestamp();
-        if ((now - cache_val->time) < settings.cache_timeout) {
-            sdsfree(cache_key);
-            return 0;
+        if ((now - cache_val->time) < (settings.cache_timeout * 10)) {
+            reply_data(ses, cache_val->data);
+            is_reply = true;
+            if ((now - cache_val->time) < settings.cache_timeout) {
+                sdsfree(cache_key);
+                return 0;
+            } else {
+                cache_val->time = now;
+            }
         } else {
-            cache_val->time = now;
+            clear_cache(cache_key);
         }
     }
 
@@ -444,16 +457,20 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     bool is_reply = false;
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_kline_%s_%d_%d", market, limit, interval);
+    double now = current_timestamp();
     struct cache_val *cache_val = get_cache(cache_key);
     if (cache_val) {
-        reply_data(ses, cache_val->data);
-        is_reply = true;
-        double now = current_timestamp();
-        if ((now - cache_val->time) < settings.cache_timeout) {
-            sdsfree(cache_key);
-            return 0;
+        if ((now - cache_val->time) < (settings.cache_timeout * 10)) {
+            reply_data(ses, cache_val->data);
+            is_reply = true;
+            if ((now - cache_val->time) < settings.cache_timeout) {
+                sdsfree(cache_key);
+                return 0;
+            } else {
+                cache_val->time = now;
+            }
         } else {
-            cache_val->time = now;
+            clear_cache(cache_key);
         }
     }
 
@@ -474,11 +491,11 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     }
     state->cache_key = cache_key;
 
-    time_t now = time(NULL);
+    time_t timestatmp = time(NULL);
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_string(market));
-    json_array_append_new(query_params, json_integer(now - limit * interval));
-    json_array_append_new(query_params, json_integer(now));
+    json_array_append_new(query_params, json_integer(timestatmp - limit * interval));
+    json_array_append_new(query_params, json_integer(timestatmp));
     json_array_append_new(query_params, json_integer(interval));
 
     rpc_pkg pkg;
