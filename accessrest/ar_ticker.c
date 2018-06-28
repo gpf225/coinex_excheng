@@ -140,16 +140,20 @@ static int on_order_depth_reply(struct state_data *state, json_t *result)
     if (json_array_size(bids) == 1) {
         json_t *buy = json_array_get(bids, 0);
         json_object_set(info->last, "buy", json_array_get(buy, 0));
+        json_object_set(info->last, "buy_amount", json_array_get(buy, 1));
     } else {
         json_object_set_new(info->last, "buy", json_string("0"));
+        json_object_set_new(info->last, "buy_amount", json_string("0"));
     }
 
     json_t *asks = json_object_get(result, "asks");
     if (json_array_size(asks) == 1) {
         json_t *sell = json_array_get(asks, 0);
         json_object_set(info->last, "sell", json_array_get(sell, 0));
+        json_object_set(info->last, "sell_amount", json_array_get(sell, 1));
     } else {
         json_object_set_new(info->last, "sell", json_string("0"));
+        json_object_set_new(info->last, "sell_amount", json_string("0"));
     }
 
     return 0;
@@ -301,8 +305,18 @@ static int query_market_depth(const char *market)
     return 0;
 }
 
+static void on_market_timer(nw_timer *timer, void *privdata)
+{
+    query_market_list();
+}
+
 static void on_update_timer(nw_timer *timer, void *privdata)
 {
+    if (dict_size(dict_market) == 0) {
+        query_market_list();
+        return;
+    }
+
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
@@ -311,11 +325,6 @@ static void on_update_timer(nw_timer *timer, void *privdata)
         query_market_status(market);
     }
     dict_release_iterator(iter);
-}
-
-static void on_market_timer(nw_timer *timer, void *privdata)
-{
-    query_market_list();
 }
 
 int init_ticker(void)
