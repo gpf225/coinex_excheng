@@ -25,10 +25,51 @@ struct state_data {
 
 struct cache_val {
     double      time;
-    json_t      *data;
+    sds         data;
 };
 
 typedef int (*on_request_method)(nw_ses *ses, dict_t *params);
+
+static int check_cache(nw_ses *ses, sds cache_key)
+{
+    dict_entry *entry = dict_find(backend_cache, cache_key);
+    if (entry == NULL)
+        return 0;
+
+    struct cache_val *cache = entry->val;
+    double now = current_timestamp();
+    if ((now - cache->time) > settings.cache_timeout) {
+        dict_delete(backend_cache, cache_key);
+        return 0;
+    }
+
+    send_http_response_simple(ses, 200, cache->data, sdslen(cache->data));
+    profile_inc("reply_cache", 1);
+
+    return 1;
+}
+
+static struct cache_val *get_cache(sds cache_key)
+{
+    dict_entry *entry = dict_find(backend_cache, cache_key);
+    if (entry == NULL)
+        return 0;
+
+    return entry->val;
+}
+
+static void update_cache(sds cache_key, char *message)
+{
+    struct cache_val val;
+    val.time = current_timestamp();
+    val.data = sdsnewlen(message, strlen(message));
+    dict_replace(backend_cache, cache_key, &val);
+}
+
+static void clear_cache(sds cache_key)
+{
+    dict_delete(backend_cache, cache_key);
+}
 
 static int reply_error(nw_ses *ses, int code, const char *message, uint32_t status)
 {
@@ -69,7 +110,7 @@ static int reply_invalid_params(nw_ses *ses)
     return reply_error(ses, 2, "invalid params", 400);
 }
 
-static int reply_data(nw_ses *ses, json_t *data)
+static int reply_json(nw_ses *ses, json_t *data, sds cache_key)
 {
     json_t *reply = json_object();
     json_object_set_new(reply, "code", json_integer(0));
@@ -78,50 +119,14 @@ static int reply_data(nw_ses *ses, json_t *data)
 
     char *reply_str = json_dumps(reply, 0);
     send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
+    if (cache_key) {
+        update_cache(cache_key, reply_str);
+    }
     free(reply_str);
     json_decref(reply);
-    profile_inc("success", 1);
+    profile_inc("reply_normal", 1);
 
     return 0;
-}
-
-static int check_cache(nw_ses *ses, sds cache_key)
-{
-    dict_entry *entry = dict_find(backend_cache, cache_key);
-    if (entry == NULL)
-        return 0;
-
-    struct cache_val *cache = entry->val;
-    double now = current_timestamp();
-    if ((now - cache->time) > settings.cache_timeout) {
-        dict_delete(backend_cache, cache_key);
-        return 0;
-    }
-
-    reply_data(ses, cache->data);
-    return 1;
-}
-
-static struct cache_val *get_cache(sds cache_key)
-{
-    dict_entry *entry = dict_find(backend_cache, cache_key);
-    if (entry == NULL)
-        return 0;
-
-    return entry->val;
-}
-
-static void update_cache(json_t *data, sds cache_key)
-{
-    struct cache_val val;
-    val.time = current_timestamp();
-    val.data = data;
-    dict_replace(backend_cache, cache_key, &val);
-}
-
-static void clear_cache(sds cache_key)
-{
-    dict_delete(backend_cache, cache_key);
 }
 
 static int on_ping(nw_ses *ses, dict_t *params)
@@ -145,8 +150,9 @@ static int on_market_list(nw_ses *ses, dict_t *params)
         return reply_internal_error(ses);
     }
 
-    reply_data(ses, data);
-    update_cache(data, cache_key);
+    reply_json(ses, data, cache_key);
+    json_decref(data);
+    sdsfree(cache_key);
 
     return 0;
 }
@@ -174,8 +180,9 @@ static int on_market_ticker(nw_ses *ses, dict_t *params)
         return reply_invalid_params(ses);
     }
 
-    reply_data(ses, data);
-    update_cache(data, cache_key);
+    reply_json(ses, data, cache_key);
+    json_decref(data);
+    sdsfree(cache_key);
 
     return 0;
 }
@@ -196,8 +203,9 @@ static int on_market_ticker_all(nw_ses *ses, dict_t *params)
         return reply_internal_error(ses);
     }
 
-    reply_data(ses, data);
-    update_cache(data, cache_key);
+    reply_json(ses, data, cache_key);
+    json_decref(data);
+    sdsfree(cache_key);
 
     return 0;
 }
@@ -261,8 +269,9 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     double now = current_timestamp();
     struct cache_val *cache_val = get_cache(cache_key);
     if (cache_val) {
-        if ((now - cache_val->time) < (settings.cache_timeout * 10)) {
-            reply_data(ses, cache_val->data);
+        if ((now - cache_val->time) < (settings.cache_timeout * 2)) {
+            send_http_response_simple(ses, 200, cache_val->data, sdslen(cache_val->data));
+            profile_inc("reply_cache", 1);
             is_reply = true;
             if ((now - cache_val->time) < settings.cache_timeout) {
                 sdsfree(cache_key);
@@ -339,8 +348,9 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
     double now = current_timestamp();
     struct cache_val *cache_val = get_cache(cache_key);
     if (cache_val) {
-        if ((now - cache_val->time) < (settings.cache_timeout * 10)) {
-            reply_data(ses, cache_val->data);
+        if ((now - cache_val->time) < (settings.cache_timeout * 2)) {
+            send_http_response_simple(ses, 200, cache_val->data, sdslen(cache_val->data));
+            profile_inc("reply_cache", 1);
             is_reply = true;
             if ((now - cache_val->time) < settings.cache_timeout) {
                 sdsfree(cache_key);
@@ -460,8 +470,9 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     double now = current_timestamp();
     struct cache_val *cache_val = get_cache(cache_key);
     if (cache_val) {
-        if ((now - cache_val->time) < (settings.cache_timeout * 10)) {
-            reply_data(ses, cache_val->data);
+        if ((now - cache_val->time) < (settings.cache_timeout * 2)) {
+            send_http_response_simple(ses, 200, cache_val->data, sdslen(cache_val->data));
+            profile_inc("reply_cache", 1);
             is_reply = true;
             if ((now - cache_val->time) < settings.cache_timeout) {
                 sdsfree(cache_key);
@@ -712,13 +723,9 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     if (data) {
         if (state->ses && state->ses->id == state->ses_id) {
-            reply_data(state->ses, data);
+            reply_json(state->ses, data, state->cache_key);
         }
-        if (state->cache_key) {
-            update_cache(data, state->cache_key);
-        } else {
-            json_decref(data);
-        }
+        json_decref(data);
     } else {
         reply_internal_error(state->ses);
     }
@@ -759,7 +766,7 @@ static void *cache_dict_val_dup(const void *val)
 static void cache_dict_val_free(void *val)
 {
     struct cache_val *obj = val;
-    json_decref(obj->data);
+    sdsfree(obj->data);
     free(val);
 }
 
