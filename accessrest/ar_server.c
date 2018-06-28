@@ -441,7 +441,7 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     entry = dict_find(params, "limit");
     if (entry) {
         limit = atoi(entry->val);
-        if (limit == 0) {
+        if (limit <= 0) {
             limit = 1000;
         }
     }
@@ -494,7 +494,7 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     time_t timestatmp = time(NULL);
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_string(market));
-    json_array_append_new(query_params, json_integer(timestatmp - limit * interval));
+    json_array_append_new(query_params, json_integer(timestatmp - (limit - 1) * interval - 1));
     json_array_append_new(query_params, json_integer(timestatmp));
     json_array_append_new(query_params, json_integer(interval));
 
