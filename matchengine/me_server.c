@@ -881,6 +881,7 @@ static json_t *get_depth(market_t *market, size_t limit)
     json_t *result = json_object();
     json_object_set_new(result, "asks", asks);
     json_object_set_new(result, "bids", bids);
+    json_object_set_new_mpd(result, "last", market->last);
 
     return result;
 }
@@ -954,6 +955,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
     json_t *result = json_object();
     json_object_set_new(result, "asks", asks);
     json_object_set_new(result, "bids", bids);
+    json_object_set_new_mpd(result, "last", market->last);
 
     return result;
 }
