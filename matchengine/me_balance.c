@@ -347,21 +347,13 @@ mpd_t *balance_unfreeze(uint32_t user_id, uint32_t type, const char *asset, mpd_
     return frozen;
 }
 
-mpd_t *balance_total(uint32_t user_id, const char *asset)
+mpd_t *balance_available(uint32_t user_id, const char *asset)
 {
     mpd_t *balance = mpd_new(&mpd_ctx);
     mpd_copy(balance, mpd_zero, &mpd_ctx);
     mpd_t *available = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
     if (available) {
         mpd_add(balance, balance, available, &mpd_ctx);
-    }
-    mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
-    if (frozen) {
-        mpd_add(balance, balance, frozen, &mpd_ctx);
-    }
-    mpd_t *lock = balance_get(user_id, BALANCE_TYPE_LOCK, asset);
-    if (lock) {
-        mpd_add(balance, balance, lock, &mpd_ctx);
     }
 
     return balance;
@@ -383,13 +375,33 @@ mpd_t *balance_frozen(uint32_t user_id, const char *asset)
     return balance;
 }
 
-mpd_t *balance_available(uint32_t user_id, const char *asset)
+mpd_t *balance_lock(uint32_t user_id, const char *asset)
+{
+    mpd_t *balance = mpd_new(&mpd_ctx);
+    mpd_copy(balance, mpd_zero, &mpd_ctx);
+    mpd_t *lock = balance_get(user_id, BALANCE_TYPE_LOCK, asset);
+    if (lock) {
+        mpd_add(balance, balance, lock, &mpd_ctx);
+    }
+
+    return balance;
+}
+
+mpd_t *balance_total(uint32_t user_id, const char *asset)
 {
     mpd_t *balance = mpd_new(&mpd_ctx);
     mpd_copy(balance, mpd_zero, &mpd_ctx);
     mpd_t *available = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
     if (available) {
         mpd_add(balance, balance, available, &mpd_ctx);
+    }
+    mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
+    if (frozen) {
+        mpd_add(balance, balance, frozen, &mpd_ctx);
+    }
+    mpd_t *lock = balance_get(user_id, BALANCE_TYPE_LOCK, asset);
+    if (lock) {
+        mpd_add(balance, balance, lock, &mpd_ctx);
     }
 
     return balance;

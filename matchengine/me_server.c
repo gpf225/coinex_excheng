@@ -179,6 +179,33 @@ static json_t *get_asset_summary(const char *name)
     return obj;
 }
 
+static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    json_t *result = json_array();
+    if (json_array_size(params) == 0) {
+        for (int i = 0; i < settings.asset_num; ++i) {
+            json_array_append_new(result, get_asset_summary(settings.assets[i].name));
+        }
+    } else {
+        for (int i = 0; i < json_array_size(params); ++i) {
+            const char *asset = json_string_value(json_array_get(params, i));
+            if (asset == NULL)
+                goto invalid_argument;
+            if (!asset_exist(asset))
+                goto invalid_argument;
+            json_array_append_new(result, get_asset_summary(asset));
+        }
+    }
+
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+
+invalid_argument:
+    json_decref(result);
+    return reply_error_invalid_argument(ses, pkg);
+}
+
 static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     size_t request_size = json_array_size(params);
@@ -375,31 +402,37 @@ static int on_cmd_asset_unlock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return reply_success(ses, pkg);
 }
 
-static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    json_t *result = json_array();
-    if (json_array_size(params) == 0) {
-        for (int i = 0; i < settings.asset_num; ++i) {
-            json_array_append_new(result, get_asset_summary(settings.assets[i].name));
+    size_t request_size = json_array_size(params);
+    if (request_size != 1)
+        return reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_integer(json_array_get(params, 0)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+    if (user_id == 0)
+        return reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = json_object();
+    for (size_t i = 0; i < settings.asset_num; ++i) {
+        const char *asset = settings.assets[i].name;
+        int prec_save = asset_prec(asset);
+        int prec_show = asset_prec_show(asset);
+
+        mpd_t *lock = balance_lock(user_id, asset);
+        if (prec_save != prec_show) {
+            mpd_rescale(lock, lock, -prec_show, &mpd_ctx);
         }
-    } else {
-        for (int i = 0; i < json_array_size(params); ++i) {
-            const char *asset = json_string_value(json_array_get(params, i));
-            if (asset == NULL)
-                goto invalid_argument;
-            if (!asset_exist(asset))
-                goto invalid_argument;
-            json_array_append_new(result, get_asset_summary(asset));
+        if (mpd_cmp(lock, mpd_zero, &mpd_ctx) > 0) {
+            json_object_set_new_mpd(result, asset, lock);
         }
+        mpd_del(lock);
     }
 
     int ret = reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
-
-invalid_argument:
-    json_decref(result);
-    return reply_error_invalid_argument(ses, pkg);
 }
 
 static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -1229,6 +1262,14 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_asset_unlock(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_unlock %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_QUERY_LOCK:
+        log_trace("from: %s cmd balance query lock, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
+        profile_inc("cmd_asset_query_lock", 1);
+        ret = on_cmd_asset_query_lock(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_query_lock %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_PUT_LIMIT:
