@@ -556,7 +556,9 @@ static void on_timeout(nw_state_entry *entry)
 {
     struct state_data *state = entry->data;
     log_fatal("query timeout, state id: %u, command: %u", entry->id, state->cmd);
-    reply_time_out(state->ses);
+    if (state->ses && state->ses->id == state->ses_id) {
+        reply_time_out(state->ses);
+    }
 }
 
 static void on_release(nw_state_entry *entry)
