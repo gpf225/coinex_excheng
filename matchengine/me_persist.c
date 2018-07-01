@@ -114,6 +114,17 @@ static int load_slice_from_db(MYSQL *conn, time_t timestamp)
         return -__LINE__;
     }
 
+    sdsclear(table);
+    table = sdscatprintf(table, "slice_update_%ld", timestamp);
+    log_stderr("load update from: %s", table);
+    ret = load_update(conn, table);
+    if (ret < 0) {
+        log_error("load_update from %s fail: %d", table, ret);
+        log_stderr("load_update from %s fail: %d", table, ret);
+        sdsfree(table);
+        return -__LINE__;
+    }
+
     sdsfree(table);
     return 0;
 }
@@ -234,6 +245,22 @@ static int dump_balance_to_db(MYSQL *conn, time_t end)
     return 0;
 }
 
+static int dump_update_to_db(MYSQL *conn, time_t end)
+{
+    sds table = sdsempty();
+    table = sdscatprintf(table, "slice_update_%ld", end);
+    log_info("dump update to: %s", table);
+    int ret = dump_update(conn, table);
+    if (ret < 0) {
+        log_error("dump_update to %s fail: %d", table, ret);
+        sdsfree(table);
+        return -__LINE__;
+    }
+    sdsfree(table);
+
+    return 0;
+}
+
 int update_slice_history(MYSQL *conn, time_t end)
 {
     json_t *market_last_info = get_market_last_info();
@@ -280,6 +307,11 @@ int dump_to_db(time_t timestamp)
     }
 
     ret = dump_balance_to_db(conn, timestamp);
+    if (ret < 0) {
+        goto cleanup;
+    }
+
+    ret = dump_update_to_db(conn, timestamp);
     if (ret < 0) {
         goto cleanup;
     }

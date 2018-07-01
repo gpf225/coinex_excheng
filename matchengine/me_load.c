@@ -127,6 +127,49 @@ int load_balance(MYSQL *conn, const char *table)
     return 0;
 }
 
+int load_update(MYSQL *conn, const char *table)
+{
+    if (!is_table_exists(conn, table)) {
+        log_stderr("table %s not exist", table);
+        return 0;
+    }
+
+    size_t query_limit = 1000;
+    uint64_t last_id = 0;
+    while (true) {
+        sds sql = sdsempty();
+        sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `user_id`, `asset`, `business`, `business_id` FROM `%s` "
+                "WHERE `id` > %"PRIu64" ORDER BY id LIMIT %zu", table, last_id, query_limit);
+        log_trace("exec sql: %s", sql);
+        int ret = mysql_real_query(conn, sql, sdslen(sql));
+        if (ret != 0) {
+            log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+            sdsfree(sql);
+            return -__LINE__;
+        }
+        sdsfree(sql);
+
+        MYSQL_RES *result = mysql_store_result(conn);
+        size_t num_rows = mysql_num_rows(result);
+        for (size_t i = 0; i < num_rows; ++i) {
+            MYSQL_ROW row = mysql_fetch_row(result);
+            last_id = strtoull(row[0], NULL, 0);
+            double create_time = strtod(row[1], NULL);
+            uint32_t user_id = strtoul(row[2], NULL, 0);
+            const char *asset = row[3];
+            const char *business = row[4];
+            uint64_t business_id = strtoull(row[5], NULL, 0);
+            update_add(user_id, asset, business, business_id, create_time);
+        }
+        mysql_free_result(result);
+
+        if (num_rows < query_limit)
+            break;
+    }
+
+    return 0;
+}
+
 static int load_update_balance(json_t *params)
 {
     if (json_array_size(params) != 6)
