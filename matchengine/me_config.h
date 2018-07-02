@@ -46,8 +46,8 @@
 # define ORDER_LIST_MAX_LEN     101
 
 # define MAX_PENDING_OPERLOG    100
-# define MAX_PENDING_HISTORY    1000
 # define MAX_PENDING_MESSAGE    1000
+# define MAX_PENDING_HISTORY    10000
 
 struct asset {
     char                *name;
