@@ -20,6 +20,7 @@
 # include "nw_svr.h"
 # include "nw_clt.h"
 # include "nw_job.h"
+# include "nw_state.h"
 # include "nw_timer.h"
 
 # include "ut_log.h"
@@ -28,6 +29,7 @@
 # include "ut_misc.h"
 # include "ut_list.h"
 # include "ut_kafka.h"
+# include "ut_title.h"
 # include "ut_signal.h"
 # include "ut_config.h"
 # include "ut_define.h"
@@ -50,7 +52,9 @@ struct settings {
     int                 min_max;
     int                 hour_max;
     int                 kline_max;
+    int                 worker_num;
     double              cache_timeout;
+    double              worker_timeout;
     char                *accesshttp;
 };
 

@@ -34,6 +34,8 @@ struct update_key {
     time_t timestamp;
 };
 
+static int worker_id;
+
 static redis_sentinel_t *redis;
 static kafka_consumer_t *deals;
 static dict_t *dict_market;
@@ -364,7 +366,8 @@ static int init_market(void)
     for (size_t i = 0; i < json_array_size(r); ++i) {
         json_t *item = json_array_get(r, i);
         const char *name = json_string_value(json_object_get(item, "name"));
-        log_stderr("init market %s", name);
+        if (get_market_id(name) != worker_id)
+            continue;
         struct market_info *info = create_market(name);
         if (info == NULL) {
             log_error("create market %s fail", name);
@@ -558,14 +561,16 @@ static void on_deals_message(sds message, int64_t offset)
         goto cleanup;
     }
 
-    int ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
-    if (ret < 0) {
-        log_error("market_update fail %d, message: %s", ret, message);
-        goto cleanup;
-    }
+    if (get_market_id(market) == worker_id) {
+        int ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
+        if (ret < 0) {
+            log_error("market_update fail %d, message: %s", ret, message);
+            goto cleanup;
+        }
 
-    profile_inc("new_message", 1);
-    profile_inc("new_message_costs", (int)((current_timestamp() - task_start) * 1000000));
+        profile_inc("new_message", 1);
+        profile_inc("new_message_costs", (int)((current_timestamp() - task_start) * 1000000));
+    }
 
     last_offset = offset;
     mpd_del(price);
@@ -748,10 +753,12 @@ static int flush_market(void)
     }
     dict_release_iterator(iter);
 
-    ret = flush_offset(context, last_offset);
-    if (ret < 0) {
-        redisFree(context);
-        return -__LINE__;
+    if (worker_id == 0) {
+        ret = flush_offset(context, last_offset);
+        if (ret < 0) {
+            redisFree(context);
+            return -__LINE__;
+        }
     }
 
     last_flush = current_timestamp();
@@ -860,6 +867,31 @@ static void on_redis_timer(nw_timer *timer, void *privdata)
     }
 }
 
+static int update_market_list(void)
+{
+    json_t *r = get_market_list();
+    if (r == NULL)
+        return -__LINE__;
+    for (size_t i = 0; i < json_array_size(r); ++i) {
+        json_t *item = json_array_get(r, i);
+        const char *name = json_string_value(json_object_get(item, "name"));
+        if (get_market_id(name) != worker_id)
+            continue;
+        struct market_info *info = market_query(name);
+        if (info == NULL) {
+            info = create_market(name);
+            if (info == NULL) {
+                json_decref(r);
+                return -__LINE__;
+            }
+            log_info("add market: %s", name);
+        }
+    }
+    json_decref(r);
+
+    return 0;
+}
+
 static void on_market_timer(nw_timer *timer, void *privdata)
 {
     int ret = update_market_list();
@@ -890,12 +922,15 @@ static int64_t get_message_offset(void)
     return offset;
 }
 
-int init_message(void)
+int init_message(int id)
 {
-    int ret;
+    worker_id = id;
+
     redis = redis_sentinel_create(&settings.redis);
     if (redis == NULL)
         return -__LINE__;
+
+    int ret;
     ret = init_market();
     if (ret < 0) {
         return ret;
@@ -925,27 +960,10 @@ int init_message(void)
     return 0;
 }
 
-int update_market_list(void)
+int get_market_id(const char *market)
 {
-    json_t *r = get_market_list();
-    if (r == NULL)
-        return -__LINE__;
-    for (size_t i = 0; i < json_array_size(r); ++i) {
-        json_t *item = json_array_get(r, i);
-        const char *name = json_string_value(json_object_get(item, "name"));
-        struct market_info *info = market_query(name);
-        if (info == NULL) {
-            info = create_market(name);
-            if (info == NULL) {
-                json_decref(r);
-                return -__LINE__;
-            }
-            log_info("add market: %s", name);
-        }
-    }
-    json_decref(r);
-
-    return 0;
+    uint32_t hash = dict_generic_hash_function(market, strlen(market));
+    return hash % settings.worker_num;
 }
 
 bool market_exist(const char *market)

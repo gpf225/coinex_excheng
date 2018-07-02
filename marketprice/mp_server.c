@@ -333,7 +333,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         goto decode_error;
     }
     sds params_str = sdsnewlen(pkg->body, pkg->body_size);
-    log_trace("from: %s cmd: %u , squence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, params_str);
+    log_trace("from: %s cmd: %u, squence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, params_str);
 
     int ret;
     switch (pkg->command) {
@@ -443,8 +443,15 @@ static void on_cache_timer(nw_timer *timer, void *privdata)
     dict_clear(dict_cache);
 }
 
-int init_server(void)
+int init_server(int worker_id)
 {
+    if (settings.svr.bind_count != 1)
+        return -__LINE__;
+    nw_svr_bind *bind_arr = settings.svr.bind_arr;
+    if (bind_arr->addr.family != AF_INET)
+        return -__LINE__;
+    bind_arr->addr.in.sin_port = htons(ntohs(bind_arr->addr.in.sin_port) + worker_id + 1);
+
     rpc_svr_type type;
     memset(&type, 0, sizeof(type));
     type.on_recv_pkg = svr_on_recv_pkg;
