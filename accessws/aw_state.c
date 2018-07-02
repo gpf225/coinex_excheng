@@ -397,6 +397,8 @@ int state_subscribe(nw_ses *ses, json_t *market_list)
         return -__LINE__;
     for (size_t i = 0; i < json_array_size(market_list); ++i) {
         const char *name = json_string_value(json_array_get(market_list, i));
+        if (name == NULL)
+            continue;
         if (dict_find(dict_market, name)) {
             list_add_node_tail(list, (char *)name);
         }
