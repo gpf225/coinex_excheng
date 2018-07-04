@@ -305,9 +305,12 @@ void http_response_release(http_response_t *response)
 const char *http_get_remote_ip(nw_ses *ses, http_request_t *request)
 {
     static char ip[NW_SOCK_IP_SIZE];
-    const char *x_connecting_ip = http_request_get_header(request, "X-Connecting-IP");
-    if (x_connecting_ip)
-        return x_connecting_ip;
+    const char *cf_connecting_ip = http_request_get_header(request, "CF-Connecting-IP");
+    if (cf_connecting_ip)
+        return cf_connecting_ip;
+    const char *x_real_forward_for = http_request_get_header(request, "X-Real-Forwarded-For");
+    if (x_real_forward_for)
+        return x_real_forward_for;
     const char *x_forward_for = http_request_get_header(request, "X-Forwarded-For");
     if (x_forward_for) {
         sstrncpy(ip, x_forward_for, sizeof(ip));
@@ -323,7 +326,6 @@ const char *http_get_remote_ip(nw_ses *ses, http_request_t *request)
     const char *x_real_ip = http_request_get_header(request, "X-Real-IP");
     if (x_real_ip)
         return x_real_ip;
-
 
     nw_sock_ip_s(&ses->peer_addr, ip);
     return ip;

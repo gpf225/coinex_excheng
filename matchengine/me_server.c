@@ -506,7 +506,6 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         // fee asset
         if (json_is_string(json_array_get(params, 8))) {
             fee_asset = json_string_value(json_array_get(params, 8));
-            log_debug("fee asset: %s", fee_asset);
             if (!asset_exist(fee_asset))
                 goto invalid_argument;
             if (!get_fee_price(market, fee_asset)) {
