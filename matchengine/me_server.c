@@ -153,59 +153,6 @@ static int on_cmd_asset_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
-static json_t *get_asset_summary(const char *name)
-{
-    size_t total_count;
-    size_t available_count;
-    size_t frozen_count;
-    mpd_t *total = mpd_new(&mpd_ctx);
-    mpd_t *available = mpd_new(&mpd_ctx);
-    mpd_t *frozen = mpd_new(&mpd_ctx);
-    balance_status(name, &total_count, total, &available_count, available, &frozen_count, frozen);
-
-    json_t *obj = json_object();
-    json_object_set_new(obj, "name", json_string(name));
-    json_object_set_new(obj, "total_count", json_integer(total_count));
-    json_object_set_new_mpd(obj, "total_balance", total);
-    json_object_set_new(obj, "available_count", json_integer(available_count));
-    json_object_set_new_mpd(obj, "available_balance", available);
-    json_object_set_new(obj, "frozen_count", json_integer(frozen_count));
-    json_object_set_new_mpd(obj, "frozen_balance", frozen);
-
-    mpd_del(total);
-    mpd_del(available);
-    mpd_del(frozen);
-
-    return obj;
-}
-
-static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    json_t *result = json_array();
-    if (json_array_size(params) == 0) {
-        for (int i = 0; i < settings.asset_num; ++i) {
-            json_array_append_new(result, get_asset_summary(settings.assets[i].name));
-        }
-    } else {
-        for (int i = 0; i < json_array_size(params); ++i) {
-            const char *asset = json_string_value(json_array_get(params, i));
-            if (asset == NULL)
-                goto invalid_argument;
-            if (!asset_exist(asset))
-                goto invalid_argument;
-            json_array_append_new(result, get_asset_summary(asset));
-        }
-    }
-
-    int ret = reply_result(ses, pkg, result);
-    json_decref(result);
-    return ret;
-
-invalid_argument:
-    json_decref(result);
-    return reply_error_invalid_argument(ses, pkg);
-}
-
 static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     size_t request_size = json_array_size(params);
@@ -1101,66 +1048,6 @@ static int on_cmd_market_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
-static json_t *get_market_summary(const char *name)
-{
-    size_t user_count;
-    size_t ask_count;
-    size_t bid_count;
-    mpd_t *ask_amount = mpd_new(&mpd_ctx);
-    mpd_t *ask_value  = mpd_new(&mpd_ctx);
-    mpd_t *bid_amount = mpd_new(&mpd_ctx);
-    mpd_t *bid_value  = mpd_new(&mpd_ctx);
-    mpd_t *last       = mpd_new(&mpd_ctx);
-    market_t *market  = get_market(name);
-    market_get_status(market, &user_count, &ask_count, ask_amount, ask_value, &bid_count, bid_amount, bid_value, last);
-    
-    json_t *obj = json_object();
-    json_object_set_new(obj, "name", json_string(name));
-    json_object_set_new(obj, "user_count", json_integer(user_count));
-    json_object_set_new(obj, "ask_count", json_integer(ask_count));
-    json_object_set_new(obj, "bid_count", json_integer(bid_count));
-    json_object_set_new_mpd(obj, "ask_amount", ask_amount);
-    json_object_set_new_mpd(obj, "ask_value", ask_value);
-    json_object_set_new_mpd(obj, "bid_amount", bid_amount);
-    json_object_set_new_mpd(obj, "bid_value", bid_value);
-    json_object_set_new_mpd(obj, "last", last);
-
-    mpd_del(ask_amount);
-    mpd_del(ask_value);
-    mpd_del(bid_amount);
-    mpd_del(bid_value);
-    mpd_del(last);
-
-    return obj;
-}
-
-static int on_cmd_market_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    json_t *result = json_array();
-    if (json_array_size(params) == 0) {
-        for (int i = 0; i < settings.market_num; ++i) {
-            json_array_append_new(result, get_market_summary(settings.markets[i].name));
-        }
-    } else {
-        for (int i = 0; i < json_array_size(params); ++i) {
-            const char *market = json_string_value(json_array_get(params, i));
-            if (market == NULL)
-                goto invalid_argument;
-            if (get_market(market) == NULL)
-                goto invalid_argument;
-            json_array_append_new(result, get_market_summary(market));
-        }
-    }
-
-    int ret = reply_result(ses, pkg, result);
-    json_decref(result);
-    return ret;
-
-invalid_argument:
-    json_decref(result);
-    return reply_error_invalid_argument(ses, pkg);
-}
-
 static int on_cmd_update_asset_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     int ret;
@@ -1203,14 +1090,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_asset_list(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_list %s fail: %d", params_str, ret);
-        }
-        break;
-    case CMD_ASSET_SUMMARY:
-        log_trace("from: %s cmd asset summary, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
-        profile_inc("cmd_asset_summary", 1);
-        ret = on_cmd_asset_summary(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_cmd_asset_summary %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ASSET_QUERY:
@@ -1351,14 +1230,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_market_list(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_list %s fail: %d", params_str, ret);
-        }
-        break;
-    case CMD_MARKET_SUMMARY:
-        log_trace("from: %s cmd market summary, sequence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->sequence, params_str);
-        profile_inc("cmd_market_summary", 1);
-        ret = on_cmd_market_summary(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_cmd_market_summary %s fail: %d", params_str, ret);
         }
         break;
     case CMD_CONFIG_UPDATE_ASSET:
