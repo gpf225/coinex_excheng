@@ -45,8 +45,8 @@
 # define ORDER_BOOK_MAX_LEN     101
 # define ORDER_LIST_MAX_LEN     101
 
-# define MAX_PENDING_OPERLOG    100
-# define MAX_PENDING_MESSAGE    1000
+# define MAX_PENDING_OPERLOG    1000
+# define MAX_PENDING_MESSAGE    10000
 # define MAX_PENDING_HISTORY    100000
 
 struct asset {
