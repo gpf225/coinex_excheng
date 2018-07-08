@@ -94,6 +94,7 @@ static int load_slice_from_db(MYSQL *conn, time_t timestamp)
     sds table = sdsempty();
 
     table = sdscatprintf(table, "slice_order_%ld", timestamp);
+    log_info("load orders from: %s", table);
     log_stderr("load orders from: %s", table);
     int ret = load_orders(conn, table);
     if (ret < 0) {
@@ -105,6 +106,7 @@ static int load_slice_from_db(MYSQL *conn, time_t timestamp)
 
     sdsclear(table);
     table = sdscatprintf(table, "slice_balance_%ld", timestamp);
+    log_info("load balance from: %s", table);
     log_stderr("load balance from: %s", table);
     ret = load_balance(conn, table);
     if (ret < 0) {
@@ -116,6 +118,7 @@ static int load_slice_from_db(MYSQL *conn, time_t timestamp)
 
     sdsclear(table);
     table = sdscatprintf(table, "slice_update_%ld", timestamp);
+    log_info("load update from: %s", table);
     log_stderr("load update from: %s", table);
     ret = load_update(conn, table);
     if (ret < 0) {
