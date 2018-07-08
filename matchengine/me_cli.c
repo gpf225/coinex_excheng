@@ -5,9 +5,7 @@
 
 # include "me_cli.h"
 # include "me_config.h"
-# include "me_balance.h"
 # include "me_market.h"
-# include "me_trade.h"
 # include "me_persist.h"
 # include "me_operlog.h"
 # include "me_history.h"

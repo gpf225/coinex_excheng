@@ -134,9 +134,9 @@ static void order_free(order_t *order)
     mpd_del(order->deal_fee);
     mpd_del(order->asset_fee);
     mpd_del(order->fee_discount);
+
     free(order->market);
     free(order->source);
-
     if (order->fee_asset)
         free(order->fee_asset);
 
