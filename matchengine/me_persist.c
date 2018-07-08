@@ -137,6 +137,7 @@ static int load_operlog_from_db(MYSQL *conn, time_t date, uint64_t *start_id)
     struct tm *t = localtime(&date);
     sds table = sdsempty();
     table = sdscatprintf(table, "operlog_%04d%02d%02d", 1900 + t->tm_year, 1 + t->tm_mon, t->tm_mday);
+    log_info("load oper log from: %s", table);
     log_stderr("load oper log from: %s", table);
     if (!is_table_exists(conn, table)) {
         log_error("table %s not exist", table);

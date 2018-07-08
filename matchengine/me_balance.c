@@ -180,6 +180,7 @@ int asset_prec_show(const char *asset)
 mpd_t *balance_get(uint32_t user_id, uint32_t type, const char *asset)
 {
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     key.type = type;
     strncpy(key.asset, asset, sizeof(key.asset));
@@ -195,6 +196,7 @@ mpd_t *balance_get(uint32_t user_id, uint32_t type, const char *asset)
 void balance_del(uint32_t user_id, uint32_t type, const char *asset)
 {
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     key.type = type;
     strncpy(key.asset, asset, sizeof(key.asset));
@@ -216,6 +218,7 @@ mpd_t *balance_set(uint32_t user_id, uint32_t type, const char *asset, mpd_t *am
     }
 
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     key.type = type;
     strncpy(key.asset, asset, sizeof(key.asset));
@@ -248,6 +251,7 @@ mpd_t *balance_add(uint32_t user_id, uint32_t type, const char *asset, mpd_t *am
         return NULL;
 
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     key.type = type;
     strncpy(key.asset, asset, sizeof(key.asset));

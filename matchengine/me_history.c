@@ -137,7 +137,7 @@ int fini_history(void)
 {
     on_timer(NULL, NULL);
 
-    usleep(1000 * 1000);
+    usleep(100 * 1000);
     nw_job_release(job);
 
     return 0;
