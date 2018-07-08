@@ -146,6 +146,7 @@ void skiplist_release(skiplist_t *list)
         free(curr);
         curr = next;
     }
+    free(list);
 }
 
 skiplist_iter *skiplist_get_iterator(skiplist_t *list)
