@@ -976,6 +976,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return 0;
     }
 
+    profile_inc("get_depth", 1);
     json_t *result = NULL;
     if (mpd_cmp(interval, mpd_zero, &mpd_ctx) == 0) {
         result = get_depth(market, limit);

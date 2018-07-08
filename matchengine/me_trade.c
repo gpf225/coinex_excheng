@@ -7,6 +7,7 @@
 # include "me_trade.h"
 
 static dict_t *dict_market;
+static nw_timer timer;
 
 static uint32_t market_dict_hash_function(const void *key)
 {
@@ -26,6 +27,24 @@ static void *market_dict_key_dup(const void *key)
 static void market_dict_key_free(void *key)
 {
     free(key);
+}
+
+static void status_report(void)
+{
+    size_t count = 0;
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        market_t *market = entry->val;
+        count += dict_size(market->orders);
+    }
+    dict_release_iterator(iter);
+    profile_set("pending_orders", count);
+}
+
+static void on_timer(nw_timer *timer, void *privdata)
+{
+    status_report();
 }
 
 int init_trade(void)
@@ -50,6 +69,9 @@ int init_trade(void)
 
         dict_add(dict_market, settings.markets[i].name, m);
     }
+
+    nw_timer_set(&timer, 60, true, on_timer, NULL);
+    nw_timer_start(&timer);
 
     return 0;
 }
