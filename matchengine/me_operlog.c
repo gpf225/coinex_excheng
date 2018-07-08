@@ -134,7 +134,7 @@ int init_operlog(void)
     if (list == NULL)
         return -__LINE__;
 
-    nw_timer_set(&timer, 0.1, true, on_timer, NULL);
+    nw_timer_set(&timer, 0.5, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;
