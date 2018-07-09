@@ -21,6 +21,8 @@ struct update_val {
 
 int init_update(void);
 int update_user_balance(bool real, uint32_t user_id, const char *asset, const char *business, uint64_t business_id, mpd_t *change, json_t *detail);
+int update_user_lock(bool real, uint32_t user_id, const char *asset, const char *business, uint64_t business_id, mpd_t *amount);
+int update_user_unlock(bool real, uint32_t user_id, const char *asset, const char *business, uint64_t business_id, mpd_t *amount);
 int update_add(uint32_t user_id, const char *asset, const char *business, uint64_t business_id, double create_time);
 
 # endif

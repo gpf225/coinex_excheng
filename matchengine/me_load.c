@@ -225,7 +225,7 @@ static int load_update_balance(json_t *params)
 
 static int load_asset_lock(json_t *params)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) != 5)
         return -__LINE__;
 
     // user_id
@@ -241,25 +241,39 @@ static int load_asset_lock(json_t *params)
     if (prec < 0)
         return 0;
 
-    // amount
+    // business
     if (!json_is_string(json_array_get(params, 2)))
         return -__LINE__;
-    mpd_t *amount = decimal(json_string_value(json_array_get(params, 2)), prec);
+    const char *business = json_string_value(json_array_get(params, 2));
+
+    // business_id
+    if (!json_is_integer(json_array_get(params, 3)))
+        return -__LINE__;
+    uint64_t business_id = json_integer_value(json_array_get(params, 3));
+
+    // amount
+    if (!json_is_string(json_array_get(params, 4)))
+        return -__LINE__;
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 4)), prec);
     if (amount == NULL)
         return -__LINE__;
-
-    if (balance_freeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+    if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0) {
         mpd_del(amount);
         return -__LINE__;
     }
 
+    int ret = update_user_lock(false, user_id, asset, business, business_id, amount);
     mpd_del(amount);
+    if (ret < 0) {
+        return -__LINE__;
+    }
+
     return 0;
 }
 
 static int load_asset_unlock(json_t *params)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) != 5)
         return -__LINE__;
 
     // user_id
@@ -275,19 +289,33 @@ static int load_asset_unlock(json_t *params)
     if (prec < 0)
         return 0;
 
-    // amount
+    // business
     if (!json_is_string(json_array_get(params, 2)))
         return -__LINE__;
-    mpd_t *amount = decimal(json_string_value(json_array_get(params, 2)), prec);
+    const char *business = json_string_value(json_array_get(params, 2));
+
+    // business_id
+    if (!json_is_integer(json_array_get(params, 3)))
+        return -__LINE__;
+    uint64_t business_id = json_integer_value(json_array_get(params, 3));
+
+    // amount
+    if (!json_is_string(json_array_get(params, 4)))
+        return -__LINE__;
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 4)), prec);
     if (amount == NULL)
         return -__LINE__;
-
-    if (balance_unfreeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+    if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0) {
         mpd_del(amount);
         return -__LINE__;
     }
 
+    int ret = update_user_unlock(false, user_id, asset, business, business_id, amount);
     mpd_del(amount);
+    if (ret < 0) {
+        return -__LINE__;
+    }
+
     return 0;
 }
 

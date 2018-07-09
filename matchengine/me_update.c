@@ -122,6 +122,64 @@ int update_user_balance(bool real, uint32_t user_id, const char *asset, const ch
     return 0;
 }
 
+int update_user_lock(bool real, uint32_t user_id, const char *asset, const char *business, uint64_t business_id, mpd_t *amount)
+{
+    struct update_key key;
+    memset(&key, 0, sizeof(key));
+    key.user_id = user_id;
+    snprintf(key.asset, sizeof(key.asset), "%s_LOCK", asset);
+    strncpy(key.business, business, sizeof(key.business));
+    key.business_id = business_id;
+
+    dict_entry *entry = dict_find(dict_update, &key);
+    if (entry) {
+        return -1;
+    }
+
+    if (balance_freeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+        return -2;
+    }
+
+    struct update_val val = { .create_time = current_timestamp() };
+    dict_add(dict_update, &key, &val);
+
+    if (real) {
+        mpd_t *result = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
+        push_balance_message(current_timestamp(), user_id, asset, business, amount, result);
+    }
+
+    return 0;
+}
+
+int update_user_unlock(bool real, uint32_t user_id, const char *asset, const char *business, uint64_t business_id, mpd_t *amount)
+{
+    struct update_key key;
+    memset(&key, 0, sizeof(key));
+    key.user_id = user_id;
+    snprintf(key.asset, sizeof(key.asset), "%s_UNLOCK", asset);
+    strncpy(key.business, business, sizeof(key.business));
+    key.business_id = business_id;
+
+    dict_entry *entry = dict_find(dict_update, &key);
+    if (entry) {
+        return -1;
+    }
+
+    if (balance_unfreeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+        return -2;
+    }
+
+    struct update_val val = { .create_time = current_timestamp() };
+    dict_add(dict_update, &key, &val);
+
+    if (real) {
+        mpd_t *result = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
+        push_balance_message(current_timestamp(), user_id, asset, business, amount, result);
+    }
+
+    return 0;
+}
+
 int update_add(uint32_t user_id, const char *asset, const char *business, uint64_t business_id, double create_time)
 {
     struct update_key key;

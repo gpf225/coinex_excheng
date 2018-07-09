@@ -281,7 +281,7 @@ static int on_cmd_asset_update(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_asset_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) != 5)
         return reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -297,26 +297,44 @@ static int on_cmd_asset_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (prec < 0)
         return reply_error_invalid_argument(ses, pkg);
 
-    // amount
+    // business
     if (!json_is_string(json_array_get(params, 2)))
         return reply_error_invalid_argument(ses, pkg);
-    mpd_t *amount = decimal(json_string_value(json_array_get(params, 2)), prec);
+    const char *business = json_string_value(json_array_get(params, 2));
+
+    // business_id
+    if (!json_is_integer(json_array_get(params, 3)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint64_t business_id = json_integer_value(json_array_get(params, 3));
+
+    // amount
+    if (!json_is_string(json_array_get(params, 4)))
+        return reply_error_invalid_argument(ses, pkg);
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 4)), prec);
     if (amount == NULL)
         return reply_error_invalid_argument(ses, pkg);
-
-    if (balance_freeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+    if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0) {
         mpd_del(amount);
-        return reply_error(ses, pkg, 10, "balance not enough");
+        return reply_error_invalid_argument(ses, pkg);
     }
 
+    int ret = update_user_lock(true, user_id, asset, business, business_id, amount);
     mpd_del(amount);
+    if (ret == -1) {
+        return reply_error(ses, pkg, 10, "repeat update");
+    } else if (ret == -2) {
+        return reply_error(ses, pkg, 11, "balance not enough");
+    } else if (ret < 0) {
+        return reply_error_internal_error(ses, pkg);
+    }
+
     append_operlog("asset_lock", params);
     return reply_success(ses, pkg);
 }
 
 static int on_cmd_asset_unlock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) != 5)
         return reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -332,19 +350,37 @@ static int on_cmd_asset_unlock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (prec < 0)
         return reply_error_invalid_argument(ses, pkg);
 
-    // amount
+    // business
     if (!json_is_string(json_array_get(params, 2)))
         return reply_error_invalid_argument(ses, pkg);
-    mpd_t *amount = decimal(json_string_value(json_array_get(params, 2)), prec);
+    const char *business = json_string_value(json_array_get(params, 2));
+
+    // business_id
+    if (!json_is_integer(json_array_get(params, 3)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint64_t business_id = json_integer_value(json_array_get(params, 3));
+
+    // amount
+    if (!json_is_string(json_array_get(params, 4)))
+        return reply_error_invalid_argument(ses, pkg);
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 4)), prec);
     if (amount == NULL)
         return reply_error_invalid_argument(ses, pkg);
-
-    if (balance_unfreeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+    if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0) {
         mpd_del(amount);
-        return reply_error(ses, pkg, 10, "balance not enough");
+        return reply_error_invalid_argument(ses, pkg);
     }
 
+    int ret = update_user_unlock(true, user_id, asset, business, business_id, amount);
     mpd_del(amount);
+    if (ret == -1) {
+        return reply_error(ses, pkg, 10, "repeat update");
+    } else if (ret == -2) {
+        return reply_error(ses, pkg, 11, "balance not enough");
+    } else if (ret < 0) {
+        return reply_error_internal_error(ses, pkg);
+    }
+
     append_operlog("asset_unlock", params);
     return reply_success(ses, pkg);
 }
@@ -352,7 +388,7 @@ static int on_cmd_asset_unlock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     size_t request_size = json_array_size(params);
-    if (request_size != 1)
+    if (request_size == 0)
         return reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_integer(json_array_get(params, 0)))
@@ -362,19 +398,38 @@ static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
 
     json_t *result = json_object();
-    for (size_t i = 0; i < settings.asset_num; ++i) {
-        const char *asset = settings.assets[i].name;
-        int prec_save = asset_prec(asset);
-        int prec_show = asset_prec_show(asset);
+    if (request_size == 1) {
+        for (size_t i = 0; i < settings.asset_num; ++i) {
+            const char *asset = settings.assets[i].name;
+            int prec_save = asset_prec(asset);
+            int prec_show = asset_prec_show(asset);
 
-        mpd_t *lock = balance_lock(user_id, asset);
-        if (prec_save != prec_show) {
-            mpd_rescale(lock, lock, -prec_show, &mpd_ctx);
+            mpd_t *lock = balance_lock(user_id, asset);
+            if (prec_save != prec_show) {
+                mpd_rescale(lock, lock, -prec_show, &mpd_ctx);
+            }
+            if (mpd_cmp(lock, mpd_zero, &mpd_ctx) > 0) {
+                json_object_set_new_mpd(result, asset, lock);
+            }
+            mpd_del(lock);
         }
-        if (mpd_cmp(lock, mpd_zero, &mpd_ctx) > 0) {
+    } else {
+        for (size_t i = 1; i < request_size; ++i) {
+            const char *asset = json_string_value(json_array_get(params, i));
+            if (!asset || !asset_exist(asset)) {
+                json_decref(result);
+                return reply_error_invalid_argument(ses, pkg);
+            }
+            int prec_save = asset_prec(asset);
+            int prec_show = asset_prec_show(asset);
+
+            mpd_t *lock = balance_lock(user_id, asset);
+            if (prec_save != prec_show) {
+                mpd_rescale(lock, lock, -prec_show, &mpd_ctx);
+            }
             json_object_set_new_mpd(result, asset, lock);
+            mpd_del(lock);
         }
-        mpd_del(lock);
     }
 
     int ret = reply_result(ses, pkg, result);
