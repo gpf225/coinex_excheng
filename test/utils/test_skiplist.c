@@ -6,6 +6,7 @@
 # include <stdio.h>
 # include <stdlib.h>
 # include <string.h>
+# include <mcheck.h>
 
 # include "ut_sds.h"
 # include "ut_skiplist.h"
@@ -27,6 +28,8 @@ int node_compare(const void *obj, const void *key)
 
 int main(int argc, char *argv[])
 {
+    mtrace();
+
     skiplist_type type;
     type.dup = node_dup;
     type.free = node_free;
@@ -63,13 +66,15 @@ int main(int argc, char *argv[])
     printf("list len: %ld\n", skiplist_len(list));
     printf("level: %d\n", list->level);
 
-    skiplist_iter *iter = skiplist_get_iterator(list);
     skiplist_node *node;
+    skiplist_iter *iter = skiplist_get_iterator(list);
     while ((node = skiplist_next(iter)) != NULL) {
         printf("%s\n", (char *)node->value);
         skiplist_delete(list, node);
     }
+    skiplist_release_iterator(iter);
     printf("list len: %ld\n", skiplist_len(list));
+    skiplist_release(list);
 
     return 0;
 }
