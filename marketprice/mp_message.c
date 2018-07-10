@@ -34,6 +34,8 @@ struct update_key {
     time_t timestamp;
 };
 
+static int worker_id;
+
 static redis_sentinel_t *redis;
 static kafka_consumer_t *deals;
 static dict_t *dict_market;
@@ -364,7 +366,8 @@ static int init_market(void)
     for (size_t i = 0; i < json_array_size(r); ++i) {
         json_t *item = json_array_get(r, i);
         const char *name = json_string_value(json_object_get(item, "name"));
-        log_stderr("init market %s", name);
+        if (get_market_id(name) != worker_id)
+            continue;
         struct market_info *info = create_market(name);
         if (info == NULL) {
             log_error("create market %s fail", name);
@@ -378,42 +381,6 @@ static int init_market(void)
             json_decref(r);
             redisFree(context);
             return -__LINE__;
-        }
-
-        const char *stock = json_string_value(json_object_get(item, "stock"));
-        if (!market_exist(stock)) {
-            log_stderr("init market %s", stock);
-            info = create_market(stock);
-            if (info == NULL) {
-                log_error("create market %s fail", stock);
-                json_decref(r);
-                redisFree(context);
-                return -__LINE__;
-            }
-            ret = load_market(context, info);
-            if (ret < 0) {
-                log_error("load market %s fail: %d", stock, ret);
-                json_decref(r);
-                redisFree(context);
-            }
-        }
-
-        const char *money = json_string_value(json_object_get(item, "money"));
-        if (!market_exist(money)) {
-            log_stderr("init market %s", money);
-            info = create_market(money);
-            if (info == NULL) {
-                log_error("create market %s fail", money);
-                json_decref(r);
-                redisFree(context);
-                return -__LINE__;
-            }
-            ret = load_market(context, info);
-            if (ret < 0) {
-                log_error("load market %s fail: %d", money, ret);
-                json_decref(r);
-                redisFree(context);
-            }
         }
     }
     json_decref(r);
@@ -548,85 +515,9 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
     return 0;
 }
 
-static int volume_update(double timestamp, const char *market, mpd_t *amount)
-{
-    mpd_t *price = mpd_zero;
-    struct market_info *info = market_query(market);
-    if (info == NULL) {
-        info = create_market(market);
-        if (info == NULL) {
-            return -__LINE__;
-        }
-        log_info("add market: %s", market);
-    }
-
-    // update sec
-    time_t time_sec = (time_t)timestamp;
-    dict_entry *entry;
-    struct kline_info *kinfo = NULL;
-    entry = dict_find(info->sec, &time_sec);
-    if (entry) {
-        kinfo = entry->val;
-    } else {
-        kinfo = kline_info_new(price);
-        if (kinfo == NULL)
-            return -__LINE__;
-        dict_add(info->sec, &time_sec, kinfo);
-    }
-    kline_info_update(kinfo, price, amount);
-    add_kline_update(info, INTERVAL_SEC, time_sec);
-
-    // update min
-    time_t time_min = time_sec / 60 * 60;
-    entry = dict_find(info->min, &time_min);
-    if (entry) {
-        kinfo = entry->val;
-    } else {
-        kinfo = kline_info_new(price);
-        if (kinfo == NULL)
-            return -__LINE__;
-        dict_add(info->min, &time_min, kinfo);
-    }
-    kline_info_update(kinfo, price, amount);
-    add_kline_update(info, INTERVAL_MIN, time_min);
-
-    // update hour
-    time_t time_hour = time_sec / 3600 * 3600;
-    entry = dict_find(info->hour, &time_hour);
-    if (entry) {
-        kinfo = entry->val;
-    } else {
-        kinfo = kline_info_new(price);
-        if (kinfo == NULL)
-            return -__LINE__;
-        dict_add(info->hour, &time_hour, kinfo);
-    }
-    kline_info_update(kinfo, price, amount);
-    add_kline_update(info, INTERVAL_HOUR, time_hour);
-
-    // update day
-    time_t time_day = time_sec / 86400 * 86400;
-    entry = dict_find(info->day, &time_day);
-    if (entry) {
-        kinfo = entry->val;
-    } else {
-        kinfo = kline_info_new(price);
-        if (kinfo == NULL)
-            return -__LINE__;
-        dict_add(info->day, &time_day, kinfo);
-    }
-    kline_info_update(kinfo, price, amount);
-    add_kline_update(info, INTERVAL_DAY, time_day);
-
-    // update time
-    info->update_time = current_timestamp();
-
-    return 0;
-}
-
 static void on_deals_message(sds message, int64_t offset)
 {
-    double start = current_timestamp();
+    double task_start = current_timestamp();
     log_trace("deals message: %s, offset: %"PRIi64, message, offset);
     json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
     if (obj == NULL) {
@@ -636,7 +527,6 @@ static void on_deals_message(sds message, int64_t offset)
 
     mpd_t *price    = NULL;
     mpd_t *amount   = NULL;
-    mpd_t *deal     = NULL;
 
     double timestamp = json_real_value(json_object_get(obj, "timestamp"));
     if (timestamp == 0) {
@@ -648,14 +538,6 @@ static void on_deals_message(sds message, int64_t offset)
     }
     const char *market = json_string_value(json_object_get(obj, "market"));
     if (!market) {
-        goto cleanup;
-    }
-    const char *stock = json_string_value(json_object_get(obj, "stock"));
-    if (!stock) {
-        goto cleanup;
-    }
-    const char *money = json_string_value(json_object_get(obj, "money"));
-    if (!money) {
         goto cleanup;
     }
     int side = json_integer_value(json_object_get(obj, "side"));
@@ -678,37 +560,21 @@ static void on_deals_message(sds message, int64_t offset)
     if (!amount_str || (amount = decimal(amount_str, 0)) == NULL) {
         goto cleanup;
     }
-    const char *deal_str = json_string_value(json_object_get(obj, "deal"));
-    if (!deal_str || (deal = decimal(deal_str, 0)) == NULL) {
-        goto cleanup;
-    }
 
-    int ret;
-    ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
-    if (ret < 0) {
-        log_error("market_update fail %d, message: %s", ret, message);
-        goto cleanup;
-    }
+    if (get_market_id(market) == worker_id) {
+        int ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
+        if (ret < 0) {
+            log_error("market_update fail %d, message: %s", ret, message);
+            goto cleanup;
+        }
 
-    ret = volume_update(timestamp, stock, amount);
-    if (ret < 0) {
-        log_error("volume_update fail %d, message: %s", ret, message);
-        goto cleanup;
-    }
-
-    ret = volume_update(timestamp, money, deal);
-    if (ret < 0) {
-        log_error("volume_update fail %d, message: %s", ret, message);
-        goto cleanup;
+        profile_inc("new_message", 1);
+        profile_inc("new_message_costs", (int)((current_timestamp() - task_start) * 1000000));
     }
 
     last_offset = offset;
-    monitor_inc("new_message", 1);
-
-    log_trace("process deal message cost: %.6f", current_timestamp() - start);
     mpd_del(price);
     mpd_del(amount);
-    mpd_del(deal);
     json_decref(obj);
     return;
 
@@ -718,8 +584,6 @@ cleanup:
         mpd_del(price);
     if (amount)
         mpd_del(amount);
-    if (deal)
-        mpd_del(deal);
     json_decref(obj);
 }
 
@@ -889,15 +753,17 @@ static int flush_market(void)
     }
     dict_release_iterator(iter);
 
-    ret = flush_offset(context, last_offset);
-    if (ret < 0) {
-        redisFree(context);
-        return -__LINE__;
+    if (worker_id == 0) {
+        ret = flush_offset(context, last_offset);
+        if (ret < 0) {
+            redisFree(context);
+            return -__LINE__;
+        }
     }
 
     last_flush = current_timestamp();
     redisFree(context);
-    monitor_inc("flush_market_success", 1);
+    profile_inc("flush_market_success", 1);
 
     return 0;
 }
@@ -1001,6 +867,31 @@ static void on_redis_timer(nw_timer *timer, void *privdata)
     }
 }
 
+static int update_market_list(void)
+{
+    json_t *r = get_market_list();
+    if (r == NULL)
+        return -__LINE__;
+    for (size_t i = 0; i < json_array_size(r); ++i) {
+        json_t *item = json_array_get(r, i);
+        const char *name = json_string_value(json_object_get(item, "name"));
+        if (get_market_id(name) != worker_id)
+            continue;
+        struct market_info *info = market_query(name);
+        if (info == NULL) {
+            info = create_market(name);
+            if (info == NULL) {
+                json_decref(r);
+                return -__LINE__;
+            }
+            log_info("add market: %s", name);
+        }
+    }
+    json_decref(r);
+
+    return 0;
+}
+
 static void on_market_timer(nw_timer *timer, void *privdata)
 {
     int ret = update_market_list();
@@ -1031,12 +922,15 @@ static int64_t get_message_offset(void)
     return offset;
 }
 
-int init_message(void)
+int init_message(int id)
 {
-    int ret;
+    worker_id = id;
+
     redis = redis_sentinel_create(&settings.redis);
     if (redis == NULL)
         return -__LINE__;
+
+    int ret;
     ret = init_market();
     if (ret < 0) {
         return ret;
@@ -1066,49 +960,10 @@ int init_message(void)
     return 0;
 }
 
-int update_market_list(void)
+int get_market_id(const char *market)
 {
-    json_t *r = get_market_list();
-    if (r == NULL)
-        return -__LINE__;
-    for (size_t i = 0; i < json_array_size(r); ++i) {
-        json_t *item = json_array_get(r, i);
-        const char *name = json_string_value(json_object_get(item, "name"));
-        struct market_info *info = market_query(name);
-        if (info == NULL) {
-            info = create_market(name);
-            if (info == NULL) {
-                json_decref(r);
-                return -__LINE__;
-            }
-            log_info("add market: %s", name);
-        }
-
-        const char *stock = json_string_value(json_object_get(item, "stock"));
-        info = market_query(stock);
-        if (info == NULL) {
-            info = create_market(stock);
-            if (info == NULL) {
-                json_decref(r);
-                return -__LINE__;
-            }
-            log_info("add market: %s", stock);
-        }
-
-        const char *money = json_string_value(json_object_get(item, "money"));
-        info = market_query(money);
-        if (info == NULL) {
-            info = create_market(money);
-            if (info == NULL) {
-                json_decref(r);
-                return -__LINE__;
-            }
-            log_info("add market: %s", money);
-        }
-    }
-    json_decref(r);
-
-    return 0;
+    uint32_t hash = dict_generic_hash_function(market, strlen(market));
+    return hash % settings.worker_num;
 }
 
 bool market_exist(const char *market)

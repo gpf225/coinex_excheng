@@ -4,9 +4,9 @@
  */
 
 # include "mp_config.h"
-# include "mp_message.h"
+# include "mp_access.h"
 # include "mp_server.h"
-# include "mp_cli.h"
+# include "mp_message.h"
 
 const char *__process__ = "marketprice";
 const char *__version__ = "0.1.0";
@@ -46,7 +46,7 @@ static int init_log(void)
     default_dlog_flag = dlog_read_flag(settings.log.flag);
     if (alert_init(&settings.alert) < 0)
         return -__LINE__;
-    if (monitor_init(&settings.monitor, __process__, settings.alert.host) < 0)
+    if (profile_init(__process__, settings.alert.host) < 0)
         return -__LINE__;
 
     return 0;
@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
         printf("process: %s exist\n", __process__);
         exit(EXIT_FAILURE);
     }
+    process_title_init(argc, argv);
 
     int ret;
     ret = init_mpd();
@@ -83,22 +84,38 @@ int main(int argc, char *argv[])
         error(EXIT_FAILURE, errno, "init log fail: %d", ret);
     }
 
+    for (int i = 0; i < settings.worker_num; ++i) {
+        int pid = fork();
+        if (pid < 0) {
+            error(EXIT_FAILURE, errno, "fork error");
+        } else if (pid != 0) {
+            process_title_set("marketprice_worker_%d", i);
+            daemon(1, 1);
+            process_keepalive();
+
+            ret = init_message(i);
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init message fail: %d", ret);
+            }
+            ret = init_server(i);
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init server fail: %d", ret);
+            }
+
+            goto run;
+        }
+    }
+
+    process_title_set("marketprice_access");
     daemon(1, 1);
     process_keepalive();
 
-    ret = init_message();
+    ret = init_access();
     if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init message fail: %d", ret);
-    }
-    ret = init_cli();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init cli fail: %d", ret);
-    }
-    ret = init_server();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init server fail: %d", ret);
+        error(EXIT_FAILURE, errno, "init access fail: %d", ret);
     }
 
+run:
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
     nw_timer_start(&cron_timer);
 

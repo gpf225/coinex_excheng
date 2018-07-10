@@ -170,7 +170,7 @@ static int on_order_deals_reply(struct state_data *state, json_t *result)
     }
     dict_release_iterator(iter);
     json_decref(params);
-    monitor_inc("deals.update", dict_size(obj->sessions));
+    profile_inc("deals.update", dict_size(obj->sessions));
 
     return 0;
 }
@@ -472,13 +472,16 @@ int deals_new(uint32_t user_id, uint64_t id, double timestamp, int type, const c
     json_array_append_new(params, deals);
     json_array_append_new(params, json_true());
 
+    size_t count = 0;
     struct user_val *obj = entry->val;
     dict_iterator *iter = dict_get_iterator(obj->sessions);
     while ((entry = dict_next(iter)) != NULL) {
         send_notify(entry->key, "deals.update", params);
+        count += 1;
     }
     dict_release_iterator(iter);
     json_decref(params);
+    profile_inc("deals.update", count);
 
     return 0;
 }

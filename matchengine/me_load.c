@@ -187,6 +187,50 @@ int load_balance(MYSQL *conn, const char *table)
             uint32_t type = strtoul(row[3], NULL, 0);
             mpd_t *balance = decimal(row[4], asset_prec(asset));
             balance_set(user_id, type, asset, balance);
+            mpd_del(balance);
+        }
+        mysql_free_result(result);
+
+        if (num_rows < query_limit)
+            break;
+    }
+
+    return 0;
+}
+
+int load_update(MYSQL *conn, const char *table)
+{
+    if (!is_table_exists(conn, table)) {
+        log_stderr("table %s not exist", table);
+        return 0;
+    }
+
+    size_t query_limit = 1000;
+    uint64_t last_id = 0;
+    while (true) {
+        sds sql = sdsempty();
+        sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `user_id`, `asset`, `business`, `business_id` FROM `%s` "
+                "WHERE `id` > %"PRIu64" ORDER BY id LIMIT %zu", table, last_id, query_limit);
+        log_trace("exec sql: %s", sql);
+        int ret = mysql_real_query(conn, sql, sdslen(sql));
+        if (ret != 0) {
+            log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+            sdsfree(sql);
+            return -__LINE__;
+        }
+        sdsfree(sql);
+
+        MYSQL_RES *result = mysql_store_result(conn);
+        size_t num_rows = mysql_num_rows(result);
+        for (size_t i = 0; i < num_rows; ++i) {
+            MYSQL_ROW row = mysql_fetch_row(result);
+            last_id = strtoull(row[0], NULL, 0);
+            double create_time = strtod(row[1], NULL);
+            uint32_t user_id = strtoul(row[2], NULL, 0);
+            const char *asset = row[3];
+            const char *business = row[4];
+            uint64_t business_id = strtoull(row[5], NULL, 0);
+            update_add(user_id, asset, business, business_id, create_time);
         }
         mysql_free_result(result);
 
@@ -242,6 +286,102 @@ static int load_update_balance(json_t *params)
     int ret = update_user_balance(false, user_id, asset, business, business_id, change, detail);
     mpd_del(change);
 
+    if (ret < 0) {
+        return -__LINE__;
+    }
+
+    return 0;
+}
+
+static int load_asset_lock(json_t *params)
+{
+    if (json_array_size(params) != 5)
+        return -__LINE__;
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return -__LINE__;
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // asset
+    if (!json_is_string(json_array_get(params, 1)))
+        return -__LINE__;
+    const char *asset = json_string_value(json_array_get(params, 1));
+    int prec = asset_prec(asset);
+    if (prec < 0)
+        return 0;
+
+    // business
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *business = json_string_value(json_array_get(params, 2));
+
+    // business_id
+    if (!json_is_integer(json_array_get(params, 3)))
+        return -__LINE__;
+    uint64_t business_id = json_integer_value(json_array_get(params, 3));
+
+    // amount
+    if (!json_is_string(json_array_get(params, 4)))
+        return -__LINE__;
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 4)), prec);
+    if (amount == NULL)
+        return -__LINE__;
+    if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0) {
+        mpd_del(amount);
+        return -__LINE__;
+    }
+
+    int ret = update_user_lock(false, user_id, asset, business, business_id, amount);
+    mpd_del(amount);
+    if (ret < 0) {
+        return -__LINE__;
+    }
+
+    return 0;
+}
+
+static int load_asset_unlock(json_t *params)
+{
+    if (json_array_size(params) != 5)
+        return -__LINE__;
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return -__LINE__;
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // asset
+    if (!json_is_string(json_array_get(params, 1)))
+        return -__LINE__;
+    const char *asset = json_string_value(json_array_get(params, 1));
+    int prec = asset_prec(asset);
+    if (prec < 0)
+        return 0;
+
+    // business
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *business = json_string_value(json_array_get(params, 2));
+
+    // business_id
+    if (!json_is_integer(json_array_get(params, 3)))
+        return -__LINE__;
+    uint64_t business_id = json_integer_value(json_array_get(params, 3));
+
+    // amount
+    if (!json_is_string(json_array_get(params, 4)))
+        return -__LINE__;
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 4)), prec);
+    if (amount == NULL)
+        return -__LINE__;
+    if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0) {
+        mpd_del(amount);
+        return -__LINE__;
+    }
+
+    int ret = update_user_unlock(false, user_id, asset, business, business_id, amount);
+    mpd_del(amount);
     if (ret < 0) {
         return -__LINE__;
     }
@@ -779,6 +919,10 @@ static int load_oper(json_t *detail)
     int ret = 0;
     if (strcmp(method, "update_balance") == 0) {
         ret = load_update_balance(params);
+    } else if (strcmp(method, "asset_lock") == 0) {
+        ret = load_asset_lock(params);
+    } else if (strcmp(method, "asset_unlock") == 0) {
+        ret = load_asset_unlock(params);
     } else if (strcmp(method, "limit_order") == 0) {
         ret = load_limit_order(params);
     } else if (strcmp(method, "market_order") == 0) {

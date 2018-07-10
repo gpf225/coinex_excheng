@@ -180,6 +180,7 @@ int asset_prec_show(const char *asset)
 mpd_t *balance_get(uint32_t user_id, uint32_t type, const char *asset)
 {
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     key.type = type;
     strncpy(key.asset, asset, sizeof(key.asset));
@@ -195,6 +196,7 @@ mpd_t *balance_get(uint32_t user_id, uint32_t type, const char *asset)
 void balance_del(uint32_t user_id, uint32_t type, const char *asset)
 {
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     key.type = type;
     strncpy(key.asset, asset, sizeof(key.asset));
@@ -216,6 +218,7 @@ mpd_t *balance_set(uint32_t user_id, uint32_t type, const char *asset, mpd_t *am
     }
 
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     key.type = type;
     strncpy(key.asset, asset, sizeof(key.asset));
@@ -248,6 +251,7 @@ mpd_t *balance_add(uint32_t user_id, uint32_t type, const char *asset, mpd_t *am
         return NULL;
 
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     key.type = type;
     strncpy(key.asset, asset, sizeof(key.asset));
@@ -289,8 +293,11 @@ mpd_t *balance_sub(uint32_t user_id, uint32_t type, const char *asset, mpd_t *am
     return result;
 }
 
-mpd_t *balance_freeze(uint32_t user_id, const char *asset, mpd_t *amount)
+mpd_t *balance_freeze(uint32_t user_id, uint32_t type, const char *asset, mpd_t *amount)
 {
+    if (type != BALANCE_TYPE_FROZEN && type != BALANCE_TYPE_LOCK)
+        return NULL;
+
     struct asset_type *at = get_asset_type(asset);
     if (at == NULL)
         return NULL;
@@ -303,7 +310,7 @@ mpd_t *balance_freeze(uint32_t user_id, const char *asset, mpd_t *amount)
     if (mpd_cmp(available, amount, &mpd_ctx) < 0)
         return NULL;
 
-    if (balance_add(user_id, BALANCE_TYPE_FROZEN, asset, amount) == 0)
+    if (balance_add(user_id, type, asset, amount) == 0)
         return NULL;
     mpd_sub(available, available, amount, &mpd_ctx);
     if (mpd_cmp(available, mpd_zero, &mpd_ctx) == 0) {
@@ -315,15 +322,18 @@ mpd_t *balance_freeze(uint32_t user_id, const char *asset, mpd_t *amount)
     return available;
 }
 
-mpd_t *balance_unfreeze(uint32_t user_id, const char *asset, mpd_t *amount)
+mpd_t *balance_unfreeze(uint32_t user_id, uint32_t type, const char *asset, mpd_t *amount)
 {
+    if (type != BALANCE_TYPE_FROZEN && type != BALANCE_TYPE_LOCK)
+        return NULL;
+
     struct asset_type *at = get_asset_type(asset);
     if (at == NULL)
         return NULL;
 
     if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0)
         return NULL;
-    mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
+    mpd_t *frozen = balance_get(user_id, type, asset);
     if (frozen == NULL)
         return NULL;
     if (mpd_cmp(frozen, amount, &mpd_ctx) < 0)
@@ -333,12 +343,52 @@ mpd_t *balance_unfreeze(uint32_t user_id, const char *asset, mpd_t *amount)
         return NULL;
     mpd_sub(frozen, frozen, amount, &mpd_ctx);
     if (mpd_cmp(frozen, mpd_zero, &mpd_ctx) == 0) {
-        balance_del(user_id, BALANCE_TYPE_FROZEN, asset);
+        balance_del(user_id, type, asset);
         return mpd_zero;
     }
     mpd_rescale(frozen, frozen, -at->prec_save, &mpd_ctx);
 
     return frozen;
+}
+
+mpd_t *balance_available(uint32_t user_id, const char *asset)
+{
+    mpd_t *balance = mpd_new(&mpd_ctx);
+    mpd_copy(balance, mpd_zero, &mpd_ctx);
+    mpd_t *available = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
+    if (available) {
+        mpd_add(balance, balance, available, &mpd_ctx);
+    }
+
+    return balance;
+}
+
+mpd_t *balance_frozen(uint32_t user_id, const char *asset)
+{
+    mpd_t *balance = mpd_new(&mpd_ctx);
+    mpd_copy(balance, mpd_zero, &mpd_ctx);
+    mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
+    if (frozen) {
+        mpd_add(balance, balance, frozen, &mpd_ctx);
+    }
+    mpd_t *lock = balance_get(user_id, BALANCE_TYPE_LOCK, asset);
+    if (lock) {
+        mpd_add(balance, balance, lock, &mpd_ctx);
+    }
+
+    return balance;
+}
+
+mpd_t *balance_lock(uint32_t user_id, const char *asset)
+{
+    mpd_t *balance = mpd_new(&mpd_ctx);
+    mpd_copy(balance, mpd_zero, &mpd_ctx);
+    mpd_t *lock = balance_get(user_id, BALANCE_TYPE_LOCK, asset);
+    if (lock) {
+        mpd_add(balance, balance, lock, &mpd_ctx);
+    }
+
+    return balance;
 }
 
 mpd_t *balance_total(uint32_t user_id, const char *asset)
@@ -353,49 +403,11 @@ mpd_t *balance_total(uint32_t user_id, const char *asset)
     if (frozen) {
         mpd_add(balance, balance, frozen, &mpd_ctx);
     }
+    mpd_t *lock = balance_get(user_id, BALANCE_TYPE_LOCK, asset);
+    if (lock) {
+        mpd_add(balance, balance, lock, &mpd_ctx);
+    }
 
     return balance;
-}
-
-int balance_status(const char *asset, size_t *total_user, mpd_t *total, size_t *available_user, mpd_t *available, size_t *frozen_user, mpd_t *frozen)
-{
-    int prec = asset_prec_show(asset);
-    if (prec < 0)
-        return -__LINE__;
-    mpd_t *balance = mpd_new(&mpd_ctx);
-    dict_t *user_set = uint32_set_create();
-
-    *frozen_user = 0;
-    *available_user = 0;
-    mpd_copy(total, mpd_zero, &mpd_ctx);
-    mpd_copy(frozen, mpd_zero, &mpd_ctx);
-    mpd_copy(available, mpd_zero, &mpd_ctx);
-
-    dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(dict_balance);
-    while ((entry = dict_next(iter)) != NULL) {
-        struct balance_key *key = entry->key;
-        if (strcmp(key->asset, asset) != 0)
-            continue;
-        mpd_rescale(balance, entry->val, -prec, &mpd_ctx);
-        if (mpd_cmp(balance, mpd_zero, &mpd_ctx) == 0)
-            continue;
-        mpd_add(total, total, balance, &mpd_ctx);
-        uint32_set_add(user_set, key->user_id);
-        if (key->type == BALANCE_TYPE_AVAILABLE) {
-            *available_user += 1;
-            mpd_add(available, available, balance, &mpd_ctx);
-        } else {
-            *frozen_user += 1;
-            mpd_add(frozen, frozen, balance, &mpd_ctx);
-        }
-    }
-    dict_release_iterator(iter);
-
-    *total_user = uint32_set_num(user_set);
-    uint32_set_release(user_set);
-    mpd_del(balance);
-
-    return 0;
 }
 

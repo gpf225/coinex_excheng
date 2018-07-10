@@ -5,6 +5,7 @@
 
 # include "ut_mysql.h"
 # include "me_trade.h"
+# include "me_update.h"
 # include "me_market.h"
 # include "me_balance.h"
 
@@ -305,6 +306,86 @@ int dump_balance(MYSQL *conn, const char *table)
     ret = dump_balance_dict(conn, table, dict_balance);
     if (ret < 0) {
         log_error("dump_balance_dict fail: %d", ret);
+        return -__LINE__;
+    }
+
+    return 0;
+}
+
+static int dump_update_dict(MYSQL *conn, const char *table, dict_t *dict)
+{
+    sds sql = sdsempty();
+
+    size_t insert_limit = 1000;
+    size_t index = 0;
+    dict_iterator *iter = dict_get_iterator(dict);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        struct update_key *key = entry->key;
+        struct update_val *val = entry->val;
+        if (index == 0) {
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `create_time`, `user_id`, `asset`, `business`, `business_id`) VALUES ", table);
+        } else {
+            sql = sdscatprintf(sql, ", ");
+        }
+        sql = sdscatprintf(sql, "(NULL, %f, %u, '%s', '%s', %"PRIu64")", val->create_time, key->user_id, key->asset, key->business, key->business_id);
+
+        index += 1;
+        if (index == insert_limit) {
+            log_trace("exec sql: %s", sql);
+            int ret = mysql_real_query(conn, sql, sdslen(sql));
+            if (ret < 0) {
+                log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+                dict_release_iterator(iter);
+                sdsfree(sql);
+                return -__LINE__;
+            }
+            sdsclear(sql);
+            index = 0;
+        }
+    }
+    dict_release_iterator(iter);
+
+    if (index > 0) {
+        log_trace("exec sql: %s", sql);
+        int ret = mysql_real_query(conn, sql, sdslen(sql));
+        if (ret < 0) {
+            log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+            sdsfree(sql);
+            return -__LINE__;
+        }
+    }
+
+    sdsfree(sql);
+    return 0;
+}
+
+int dump_update(MYSQL *conn, const char *table)
+{
+    sds sql = sdsempty();
+    sql = sdscatprintf(sql, "DROP TABLE IF EXISTS `%s`", table);
+    log_trace("exec sql: %s", sql);
+    int ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        sdsfree(sql);
+        return -__LINE__;
+    }
+    sdsclear(sql);
+
+    sql = sdscatprintf(sql, "CREATE TABLE IF NOT EXISTS `%s` LIKE `slice_update_example`", table);
+    log_trace("exec sql: %s", sql);
+    ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        sdsfree(sql);
+        return -__LINE__;
+    }
+    sdsfree(sql);
+
+    ret = dump_update_dict(conn, table, dict_update);
+    if (ret < 0) {
+        log_error("dump_update_dict fail: %d", ret);
         return -__LINE__;
     }
 

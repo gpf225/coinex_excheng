@@ -53,7 +53,7 @@ static int init_log(void)
     default_dlog_flag = dlog_read_flag(settings.log.flag);
     if (alert_init(&settings.alert) < 0)
         return -__LINE__;
-    if (monitor_init(&settings.monitor, __process__, settings.alert.host) < 0)
+    if (profile_init(__process__, settings.alert.host) < 0)
         return -__LINE__;
 
     return 0;
@@ -109,10 +109,6 @@ int main(int argc, char *argv[])
     daemon(1, 1);
     process_keepalive();
 
-    ret = init_from_db();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init from db fail: %d", ret);
-    }
     ret = init_operlog();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init oper log fail: %d", ret);
@@ -124,6 +120,10 @@ int main(int argc, char *argv[])
     ret = init_message();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init message fail: %d", ret);
+    }
+    ret = init_from_db();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init from db fail: %d", ret);
     }
     ret = init_persist();
     if (ret < 0) {

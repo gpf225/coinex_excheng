@@ -20,6 +20,7 @@
 # include "nw_svr.h"
 # include "nw_clt.h"
 # include "nw_job.h"
+# include "nw_state.h"
 # include "nw_timer.h"
 
 # include "ut_log.h"
@@ -28,10 +29,11 @@
 # include "ut_misc.h"
 # include "ut_list.h"
 # include "ut_kafka.h"
+# include "ut_title.h"
 # include "ut_signal.h"
 # include "ut_config.h"
 # include "ut_define.h"
-# include "ut_monitor.h"
+# include "ut_profile.h"
 # include "ut_decimal.h"
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
@@ -42,7 +44,6 @@ struct settings {
     process_cfg         process;
     log_cfg             log;
     alert_cfg           alert;
-    rpc_clt_cfg         monitor;
     rpc_svr_cfg         svr;
     cli_svr_cfg         cli;
     kafka_consumer_cfg  deals;
@@ -51,7 +52,9 @@ struct settings {
     int                 min_max;
     int                 hour_max;
     int                 kline_max;
+    int                 worker_num;
     double              cache_timeout;
+    double              worker_timeout;
     char                *accesshttp;
 };
 

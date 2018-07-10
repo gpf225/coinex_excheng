@@ -78,6 +78,7 @@ static int on_balance_query_reply(struct state_data *state, json_t *result)
     json_t *params = json_array();
     json_array_append(params, result);
 
+    size_t count = 0;
     list_t *list = entry->val;
     list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
     list_node *node;
@@ -85,11 +86,12 @@ static int on_balance_query_reply(struct state_data *state, json_t *result)
         struct sub_unit *unit = node->value;
         if (strlen(unit->asset) == 0 || strcmp(unit->asset, state->asset) == 0) {
             send_notify(unit->ses, "asset.update", params);
-            monitor_inc("asset.update", 1);
+            count += 1;
         }
     }
     list_release_iterator(iter);
     json_decref(params);
+    profile_inc("asset.update", count);
 
     return 0;
 }

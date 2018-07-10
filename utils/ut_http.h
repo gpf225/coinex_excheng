@@ -27,6 +27,11 @@ typedef struct http_response_t {
     size_t      content_size;
 } http_response_t;
 
+typedef struct http_params_t {
+    char        *path;
+    dict_t      *params;
+} http_params_t;
+
 http_request_t *http_request_new(void);
 int http_request_set_header(http_request_t *request, char *field, char *value);
 const char *http_request_get_header(http_request_t *request, const char *field);
@@ -37,6 +42,9 @@ int http_response_set_header(http_response_t *response, char *field, char *value
 const char *http_response_get_header(http_response_t *response, const char *field);
 sds http_response_encode(http_response_t *response);
 void http_response_release(http_response_t *response);
+
+http_params_t *http_parse_url_params(const char *url);
+void http_params_release(http_params_t *obj);
 
 const char *http_get_remote_ip(nw_ses *ses, http_request_t *request);
 

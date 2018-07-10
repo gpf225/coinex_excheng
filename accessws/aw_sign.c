@@ -97,7 +97,7 @@ static void on_result(struct state_data *state, struct sign_request *request, js
         log_error("sign fail, access_id: %s, authorisation: %s, token: %"PRIu64" code: %d, message: %s",
                 request->access_id, request->authorisation, request->tonce, error_code, message);
         send_error(state->ses, state->request_id, 11, message);
-        monitor_inc("sign_fail", 1);
+        profile_inc("sign_fail", 1);
         return;
     }
 
@@ -118,7 +118,7 @@ static void on_result(struct state_data *state, struct sign_request *request, js
     info->user_id = user_id;
     log_info("sign success, access_id: %s, user_id: %u", request->access_id, user_id);
     send_success(state->ses, state->request_id);
-    monitor_inc("sign_success", 1);
+    profile_inc("sign_success", 1);
 
     return;
 

@@ -94,6 +94,7 @@ static int load_slice_from_db(MYSQL *conn, time_t timestamp)
     sds table = sdsempty();
 
     table = sdscatprintf(table, "slice_order_%ld", timestamp);
+    log_info("load orders from: %s", table);
     log_stderr("load orders from: %s", table);
     int ret = load_orders(conn, table);
     if (ret < 0) {
@@ -116,11 +117,24 @@ static int load_slice_from_db(MYSQL *conn, time_t timestamp)
 
     sdsclear(table);
     table = sdscatprintf(table, "slice_balance_%ld", timestamp);
+    log_info("load balance from: %s", table);
     log_stderr("load balance from: %s", table);
     ret = load_balance(conn, table);
     if (ret < 0) {
         log_error("load_balance from: %s fail: %d", table, ret);
         log_stderr("load_balance from: %s fail: %d", table, ret);
+        sdsfree(table);
+        return -__LINE__;
+    }
+
+    sdsclear(table);
+    table = sdscatprintf(table, "slice_update_%ld", timestamp);
+    log_info("load update from: %s", table);
+    log_stderr("load update from: %s", table);
+    ret = load_update(conn, table);
+    if (ret < 0) {
+        log_error("load_update from %s fail: %d", table, ret);
+        log_stderr("load_update from %s fail: %d", table, ret);
         sdsfree(table);
         return -__LINE__;
     }
@@ -134,6 +148,7 @@ static int load_operlog_from_db(MYSQL *conn, time_t date, uint64_t *start_id)
     struct tm *t = localtime(&date);
     sds table = sdsempty();
     table = sdscatprintf(table, "operlog_%04d%02d%02d", 1900 + t->tm_year, 1 + t->tm_mon, t->tm_mday);
+    log_info("load oper log from: %s", table);
     log_stderr("load oper log from: %s", table);
     if (!is_table_exists(conn, table)) {
         log_error("table %s not exist", table);
@@ -261,6 +276,22 @@ static int dump_balance_to_db(MYSQL *conn, time_t end)
     return 0;
 }
 
+static int dump_update_to_db(MYSQL *conn, time_t end)
+{
+    sds table = sdsempty();
+    table = sdscatprintf(table, "slice_update_%ld", end);
+    log_info("dump update to: %s", table);
+    int ret = dump_update(conn, table);
+    if (ret < 0) {
+        log_error("dump_update to %s fail: %d", table, ret);
+        sdsfree(table);
+        return -__LINE__;
+    }
+    sdsfree(table);
+
+    return 0;
+}
+
 int update_slice_history(MYSQL *conn, time_t end)
 {
     json_t *market_last_info = get_market_last_info();
@@ -312,6 +343,11 @@ int dump_to_db(time_t timestamp)
     }
 
     ret = dump_balance_to_db(conn, timestamp);
+    if (ret < 0) {
+        goto cleanup;
+    }
+
+    ret = dump_update_to_db(conn, timestamp);
     if (ret < 0) {
         goto cleanup;
     }
@@ -469,7 +505,7 @@ int make_slice(time_t timestamp)
         log_fatal("clear_slice fail: %d", ret);
     }
 
-    monitor_inc("slice_success", 1);
+    profile_inc_real("slice_success", 1);
     exit(0);
 
     return 0;

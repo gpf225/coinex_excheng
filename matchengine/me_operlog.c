@@ -98,7 +98,7 @@ static void flush_log(void)
     list_release_iterator(iter);
     nw_job_add(job, 0, sql);
     log_debug("flush oper log count: %zu", count);
-    monitor_inc("flush_operlog", count);
+    profile_inc("flush_operlog", count);
 }
 
 static void on_timer(nw_timer *t, void *privdata)
@@ -134,7 +134,7 @@ int init_operlog(void)
     if (list == NULL)
         return -__LINE__;
 
-    nw_timer_set(&timer, 0.1, true, on_timer, NULL);
+    nw_timer_set(&timer, 0.5, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;

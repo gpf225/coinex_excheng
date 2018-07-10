@@ -6,8 +6,8 @@
 # include "ma_config.h"
 # include "ma_server.h"
 
+static nw_svr *svr;
 static rpc_clt *clt;
-static http_svr *svr;
 static dict_t *monitor;
 static nw_timer timer;
 
@@ -88,78 +88,22 @@ static int update_key_set(struct monitor_key *mkey, uint64_t val)
     return 0;
 }
 
-static int reply_bad_request(nw_ses *ses)
-{
-    return send_http_response_simple(ses, 400, NULL, 0);
-}
-
-static int reply_internal_error(nw_ses *ses)
-{
-    return send_http_response_simple(ses, 500, NULL, 0);
-}
-
-static int reply_error(nw_ses *ses, int64_t id, int code, const char *message, uint32_t status)
-{
-    json_t *error = json_object();
-    json_object_set_new(error, "code", json_integer(code));
-    json_object_set_new(error, "message", json_string(message));
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", error);
-    json_object_set_new(reply, "result", json_null());
-    json_object_set_new(reply, "id", json_integer(id));
-
-    char *reply_str = json_dumps(reply, 0);
-    int ret = send_http_response_simple(ses, status, reply_str, strlen(reply_str));
-    free(reply_str);
-    json_decref(reply);
-    return ret;
-}
-
-static int reply_not_found(nw_ses *ses, int64_t id)
-{
-    return reply_error(ses, id, 4, "method not found", 404);
-}
-
-static int reply_result(nw_ses *ses, json_t *result, int64_t id)
-{
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", json_null());
-    json_object_set    (reply, "result", result);
-    json_object_set_new(reply, "id", json_integer(id));
-
-    char *reply_str = json_dumps(reply, 0);
-    int ret = send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
-    free(reply_str);
-    json_decref(reply);
-    return ret;
-}
-
-static int reply_success(nw_ses *ses, int64_t id)
-{
-    json_t *result = json_object();
-    json_object_set_new(result, "status", json_string("success"));
-
-    int ret = reply_result(ses, result, id);
-    json_decref(result);
-    return ret;
-}
-
-static int on_cmd_monitor_inc(nw_ses *ses, int64_t id, json_t *params)
+static int on_cmd_monitor_inc(json_t *params)
 {
     if (json_array_size(params) != 4)
-        return reply_bad_request(ses);
+        return -__LINE__;
     const char *scope = json_string_value(json_array_get(params, 0));
     if (!scope || !is_good_scope(scope))
-        return reply_bad_request(ses);
+        return -__LINE__;
     const char *key = json_string_value(json_array_get(params, 1));
     if (!key || !is_good_key(key))
-        return reply_bad_request(ses);
+        return -__LINE__;
     const char *host = json_string_value(json_array_get(params, 2));
     if (!host || !is_good_host(host))
-        return reply_bad_request(ses);
+        return -__LINE__;
     uint64_t val = json_integer_value(json_array_get(params, 3));
     if (val > UINT32_MAX)
-        return reply_bad_request(ses);
+        return -__LINE__;
 
     struct monitor_key mkey;
     snprintf(mkey.key, sizeof(mkey.key), "%s:%s:%s", scope, key, host);
@@ -167,28 +111,28 @@ static int on_cmd_monitor_inc(nw_ses *ses, int64_t id, json_t *params)
     int ret = update_key_inc(&mkey, val);
     if (ret < 0) {
         log_error("update_key_inc fail: %d", ret);
-        return reply_internal_error(ses);
+        return -__LINE__;
     }
 
-    return reply_success(ses, id);
+    return 0;
 }
 
-static int on_cmd_monitor_set(nw_ses *ses, int64_t id, json_t *params)
+static int on_cmd_monitor_set(json_t *params)
 {
     if (json_array_size(params) != 4)
-        return reply_bad_request(ses);
+        return -__LINE__;
     const char *scope = json_string_value(json_array_get(params, 0));
     if (!scope || !is_good_scope(scope))
-        return reply_bad_request(ses);
+        return -__LINE__;
     const char *key = json_string_value(json_array_get(params, 1));
     if (!key || !is_good_key(key))
-        return reply_bad_request(ses);
+        return -__LINE__;
     const char *host = json_string_value(json_array_get(params, 2));
     if (!host || !is_good_host(host))
-        return reply_bad_request(ses);
+        return -__LINE__;
     uint64_t val = json_integer_value(json_array_get(params, 3));
     if (val > UINT32_MAX)
-        return reply_bad_request(ses);
+        return -__LINE__;
 
     struct monitor_key mkey;
     snprintf(mkey.key, sizeof(mkey.key), "%s:%s:%s", scope, key, host);
@@ -196,71 +140,78 @@ static int on_cmd_monitor_set(nw_ses *ses, int64_t id, json_t *params)
     int ret = update_key_set(&mkey, val);
     if (ret < 0) {
         log_error("update_key_inc fail: %d", ret);
-        return reply_internal_error(ses);
+        return -__LINE__;
     }
 
-    return reply_success(ses, id);
+    return 0;
 }
 
-static int on_http_request(nw_ses *ses, http_request_t *request)
+static int on_svr_decode_pkg(nw_ses *ses, void *data, size_t max)
 {
-    log_trace("new http request, from: %s, url: %s, method: %u, body: %s",
-            nw_sock_human_addr(&ses->peer_addr), request->url, request->method, request->body);
-    if (request->method == HTTP_GET) {
-        return send_http_response_simple(ses, 200, "ok\n", 3);
-    } else {
-        if (request->method != HTTP_POST || !request->body) {
-            reply_bad_request(ses);
-            return -__LINE__;
-        }
+    char *s = data;
+    for (size_t i = 0; i < max; ++i) {
+        if (s[i] == '\n')
+            return i + 1;
     }
+    return 0;
+}
 
-    json_t *body = json_loadb(request->body, sdslen(request->body), 0, NULL);
-    if (body == NULL) {
+static void on_svr_recv_pkg(nw_ses *ses, void *data, size_t size)
+{
+    sds message_str = sdsnewlen(data, size);
+
+    json_t *message = json_loadb(data, size, 0, NULL);
+    if (message == NULL) {
         goto decode_error;
     }
-    json_t *id = json_object_get(body, "id");
-    if (!id || !json_is_integer(id)) {
-        goto decode_error;
-    }
-    json_t *method = json_object_get(body, "method");
+    json_t *method = json_object_get(message, "method");
     if (!method || !json_is_string(method)) {
         goto decode_error;
     }
-    json_t *params = json_object_get(body, "params");
+    json_t *params = json_object_get(message, "params");
     if (!params || !json_is_array(params)) {
         goto decode_error;
     }
 
-    int64_t request_id = json_integer_value(id);
+    log_trace("new request from: %s, message: %s", nw_sock_human_addr(&ses->peer_addr), message_str);
     const char *method_str = json_string_value(method);
 
     int ret;
     if (strcmp(method_str, "monitor.inc") == 0) {
-        ret = on_cmd_monitor_inc(ses, request_id, params);
+        ret = on_cmd_monitor_inc(params);
         if (ret < 0) {
             log_error("on_cmd_monitor_inc fail: %d", ret);
         }
     } else if (strcmp(method_str, "monitor.set") == 0) {
-        ret = on_cmd_monitor_set(ses, request_id, params);
+        ret = on_cmd_monitor_set(params);
         if (ret < 0) {
             log_error("on_cmd_monitor_set fail: %d", ret);
         }
     } else {
-        reply_not_found(ses, request_id);
+        log_error("unknown request: %s", message_str);
     }
 
-    json_decref(body);
-    return 0;
+    json_decref(message);
+    sdsfree(message_str);
+    return;
 
 decode_error:
-    if (body)
-        json_decref(body);
-    sds hex = hexdump(request->body, sdslen(request->body));
-    log_fatal("peer: %s, decode request fail, request body: \n%s", nw_sock_human_addr(&ses->peer_addr), hex);
+    if (message)
+        json_decref(message);
+    sdsfree(message_str);
+    sds hex = hexdump(data, size);
+    log_fatal("peer: %s, decode request fail, request message: \n%s", nw_sock_human_addr(&ses->peer_addr), hex);
     sdsfree(hex);
-    reply_bad_request(ses);
-    return -__LINE__;
+    return;
+}
+
+static void on_svr_error_msg(nw_ses *ses, const char *msg)
+{
+    if (ses->ses_type == NW_SES_TYPE_COMMON) {
+        log_error("connection: %"PRIu64":%s error: %s", ses->id, nw_sock_human_addr(&ses->peer_addr), msg);
+    } else {
+        log_error("connection: %"PRIu64":%s error: %s", ses->id, nw_sock_human_addr(ses->host_addr), msg);
+    }
 }
 
 int report_to_center(const char *key, uint64_t val)
@@ -379,6 +330,23 @@ static void val_dict_val_free(void *val)
     free(val);
 }
 
+int init_svr(void)
+{
+    nw_svr_type type;
+    memset(&type, 0, sizeof(type));
+    type.decode_pkg = on_svr_decode_pkg;
+    type.on_recv_pkg = on_svr_recv_pkg;
+    type.on_error_msg = on_svr_error_msg;
+
+    svr = nw_svr_create(&settings.svr, &type, NULL);
+    if (svr == NULL)
+        return -__LINE__;
+    if (nw_svr_start(svr) < 0)
+        return -__LINE__;
+
+    return 0;
+}
+
 int init_clt(void)
 {
     rpc_clt_type type;
@@ -390,17 +358,6 @@ int init_clt(void)
     if (clt == NULL)
         return -__LINE__;
     if (rpc_clt_start(clt) < 0)
-        return -__LINE__;
-
-    return 0;
-}
-
-int init_svr(void)
-{
-    svr = http_svr_create(&settings.svr, on_http_request);
-    if (svr == NULL)
-        return -__LINE__;
-    if (http_svr_start(svr) < 0)
         return -__LINE__;
 
     return 0;

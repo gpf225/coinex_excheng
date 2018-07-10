@@ -11,8 +11,8 @@
 # define MARKET_DEALS_MAX   10000
 # define MARKET_NAME_MAX    12
 
-int init_message(void);
-int update_market_list(void);
+int init_message(int id);
+int get_market_id(const char *market);
 bool market_exist(const char *market);
 
 json_t *get_market_status(const char *market, int period);

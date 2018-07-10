@@ -31,7 +31,7 @@
 # include "ut_signal.h"
 # include "ut_define.h"
 # include "ut_config.h"
-# include "ut_monitor.h"
+# include "ut_profile.h"
 # include "ut_decimal.h"
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
@@ -45,9 +45,9 @@
 # define ORDER_BOOK_MAX_LEN     101
 # define ORDER_LIST_MAX_LEN     101
 
-# define MAX_PENDING_OPERLOG    100
-# define MAX_PENDING_HISTORY    1000
-# define MAX_PENDING_MESSAGE    1000
+# define MAX_PENDING_OPERLOG    1000
+# define MAX_PENDING_MESSAGE    10000
+# define MAX_PENDING_HISTORY    100000
 
 struct asset {
     char                *name;
@@ -70,7 +70,6 @@ struct settings {
     process_cfg         process;
     log_cfg             log;
     alert_cfg           alert;
-    rpc_clt_cfg         monitor;
     rpc_svr_cfg         svr;
     cli_svr_cfg         cli;
     mysql_cfg           db_log;

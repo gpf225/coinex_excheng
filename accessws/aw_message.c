@@ -33,7 +33,7 @@ static int process_deals_message(json_t *msg)
 static void on_deals_message(sds message, int64_t offset)
 {
     log_trace("deal message: %s", message);
-    monitor_inc("message_deal ", 1);
+    profile_inc("message_deal ", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
         log_error("invalid balance message: %s", message);
@@ -88,18 +88,24 @@ static int process_orders_message(json_t *msg)
     int event = json_integer_value(json_object_get(msg, "event"));
     if (event == 0)
         return -__LINE__;
+
     json_t *order = json_object_get(msg, "order");
     if (order == NULL)
         return -__LINE__;
+
     uint32_t user_id = json_integer_value(json_object_get(order, "user"));
     const char *stock = json_string_value(json_object_get(msg, "stock"));
     const char *money = json_string_value(json_object_get(msg, "money"));
+    const char *fee_asset = json_string_value(json_object_get(order, "fee_asset"));
     if (user_id == 0 || stock == NULL || money == NULL)
         return -__LINE__;
 
+    order_on_update(user_id, event, order);
     asset_on_update(user_id, stock);
     asset_on_update(user_id, money);
-    order_on_update(user_id, event, order);
+    if (fee_asset && strcmp(fee_asset, stock) != 0 && strcmp(fee_asset, money) != 0) {
+        asset_on_update(user_id, fee_asset);
+    }
 
     return 0;
 }
@@ -107,7 +113,7 @@ static int process_orders_message(json_t *msg)
 static void on_orders_message(sds message, int64_t offset)
 {
     log_trace("order message: %s", message);
-    monitor_inc("message_order", 1);
+    profile_inc("message_order", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
         log_error("invalid balance message: %s", message);
@@ -138,7 +144,7 @@ static int process_balances_message(json_t *msg)
 static void on_balances_message(sds message, int64_t offset)
 {
     log_trace("balance message: %s", message);
-    monitor_inc("message_balance", 1);
+    profile_inc("message_balance", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
         log_error("invalid balance message: %s", message);
