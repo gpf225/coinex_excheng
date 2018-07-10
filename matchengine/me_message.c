@@ -220,7 +220,7 @@ int push_stop_message(uint32_t event, stop_t *stop, market_t *market)
 
     push_message(json_dumps(message, 0), rkt_stops, list_stops);
     json_decref(message);
-    monitor_inc("message_order", 1);
+    profile_inc("message_order", 1);
 
     return 0;
 }

@@ -379,7 +379,7 @@ static int finish_order(bool real, market_t *m, order_t *order)
 
     order_free(order);
     if (real) {
-        monitor_inc("finish_order", 1);
+        profile_inc("finish_order", 1);
     }
 
     return 0;
@@ -491,7 +491,7 @@ static int finish_stop(bool real, market_t *m, stop_t *stop, int status)
 
     stop_free(stop);
     if (real) {
-        monitor_inc("finish_stop", 1);
+        profile_inc("finish_stop", 1);
     }
 
     return 0;
@@ -499,7 +499,7 @@ static int finish_stop(bool real, market_t *m, stop_t *stop, int status)
 
 static void status_report(void)
 {
-    monitor_set("pending_users", dict_size(dict_user_orders));
+    profile_set("pending_users", dict_size(dict_user_orders));
 }
 
 static void on_timer(nw_timer *timer, void *privdata)
@@ -1162,7 +1162,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         if (ret < 0) {
             log_fatal("put_order fail: %d, order: %"PRIu64"", ret, order->id);
         } else if (real) {
-            monitor_inc("put_order", 1);
+            profile_inc("put_order", 1);
         }
     }
 
@@ -1690,7 +1690,7 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t sid
     if (ret < 0) {
         log_fatal("put_stop fail: %d", ret);
     } else if (real) {
-        monitor_inc("put_stop", 1);
+        profile_inc("put_stop", 1);
     }
 
     if (real) {
@@ -1760,7 +1760,7 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t si
     if (ret < 0) {
         log_fatal("put_stop fail: %d", ret);
     } else if (real) {
-        monitor_inc("put_stop", 1);
+        profile_inc("put_stop", 1);
     }
 
     if (real) {

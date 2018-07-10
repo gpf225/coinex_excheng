@@ -1504,7 +1504,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     int ret;
     switch (pkg->command) {
     case CMD_ASSET_LIST:
-        monitor_inc("cmd_asset_list", 1);
+        profile_inc("cmd_asset_list", 1);
         ret = on_cmd_asset_list(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_list %s fail: %d", params_str, ret);
@@ -1522,7 +1522,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
-        monitor_inc("cmd_asset_update", 1);
+        profile_inc("cmd_asset_update", 1);
         ret = on_cmd_asset_update(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_update %s fail: %d", params_str, ret);
@@ -1562,7 +1562,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
-        monitor_inc("cmd_order_put_limit", 1);
+        profile_inc("cmd_order_put_limit", 1);
         ret = on_cmd_order_put_limit(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_put_limit %s fail: %d", params_str, ret);
@@ -1573,7 +1573,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
-        monitor_inc("cmd_order_put_market", 1);
+        profile_inc("cmd_order_put_market", 1);
         ret = on_cmd_order_put_market(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_put_market %s fail: %d", params_str, ret);
@@ -1584,35 +1584,35 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
-        monitor_inc("cmd_order_cancel", 1);
+        profile_inc("cmd_order_cancel", 1);
         ret = on_cmd_order_cancel(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_cancel %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_PENDING:
-        monitor_inc("cmd_order_pending", 1);
+        profile_inc("cmd_order_pending", 1);
         ret = on_cmd_order_pending(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_pending %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_BOOK:
-        monitor_inc("cmd_order_book", 1);
+        profile_inc("cmd_order_book", 1);
         ret = on_cmd_order_book(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_book %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_DEPTH:
-        monitor_inc("cmd_order_depth", 1);
+        profile_inc("cmd_order_depth", 1);
         ret = on_cmd_order_depth(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_depth %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_PENDING_DETAIL:
-        monitor_inc("cmd_order_detail", 1);
+        profile_inc("cmd_order_detail", 1);
         ret = on_cmd_order_detail(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_detail %s fail: %d", params_str, ret);
@@ -1623,7 +1623,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
-        monitor_inc("cmd_order_put_stop_limit", 1);
+        profile_inc("cmd_order_put_stop_limit", 1);
         ret = on_cmd_put_stop_limit(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_put_stop_limit %s fail: %d", params_str, ret);
@@ -1634,7 +1634,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
-        monitor_inc("cmd_order_put_stop_market", 1);
+        profile_inc("cmd_order_put_stop_market", 1);
         ret = on_cmd_put_stop_market(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_put_stop_market %s fail: %d", params_str, ret);
@@ -1645,21 +1645,21 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
-        monitor_inc("cmd_order_cancel_stop", 1);
+        profile_inc("cmd_order_cancel_stop", 1);
         ret = on_cmd_cancel_stop(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_cancel_stop%s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_PENDING_STOP:
-        monitor_inc("cmd_order_pending_stop", 1);
+        profile_inc("cmd_order_pending_stop", 1);
         ret = on_cmd_pending_stop(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_pending_stop %s fail: %d", params_str, ret);
         }
         break;
     case CMD_MARKET_LIST:
-        monitor_inc("cmd_market_list", 1);
+        profile_inc("cmd_market_list", 1);
         ret = on_cmd_market_list(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_list %s fail: %d", params_str, ret);
@@ -1673,7 +1673,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_CONFIG_UPDATE_MARKET:
-        monitor_inc("cmd_config_update_market", 1);
+        profile_inc("cmd_config_update_market", 1);
         ret = on_cmd_update_market_config(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_update_market_config fail: %d", ret);
