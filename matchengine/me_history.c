@@ -207,6 +207,7 @@ static int append_user_order(order_t *order)
     sql = sdscatprintf(sql, ")");
 
     set_sql(&key, sql);
+    profile_inc("history_user_order", 1);
 
     return 0;
 }
@@ -242,6 +243,7 @@ static int append_order_detail(order_t *order)
     sql = sdscatprintf(sql, ")");
 
     set_sql(&key, sql);
+    profile_inc("history_order_detail", 1);
 
     return 0;
 }
@@ -272,6 +274,7 @@ static int append_order_deal(double t, uint32_t user_id, uint64_t deal_id, uint6
     sql = sdscatprintf(sql, "'%s', '%s')", fee_asset, deal_fee_asset);
 
     set_sql(&key, sql);
+    profile_inc("history_order_deal", 1);
 
     return 0;
 }
@@ -302,6 +305,7 @@ static int append_user_deal(double t, uint32_t user_id, const char *market, uint
     sql = sdscatprintf(sql, "'%s', '%s')", fee_asset, deal_fee_asset);
 
     set_sql(&key, sql);
+    profile_inc("history_user_deal", 1);
 
     return 0;
 }
@@ -329,6 +333,7 @@ static int append_user_balance(double t, uint32_t user_id, const char *asset, co
     sql = sdscatprintf(sql, "'%s')", buf);
 
     set_sql(&key, sql);
+    profile_inc("history_user_balance", 1);
 
     return 0;
 }

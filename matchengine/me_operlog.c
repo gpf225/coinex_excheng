@@ -161,7 +161,8 @@ int append_operlog(const char *method, json_t *params)
     log->detail = json_dumps(detail, JSON_SORT_KEYS);
     json_decref(detail);
     list_add_node_tail(list, log);
-    log_debug("add log: %s", log->detail);
+    log_trace("add log: %s", log->detail);
+    profile_inc("operlog", 1);
 
     return 0;
 }
