@@ -145,6 +145,8 @@ int update_user_lock(bool real, uint32_t user_id, const char *asset, const char 
 
     if (real) {
         mpd_t *result = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
+        if (result == NULL)
+            result = mpd_zero;
         push_balance_message(current_timestamp(), user_id, asset, business, amount, result);
     }
 
