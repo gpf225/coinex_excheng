@@ -666,6 +666,7 @@ static void on_upgrade(nw_ses *ses, const char *remote)
     log_trace("remote: %"PRIu64":%s upgrade to websocket", ses->id, remote);
     struct clt_info *info = ws_ses_privdata(ses);
     memset(info, 0, sizeof(struct clt_info));
+    info->remote = strdup(remote);
     profile_inc("connection_new", 1);
 }
 
@@ -696,6 +697,8 @@ static void on_privdata_free(void *svr, void *privdata)
     struct clt_info *info = privdata;
     if (info->source)
         free(info->source);
+    if (info->remote)
+        free(info->remote);
     nw_cache_free(privdata_cache, privdata);
 }
 

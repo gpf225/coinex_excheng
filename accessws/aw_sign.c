@@ -15,6 +15,7 @@ static nw_job *job_context;
 static nw_state *state_context;
 
 struct sign_request {
+    sds remote_ip;
     sds access_id;
     sds authorisation;
     uint64_t tonce;
@@ -39,17 +40,21 @@ static void on_job(nw_job_entry *entry, void *privdata)
     struct sign_request *request = entry->request;
     CURL *curl = curl_easy_init();
 
-    sds reply = sdsempty();
-    sds token = sdsempty();
-    sds url   = sdsempty();
+    sds reply   = sdsempty();
+    sds token   = sdsempty();
+    sds remote  = sdsempty();
+    sds url     = sdsempty();
     struct curl_slist *chunk = NULL;
 
     char *access_id = curl_easy_escape(curl, request->access_id, 0);
     url = sdscatprintf(url, "%s?access_id=%s&tonce=%"PRIu64, settings.sign_url, access_id, request->tonce);
     free(access_id);
 
-    token = sdscatprintf(token, "Authorization: %s", request->authorisation);
+    token  = sdscatprintf(token, "Authorization: %s", request->authorisation);
+    remote = sdscatprintf(remote, "X-Real-Forwarded-For: %s", request->remote_ip);
+
     chunk = curl_slist_append(chunk, token);
+    chunk = curl_slist_append(chunk, remote);
     chunk = curl_slist_append(chunk, "Accept-Language: en_US");
     chunk = curl_slist_append(chunk, "Content-Type: application/json");
 
@@ -75,6 +80,7 @@ cleanup:
     curl_easy_cleanup(curl);
     sdsfree(reply);
     sdsfree(token);
+    sdsfree(remote);
     sdsfree(url);
     curl_slist_free_all(chunk);
 }
@@ -143,6 +149,7 @@ static void on_finish(nw_job_entry *entry)
 static void on_cleanup(nw_job_entry *entry)
 {
     struct sign_request *request = entry->request;
+    sdsfree(request->remote_ip);
     sdsfree(request->access_id);
     sdsfree(request->authorisation);
     free(request);
@@ -183,6 +190,7 @@ int send_sign_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *p
     info->source = strdup("api");
 
     struct sign_request *request = malloc(sizeof(struct sign_request));
+    request->remote_ip = sdsnew(info->remote);
     request->access_id = sdsnew(access_id);
     request->authorisation = sdsnew(authorisation);
     request->tonce = tonce;

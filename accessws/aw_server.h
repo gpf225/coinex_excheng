@@ -12,6 +12,7 @@ struct clt_info {
     bool        auth;
     uint32_t    user_id;
     char        *source;
+    char        *remote;
 };
 
 int init_server(void);
