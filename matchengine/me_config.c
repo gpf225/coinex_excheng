@@ -27,7 +27,7 @@ static json_t *request_json(const char *url)
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback_func);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &reply_str);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, (long)(3000));
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, (long)(1000));
 
     CURLcode ret = curl_easy_perform(curl);
     if (ret != CURLE_OK) {
