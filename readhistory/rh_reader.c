@@ -34,7 +34,7 @@ json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id,
         sql = sdscatprintf(sql, " AND `time` < %"PRIu64, end_time);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `id` DESC");
+    sql = sdscatprintf(sql, " ORDER BY `time` DESC, `id` DESC");
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
@@ -102,7 +102,7 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id,
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `id` DESC");
+    sql = sdscatprintf(sql, " ORDER BY `create_time` DESC, `id` DESC");
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
@@ -180,7 +180,7 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id,
         sql = sdscatprintf(sql, " AND `time` < %"PRIu64, end_time);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `id` DESC");
+    sql = sdscatprintf(sql, " ORDER BY `time` DESC, `id` DESC");
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
