@@ -67,6 +67,9 @@ static void on_timer(nw_timer *t, void *privdata)
     if (list_deals->len) {
         produce_list(list_deals, rkt_deals);
     }
+    if (list_stops->len) {
+        produce_list(list_stops, rkt_stops);
+    }
 
     rd_kafka_poll(rk, 0);
 }

@@ -68,7 +68,7 @@ static int process_stops_message(json_t *msg)
 static void on_stops_message(sds message, int64_t offset)
 {
     log_trace("stop message: %s", message);
-    monitor_inc("message_stop", 1);
+    profile_inc("message_stop", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
         log_error("invalid balance message: %s", message);

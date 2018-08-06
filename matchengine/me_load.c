@@ -120,8 +120,10 @@ int load_stops(MYSQL *conn, const char *table)
                 continue;
 
             stop_t *stop = malloc(sizeof(stop_t));
-            if (stop == NULL)
+            if (stop == NULL) {
+                mysql_free_result(result);
                 return -__LINE__;
+            }
             memset(stop, 0, sizeof(stop_t));
 
             stop->id            = strtoull(row[0], NULL, 0);

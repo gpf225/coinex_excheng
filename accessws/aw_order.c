@@ -173,7 +173,7 @@ int order_on_update_stop(uint32_t user_id, int event, json_t *order)
         struct sub_unit *unit = node->value;
         if (strcmp(unit->market, market) == 0) {
             send_notify(unit->ses, "order.update_stop", params);
-            monitor_inc("order.update_stop", 1);
+            profile_inc("order.update_stop", 1);
         }
     }
     list_release_iterator(iter);
