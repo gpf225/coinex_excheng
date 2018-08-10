@@ -175,6 +175,9 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id,
     if (side) {
         sql = sdscatprintf(sql, " AND `side` = %d", side);
     }
+    
+    sql = sdscatprintf(sql, " AND `status` != 3");
+
     if (start_time) {
         sql = sdscatprintf(sql, " AND `create_time` >= %"PRIu64, start_time);
     }
