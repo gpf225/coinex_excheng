@@ -483,9 +483,11 @@ static int finish_stop(bool real, market_t *m, stop_t *stop, int status)
 
     if (real) {
         stop->update_time = current_timestamp();
-        int ret = append_stop_history(stop, status);
-        if (ret < 0) {
-            log_fatal("append_stop_history fail: %d, order: %"PRIu64"", ret, stop->id);
+        if (MARKET_STOP_STATUS_CANCEL != status) {
+            int ret = append_stop_history(stop, status);
+            if (ret < 0) {
+                log_fatal("append_stop_history fail: %d, order: %"PRIu64"", ret, stop->id);
+            }
         }
     }
 
