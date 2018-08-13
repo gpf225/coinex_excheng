@@ -153,7 +153,7 @@ static int stop_id_compare(const void *value1, const void *value2)
         return 0;
     }
 
-    return stop1->id > stop2->id ? 1 : -1;
+    return stop1->id > stop2->id ? -1 : 1;
 }
 
 static void order_free(order_t *order)
