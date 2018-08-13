@@ -1184,7 +1184,7 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     if (ret == -1) {
         return reply_error(ses, pkg, 10, "balance not enough");
-    } else if (ret == -2) {
+    } else if (ret == -2) {           
         return reply_error(ses, pkg, 11, "invalid stop price");
     } else if (ret == -3) {
         return reply_error(ses, pkg, 12, "amount too small");
