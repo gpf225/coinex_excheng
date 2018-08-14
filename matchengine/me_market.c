@@ -708,7 +708,7 @@ static int check_stop_asks(bool real, market_t *m)
             skiplist_delete(m->stop_asks, node);
             active_stop(real, m, stop);
             
-            skiplist_release_reset(m->stop_asks, iter);
+            skiplist_reset_iterator(m->stop_asks, iter);
         } else {
             break;
         }
@@ -728,7 +728,7 @@ static int check_stop_bids(bool real, market_t *m)
             skiplist_delete(m->stop_bids, node);
             active_stop(real, m, stop);
 
-            skiplist_release_reset(m->stop_bids, iter);
+            skiplist_reset_iterator(m->stop_bids, iter);
         } else {
             break;
         }
