@@ -174,3 +174,9 @@ void skiplist_release_iterator(skiplist_iter *iter)
     free(iter);
 }
 
+skiplist_iter* skiplist_release_reset(skiplist_t *list, skiplist_iter *iter)
+{
+    iter->next = list->header->forward[0];
+    return iter;
+}
+

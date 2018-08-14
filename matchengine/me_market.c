@@ -703,10 +703,12 @@ static int check_stop_asks(bool real, market_t *m)
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(m->stop_asks);
     while ((node = skiplist_next(iter)) != NULL) {
-        stop_t *stop = node->value;
+        stop_t *stop = node->value;    
         if (mpd_cmp(stop->stop_price, m->last, &mpd_ctx) >= 0) {
             skiplist_delete(m->stop_asks, node);
             active_stop(real, m, stop);
+            
+            skiplist_release_reset(m->stop_asks, iter);
         } else {
             break;
         }
@@ -725,6 +727,8 @@ static int check_stop_bids(bool real, market_t *m)
         if (mpd_cmp(stop->stop_price, m->last, &mpd_ctx) <= 0) {
             skiplist_delete(m->stop_bids, node);
             active_stop(real, m, stop);
+
+            skiplist_release_reset(m->stop_bids, iter);
         } else {
             break;
         }

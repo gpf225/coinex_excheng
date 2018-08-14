@@ -40,6 +40,6 @@ void skiplist_release(skiplist_t *list);
 skiplist_iter *skiplist_get_iterator(skiplist_t *list);
 skiplist_node *skiplist_next(skiplist_iter *iter);
 void skiplist_release_iterator(skiplist_iter *iter);
-
+skiplist_iter *skiplist_release_reset(skiplist_t *list, skiplist_iter *iter);
 # endif
 
