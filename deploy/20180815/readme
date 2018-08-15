@@ -1,0 +1,33 @@
+---服务更新说明---
+
+配置说明文档在deploy/20180815文件夹
+1 数据库环境配置
+--1.1 在trade_history数据库下创建数据库表stop_history_example，创建数据库命令：create_table.sql，请手动创健。
+--1.2 在trade_history数据库下创建交易记录历史表。执行脚本create_stop_history.sh，命令：sh create_stop_history.sh。
+
+
+2 配置文件修改
+--2.1 修改accessws/config.json文件。在accessws/config.json文件添加如下配置信息。
+    "stops": {
+        "brokers": "127.0.0.1:9092",
+        "topic": "stops",
+        "partition": 0
+    }
+
+3 编译代码运行，本次更新需要暂停交易，更新时间估计5-10分钟。
+--3.1 编译代码，进入deploy/2018081文件夹，执行sh make.sh脚本，执行前请确保make.sh的执行权限。
+--3.2 拷贝可执行文件
+    3.2.1 拷贝accesshttp/accesshttp.exe文件至服务目标文件夹。
+    3.2.2 拷贝accessrest/accessrest.exe文件至服务目标文件夹。
+    3.2.3 拷贝accessws/accessws.exe文件至服务目标文件夹。
+    3.2.4 拷贝marketprice/marketprice.exe文件至服务目标文件夹。
+    3.2.5 拷贝matchengine/matchengine.exe文件至服务目标文件夹。
+    3.2.6 拷贝readhistory/readhistory.exe文件至服务目标文件夹。
+--3.3 运行服务：运行顺序如下：
+    3.3.1 运行服务matchengine 
+    3.3.2 运行服务marketprice
+    3.3.3 运行服务accesshttp
+    3.3.4 运行服务accessrest
+    3.3.5 运行服务accessws
+    3.3.6 运行服务readhistory
+
