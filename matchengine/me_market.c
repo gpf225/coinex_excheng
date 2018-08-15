@@ -667,7 +667,7 @@ static int active_stop_limit(bool real, market_t *m, stop_t *stop)
     }
 
     if (real) {
-        push_stop_message(STOP_EVENT_ACTIVE, stop, m);
+        push_stop_message_with_status(STOP_EVENT_ACTIVE, stop, m, status);
     }
 
     return finish_stop(real, m, stop, status);
@@ -683,7 +683,7 @@ static int active_stop_market(bool real, market_t *m, stop_t *stop)
     }
 
     if (real) {
-        push_stop_message(STOP_EVENT_ACTIVE, stop, m);
+        push_stop_message_with_status(STOP_EVENT_ACTIVE, stop, m, status);
     }
 
     return finish_stop(real, m, stop, status);
