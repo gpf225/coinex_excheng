@@ -667,7 +667,7 @@ static int active_stop_limit(bool real, market_t *m, stop_t *stop)
     }
 
     if (real) {
-        push_stop_message_with_status(STOP_EVENT_ACTIVE, stop, m, status);
+        push_stop_message(STOP_EVENT_ACTIVE, stop, m, status);
     }
 
     return finish_stop(real, m, stop, status);
@@ -683,7 +683,7 @@ static int active_stop_market(bool real, market_t *m, stop_t *stop)
     }
 
     if (real) {
-        push_stop_message_with_status(STOP_EVENT_ACTIVE, stop, m, status);
+        push_stop_message(STOP_EVENT_ACTIVE, stop, m, status);
     }
 
     return finish_stop(real, m, stop, status);
@@ -1700,7 +1700,7 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t sid
     }
 
     if (real) {
-        push_stop_message(STOP_EVENT_PUT, stop, m);
+        push_stop_message(STOP_EVENT_PUT, stop, m, 0);  
     }
 
     return 0;
@@ -1770,7 +1770,7 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t si
     }
 
     if (real) {
-        push_stop_message(STOP_EVENT_PUT, stop, m);
+        push_stop_message(STOP_EVENT_PUT, stop, m, 0);
     }
 
     return 0;
@@ -1789,7 +1789,7 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
 int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop)
 {
     if (real) {
-        push_stop_message(STOP_EVENT_CANCEL, stop, m);
+        push_stop_message(STOP_EVENT_CANCEL, stop, m, 0);
         *result = get_stop_info(stop);
     }
     finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
