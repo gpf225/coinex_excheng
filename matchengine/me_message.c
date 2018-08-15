@@ -215,11 +215,14 @@ int push_order_message(uint32_t event, order_t *order, market_t *market)
     return 0;
 }
 
-int push_stop_message(uint32_t event, stop_t *stop, market_t *market)
+int push_stop_message(uint32_t event, stop_t *stop, market_t *market, int status)
 {
+    json_t *order_info = get_stop_info(stop);
+    json_object_set_new(order_info, "status", json_integer(status));
+
     json_t *message = json_object();
     json_object_set_new(message, "event", json_integer(event));
-    json_object_set_new(message, "order", get_stop_info(stop));
+    json_object_set_new(message, "order", order_info);
 
     push_message(json_dumps(message, 0), rkt_stops, list_stops);
     json_decref(message);

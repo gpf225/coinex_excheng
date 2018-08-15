@@ -483,9 +483,11 @@ static int finish_stop(bool real, market_t *m, stop_t *stop, int status)
 
     if (real) {
         stop->update_time = current_timestamp();
-        int ret = append_stop_history(stop, status);
-        if (ret < 0) {
-            log_fatal("append_stop_history fail: %d, order: %"PRIu64"", ret, stop->id);
+        if (MARKET_STOP_STATUS_CANCEL != status) {
+            int ret = append_stop_history(stop, status);
+            if (ret < 0) {
+                log_fatal("append_stop_history fail: %d, order: %"PRIu64"", ret, stop->id);
+            }
         }
     }
 
@@ -665,7 +667,7 @@ static int active_stop_limit(bool real, market_t *m, stop_t *stop)
     }
 
     if (real) {
-        push_stop_message(STOP_EVENT_ACTIVE, stop, m);
+        push_stop_message(STOP_EVENT_ACTIVE, stop, m, status);
     }
 
     return finish_stop(real, m, stop, status);
@@ -681,7 +683,7 @@ static int active_stop_market(bool real, market_t *m, stop_t *stop)
     }
 
     if (real) {
-        push_stop_message(STOP_EVENT_ACTIVE, stop, m);
+        push_stop_message(STOP_EVENT_ACTIVE, stop, m, status);
     }
 
     return finish_stop(real, m, stop, status);
@@ -701,10 +703,12 @@ static int check_stop_asks(bool real, market_t *m)
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(m->stop_asks);
     while ((node = skiplist_next(iter)) != NULL) {
-        stop_t *stop = node->value;
+        stop_t *stop = node->value;    
         if (mpd_cmp(stop->stop_price, m->last, &mpd_ctx) >= 0) {
             skiplist_delete(m->stop_asks, node);
             active_stop(real, m, stop);
+            
+            skiplist_reset_iterator(m->stop_asks, iter);
         } else {
             break;
         }
@@ -723,6 +727,8 @@ static int check_stop_bids(bool real, market_t *m)
         if (mpd_cmp(stop->stop_price, m->last, &mpd_ctx) <= 0) {
             skiplist_delete(m->stop_bids, node);
             active_stop(real, m, stop);
+
+            skiplist_reset_iterator(m->stop_bids, iter);
         } else {
             break;
         }
@@ -1694,7 +1700,7 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t sid
     }
 
     if (real) {
-        push_stop_message(STOP_EVENT_PUT, stop, m);
+        push_stop_message(STOP_EVENT_PUT, stop, m, 0);  
     }
 
     return 0;
@@ -1764,7 +1770,7 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t si
     }
 
     if (real) {
-        push_stop_message(STOP_EVENT_PUT, stop, m);
+        push_stop_message(STOP_EVENT_PUT, stop, m, 0);
     }
 
     return 0;
@@ -1783,7 +1789,7 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
 int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop)
 {
     if (real) {
-        push_stop_message(STOP_EVENT_CANCEL, stop, m);
+        push_stop_message(STOP_EVENT_CANCEL, stop, m, 0);
         *result = get_stop_info(stop);
     }
     finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
