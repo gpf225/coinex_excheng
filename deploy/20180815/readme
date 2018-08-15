@@ -2,8 +2,9 @@
 
 配置说明文档在deploy/20180815文件夹
 1 数据库环境配置
---1.1 在trade_history数据库下创建数据库表stop_history_example，创建数据库命令：create_table.sql，请手动创健。
---1.2 在trade_history数据库下创建交易记录历史表。执行脚本create_stop_history.sh，命令：sh create_stop_history.sh。
+--1.1 在trade_log数据库中创建数据库表'slice_stop_example'。数据库表创建脚本参考文件create_table.sql。
+--1.2 在trade_history数据库中创建数据库表'stop_history_example'。数据库表创建脚本参考文件create_table.sql。
+--1.3 在trade_history数据库中创建交易记录历史表。执行脚本create_stop_history.sh，命令：sh create_stop_history.sh。
 
 
 2 配置文件修改
