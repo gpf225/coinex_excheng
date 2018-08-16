@@ -15,6 +15,7 @@ static nw_timer timer;
 enum {
     HISTORY_USER_BALANCE,
     HISTORY_USER_ORDER,
+    HISTORY_USER_STOP,
     HISTORY_USER_DEAL,
     HISTORY_ORDER_DETAIL,
     HISTORY_ORDER_DEAL,
@@ -342,6 +343,37 @@ int append_order_history(order_t *order)
 {
     append_user_order(order);
     append_order_detail(order);
+
+    return 0;
+}
+
+int append_stop_history(stop_t *stop, int status)
+{
+    struct dict_sql_key key;
+    key.hash = stop->user_id % HISTORY_HASH_NUM;
+    key.type = HISTORY_USER_STOP;
+    sds sql = get_sql(&key);
+    if (sql == NULL)
+        return -__LINE__;
+
+    if (sdslen(sql) == 0) {
+        sql = sdscatprintf(sql, "INSERT INTO `stop_history_%u` (`id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, "
+                "`fee_asset`, `t`, `side`, `status`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `fee_discount`) VALUES ", key.hash);
+    } else {
+        sql = sdscatprintf(sql, ", ");
+    }
+
+    sql = sdscatprintf(sql, "(%"PRIu64", %f, %f, %u, '%s', '%s', '%s', %u, %u, %d, ", stop->id, stop->create_time, stop->update_time,
+            stop->user_id, stop->market, stop->source, stop->fee_asset, stop->type, stop->side, status);
+    sql = sql_append_mpd(sql, stop->stop_price, true);
+    sql = sql_append_mpd(sql, stop->price, true);
+    sql = sql_append_mpd(sql, stop->amount, true);
+    sql = sql_append_mpd(sql, stop->taker_fee, true);
+    sql = sql_append_mpd(sql, stop->maker_fee, true);
+    sql = sql_append_mpd(sql, stop->fee_discount, false);
+    sql = sdscatprintf(sql, ")");
+
+    set_sql(&key, sql);
 
     return 0;
 }

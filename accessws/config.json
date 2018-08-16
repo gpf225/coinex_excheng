@@ -48,6 +48,11 @@
         "topic": "deals",
         "partition": 0
     },
+    "stops": {
+        "brokers": "127.0.0.1:9092",
+        "topic": "stops",
+        "partition": 0
+    },
     "orders": {
         "brokers": "127.0.0.1:9092",
         "topic": "orders",
