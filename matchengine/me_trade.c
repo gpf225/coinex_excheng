@@ -64,6 +64,9 @@ int init_trade(void)
         log_stderr("create market: %s", settings.markets[i].name);
         market_t *m = market_create(&settings.markets[i]);
         if (m == NULL) {
+            log_stderr("create market: %s fail, stock: %s, money: %s, fee_prec: %d, stock_prec: %d, money_prec: %d",
+                    settings.markets[i].name, settings.markets[i].stock, settings.markets[i].money,
+                    settings.markets[i].fee_prec, settings.markets[i].stock_prec, settings.markets[i].money_prec);
             return -__LINE__;
         }
 

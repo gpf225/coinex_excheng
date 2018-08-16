@@ -182,6 +182,50 @@ invalid_argument:
     return 0;
 }
 
+static int on_cmd_stop_history(MYSQL *conn, json_t *params, struct job_reply *rsp)
+{
+    if (json_array_size(params) != 7)
+        goto invalid_argument;
+
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+    if (user_id == 0)
+        goto invalid_argument;
+    const char *market = json_string_value(json_array_get(params, 1));
+    if (market == NULL)
+        goto invalid_argument;
+    int side = json_integer_value(json_array_get(params, 2));
+    if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+        goto invalid_argument;
+    uint64_t start_time = json_integer_value(json_array_get(params, 3));
+    uint64_t end_time   = json_integer_value(json_array_get(params, 4));
+    if (end_time && start_time > end_time)
+        goto invalid_argument;
+    size_t offset = json_integer_value(json_array_get(params, 5));
+    size_t limit  = json_integer_value(json_array_get(params, 6));
+    if (limit == 0 || limit > QUERY_LIMIT)
+        goto invalid_argument;
+
+    json_t *records = get_user_stop_history(conn, user_id, market, side, start_time, end_time, offset, limit);
+    if (records == NULL) {
+        rsp->code = 2;
+        rsp->message = sdsnew("internal error");
+    }
+
+    json_t *result = json_object();
+    json_object_set_new(result, "offset", json_integer(offset));
+    json_object_set_new(result, "limit", json_integer(limit));
+    json_object_set_new(result, "records", records);
+    rsp->result = result;
+
+    return 0;
+
+invalid_argument:
+    rsp->code = 1;
+    rsp->message = sdsnew("invalid argument");
+
+    return 0;
+}
+
 static int on_cmd_order_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
     if (json_array_size(params) != 3)
@@ -305,6 +349,12 @@ static void on_job(nw_job_entry *entry, void *privdata)
         ret = on_cmd_order_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_history fail: %d", ret);
+        }
+        break;
+    case CMD_ORDER_FINISHED_STOP:
+        ret = on_cmd_stop_history(conn, req->params, rsp);
+        if (ret < 0) {
+            log_error("on_cmd_stop_history fail: %d", ret);
         }
         break;
     case CMD_ORDER_FINISHED_DETAIL:

@@ -10,6 +10,7 @@
 # include "aw_order.h"
 
 static kafka_consumer_t *kafka_deals;
+static kafka_consumer_t *kafka_stops;
 static kafka_consumer_t *kafka_orders;
 static kafka_consumer_t *kafka_balances;
 
@@ -42,6 +43,41 @@ static void on_deals_message(sds message, int64_t offset)
     int ret = process_deals_message(msg);
     if (ret < 0) {
         log_error("process_deals_message: %s fail: %d", message, ret);
+    }
+
+    json_decref(msg);
+}
+
+static int process_stops_message(json_t *msg)
+{
+    int event = json_integer_value(json_object_get(msg, "event"));
+    if (event == 0)
+        return -__LINE__;
+    json_t *order = json_object_get(msg, "order");
+    if (order == NULL)
+        return -__LINE__;
+    uint32_t user_id = json_integer_value(json_object_get(order, "user"));
+    if (user_id == 0)
+        return -__LINE__;
+
+    order_on_update_stop(user_id, event, order);
+
+    return 0;
+}
+
+static void on_stops_message(sds message, int64_t offset)
+{
+    log_trace("stop message: %s", message);
+    profile_inc("message_stop", 1);
+    json_t *msg = json_loads(message, 0, NULL);
+    if (!msg) {
+        log_error("invalid balance message: %s", message);
+        return;
+    }
+
+    int ret = process_stops_message(msg);
+    if (ret < 0) {
+        log_error("process_stops_message: %s fail: %d", message, ret);
     }
 
     json_decref(msg);
@@ -128,6 +164,12 @@ int init_message(void)
     settings.deals.offset = RD_KAFKA_OFFSET_END;
     kafka_deals = kafka_consumer_create(&settings.deals, on_deals_message);
     if (kafka_deals == NULL) {
+        return -__LINE__;
+    }
+
+    settings.stops.offset = RD_KAFKA_OFFSET_END;
+    kafka_stops = kafka_consumer_create(&settings.stops, on_stops_message);
+    if (kafka_stops == NULL) {
         return -__LINE__;
     }
 

@@ -291,6 +291,11 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.deals", readhistory, CMD_ORDER_DEALS));
     ERR_RET_LN(add_handler("order.finished", readhistory, CMD_ORDER_FINISHED));
     ERR_RET_LN(add_handler("order.finished_detail", readhistory, CMD_ORDER_FINISHED_DETAIL));
+    ERR_RET_LN(add_handler("order.put_stop_limit", matchengine, CMD_ORDER_PUT_STOP_LIMIT));
+    ERR_RET_LN(add_handler("order.put_stop_market", matchengine, CMD_ORDER_PUT_STOP_MARKET));
+    ERR_RET_LN(add_handler("order.cancel_stop", matchengine, CMD_ORDER_CANCEL_STOP));
+    ERR_RET_LN(add_handler("order.pending_stop", matchengine, CMD_ORDER_PENDING_STOP));
+    ERR_RET_LN(add_handler("order.finished_stop", readhistory, CMD_ORDER_FINISHED_STOP));
 
     ERR_RET_LN(add_handler("market.list", matchengine, CMD_MARKET_LIST));
     ERR_RET_LN(add_handler("market.last", marketprice, CMD_MARKET_LAST));

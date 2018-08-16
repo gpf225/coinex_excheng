@@ -151,6 +151,37 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
     return 0;
 }
 
+int order_on_update_stop(uint32_t user_id, int event, json_t *order)
+{
+    const char *market = json_string_value(json_object_get(order, "market"));
+    if (market == NULL)
+        return -__LINE__;
+
+    void *key = (void *)(uintptr_t)user_id;
+    dict_entry *entry = dict_find(dict_sub, key);
+    if (entry == NULL)
+        return 0;
+
+    json_t *params = json_array();
+    json_array_append_new(params, json_integer(event));
+    json_array_append(params, order);
+
+    list_t *list = entry->val;
+    list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
+    list_node *node;
+    while ((node = list_next(iter)) != NULL) {
+        struct sub_unit *unit = node->value;
+        if (strcmp(unit->market, market) == 0) {
+            send_notify(unit->ses, "order.update_stop", params);
+            profile_inc("order.update_stop", 1);
+        }
+    }
+    list_release_iterator(iter);
+    json_decref(params);
+
+    return 0;
+}
+
 size_t order_subscribe_number(void)
 {
     return dict_size(dict_sub);
