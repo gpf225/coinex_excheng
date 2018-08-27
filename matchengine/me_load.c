@@ -54,8 +54,8 @@ int load_orders(MYSQL *conn, const char *table)
             } else {
                 order->fee_asset = strdup(row[8]);
                 order->fee_price = get_fee_price(market, order->fee_asset);
-                if (order->fee_price == NULL)
-                    return -__LINE__;
+                if (order->fee_price == NULL) 
+                    return -__LINE__;                
             }
             order->fee_discount = decimal(row[9],  4);
             order->price        = decimal(row[10], market->money_prec);
