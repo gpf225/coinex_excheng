@@ -215,6 +215,7 @@ int update_market_config(void)
     }
 
     int ret = load_markets(data);
+
     json_decref(data);
     return ret;
 }
