@@ -168,7 +168,7 @@ int init_history(void)
     }
 
     dict_types types_order;
-    memset(&dt, 0, sizeof(dt));
+    memset(&types_order, 0, sizeof(dt));
     types_order.hash_function  = dict_order_hash_function;
     types_order.key_compare    = dict_order_key_compare;
     types_order.key_dup        = dict_order_key_dup;
@@ -430,7 +430,9 @@ json_t *get_order_finished(uint64_t order_id)
 {
     dict_entry *entry = dict_find(dict_order, &order_id);
     if (entry) {
-        return entry->val;
+        json_t *order = entry->val;
+        json_incref(order);
+        return order;
     }
     return NULL;
 }
