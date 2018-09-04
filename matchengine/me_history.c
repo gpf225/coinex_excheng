@@ -297,7 +297,6 @@ static int append_user_order(order_t *order)
     sql = sql_append_mpd(sql, order->fee_discount, false);
     sql = sdscatprintf(sql, ")");
 
-    list_add_node_tail(val->orderids, &order->id);
     val->sql = sql;
     profile_inc("history_user_order", 1);
 
@@ -336,6 +335,7 @@ static int append_order_detail(order_t *order)
     sql = sdscatprintf(sql, ")");
 
     val->sql = sql;
+    list_add_node_tail(val->orderids, &order->id);
     profile_inc("history_order_detail", 1);
 
     return 0;
