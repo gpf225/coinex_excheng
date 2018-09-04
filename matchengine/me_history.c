@@ -32,6 +32,10 @@ struct dict_sql_val {
     sds     sql;
 };
 
+struct dict_order_key {
+    uint64_t order_id;
+};
+
 static uint32_t dict_sql_hash_function(const void *key)
 {
     return dict_generic_hash_function(key, sizeof(struct dict_sql_key));
@@ -67,21 +71,24 @@ static void dict_sql_val_free(struct dict_sql_val *val)
 
 static uint32_t dict_order_hash_function(const void *key)
 {
-    return dict_generic_hash_function(key, 8);
-}
-
-static void *dict_order_key_dup(const void *key)
-{
-    void *obj = malloc(sizeof(uint64_t));
-    memcpy(obj, key, sizeof(uint64_t));
-    return obj;
+    return dict_generic_hash_function(key, sizeof(struct dict_order_key));
 }
 
 static int dict_order_key_compare(const void *key1, const void *key2)
 {
-    uint64_t *order_id1 = (uint64_t*)key1;
-    uint64_t *order_id2 = (uint64_t*)key2;
-    return *order_id1 - *order_id2;
+    const struct dict_order_key *obj1 = key1;
+    const struct dict_order_key *obj2 = key2;
+    if (obj1->order_id == obj2->order_id) {
+        return 0;
+    }
+    return 1;
+}
+
+static void *dict_order_key_dup(const void *key)
+{
+    struct dict_order_key *obj = malloc(sizeof(struct dict_order_key));
+    memcpy(obj, key, sizeof(struct dict_order_key));
+    return obj;
 }
 
 static void dict_order_key_free(void *key)
@@ -121,7 +128,8 @@ static void on_job_finish(nw_job_entry *entry)
     list_node *node;
     list_iter *iter = list_get_iterator(val->orderids, LIST_START_HEAD);
     while ((node = list_next(iter)) != NULL) {
-        dict_delete(dict_order, node->value);
+        struct dict_order_key order_key = { .order_id = *(uint64_t *)(node->value) };
+        dict_delete(dict_order, &order_key);
     }
     list_release_iterator(iter);
 }
@@ -428,7 +436,8 @@ static int append_user_balance(double t, uint32_t user_id, const char *asset, co
 
 json_t *get_order_finished(uint64_t order_id)
 {
-    dict_entry *entry = dict_find(dict_order, &order_id);
+    struct dict_order_key order_key = { .order_id = order_id };
+    dict_entry *entry = dict_find(dict_order, &order_key);
     if (entry) {
         json_t *order = entry->val;
         json_incref(order);
@@ -444,7 +453,8 @@ int append_order_history(order_t *order)
 
     json_t *order_info = get_order_info(order);
     json_object_set_new(order_info, "finished", json_true());
-    dict_add(dict_order, &order->id, order_info);
+    struct dict_order_key order_key = { .order_id = order->id };
+    dict_add(dict_order, &order_key, order_info);
     return 0;
 }
 
