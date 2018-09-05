@@ -1074,7 +1074,9 @@ static int on_cmd_order_detail(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     order_t *order = market_get_order(market, order_id);
     json_t *result = NULL;
     if (order == NULL) {
-        result = json_null();
+        result = get_order_finished(order_id);
+        if (result == NULL)
+            result = json_null();
     } else {
         result = get_order_info(order);
     }
