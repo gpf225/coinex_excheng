@@ -15,7 +15,7 @@ SQL_UPDATE__SLICE_ORDER_EXAMPLE="ALTER TABLE slice_order_example MODIFY price de
 
 # price decimal(40, 8) => decimal(40, 12)
 # stop_price decimal(40, 8) => decimal(40, 12)
-SQL_UPDATE__SLICE_STOP_EXAMPLE="ALTER TABLE slice_stop_example MODIFY price decimal(40, 12) not null, MODIFY stop_price decimal(40, 12) not null, MODIFY amount decimal(40, 12) not null;"
+SQL_UPDATE__SLICE_STOP_EXAMPLE="ALTER TABLE slice_stop_example MODIFY price decimal(40, 12) not null, MODIFY stop_price decimal(40, 12) not null;"
 
 execute_update_sql() {
     UPDATE_SQL=$*

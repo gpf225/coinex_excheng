@@ -32,7 +32,7 @@ update_table() {
     # update balance_history and balance_history_N tables
     # 'change' decimal(40, 8) => decimal(40, 20)
     if [[ $TABLE =~ $MARK_TABLE_BALANCE_HISTORY_TABLES ]]; then
-        UPDATE_SQL="ALTER TABLE $TABLE MODIFY \`change\` decimal(40, 12) not null;"
+        UPDATE_SQL="ALTER TABLE $TABLE MODIFY \`change\` decimal(40, 20) not null;"
     
     # update order_history and order_history_N 
     # 'price' decimal(40, 8) => decimal(40, 12)

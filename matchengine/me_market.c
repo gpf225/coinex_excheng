@@ -533,25 +533,17 @@ int init_market(void)
     return 0;
 }
 
-static int check_market_precision(struct market *conf) {
-    if (conf->stock_prec + conf->money_prec > asset_prec(conf->money))
-        return -__LINE__;
-    if (conf->stock_prec + conf->fee_prec > asset_prec(conf->stock))
-        return -__LINE__;
-    if (conf->money_prec + conf->fee_prec > asset_prec(conf->money))
-        return -__LINE__;
-
-    return 0;
-}
-
 market_t *market_create(struct market *conf)
 {
     if (!asset_exist(conf->stock) || !asset_exist(conf->money))
         return NULL;
 
-    if (check_market_precision(conf) != 0) {
+    if (conf->stock_prec + conf->money_prec > asset_prec(conf->money))
         return NULL;
-    }
+    if (conf->stock_prec + conf->fee_prec > asset_prec(conf->stock))
+        return NULL;
+    if (conf->money_prec + conf->fee_prec > asset_prec(conf->money))
+        return NULL;
 
     market_t *m = malloc(sizeof(market_t));
     memset(m, 0, sizeof(market_t));
@@ -614,13 +606,6 @@ int market_update(market_t *m, struct market *conf)
 {
     mpd_copy(m->min_amount, conf->min_amount, &mpd_ctx);
    
-    if (check_market_precision(conf) != 0) {
-        log_error("market_update failed, invalid precision");
-        return -__LINE__;
-    }
-    
-    m->stock_prec = conf->stock_prec;
-    m->money_prec = conf->money_prec;
     return 0;
 }
 
