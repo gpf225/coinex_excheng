@@ -20,5 +20,7 @@ int append_user_balance_history(double t, uint32_t user_id, const char *asset, c
 bool is_history_block(void);
 sds history_status(sds reply);
 
+json_t *get_order_finished(uint64_t order_id);
+
 # endif
 

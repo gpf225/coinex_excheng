@@ -80,8 +80,8 @@ CREATE TABLE `order_detail_example` (
     `maker_fee`     DECIMAL(40,4) NOT NULL,
     `deal_stock`    DECIMAL(40,8) NOT NULL,
     `deal_money`    DECIMAL(40,20) NOT NULL,
-    `deal_fee`      DECIMAL(40,20) NOT NULL
-    `asset_fee`     DECIMAL(40,20) NOT NULL,
+    `deal_fee`      DECIMAL(40,20) NOT NULL,
+    `asset_fee`     DECIMAL(40,20) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by order_id
