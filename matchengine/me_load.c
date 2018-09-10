@@ -982,11 +982,10 @@ int load_operlog(MYSQL *conn, const char *table, uint64_t *start_id)
             if (ret < 0) {
                 char *detail_msg = json_dumps(detail, 0);
                 log_stderr("detail:%s", detail_msg);
-                free(detail_msg);
-
-                json_decref(detail);
                 log_stderr("load_oper: %"PRIu64":%s fail: %d", id, row[1], ret);
-   
+                
+                free(detail_msg);
+                json_decref(detail);
                 mysql_free_result(result);
                 return -__LINE__;
             }
