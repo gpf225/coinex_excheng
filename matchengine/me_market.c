@@ -814,9 +814,6 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
             bid_fee_asset = m->stock;
             mpd_mul(bid_fee, amount, maker->maker_fee, &mpd_ctx);
         }
-       
-        mpd_rescale(ask_fee, ask_fee, -asset_prec(ask_fee_asset), &mpd_ctx);
-        mpd_rescale(bid_fee, bid_fee, -asset_prec(bid_fee_asset), &mpd_ctx);
 
         taker->update_time = maker->update_time = current_timestamp();
         uint64_t deal_id = ++deals_id_start;
@@ -979,9 +976,6 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
             bid_fee_asset = m->stock;
             mpd_mul(bid_fee, amount, taker->taker_fee, &mpd_ctx);
         }
-
-        mpd_rescale(ask_fee, ask_fee, -asset_prec(ask_fee_asset), &mpd_ctx);
-        mpd_rescale(bid_fee, bid_fee, -asset_prec(bid_fee_asset), &mpd_ctx);
 
         taker->update_time = maker->update_time = current_timestamp();
         uint64_t deal_id = ++deals_id_start;
@@ -1261,9 +1255,6 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
             mpd_mul(bid_fee, amount, maker->maker_fee, &mpd_ctx);
         }
 
-        mpd_rescale(ask_fee, ask_fee, -asset_prec(ask_fee_asset), &mpd_ctx);
-        mpd_rescale(bid_fee, bid_fee, -asset_prec(bid_fee_asset), &mpd_ctx);
-
         taker->update_time = maker->update_time = current_timestamp();
         uint64_t deal_id = ++deals_id_start;
         if (real) {
@@ -1433,9 +1424,6 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
             bid_fee_asset = m->stock;
             mpd_mul(bid_fee, amount, taker->taker_fee, &mpd_ctx);
         }
-
-        mpd_rescale(ask_fee, ask_fee, -asset_prec(ask_fee_asset), &mpd_ctx);
-        mpd_rescale(bid_fee, bid_fee, -asset_prec(bid_fee_asset), &mpd_ctx);
 
         taker->update_time = maker->update_time = current_timestamp();
         uint64_t deal_id = ++deals_id_start;
