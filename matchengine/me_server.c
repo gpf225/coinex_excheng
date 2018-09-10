@@ -1730,8 +1730,8 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             log_error("on_cmd_pending_stop %s fail: %d", params_str, ret);
         }
         break;
-    case CMD_STOP_BOOK:
-        profile_inc("CMD_STOP_BOOK", 1);
+    case CMD_ORDER_STOP_BOOK:
+        profile_inc("cmd_order_stop_book", 1);
         ret = on_cmd_stop_book(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_stop_book %s fail: %d", params_str, ret);

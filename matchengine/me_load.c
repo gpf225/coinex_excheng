@@ -55,7 +55,7 @@ int load_orders(MYSQL *conn, const char *table)
                 order->fee_asset = strdup(row[8]);
                 order->fee_price = get_fee_price(market, order->fee_asset);
                 if (order->fee_price == NULL) 
-                    return -__LINE__;                
+                    return -__LINE__;       
             }
             order->fee_discount = decimal(row[9],  4);
             order->price        = decimal(row[10], market->money_prec);
@@ -980,10 +980,13 @@ int load_operlog(MYSQL *conn, const char *table, uint64_t *start_id)
 
             ret = load_oper(detail);
             if (ret < 0) {
-                log_stderr("detail:%s", json_dumps(detail, 0));
+                char *detail_msg = json_dumps(detail, 0);
+                log_stderr("detail:%s", detail_msg);
+                free(detail_msg);
+
                 json_decref(detail);
                 log_stderr("load_oper: %"PRIu64":%s fail: %d", id, row[1], ret);
-
+   
                 mysql_free_result(result);
                 return -__LINE__;
             }
