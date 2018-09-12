@@ -856,6 +856,76 @@ static int on_cmd_order_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+static int on_cmd_stop_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 4)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // market
+    if (!json_is_string(json_array_get(params, 0)))
+        return reply_error_invalid_argument(ses, pkg);
+    const char *market_name = json_string_value(json_array_get(params, 0));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // side
+    if (!json_is_integer(json_array_get(params, 1)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint32_t side = json_integer_value(json_array_get(params, 1));
+    if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // offset
+    if (!json_is_integer(json_array_get(params, 2)))
+        return reply_error_invalid_argument(ses, pkg);
+    size_t offset = json_integer_value(json_array_get(params, 2));
+
+    // limit
+    if (!json_is_integer(json_array_get(params, 3)))
+        return reply_error_invalid_argument(ses, pkg);
+    size_t limit = json_integer_value(json_array_get(params, 3));
+    if (limit > ORDER_BOOK_MAX_LEN)
+        return reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = json_object();
+    json_object_set_new(result, "offset", json_integer(offset));
+    json_object_set_new(result, "limit", json_integer(limit));
+
+    uint64_t total;
+    skiplist_iter *iter;
+    if (side == MARKET_ORDER_SIDE_ASK) {
+        iter = skiplist_get_iterator(market->stop_asks);
+        total = market->asks->len;
+        json_object_set_new(result, "total", json_integer(total));
+    } else {
+        iter = skiplist_get_iterator(market->stop_bids);
+        total = market->bids->len;
+        json_object_set_new(result, "total", json_integer(total));
+    }
+
+    json_t *orders = json_array();
+    if (offset < total) {
+        for (size_t i = 0; i < offset; i++) {
+            if (skiplist_next(iter) == NULL)
+                break;
+        }
+        size_t index = 0;
+        skiplist_node *node;
+        while ((node = skiplist_next(iter)) != NULL && index < limit) {
+            index++;
+            stop_t *order = node->value;
+            json_array_append_new(orders, get_stop_info(order));
+        }
+    }
+    skiplist_release_iterator(iter);
+
+    json_object_set_new(result, "orders", orders);
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
 static json_t *get_depth(market_t *market, size_t limit)
 {
     mpd_t *price = mpd_new(&mpd_ctx);
@@ -1658,6 +1728,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_pending_stop(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_pending_stop %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ORDER_STOP_BOOK:
+        profile_inc("cmd_order_stop_book", 1);
+        ret = on_cmd_stop_book(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_stop_book %s fail: %d", params_str, ret);
         }
         break;
     case CMD_MARKET_LIST:

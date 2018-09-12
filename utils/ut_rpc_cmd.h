@@ -41,6 +41,7 @@
 # define CMD_ORDER_CANCEL_STOP      213
 # define CMD_ORDER_PENDING_STOP     214
 # define CMD_ORDER_FINISHED_STOP    215
+# define CMD_ORDER_STOP_BOOK        216
 
 // market
 # define CMD_MARKET_LIST            301

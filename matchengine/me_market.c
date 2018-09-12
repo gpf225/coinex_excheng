@@ -603,8 +603,7 @@ market_t *market_create(struct market *conf)
 
 int market_update(market_t *m, struct market *conf)
 {
-    mpd_copy(m->min_amount, conf->min_amount, &mpd_ctx);
-
+    mpd_copy(m->min_amount, conf->min_amount, &mpd_ctx); 
     return 0;
 }
 

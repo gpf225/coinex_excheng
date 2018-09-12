@@ -289,6 +289,7 @@ static int load_update_balance(json_t *params)
     mpd_del(change);
 
     if (ret < 0) {
+        log_stderr("update_user_balance failed, ret:%d", ret);
         return -__LINE__;
     }
 
@@ -976,10 +977,15 @@ int load_operlog(MYSQL *conn, const char *table, uint64_t *start_id)
                 mysql_free_result(result);
                 return -__LINE__;
             }
+
             ret = load_oper(detail);
             if (ret < 0) {
+                char *detail_msg = json_dumps(detail, 0);
+                log_stderr("detail:%s", detail_msg);
+                log_stderr("load_oper: %"PRIu64":%s fail: %d", id, row[1], ret);
+                
+                free(detail_msg);
                 json_decref(detail);
-                log_error("load_oper: %"PRIu64":%s fail: %d", id, row[1], ret);
                 mysql_free_result(result);
                 return -__LINE__;
             }
