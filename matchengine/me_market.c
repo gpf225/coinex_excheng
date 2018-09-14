@@ -953,7 +953,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
         }
 
         // calculate bid fee
-        if (taker->fee_asset != NULL && strcmp(taker->fee_asset, m->money) != 0 && mpd_cmp(taker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        if (taker->fee_asset != NULL && mpd_cmp(taker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             mpd_mul(result, deal, taker->taker_fee, &mpd_ctx);
             mpd_div(result, result, taker->fee_price, &mpd_ctx);
             mpd_mul(result, result, taker->fee_discount, &mpd_ctx);
@@ -1432,7 +1432,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
         }
 
         // calculate bid fee
-        if (taker->fee_asset != NULL && strcmp(taker->fee_asset, m->money) != 0 && mpd_cmp(taker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        if (taker->fee_asset != NULL && mpd_cmp(taker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             mpd_mul(result, deal, taker->taker_fee, &mpd_ctx);
             mpd_div(result, result, taker->fee_price, &mpd_ctx);
             mpd_mul(result, result, taker->fee_discount, &mpd_ctx);
