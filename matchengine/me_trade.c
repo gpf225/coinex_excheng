@@ -120,6 +120,9 @@ json_t *get_market_last_info(void)
 
 mpd_t *get_fee_price(market_t *m, const char *asset)
 {
+    if (strcmp(asset, m->money) == 0) {
+        return mpd_one;
+    }
     char name[100];
     snprintf(name, sizeof(name), "%s%s", asset, m->money);
     market_t *m_fee = get_market(name);
