@@ -53,7 +53,7 @@ static void on_timer(nw_timer *t, void *privdata)
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
         struct update_val *val = entry->val;
-        if (val->create_time < (now - 86400)) {
+        if (val->create_time < (now - 86400 * 7)) {
             dict_delete(dict_update, entry->key);
         }
     }
