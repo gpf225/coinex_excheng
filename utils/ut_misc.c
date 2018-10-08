@@ -238,6 +238,13 @@ double current_timestamp(void)
     return (double)tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
+uint64_t current_millis(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec + tv.tv_usec / 1000;
+}
+
 char *strftimestamp(time_t t)
 {
     static char str[64];
