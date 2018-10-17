@@ -327,6 +327,7 @@ static int finish_order(bool real, market_t *m, order_t *order)
             if (balance_unfreeze(order->user_id, BALANCE_TYPE_FROZEN, m->stock, order->frozen) == NULL) {
                 return -__LINE__;
             }
+            balance_reset(order->user_id, m->stock);
         }
     } else {
         skiplist_node *node = skiplist_find(m->bids, order);
@@ -337,6 +338,7 @@ static int finish_order(bool real, market_t *m, order_t *order)
             if (balance_unfreeze(order->user_id, BALANCE_TYPE_FROZEN, m->money, order->frozen) == NULL) {
                 return -__LINE__;
             }
+            balance_reset(order->user_id, m->money);
         }
     }
 
@@ -1171,8 +1173,10 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     int ret;
     if (side == MARKET_ORDER_SIDE_ASK) {
         ret = execute_limit_ask_order(real, m, order);
+        balance_reset(user_id, m->stock);
     } else {
         ret = execute_limit_bid_order(real, m, order);
+        balance_reset(user_id, m->money);
     }
     if (ret < 0) {
         log_error("execute order: %"PRIu64" fail: %d", order->id, ret);
@@ -1648,8 +1652,10 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
     int ret;
     if (side == MARKET_ORDER_SIDE_ASK) {
         ret = execute_market_ask_order(real, m, order);
+        balance_reset(user_id, m->stock);
     } else {
         ret = execute_market_bid_order(real, m, order);
+        balance_reset(user_id, m->money);
     }
     if (ret < 0) {
         log_error("execute order: %"PRIu64" fail: %d", order->id, ret);
