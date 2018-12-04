@@ -44,11 +44,15 @@ static sds on_cmd_unfreeze(const char *cmd, int argc, sds *argv)
     }
 
     char *asset = strdup(argv[1]);
-    if (!asset || !asset_exist(asset)) {
+    if (!asset) {
         return sdsnew("failed, asset error\n");
     }
+    if (!asset_exist(asset)) {
+        free(asset);
+        return sdsnew("failed, asset not exist\n");
+    }
 
-    mpd_t *amount = decimal(argv[3], asset_prec(asset));
+    mpd_t *amount = decimal(argv[2], asset_prec(asset));
     if (!amount) {
         free(asset);
         return sdsnew("failed, amount error\n");
