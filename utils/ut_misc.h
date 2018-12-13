@@ -23,6 +23,8 @@ sds bin2hex(const void *mem, size_t len);
 sds hex2bin(const char *hex);
 
 double current_timestamp(void);
+uint64_t current_millis(void);
+
 char *strftimestamp(time_t t);
 char *human_number(double num);
 

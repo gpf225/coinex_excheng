@@ -956,7 +956,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
         }
 
         // calculate bid fee
-        if (taker->fee_asset != NULL && strcmp(taker->fee_asset, m->money) != 0 && mpd_cmp(taker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        if (taker->fee_asset != NULL && mpd_cmp(taker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             mpd_mul(result, deal, taker->taker_fee, &mpd_ctx);
             mpd_div(result, result, taker->fee_price, &mpd_ctx);
             mpd_mul(result, result, taker->fee_discount, &mpd_ctx);
@@ -1066,6 +1066,29 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
     return 0;
 }
 
+static bool check_fee_asset(mpd_t *trade_amount, mpd_t *balance, mpd_t *taker_fee, const char *fee_asset, mpd_t *fee_discount)
+{
+    mpd_t *fee_amount = mpd_new(&mpd_ctx);
+    mpd_t *multiplier = mpd_new(&mpd_ctx);
+    
+    mpd_set_string(multiplier, "1.1", &mpd_ctx);
+
+    mpd_mul(fee_amount, trade_amount, taker_fee, &mpd_ctx);
+    mpd_mul(fee_amount, fee_amount, fee_discount, &mpd_ctx);
+    mpd_mul(fee_amount, fee_amount, multiplier, &mpd_ctx);
+
+    mpd_t *total_amount = mpd_new(&mpd_ctx);
+    mpd_add(total_amount, trade_amount, fee_amount, &mpd_ctx);
+    
+    int ret = mpd_cmp(balance, total_amount, &mpd_ctx);
+    
+    mpd_del(fee_amount);
+    mpd_del(multiplier);
+    mpd_del(total_amount);
+
+    return ret > 0;
+}
+
 int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount,
         mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount)
 {
@@ -1082,6 +1105,13 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             mpd_del(require);
             return -1;
         }
+        
+        if ((fee_asset != NULL) && (strcmp(m->money, fee_asset) == 0) ) {
+            if (!check_fee_asset(require, balance, taker_fee, fee_asset, fee_discount)) {
+                fee_asset = NULL;
+            }
+        }
+        
         mpd_del(require);
     }
 
@@ -1411,7 +1441,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
         }
 
         // calculate bid fee
-        if (taker->fee_asset != NULL && strcmp(taker->fee_asset, m->money) != 0 && mpd_cmp(taker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        if (taker->fee_asset != NULL && mpd_cmp(taker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             mpd_mul(result, deal, taker->taker_fee, &mpd_ctx);
             mpd_div(result, result, taker->fee_price, &mpd_ctx);
             mpd_mul(result, result, taker->fee_discount, &mpd_ctx);
@@ -1539,6 +1569,12 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
             return -1;
         }
 
+        if ((fee_asset != NULL) && (strcmp(m->money, fee_asset) == 0) ) {
+            if (!check_fee_asset(amount, balance, taker_fee, fee_asset, fee_discount)) {
+                fee_asset = NULL;
+            }
+        }
+
         skiplist_iter *iter = skiplist_get_iterator(m->asks);
         skiplist_node *node = skiplist_next(iter);
         if (node == NULL) {
@@ -1555,6 +1591,7 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
                 mpd_del(require);
                 return -2;
             }
+
             mpd_del(require);
         }
     }
