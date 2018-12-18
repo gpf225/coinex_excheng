@@ -4,6 +4,7 @@
  */
 
 # include "ar_server.h"
+# include "ar_market_info.h"
 # include "ar_ticker.h"
 
 static http_svr *svr;
@@ -145,6 +146,29 @@ static int on_market_list(nw_ses *ses, dict_t *params)
     }
 
     json_t *data = get_market_list();
+    if (data == NULL) {
+        sdsfree(cache_key);
+        return reply_internal_error(ses);
+    }
+
+    reply_json(ses, data, cache_key);
+    json_decref(data);
+    sdsfree(cache_key);
+
+    return 0;
+}
+
+static int on_market_info(nw_ses *ses, dict_t *params) 
+{
+    sds cache_key = sdsempty();
+    cache_key = sdscatprintf(cache_key, "market_info_list");
+    int ret = check_cache(ses, cache_key);
+    if (ret > 0) {
+        sdsfree(cache_key);
+        return 0;
+    }
+
+    json_t *data = get_market_info_list();
     if (data == NULL) {
         sdsfree(cache_key);
         return reply_internal_error(ses);
@@ -623,12 +647,13 @@ static int init_svr(void)
 
     add_handler("/ping",                    on_ping);
     add_handler("/v1/market/list",          on_market_list);
+    add_handler("/v1/market/info",          on_market_info);
     add_handler("/v1/market/ticker",        on_market_ticker);
     add_handler("/v1/market/ticker/all",    on_market_ticker_all);
     add_handler("/v1/market/depth",         on_market_depth);
     add_handler("/v1/market/deals",         on_market_deals);
     add_handler("/v1/market/kline",         on_market_kline);
-
+    
     return 0;
 }
 
