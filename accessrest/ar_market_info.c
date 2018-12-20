@@ -53,8 +53,9 @@ static void *dict_market_val_dup(const void *key)
 static void dict_market_val_free(void *val)
 {
     struct market_val *obj = val;
-    if (obj->info)
+    if (obj->info) {
         json_decref(obj->info);
+    }
     free(obj);
 }
 
@@ -121,10 +122,10 @@ static json_t* get_market_item(const char *market_name, json_t *market_info)
     json_object_set_new(market_item, "min_amount", json_string(min_amount));
     json_object_set_new(market_item, "maker_fee_rate", json_string(maker_fee_rate));
     json_object_set_new(market_item, "taker_fee_rate", json_string(taker_fee_rate));
-    json_object_set_new(market_item, "money_name", json_string(money_name));
-    json_object_set_new(market_item, "stock_name", json_string(stock_name));
-    json_object_set_new(market_item, "money_prec", json_integer(money_prec));
-    json_object_set_new(market_item, "stock_prec", json_integer(stock_prec));
+    json_object_set_new(market_item, "pricing_name", json_string(money_name));
+    json_object_set_new(market_item, "pricing_decimal", json_integer(money_prec));
+    json_object_set_new(market_item, "trading_name", json_string(stock_name));
+    json_object_set_new(market_item, "trading_decimal", json_integer(stock_prec));
     return market_item;
 }
 

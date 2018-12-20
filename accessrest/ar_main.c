@@ -119,7 +119,7 @@ server:
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init market info fail: %d", ret);
     }
-    //ret = init_ticker();
+    ret = init_ticker();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init ticker fail: %d", ret);
     }
