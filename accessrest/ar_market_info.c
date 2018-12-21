@@ -188,6 +188,7 @@ static json_t* fetch_market_info() {
     sds response = http_get(settings.market_url);
     if (sdslen(response) == 0) {
         log_error("fetch keys returns empty");
+        sdsfree(response);
         return NULL;
     }
 
