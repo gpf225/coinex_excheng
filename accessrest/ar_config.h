@@ -65,9 +65,12 @@ struct settings {
     double              cache_timeout;
     double              state_interval;
     double              market_interval;
+    double              market_info_interval;
 
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;
+    
+    char                *market_url;
 };
 
 extern struct settings settings;

@@ -5,6 +5,7 @@
 
 # include "ut_title.h"
 # include "ar_config.h"
+# include "ar_market_info.h"
 # include "ar_ticker.h"
 # include "ar_server.h"
 # include "ar_listener.h"
@@ -114,6 +115,10 @@ server:
     daemon(1, 1);
     process_keepalive();
 
+    ret = init_market_info();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init market info fail: %d", ret);
+    }
     ret = init_ticker();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init ticker fail: %d", ret);
