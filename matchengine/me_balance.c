@@ -13,7 +13,6 @@ static dict_t *dict_asset;
 struct asset_type {
     int prec_save;
     int prec_show;
-    mpd_t *min;
 };
 
 static uint32_t asset_dict_hash_function(const void *key)
@@ -24,6 +23,15 @@ static uint32_t asset_dict_hash_function(const void *key)
 static void *asset_dict_key_dup(const void *key)
 {
     return strdup(key);
+}
+
+static void *asset_dict_val_dup(const void *val)
+{
+    struct asset_type *obj = malloc(sizeof(struct asset_type));
+    if (obj == NULL)
+        return NULL;
+    memcpy(obj, val, sizeof(struct asset_type));
+    return obj;
 }
 
 static int asset_dict_key_compare(const void *key1, const void *key2)
@@ -38,9 +46,7 @@ static void asset_dict_key_free(void *key)
 
 static void asset_dict_val_free(void *val)
 {
-    struct asset_type *obj = val;
-    mpd_del(obj->min);
-    free(obj);
+    free(val);
 }
 
 static uint32_t balance_dict_hash_function(const void *key)
@@ -85,6 +91,7 @@ static int init_dict(void)
     type.key_compare    = asset_dict_key_compare;
     type.key_dup        = asset_dict_key_dup;
     type.key_destructor = asset_dict_key_free;
+    type.val_dup        = asset_dict_val_dup;
     type.val_destructor = asset_dict_val_free;
 
     dict_asset = dict_create(&type, 64);
@@ -111,16 +118,11 @@ int init_balance()
     ERR_RET(init_dict());
 
     for (size_t i = 0; i < settings.asset_num; ++i) {
-        struct asset_type *type = malloc(sizeof(struct asset_type));
-        if (type == NULL)
-            return -__LINE__;
-        type->prec_save = settings.assets[i].prec_save;
-        type->prec_show = settings.assets[i].prec_show;
-        type->min = mpd_new(&mpd_ctx);
-        mpd_set_i32(type->min, -type->prec_show, &mpd_ctx);
-        mpd_pow(type->min, mpd_ten, type->min, &mpd_ctx);
-        log_stderr("init asset: %s, prec save: %d, prec show: %d", settings.assets[i].name, type->prec_save, type->prec_show);
-        if (dict_add(dict_asset, settings.assets[i].name, type) == NULL)
+        struct asset_type type;
+        type.prec_save = settings.assets[i].prec_save;
+        type.prec_show = settings.assets[i].prec_show;
+        log_stderr("init asset: %s", settings.assets[i].name);
+        if (dict_add(dict_asset, settings.assets[i].name, &type) == NULL)
             return -__LINE__;
     }
 
@@ -207,10 +209,6 @@ mpd_t *balance_set(uint32_t user_id, uint32_t type, const char *asset, mpd_t *am
     if (at == NULL)
         return NULL;
 
-    if (type == BALANCE_TYPE_AVAILABLE && mpd_cmp(amount, at->min, &mpd_ctx) < 0) {
-        return mpd_zero;
-    }
-
     int ret = mpd_cmp(amount, mpd_zero, &mpd_ctx);
     if (ret < 0) {
         return NULL;
@@ -291,24 +289,6 @@ mpd_t *balance_sub(uint32_t user_id, uint32_t type, const char *asset, mpd_t *am
         return mpd_zero;
     }
     mpd_rescale(result, result, -at->prec_save, &mpd_ctx);
-
-    return result;
-}
-
-mpd_t *balance_reset(uint32_t user_id, const char *asset)
-{
-    struct asset_type *at = get_asset_type(asset);
-    if (at == NULL)
-        return NULL;
-
-    mpd_t *result = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
-    if (result == NULL)
-        return mpd_zero;
-
-    if (mpd_cmp(result, at->min, &mpd_ctx) < 0) {
-        balance_del(user_id, BALANCE_TYPE_AVAILABLE, asset);
-        return mpd_zero;
-    }
 
     return result;
 }
