@@ -398,7 +398,7 @@ int init_depth(void)
     return 0;
 }
 
-static int add_depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval, bool flag)
+static int add_depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
 {
     struct depth_key key;
     memset(&key, 0, sizeof(key));
@@ -431,13 +431,6 @@ static int add_depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, 
         return 0;
     }
 
-    if (flag) {
-        struct depth_val *obj = entry->val;
-        if (dict_find(obj->sessions, ses) != NULL) {
-            return 0;
-        }
-    }
-
     struct depth_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
 
@@ -446,12 +439,12 @@ static int add_depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, 
 
 int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
 {
-    return add_depth_subscribe(ses, market, limit, interval, false);
+    return add_depth_subscribe(ses, market, limit, interval);
 }
 
 int depth_subscribe_multi(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
 {
-    return add_depth_subscribe(ses, market, limit, interval, true);
+    return add_depth_subscribe(ses, market, limit, interval);
 }
 
 int depth_unsubscribe(nw_ses *ses)

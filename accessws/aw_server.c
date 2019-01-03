@@ -81,7 +81,7 @@ int send_error_invalid_argument_depth(nw_ses *ses, uint64_t id, const char *mark
 
     const char *interval_ = (interval != NULL) ? interval : "null";
     sds msg = sdsempty();
-    msg = sdscatprintf(msg, "invalid depth, market:%s limit:%d interval:%s, please check your parameters", market, limit, interval_);
+    msg = sdscatprintf(msg, "invalid argument, market:%s limit:%d interval:%s, please check your parameters", market, limit, interval_);
     int ret = send_error(ses, id, 1, msg);
     sdsfree(msg);
     return ret;
@@ -93,7 +93,7 @@ int send_error_subscribe_depth_failed(nw_ses *ses, uint64_t id, const char *mark
     
     const char *interval_ = (interval != NULL) ? interval : "null";
     sds msg = sdsempty();
-    msg = sdscatprintf(msg, "subscribe depth failed at market:%s limit:%d interval:%s , please try again later", market, limit, interval_);
+    msg = sdscatprintf(msg, "internal error: subscribe market:%s limit:%d interval:%s failed, please try again later", market, limit, interval_);
     int ret = send_error(ses, id, 2, msg);
     sdsfree(msg);
     return ret;

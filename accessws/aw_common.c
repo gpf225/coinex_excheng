@@ -40,7 +40,7 @@ bool is_good_interval(const char *interval)
 
 bool is_good_market(const char *market)
 {
-    if ( (market == NULL) || (strlen(market) == 0) || (strlen(market) >= MARKET_NAME_MAX_LEN) ) {
+    if (market == NULL || strlen(market) == 0 || strlen(market) >= MARKET_NAME_MAX_LEN) {
         return false;     
     }
 
@@ -49,5 +49,5 @@ bool is_good_market(const char *market)
 
 bool is_empty_string(const char *str)
 {
-    return (str == NULL) || (strlen(str) == 0);
+    return str == NULL || strlen(str) == 0;
 }
