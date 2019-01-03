@@ -424,11 +424,6 @@ static int add_depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, 
         if (entry == NULL) {
             return -__LINE__;
         }
-
-        struct depth_val *obj = entry->val;
-        dict_add(obj->sessions, ses, NULL);
-
-        return 0;
     }
 
     struct depth_val *obj = entry->val;
