@@ -398,41 +398,8 @@ int init_depth(void)
     return 0;
 }
 
-static bool is_good_limit(int limit)
+static int add_depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
 {
-    for (int i = 0; i < settings.depth_limit.count; ++i) {
-        if (settings.depth_limit.limit[i] == limit) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-static bool is_good_interval(const char *interval)
-{
-    mpd_t *merge = decimal(interval, 0);
-    if (merge == NULL)
-        return false;
-
-    for (int i = 0; i < settings.depth_merge.count; ++i) {
-        if (mpd_cmp(settings.depth_merge.limit[i], merge, &mpd_ctx) == 0) {
-            mpd_del(merge);
-            return true;
-        }
-    }
-
-    mpd_del(merge);
-    return false;
-}
-
-int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
-{
-    if (!is_good_limit(limit))
-        return -1;
-    if (!is_good_interval(interval))
-        return -1;
-
     struct depth_key key;
     memset(&key, 0, sizeof(key));
     strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
@@ -449,18 +416,30 @@ int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char 
         dt.hash_function = dict_ses_hash_func;
         dt.key_compare = dict_ses_key_compare;
         val.sessions = dict_create(&dt, 1024);
-        if (val.sessions == NULL)
+        if (val.sessions == NULL) {
             return -__LINE__;
+        }
 
         entry = dict_add(dict_depth, &key, &val);
-        if (entry == NULL)
+        if (entry == NULL) {
             return -__LINE__;
+        }
     }
 
     struct depth_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
 
     return 0;
+}
+
+int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
+{
+    return add_depth_subscribe(ses, market, limit, interval);
+}
+
+int depth_subscribe_multi(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
+{
+    return add_depth_subscribe(ses, market, limit, interval);
 }
 
 int depth_unsubscribe(nw_ses *ses)
