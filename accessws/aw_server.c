@@ -372,8 +372,19 @@ static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_
             return send_error_subscribe_depth_failed(ses, id, market, limit, interval);
         } 
     }
-    
+
     send_success(ses, id);
+    for (size_t i = 0; i < sub_size; ++i) {
+        json_t *item = json_array_get(params, i);
+        const char *market = json_string_value(json_array_get(item, 0));
+        int limit = json_integer_value(json_array_get(item, 1));
+        const char *interval = json_string_value(json_array_get(item, 2));
+        if (is_empty_string(market)) {
+            continue;  // ignore empty market
+        }
+        depth_send_clean(ses, market, limit, interval);
+    }
+    
     return 0;
 }
 
