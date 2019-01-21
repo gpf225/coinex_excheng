@@ -1,16 +1,13 @@
 /*
  * Description: 
- *     History: yang@haipo.me, 2017/04/27, create
+ *     History: zhoumugui@viabtc, 2019/01/18, create
  */
 
 # include <curl/curl.h>
 
 # include "aw_config.h"
 # include "aw_server.h"
-# include "aw_asset.h"
 # include "aw_asset_sub.h"
-# include "aw_order.h"
-# include "aw_auth.h"
 
 static nw_job *job_context;
 static nw_state *state_context;
@@ -22,6 +19,18 @@ struct state_data {
     struct clt_info *info;
 };
 
+typedef struct request_data_t {
+    uint32_t user_id;
+    json_t *sub_users;
+}request_data_t;
+
+static void request_data_free(request_data_t *request)
+{
+    if (request->sub_users != NULL) {
+        json_decref(request->sub_users);
+    }
+}
+
 static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
     sds *reply = userdata;
@@ -31,16 +40,22 @@ static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *us
 
 static void on_job(nw_job_entry *entry, void *privdata)
 {
+    request_data_t *data = entry->request;
+
+    json_t *req_json = json_object();
+    json_object_set_new(req_json, "user_id", json_integer(data->user_id));
+    json_object_set    (req_json, "sub_users", data->sub_users);
+    char *post_data = json_dumps(req_json, 0);
+    json_decref(req_json);
+
     CURL *curl = curl_easy_init();
     sds reply = sdsempty();
-    sds token = sdsempty();
     struct curl_slist *chunk = NULL;
-    token = sdscatprintf(token, "Authorization: %s", (sds)entry->request);
-    chunk = curl_slist_append(chunk, token);
     chunk = curl_slist_append(chunk, "Accept-Language: en_US");
     chunk = curl_slist_append(chunk, "Content-Type: application/json");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
-    curl_easy_setopt(curl, CURLOPT_URL, settings.auth_url);
+    curl_easy_setopt(curl, CURLOPT_URL, settings.auth_sub_url);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);   
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, post_write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &reply);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
@@ -53,57 +68,57 @@ static void on_job(nw_job_entry *entry, void *privdata)
     }
 
     json_t *result = json_loads(reply, 0, NULL);
-    if (result == NULL)
+    if (result == NULL) {
         goto cleanup;
+    }
     entry->reply = result;
 
 cleanup:
+    free(post_data);
     curl_easy_cleanup(curl);
     sdsfree(reply);
-    sdsfree(token);
     curl_slist_free_all(chunk);
 }
 
-static void on_result(struct state_data *state, sds token, json_t *result)
+static void on_result(struct state_data *state, request_data_t *data, json_t *result)
 {
-    if (state->ses->id != state->ses_id)
+    if (state->ses->id != state->ses_id) {
         return;
-    if (result == NULL)
+    }
+    if (result == NULL) {
         goto error;
+    }
 
     json_t *code = json_object_get(result, "code");
-    if (code == NULL)
+    if (code == NULL) {
         goto error;
+    }
     int error_code = json_integer_value(code);
     if (error_code != 0) {
         const char *message = json_string_value(json_object_get(result, "message"));
-        if (message == NULL)
+        if (message == NULL) {
             goto error;
-        log_error("auth fail, token: %s, code: %d, message: %s", token, error_code, message);
+        }
+        char *sub_users = json_dumps(data->sub_users, 0);
+        log_error("auth sub account fail, user_id: %u, code: %d, message: %s, sub users: %s", data->user_id, error_code, message, sub_users);
+        free(sub_users);
         send_error(state->ses, state->request_id, 11, message);
-        profile_inc("auth_fail", 1);
+        profile_inc("auth_sub_fail", 1);
         return;
     }
 
-    json_t *data = json_object_get(result, "data");
-    if (data == NULL)
+    json_t *users = json_object_get(result, "data");
+    if (users == NULL || !json_is_array(users) || json_array_size(users) == 0) {
         goto error;
-    struct clt_info *info = state->info;
-    uint32_t user_id = json_integer_value(json_object_get(data, "user_id"));
-    if (user_id == 0)
-        goto error;
-
-    if (info->auth && info->user_id != user_id) {
-        asset_unsubscribe(info->user_id, state->ses);
-        asset_unsubscribe_sub(state->ses);
-        order_unsubscribe(info->user_id, state->ses);
     }
+    
+    asset_unsubscribe_sub(state->ses);
+    asset_subscribe_sub(state->ses, users);
 
-    info->auth = true;
-    info->user_id = user_id;
-    log_info("auth success, token: %s, user_id: %u", token, info->user_id);
+    struct clt_info *info = state->info;
+    log_info("auth sub user success, user_id: %u", info->user_id);
     send_success(state->ses, state->request_id);
-    profile_inc("auth_success", 1);
+    profile_inc("auth_sub_success", 1);
 
     return;
 
@@ -119,17 +134,19 @@ error:
 static void on_finish(nw_job_entry *entry)
 {
     nw_state_entry *state = nw_state_get(state_context, entry->id);
-    if (state == NULL)
+    if (state == NULL) {
         return;
+    }
     on_result(state->data, entry->request, entry->reply);
     nw_state_del(state_context, entry->id);
 }
 
 static void on_cleanup(nw_job_entry *entry)
 {
-    sdsfree(entry->request);
-    if (entry->reply)
+    request_data_free(entry->request);
+    if (entry->reply) {
         json_decref(entry->reply);
+    }
 }
 
 static void on_timeout(nw_state_entry *entry)
@@ -140,16 +157,11 @@ static void on_timeout(nw_state_entry *entry)
     }
 }
 
-int send_auth_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+int send_auth_sub_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (json_array_size(params) != 2)
+    if (json_array_size(params) != 1) {
         return send_error_invalid_argument(ses, id);
-    const char *token = json_string_value(json_array_get(params, 0));
-    if (token == NULL)
-        return send_error_invalid_argument(ses, id);
-    const char *source = json_string_value(json_array_get(params, 1));
-    if (source == NULL || strlen(source) >= SOURCE_MAX_LEN)
-        return send_error_invalid_argument(ses, id);
+    }
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;
@@ -158,16 +170,20 @@ int send_auth_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *p
     state->request_id = id;
     state->info = info;
 
-    log_trace("send auth request, token: %s, source: %s", token, source);
-    info->source = strdup(source);
-    nw_job_add(job_context, entry->id, sdsnew(token));
+    log_trace("send auth_sub request, user_id:%u", info->user_id);
+
+    request_data_t *data = malloc(sizeof(request_data_t));
+    memset(data, 0, sizeof(request_data_t));
+    data->user_id = info->user_id;
+    data->sub_users = params;
+    json_incref(data->sub_users);
+    nw_job_add(job_context, entry->id, data);
 
     return 0;
 }
 
-int init_auth(void)
+int init_auth_sub(void)
 {
-
     nw_job_type jt;
     memset(&jt, 0, sizeof(jt));
     jt.on_job = on_job;
@@ -189,7 +205,7 @@ int init_auth(void)
     return 0;
 }
 
-size_t pending_auth_request(void)
+size_t pending_auth_sub_request(void)
 {
     return job_context->request_count;
 }

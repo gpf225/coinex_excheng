@@ -6,6 +6,7 @@
 # include "aw_config.h"
 # include "aw_server.h"
 # include "aw_auth.h"
+# include "aw_auth_sub.h"
 # include "aw_sign.h"
 # include "aw_kline.h"
 # include "aw_depth.h"
@@ -13,6 +14,7 @@
 # include "aw_deals.h"
 # include "aw_order.h"
 # include "aw_asset.h"
+# include "aw_asset_sub.h"
 # include "aw_common.h"
 
 static ws_svr *svr;
@@ -718,6 +720,24 @@ static int on_method_asset_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
     return send_success(ses, id);
 }
 
+static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!info->auth)
+        return send_error_require_auth(ses, id);
+
+    return send_auth_sub_request(ses, id, info, params);
+}
+
+static int on_method_asset_unsubscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!info->auth)
+        return send_error_require_auth(ses, id);
+
+    asset_unsubscribe_sub(ses);
+    return send_success(ses, id);
+}
+
+
 static int on_message(nw_ses *ses, const char *remote, const char *url, void *message, size_t size)
 {
     struct clt_info *info = ws_ses_privdata(ses);
@@ -795,6 +815,7 @@ static void on_close(nw_ses *ses, const char *remote)
     if (info->auth) {
         order_unsubscribe(info->user_id, ses);
         asset_unsubscribe(info->user_id, ses);
+        asset_unsubscribe_sub(ses);
     }
     profile_inc("connection_close", 1);
 }
@@ -927,6 +948,8 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("asset.query",       on_method_asset_query));
     ERR_RET_LN(add_handler("asset.subscribe",   on_method_asset_subscribe));
     ERR_RET_LN(add_handler("asset.unsubscribe", on_method_asset_unsubscribe));
+    ERR_RET_LN(add_handler("asset.subscribe_sub",   on_method_asset_subscribe_sub));
+    ERR_RET_LN(add_handler("asset.unsubscribe_sub", on_method_asset_unsubscribe_sub));
 
     return 0;
 }
