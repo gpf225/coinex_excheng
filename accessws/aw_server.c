@@ -13,6 +13,7 @@
 # include "aw_deals.h"
 # include "aw_order.h"
 # include "aw_asset.h"
+# include "aw_common.h"
 
 static ws_svr *svr;
 static dict_t *method_map;
@@ -72,6 +73,30 @@ int send_error_invalid_argument(nw_ses *ses, uint64_t id)
 {
     profile_inc("error_invalid_argument", 1);
     return send_error(ses, id, 1, "invalid argument");
+}
+
+int send_error_invalid_argument_depth(nw_ses *ses, uint64_t id, const char *market, int limit, const char *interval)
+{
+    profile_inc("error_invalid_argument", 1);
+
+    const char *interval_ = (interval != NULL) ? interval : "null";
+    sds msg = sdsempty();
+    msg = sdscatprintf(msg, "invalid argument, market:%s limit:%d interval:%s, please check your parameters", market, limit, interval_);
+    int ret = send_error(ses, id, 1, msg);
+    sdsfree(msg);
+    return ret;
+}
+
+int send_error_subscribe_depth_failed(nw_ses *ses, uint64_t id, const char *market, int limit, const char *interval)
+{
+    profile_inc("error_internal_error", 1);
+    
+    const char *interval_ = (interval != NULL) ? interval : "null";
+    sds msg = sdsempty();
+    msg = sdscatprintf(msg, "internal error: subscribe market:%s limit:%d interval:%s failed, please try again later", market, limit, interval_);
+    int ret = send_error(ses, id, 2, msg);
+    sdsfree(msg);
+    return ret;
 }
 
 int send_error_internal_error(nw_ses *ses, uint64_t id)
@@ -296,8 +321,9 @@ static int on_method_depth_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
     const char *market = json_string_value(json_array_get(params, 0));
     int limit = json_integer_value(json_array_get(params, 1));
     const char *interval = json_string_value(json_array_get(params, 2));
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || limit <= 0 || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN)
+    if ( !is_good_market(market) || !is_good_interval(interval) || !is_good_limit(limit) ) {
         return send_error_invalid_argument(ses, id);
+    }
 
     depth_unsubscribe(ses);
     int ret = depth_subscribe(ses, market, limit, interval);
@@ -313,6 +339,56 @@ static int on_method_depth_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
 }
 
 static int on_method_depth_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    depth_unsubscribe(ses);
+    return send_success(ses, id);
+}
+
+static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    const size_t sub_size = json_array_size(params);
+    if (sub_size == 0) {
+        return send_error_invalid_argument(ses, id);
+    }
+    
+    depth_unsubscribe(ses);
+    for (size_t i = 0; i < sub_size; ++i) {
+        json_t *item = json_array_get(params, i);
+        const char *market = json_string_value(json_array_get(item, 0));
+        int limit = json_integer_value(json_array_get(item, 1));
+        const char *interval = json_string_value(json_array_get(item, 2));
+        if (is_empty_string(market)) {
+            continue;  // ignore empty market
+        }
+
+        if ( !is_good_market(market) || !is_good_interval(interval) || !is_good_limit(limit) ) {
+            depth_unsubscribe(ses);
+            return send_error_invalid_argument_depth(ses, id, market, limit, interval);
+        }
+        
+        int ret = depth_subscribe_multi(ses, market, limit, interval);
+        if (ret < 0) {
+            depth_unsubscribe(ses);
+            return send_error_subscribe_depth_failed(ses, id, market, limit, interval);
+        } 
+    }
+
+    send_success(ses, id);
+    for (size_t i = 0; i < sub_size; ++i) {
+        json_t *item = json_array_get(params, i);
+        const char *market = json_string_value(json_array_get(item, 0));
+        int limit = json_integer_value(json_array_get(item, 1));
+        const char *interval = json_string_value(json_array_get(item, 2));
+        if (is_empty_string(market)) {
+            continue;  // ignore empty market
+        }
+        depth_send_clean(ses, market, limit, interval);
+    }
+    
+    return 0;
+}
+
+static int on_method_depth_unsubscribe_multi(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     depth_unsubscribe(ses);
     return send_success(ses, id);
@@ -828,9 +904,11 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("kline.subscribe",   on_method_kline_subscribe));
     ERR_RET_LN(add_handler("kline.unsubscribe", on_method_kline_unsubscribe));
 
-    ERR_RET_LN(add_handler("depth.query",       on_method_depth_query));
-    ERR_RET_LN(add_handler("depth.subscribe",   on_method_depth_subscribe));
-    ERR_RET_LN(add_handler("depth.unsubscribe", on_method_depth_unsubscribe));
+    ERR_RET_LN(add_handler("depth.query",             on_method_depth_query));
+    ERR_RET_LN(add_handler("depth.subscribe",         on_method_depth_subscribe));
+    ERR_RET_LN(add_handler("depth.unsubscribe",       on_method_depth_unsubscribe));
+    ERR_RET_LN(add_handler("depth.subscribe_multi",   on_method_depth_subscribe_multi));
+    ERR_RET_LN(add_handler("depth.unsubscribe_multi", on_method_depth_unsubscribe_multi));
 
     ERR_RET_LN(add_handler("state.query",       on_method_state_query));
     ERR_RET_LN(add_handler("state.subscribe",   on_method_state_subscribe));
