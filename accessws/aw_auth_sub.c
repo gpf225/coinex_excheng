@@ -102,7 +102,7 @@ static void on_result(struct state_data *state, request_data_t *data, json_t *re
         char *sub_users = json_dumps(data->sub_users, 0);
         log_error("auth sub account fail, user_id: %u, code: %d, message: %s, sub users: %s", data->user_id, error_code, message, sub_users);
         free(sub_users);
-        send_error(state->ses, state->request_id, 11, message);
+        send_error(state->ses, state->request_id, 11, "subscribe sub-account failed");
         profile_inc("auth_sub_fail", 1);
         return;
     }
@@ -159,10 +159,6 @@ static void on_timeout(nw_state_entry *entry)
 
 int send_auth_sub_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (json_array_size(params) != 1) {
-        return send_error_invalid_argument(ses, id);
-    }
-
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;
     state->ses = ses;
