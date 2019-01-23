@@ -114,9 +114,6 @@ static void on_result(struct state_data *state, request_data_t *data, json_t *re
     }
 
     struct clt_info *info = state->info;
-    
-    asset_unsubscribe_sub(state->ses);
-    asset_subscribe_sub(state->ses, users);
     sub_user_add(info->user_id, state->ses, users);
 
     log_info("auth sub user success, user_id: %u", info->user_id);

@@ -132,6 +132,12 @@ int send_error_require_auth(nw_ses *ses, uint64_t id)
     return send_error(ses, id, 6, "require authentication");
 }
 
+int send_error_invalid_sub_user(nw_ses *ses, uint64_t id)
+{
+    profile_inc("error_invalid_sub", 1);
+    return send_error(ses, id, 7, "invalid sub user id");
+}
+
 int send_result(nw_ses *ses, uint64_t id, json_t *result)
 {
     json_t *reply = json_object();
@@ -189,6 +195,11 @@ static int on_method_server_time(nw_ses *ses, uint64_t id, struct clt_info *info
 static int on_method_server_auth(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     return send_auth_request(ses, id, info, params);
+}
+
+static int on_method_server_auth_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    return send_auth_sub_request(ses, id, info, params);
 }
 
 static int on_method_server_sign(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
@@ -703,7 +714,7 @@ static int on_method_asset_query_sub(nw_ses *ses, uint64_t id, struct clt_info *
 
     uint32_t sub_user_id = json_integer_value(json_array_get(params, 0));
     if (!sub_user_has(info->user_id, ses, sub_user_id)) {
-        return send_error_invalid_argument(ses, id);
+        return send_error_invalid_sub_user(ses, id);
     }
     json_t *asset_list = json_array_get(params, 1);
     if (!json_is_null(asset_list) && !json_is_array(asset_list)) {
@@ -773,10 +784,21 @@ static int on_method_asset_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
 
 static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (!info->auth)
+    if (json_array_size(params) == 0) {
+        return send_error_invalid_argument(ses, id); 
+    }
+    if (!info->auth) {
         return send_error_require_auth(ses, id);
+    }
 
-    return send_auth_sub_request(ses, id, info, params);
+    if (!sub_user_auth(info->user_id, ses, params)) {
+        return send_error_invalid_sub_user(ses, id);
+    }
+
+    asset_unsubscribe_sub(ses);
+    asset_subscribe_sub(ses, params);
+
+    return send_success(ses, id);
 }
 
 static int on_method_asset_unsubscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
@@ -971,6 +993,7 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("server.ping",       on_method_server_ping));
     ERR_RET_LN(add_handler("server.time",       on_method_server_time));
     ERR_RET_LN(add_handler("server.auth",       on_method_server_auth));
+    ERR_RET_LN(add_handler("server.auth_sub",   on_method_server_auth_sub));
     ERR_RET_LN(add_handler("server.sign",       on_method_server_sign));
 
     ERR_RET_LN(add_handler("kline.query",       on_method_kline_query));

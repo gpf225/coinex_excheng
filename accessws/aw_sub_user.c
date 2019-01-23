@@ -102,7 +102,7 @@ int sub_user_remove(uint32_t user_id, nw_ses *ses)
     return 0;
 }
 
-int sub_user_has(uint32_t user_id, nw_ses *ses, uint32_t sub_user_id)
+bool sub_user_has(uint32_t user_id, nw_ses *ses, uint32_t sub_user_id)
 {
     user_key key;
     memset(&key, 0, sizeof(key));
@@ -110,16 +110,38 @@ int sub_user_has(uint32_t user_id, nw_ses *ses, uint32_t sub_user_id)
     key.ses = ses;
     dict_entry *entry = dict_find(dict_users, &key);
     if (entry == NULL) {
-        return 0;
+        return false;
     }
 
     dict_t *sub_users = entry->val;
     void *sub_key = (void *)(uintptr_t)sub_user_id;
     if (dict_find(sub_users, sub_key) != NULL) {
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
+}
+
+bool sub_user_auth(uint32_t user_id, nw_ses *ses, json_t *params)
+{
+    user_key key;
+    memset(&key, 0, sizeof(key));
+    key.user_id = user_id;
+    key.ses = ses;
+    dict_entry *entry = dict_find(dict_users, &key);
+    if (entry == NULL) {
+        return false;
+    }
+
+    dict_t *sub_users = entry->val;
+    for (size_t i = 0; i < json_array_size(params); ++i) {
+        uint32_t sub_user_id = json_integer_value(json_array_get(params, i));
+        void *sub_key = (void *)(uintptr_t)sub_user_id;
+        if (dict_find(sub_users, sub_key) == NULL) {
+            return false;
+        }
+    }
+    return true;
 }
 
 int sub_user_init(void)
