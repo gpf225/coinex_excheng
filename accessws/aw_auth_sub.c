@@ -8,6 +8,7 @@
 # include "aw_config.h"
 # include "aw_server.h"
 # include "aw_asset_sub.h"
+# include "aw_sub_user.h"
 
 static nw_job *job_context;
 static nw_state *state_context;
@@ -111,11 +112,13 @@ static void on_result(struct state_data *state, request_data_t *data, json_t *re
     if (users == NULL || !json_is_array(users) || json_array_size(users) == 0) {
         goto error;
     }
+
+    struct clt_info *info = state->info;
     
     asset_unsubscribe_sub(state->ses);
     asset_subscribe_sub(state->ses, users);
+    sub_user_add(info->user_id, state->ses, users);
 
-    struct clt_info *info = state->info;
     log_info("auth sub user success, user_id: %u", info->user_id);
     send_success(state->ses, state->request_id);
     profile_inc("auth_sub_success", 1);
