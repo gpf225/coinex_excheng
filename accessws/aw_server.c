@@ -132,10 +132,10 @@ int send_error_require_auth(nw_ses *ses, uint64_t id)
     return send_error(ses, id, 6, "require authentication");
 }
 
-int send_error_invalid_sub_user(nw_ses *ses, uint64_t id)
+int send_error_require_auth_sub(nw_ses *ses, uint64_t id)
 {
-    profile_inc("error_invalid_sub", 1);
-    return send_error(ses, id, 7, "invalid sub user id");
+    profile_inc("error_require_auth_sub", 1);
+    return send_error(ses, id, 7, "sub users require authentication");
 }
 
 int send_result(nw_ses *ses, uint64_t id, json_t *result)
@@ -714,7 +714,7 @@ static int on_method_asset_query_sub(nw_ses *ses, uint64_t id, struct clt_info *
 
     uint32_t sub_user_id = json_integer_value(json_array_get(params, 0));
     if (!sub_user_has(info->user_id, ses, sub_user_id)) {
-        return send_error_invalid_sub_user(ses, id);
+        return send_error_require_auth_sub(ses, id);
     }
     json_t *asset_list = json_array_get(params, 1);
     if (!json_is_null(asset_list) && !json_is_array(asset_list)) {
@@ -784,20 +784,28 @@ static int on_method_asset_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
 
 static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (json_array_size(params) == 0) {
-        return send_error_invalid_argument(ses, id); 
-    }
     if (!info->auth) {
         return send_error_require_auth(ses, id);
     }
 
-    if (!sub_user_auth(info->user_id, ses, params)) {
-        return send_error_invalid_sub_user(ses, id);
+    if (json_array_size(params) != 0) {
+        if (!sub_user_auth(info->user_id, ses, params)) {
+            return send_error_require_auth_sub(ses, id);
+        }
+
+        asset_unsubscribe_sub(ses);
+        asset_subscribe_sub(ses, params);
+        return send_success(ses, id);
     }
 
+    json_t *sub_users = sub_user_get_sub_uses(info->user_id, ses);
+    if (sub_users == NULL) {
+        return send_error_require_auth_sub(ses, id);
+    }
+    
     asset_unsubscribe_sub(ses);
     asset_subscribe_sub(ses, params);
-
+    json_decref(sub_users);
     return send_success(ses, id);
 }
 

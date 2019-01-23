@@ -144,6 +144,29 @@ bool sub_user_auth(uint32_t user_id, nw_ses *ses, json_t *params)
     return true;
 }
 
+json_t* sub_user_get_sub_uses(uint32_t user_id, nw_ses *ses)
+{
+    user_key key;
+    memset(&key, 0, sizeof(key));
+    key.user_id = user_id;
+    key.ses = ses;
+    dict_entry *entry = dict_find(dict_users, &key);
+    if (entry == NULL) {
+        return NULL;
+    }
+    
+    json_t *json = json_array();
+    dict_t *sub_users = entry->val;  
+    dict_iterator *iter = dict_get_iterator(sub_users);  
+    while ( (entry = dict_next(iter)) != NULL) {
+        uint32_t sub_user_id = (uintptr_t)entry->key;
+        json_array_append_new(json, json_integer(sub_user_id));
+    }
+
+    dict_release_iterator(iter);
+    return json;
+}
+
 int sub_user_init(void)
 {
     dict_types dt;
