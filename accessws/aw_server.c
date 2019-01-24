@@ -804,7 +804,7 @@ static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_in
     }
     
     asset_unsubscribe_sub(ses);
-    asset_subscribe_sub(ses, params);
+    asset_subscribe_sub(ses, sub_users);
     json_decref(sub_users);
     return send_success(ses, id);
 }
