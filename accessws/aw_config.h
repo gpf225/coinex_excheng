@@ -66,6 +66,7 @@ struct settings {
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
     rpc_clt_cfg         readhistory;
+    rpc_clt_cfg         longpoll;
 
     kafka_consumer_cfg  deals;
     kafka_consumer_cfg  stops;
@@ -88,6 +89,7 @@ struct settings {
 
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;
+    bool debug;
 };
 
 extern struct settings settings;

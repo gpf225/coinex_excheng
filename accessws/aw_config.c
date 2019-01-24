@@ -82,6 +82,11 @@ static int read_config_from_json(json_t *root)
         printf("load readhistory clt config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_rpc_clt(root, "longpoll", &settings.longpoll);
+    if (ret < 0) {
+        printf("load longpoll clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
 
     ret = load_cfg_kafka_consumer(root, "deals", &settings.deals);
     if (ret < 0) {
@@ -120,6 +125,7 @@ static int read_config_from_json(json_t *root)
 
     ERR_RET(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET(read_depth_merge_cfg(root, "depth_merge"));
+    ERR_RET(read_cfg_bool(root, "debug", &settings.debug, false, true));
 
     return 0;
 }

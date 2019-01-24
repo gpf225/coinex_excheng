@@ -58,4 +58,15 @@
 # define CMD_CONFIG_UPDATE_ASSET    401
 # define CMD_CONFIG_UPDATE_MARKET   402
 
+// longpoll
+# define CMD_LP_DEPTH_SUBSCRIBE         501
+# define CMD_LP_DEPTH_UNSUBSCRIBE       502
+# define CMD_LP_DEPTH_UPDATE            503
+# define CMD_LP_MARKET_SUBSCRIBE        504
+# define CMD_LP_MARKET_UNSUBSCRIBE      505
+# define CMD_LP_MARKET_UPDATE           506
+# define CMD_LP_STATE_SUBSCRIBE         507
+# define CMD_LP_STATE_UNSUBSCRIBE       508
+# define CMD_LP_STATE_UPDATE            509
+
 # endif

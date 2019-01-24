@@ -36,6 +36,13 @@
         ],
         "max_pkg_size": 2000000
     },
+    "cache": {
+        "name": "cache",
+        "addr": [
+            "tcp@127.0.0.1:7816"
+        ],
+        "max_pkg_size": 2000000
+    },
     "worker_num": 1,
     "backend_timeout": 1.0,
     "cache_timeout": 0.5,

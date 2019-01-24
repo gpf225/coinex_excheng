@@ -7,12 +7,10 @@
 # include "aw_server.h"
 # include "aw_depth.h"
 
-static nw_timer timer;
-static dict_t *dict_depth;
-static rpc_clt *matchengine;
-static nw_state *state_context;
-
 # define CLEAN_INTERVAL 60
+
+static dict_t *dict_depth;
+static rpc_clt *longpoll = NULL;
 
 struct depth_key {
     char market[MARKET_NAME_MAX_LEN];
@@ -24,10 +22,6 @@ struct depth_val {
     dict_t *sessions;
     json_t *last;
     time_t  last_clean;
-};
-
-struct state_data {
-    struct depth_key key;
 };
 
 static uint32_t dict_ses_hash_func(const void *key)
@@ -76,16 +70,6 @@ static void dict_depth_val_free(void *val)
     if (obj->last)
         json_decref(obj->last);
     free(obj);
-}
-
-static void on_backend_connect(nw_ses *ses, bool result)
-{
-    rpc_clt *clt = ses->privdata;
-    if (result) {
-        log_info("connect %s:%s success", clt->name, nw_sock_human_addr(&ses->peer_addr));
-    } else {
-        log_info("connect %s:%s fail", clt->name, nw_sock_human_addr(&ses->peer_addr));
-    }
 }
 
 static json_t *get_list_diff(json_t *list1, json_t *list2, uint32_t limit, int side)
@@ -224,35 +208,122 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
     return 0;
 }
 
-static int on_market_depth_reply(struct state_data *state, json_t *result)
+static void depth_set_key(struct depth_key *key, const char *market, const char *interval, uint32_t limit)
 {
-    dict_entry *entry = dict_find(dict_depth, &state->key);
-    if (entry == NULL)
-        return -__LINE__;
-    struct depth_key *key = entry->key;
-    struct depth_val *val = entry->val;
-    if (val->last == NULL) {
-        val->last = result;
-        val->last_clean = time(NULL);
-        json_incref(result);
-        return broadcast_update(state->key.market, val->sessions, true, result);
+    memset(key, 0, sizeof(struct depth_key));
+    strncpy(key->market, market, MARKET_NAME_MAX_LEN - 1);
+    strncpy(key->interval, interval, INTERVAL_MAX_LEN - 1);
+    key->limit = limit;
+}
+
+static json_t* get_depth_json(struct depth_key *key)
+{
+    json_t *item = json_array();
+    json_array_append_new(item, json_string(key->market));
+    json_array_append_new(item, json_string(key->interval));
+    json_array_append_new(item, json_integer(key->limit));
+    return item;
+}
+
+static void longpoll_send_request(int command, json_t *params)
+{ 
+    if (!rpc_clt_connected(longpoll)) {
+        return ;
+    }
+    static uint32_t sequence = 0;
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
+    pkg.command   = command;
+    pkg.sequence  = ++sequence;
+    pkg.body      = json_dumps(params, 0);
+    pkg.body_size = strlen(pkg.body);
+
+    rpc_clt_send(longpoll, &pkg);
+    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s", nw_sock_human_addr(rpc_clt_peer_addr(longpoll)), pkg.command, pkg.sequence, (char *)pkg.body);
+
+    free(pkg.body);
+}
+
+static void longpoll_subscribe(struct depth_key *key)
+{
+    json_t *params = json_array();
+    json_array_append_new(params, get_depth_json(key));
+
+    longpoll_send_request(CMD_LP_DEPTH_SUBSCRIBE, params);   
+    json_decref(params);
+}
+
+static void longpoll_unsubscribe(struct depth_key *key)
+{
+    json_t *params = json_array();
+    json_array_append_new(params, get_depth_json(key));
+
+    longpoll_send_request(CMD_LP_DEPTH_UNSUBSCRIBE, params);   
+    json_decref(params);
+}
+
+static void longpoll_subscribe_all(void) 
+{
+    if (dict_size(dict_depth) == 0) {
+        return ;
+    }
+    
+    json_t *params = json_array();
+    dict_entry *entry = NULL;
+    dict_iterator *iter = dict_get_iterator(dict_depth);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct depth_key *key = entry->key;
+        json_array_append_new(params, get_depth_json(key));
     }
 
-    json_t *diff = get_depth_diff(val->last, result, key->limit);
+    longpoll_send_request(CMD_LP_DEPTH_SUBSCRIBE, params);   
+    dict_release_iterator(iter);
+    json_decref(params);
+}
+
+static int on_depth_update(json_t *result)
+{
+    const char *market = json_string_value(json_object_get(result, "market"));
+    const char *interval = json_string_value(json_object_get(result, "interval"));
+    const int limit = json_integer_value(json_object_get(result, "limit"));
+    json_t *depth_data = json_object_get(result, "data");
+    if ( (market == NULL) || (interval == NULL) || (depth_data == NULL) ) {
+        return -__LINE__;
+    }
+    
+    struct depth_key key;
+    depth_set_key(&key, market, interval, limit);
+
+    dict_entry *entry = dict_find(dict_depth, &key);
+    if (entry == NULL) {
+        log_warn("depth_item[%s-%s-%d] not subscribed", key.market, key.interval, key.limit);
+        return -__LINE__;
+    }
+
+    struct depth_val *val = entry->val;
+    if (val->last == NULL) {
+        val->last = depth_data;
+        val->last_clean = time(NULL);
+        json_incref(depth_data);
+        return broadcast_update(key.market, val->sessions, true, depth_data);
+    }
+
+    json_t *diff = get_depth_diff(val->last, depth_data, key.limit);
     if (diff == NULL) {
         return 0;
     }
 
     json_decref(val->last);
-    val->last = result;
-    json_incref(result);
+    val->last = depth_data;
+    json_incref(depth_data);
 
     time_t now = time(NULL);
     if (now - val->last_clean >= CLEAN_INTERVAL) {
-        val->last_clean = now;
-        broadcast_update(state->key.market, val->sessions, true, result);
+        val->last_clean = now; 
+        broadcast_update(key.market, val->sessions, true, depth_data);
     } else {
-        broadcast_update(state->key.market, val->sessions, false, diff);
+        broadcast_update(key.market, val->sessions, false, diff);
     }
     json_decref(diff);
 
@@ -262,14 +333,7 @@ static int on_market_depth_reply(struct state_data *state, json_t *result)
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-    log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s",
-            nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);
-    nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry == NULL) {
-        sdsfree(reply_str);
-        return;
-    }
-    struct state_data *state = entry->data;
+    log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);
 
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
@@ -277,85 +341,41 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_fatal("invalid reply from: %s, cmd: %u, reply: \n%s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
         sdsfree(hex);
         sdsfree(reply_str);
-        nw_state_del(state_context, pkg->sequence);
         return;
     }
 
     json_t *error = json_object_get(reply, "error");
-    if (error && !json_is_null(error)) {
-        dict_delete(dict_depth, &state->key);
-    }
     json_t *result = json_object_get(reply, "result");
     if (error == NULL || !json_is_null(error) || result == NULL) {
         log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
         sdsfree(reply_str);
         json_decref(reply);
-        nw_state_del(state_context, pkg->sequence);
         return;
     }
 
-    int ret;
-    switch (pkg->command) {
-    case CMD_ORDER_DEPTH:
-        ret = on_market_depth_reply(state, result);
+    if (pkg->command == CMD_LP_DEPTH_UPDATE) {
+        int ret = on_depth_update(result);
         if (ret < 0) {
-            log_error("on_market_depth_reply: %d, reply: %s", ret, reply_str);
+            log_error("on_depth_update: %d, reply: %s", ret, reply_str);
         }
-        break;
-    default:
-        log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
-        break;
+    } else {
+        if (pkg->command != CMD_LP_DEPTH_SUBSCRIBE && pkg->command != CMD_LP_DEPTH_UNSUBSCRIBE) {
+            log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
+        }
     }
-    
+
     sdsfree(reply_str);
     json_decref(reply);
-    nw_state_del(state_context, pkg->sequence);
 }
 
-static void on_timeout(nw_state_entry *entry)
+static void on_backend_connect(nw_ses *ses, bool result)
 {
-    log_fatal("query depth timeout, state id: %u", entry->id);
-}
-
-static void on_timer(nw_timer *timer, void *privdata)
-{
-    size_t count = 0;
-    dict_iterator *iter = dict_get_iterator(dict_depth);
-    dict_entry *entry;
-    while ((entry = dict_next(iter)) != NULL) {
-        const struct depth_val *obj = entry->val;
-        if (dict_size(obj->sessions) == 0) {
-            dict_delete(dict_depth, entry->key);
-            continue;
-        }
-
-        struct depth_key *key = entry->key;
-        json_t *params = json_array();
-        json_array_append_new(params, json_string(key->market));
-        json_array_append_new(params, json_integer(key->limit));
-        json_array_append_new(params, json_string(key->interval));
-
-        nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
-        struct state_data *state = state_entry->data;
-        memcpy(&state->key, key, sizeof(struct depth_key));
-
-        rpc_pkg pkg;
-        memset(&pkg, 0, sizeof(pkg));
-        pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-        pkg.command   = CMD_ORDER_DEPTH;
-        pkg.sequence  = state_entry->id;
-        pkg.body      = json_dumps(params, 0);
-        pkg.body_size = strlen(pkg.body);
-
-        rpc_clt_send(matchengine, &pkg);
-        log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-                nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-        free(pkg.body);
-        json_decref(params);
-        count += 1;
+    if (result) {
+        log_info("connect to longpoll success");
+        longpoll_subscribe_all();
+    } else {
+        log_error("can not connect to longpoll...");
     }
-    dict_release_iterator(iter);
-    profile_inc("query_depth", count);
 }
 
 int init_depth(void)
@@ -370,41 +390,30 @@ int init_depth(void)
     dt.val_destructor = dict_depth_val_free;
 
     dict_depth = dict_create(&dt, 64);
-    if (dict_depth == NULL)
+    if (dict_depth == NULL) {
         return -__LINE__;
-
+    }
+    
     rpc_clt_type ct;
     memset(&ct, 0, sizeof(ct));
     ct.on_connect = on_backend_connect;
     ct.on_recv_pkg = on_backend_recv_pkg;
 
-    matchengine = rpc_clt_create(&settings.matchengine, &ct);
-    if (matchengine == NULL)
+    longpoll = rpc_clt_create(&settings.longpoll, &ct);
+    if (longpoll == NULL) {
         return -__LINE__;
-    if (rpc_clt_start(matchengine) < 0)
+    }
+    if (rpc_clt_start(longpoll) < 0){
         return -__LINE__;
-
-    nw_state_type st;
-    memset(&st, 0, sizeof(st));
-    st.on_timeout = on_timeout;
-
-    state_context = nw_state_create(&st, sizeof(struct state_data));
-    if (state_context == NULL)
-        return -__LINE__;
-
-    nw_timer_set(&timer, settings.depth_interval, true, on_timer, NULL);
-    nw_timer_start(&timer);
+    }
 
     return 0;
 }
 
-static int add_depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
+int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
 {
     struct depth_key key;
-    memset(&key, 0, sizeof(key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(key.interval, interval, INTERVAL_MAX_LEN - 1);
-    key.limit = limit;
+    depth_set_key(&key, market, interval, limit);
 
     dict_entry *entry = dict_find(dict_depth, &key);
     if (entry == NULL) {
@@ -424,6 +433,8 @@ static int add_depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, 
         if (entry == NULL) {
             return -__LINE__;
         }
+        log_info("ses:%p subscribe market:%s interval:%s limit:%u", ses, key.market, key.interval, key.limit);
+        longpoll_subscribe(&key);
     }
 
     struct depth_val *obj = entry->val;
@@ -432,23 +443,19 @@ static int add_depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, 
     return 0;
 }
 
-int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
-{
-    return add_depth_subscribe(ses, market, limit, interval);
-}
-
-int depth_subscribe_multi(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
-{
-    return add_depth_subscribe(ses, market, limit, interval);
-}
-
 int depth_unsubscribe(nw_ses *ses)
 {
     dict_iterator *iter = dict_get_iterator(dict_depth);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
         struct depth_val *obj = entry->val;
-        dict_delete(obj->sessions, ses);
+        if (dict_delete(obj->sessions, ses) == 1) {
+            if (dict_size(obj->sessions) == 0) {
+                struct depth_key *key = entry->key;
+                log_info("ses:%p unsubscribe market:%s interval:%s limit:%u", ses, key->market, key->interval, key->limit);
+                longpoll_unsubscribe(key);
+            }
+        }
     }
     dict_release_iterator(iter);
 
@@ -494,4 +501,3 @@ size_t depth_subscribe_number(void)
 
     return count;
 }
-

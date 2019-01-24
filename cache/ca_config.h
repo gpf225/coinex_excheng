@@ -1,10 +1,10 @@
 /*
  * Description: 
- *     History: yang@haipo.me, 2017/04/21, create
+ *     History: zhoumugui@viabtc.com, 2019/01/22, create
  */
 
-# ifndef _AR_CONFIG_H_
-# define _AR_CONFIG_H_
+# ifndef _CA_CONFIG_H_
+# define _CA_CONFIG_H_
 
 # include <math.h>
 # include <stdio.h>
@@ -18,60 +18,37 @@
 # include <inttypes.h>
 
 # include "nw_svr.h"
-# include "nw_clt.h"
-# include "nw_job.h"
-# include "nw_timer.h"
 # include "nw_state.h"
+# include "nw_timer.h"
 
 # include "ut_log.h"
 # include "ut_sds.h"
-# include "ut_cli.h"
 # include "ut_misc.h"
 # include "ut_list.h"
-# include "ut_kafka.h"
+# include "ut_title.h"
 # include "ut_signal.h"
 # include "ut_config.h"
+# include "ut_define.h"
 # include "ut_profile.h"
 # include "ut_decimal.h"
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
-# include "ut_http_svr.h"
 
 # define MARKET_NAME_MAX_LEN    16
-# define AR_LISTENER_BIND       "seqpacket@/tmp/accessrest_listener.sock"
-
-typedef struct depth_limit_cfg {
-    int     count;
-    int     *limit;
-} depth_limit_cfg;
-
-typedef struct depth_merge_cfg {
-    int     count;
-    mpd_t   **limit;
-} depth_merge_cfg;
+# define INTERVAL_MAX_LEN       16
 
 struct settings {
+    bool                debug;
     process_cfg         process;
     log_cfg             log;
     alert_cfg           alert;
-    http_svr_cfg        svr;
-
+    rpc_svr_cfg         svr;
     rpc_clt_cfg         matchengine;
-    rpc_clt_cfg         marketprice;
-    rpc_clt_cfg         cache;
-
-    int                 worker_num;
+    cli_svr_cfg         cli;
+    
     double              backend_timeout;
     double              cache_timeout;
-    double              state_interval;
-    double              market_interval;
-    double              market_info_interval;
-
-    depth_limit_cfg     depth_limit;
-    depth_merge_cfg     depth_merge;
-    
-    char                *market_url;
 };
 
 extern struct settings settings;

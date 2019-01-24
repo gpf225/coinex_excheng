@@ -11,6 +11,7 @@ static nw_timer market_timer;
 
 static rpc_clt *marketprice;
 static rpc_clt *matchengine;
+static rpc_clt *cache;
 
 static dict_t *dict_market;
 static nw_state *state_context;
@@ -357,6 +358,12 @@ int init_ticker(void)
     if (matchengine == NULL)
         return -__LINE__;
     if (rpc_clt_start(matchengine) < 0)
+        return -__LINE__;
+
+    cache = rpc_clt_create(&settings.cache, &ct);
+    if (cache == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(cache) < 0)
         return -__LINE__;
 
     nw_state_type st;

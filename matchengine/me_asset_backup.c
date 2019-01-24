@@ -29,7 +29,7 @@ static int asset_backup(sds table)
 
 int make_asset_backup(json_t *params)
 {
-    time_t t = current_timestamp();
+    time_t t = time(NULL);
     sds table = sdsempty();
     table = sdscatprintf(table, "backup_balance_%ld", t);
 
@@ -49,5 +49,6 @@ int make_asset_backup(json_t *params)
     asset_backup(table);
     sdsfree(table);
     profile_inc_real("asset_backup_success", 1);
+    exit(0);
     return 0;
 }

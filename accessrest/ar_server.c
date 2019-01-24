@@ -16,6 +16,7 @@ static nw_timer timer;
 
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
+static rpc_clt *cache;
 
 struct state_data {
     nw_ses      *ses;
@@ -287,43 +288,15 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         }
     }
 
-    bool is_reply = false;
-    sds cache_key = sdsempty();
-    cache_key = sdscatprintf(cache_key, "market_depth_%s_%s_%d", market, merge, limit);
-    double now = current_timestamp();
-    struct cache_val *cache_val = get_cache(cache_key);
-    if (cache_val) {
-        if ((now - cache_val->time) < (settings.cache_timeout * 2)) {
-            send_http_response_simple(ses, 200, cache_val->data, sdslen(cache_val->data));
-            profile_inc("reply_cache", 1);
-            is_reply = true;
-            if ((now - cache_val->time) < settings.cache_timeout) {
-                sdsfree(cache_key);
-                return 0;
-            } else {
-                cache_val->time = now;
-            }
-        } else {
-            clear_cache(cache_key);
-        }
-    }
-
-    if (!rpc_clt_connected(matchengine)) {
-        sdsfree(cache_key);
-        if (!is_reply) {
-            return reply_internal_error(ses);
-        } else {
-            return -__LINE__;
-        }
+    if (!rpc_clt_connected(cache)) {
+        return reply_internal_error(ses);
     }
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    if (!is_reply) {
-        state->ses = ses;
-        state->ses_id = ses->id;
-    }
-    state->cache_key = cache_key;
+    state->ses = ses;
+    state->ses_id = ses->id;
+    state->cache_key = NULL;
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_string(market));
@@ -339,9 +312,9 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     pkg.body_size = strlen(pkg.body);
 
     state->cmd = pkg.command;
-    rpc_clt_send(matchengine, &pkg);
+    rpc_clt_send(cache, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
+            nw_sock_human_addr(rpc_clt_peer_addr(cache)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
     json_decref(query_params);
 
@@ -819,6 +792,12 @@ static int init_backend(void)
     if (marketprice == NULL)
         return -__LINE__;
     if (rpc_clt_start(marketprice) < 0)
+        return -__LINE__;
+
+    cache = rpc_clt_create(&settings.cache, &ct);
+    if (cache == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(cache) < 0)
         return -__LINE__;
 
     dict_types dt;

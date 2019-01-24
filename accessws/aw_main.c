@@ -15,6 +15,7 @@
 # include "aw_deals.h"
 # include "aw_order.h"
 # include "aw_asset.h"
+# include "aw_market.h"
 # include "aw_message.h"
 # include "aw_listener.h"
 
@@ -110,7 +111,11 @@ int main(int argc, char *argv[])
 
     process_title_set("%s_listener", __process__);
     daemon(1, 1);
-    process_keepalive();
+    if (settings.debug) {
+        init_signal();
+    } else {
+        process_keepalive();
+    }
     dlog_set_no_shift(default_dlog);
 
     ret = init_listener();
@@ -121,7 +126,11 @@ int main(int argc, char *argv[])
 
 server:
     daemon(1, 1);
-    process_keepalive();
+    if (settings.debug) {
+        init_signal();
+    } else {
+        process_keepalive();
+    }
 
     ret = init_http();
     if (ret < 0) {
@@ -134,6 +143,10 @@ server:
     ret = init_sign();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init sing fail: %d", ret);
+    }
+    ret = init_market();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
     }
     ret = init_kline();
     if (ret < 0) {
