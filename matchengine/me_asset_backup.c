@@ -41,6 +41,7 @@ int make_asset_backup(json_t *params)
         return -__LINE__;
     } else if (pid > 0) {
         json_object_set_new(params, "table", json_string(table));
+        json_object_set_new(params, "time", json_integer(t));
         sdsfree(table);
         return 0;
     }
