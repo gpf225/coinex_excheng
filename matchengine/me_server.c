@@ -12,6 +12,7 @@
 # include "me_operlog.h"
 # include "me_history.h"
 # include "me_message.h"
+# include "me_asset_backup.h"
 
 static rpc_svr *svr;
 static dict_t *dict_cache;
@@ -433,6 +434,20 @@ static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
 
     int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
+static int on_cmd_asset_backup(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    json_t *result = json_object();
+    int ret = make_asset_backup(result);
+    if (ret < 0) {
+        json_decref(result);
+        return reply_error_internal_error(ses, pkg);
+    }
+
+    ret = reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -1630,6 +1645,17 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_asset_query_lock(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_query_lock %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_BACKUP:
+        if (!is_service_availablce()) {
+            reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
+        profile_inc("cmd_asset_backup", 1);
+        ret = on_cmd_asset_backup(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_backup %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_PUT_LIMIT:
