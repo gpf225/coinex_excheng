@@ -192,7 +192,6 @@ static int on_market_status_reply(json_t *result)
     if (need_notify) {
          notify_state();
     }
-    log_info("on_market_status_reply total:%d updated:%d", total, updated);
 
     return 0;
 }

@@ -433,11 +433,17 @@ int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char 
         if (entry == NULL) {
             return -__LINE__;
         }
+        dict_add(val.sessions, ses, NULL);
         log_info("ses:%p subscribe market:%s interval:%s limit:%u", ses, key.market, key.interval, key.limit);
         longpoll_subscribe(&key);
+        return 0;
     }
 
     struct depth_val *obj = entry->val;
+    if (dict_size(obj->sessions) == 0) {
+        log_info("ses:%p subscribe market:%s interval:%s limit:%u", ses, key.market, key.interval, key.limit);
+        longpoll_subscribe(&key);
+    }
     dict_add(obj->sessions, ses, NULL);
 
     return 0;
