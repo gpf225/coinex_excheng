@@ -300,12 +300,10 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
             return reply_invalid_params(ses);
         }
         
-        char *result_str = json_dumps(result, 0);
-        send_http_response_simple(ses, 200, result_str, sdslen(result_str));
+        reply_json(ses, result, NULL);
         profile_inc("depth_merge_0", 1);
-
-        free(result_str);
         json_decref(result);  
+        
         return 0;
     }
 
