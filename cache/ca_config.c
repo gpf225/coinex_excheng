@@ -40,12 +40,8 @@ static int read_config_from_json(json_t *root)
         printf("load matchengine clt config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_cli_svr(root, "cli", &settings.cli);
-    if (ret < 0) {
-        printf("load cli config fail: %d\n", ret);
-        return -__LINE__;
-    }
-
+    
+    ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 4));
     ERR_RET_LN(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
     ERR_RET_LN(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.5));
 

@@ -134,7 +134,10 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         json_t *item = json_array_get(params, i);
         const char *market = json_string_value(json_array_get(item, 0));
         const char *interval = json_string_value(json_array_get(item, 1));
-        const int limit = json_integer_value(json_array_get(item, 2));
+        int limit = json_integer_value(json_array_get(item, 2));
+        if (limit > DEPTH_LIMIT_MAX) {
+            limit = DEPTH_LIMIT_MAX;
+        }
 
         int ret = depth_subscribe(ses, market, interval, limit);
         if (ret != 0) {
@@ -143,6 +146,29 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         }
     }
 
+    return reply_success(ses, pkg);
+}
+
+static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    dict_t *dict_market = get_market();
+    if (dict_size(dict_market) == 0) {
+        log_warn("market does not prepared, please try later");
+        rpc_svr_close_clt(svr, ses);  // force to close the connection, let clients know we are not prepared yet.
+        return 0;
+    }
+
+    const char *interval = "0";
+    const int limit = DEPTH_LIMIT_MAX;
+
+    dict_entry *entry = NULL;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        const char *market = entry->key;
+        depth_subscribe(ses, market, interval, limit);
+    }
+    dict_release_iterator(iter);
+    
     return reply_success(ses, pkg);
 }
 
@@ -231,7 +257,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             if (ret < 0) {
                 log_error("on_method_depth_subscribe fail: %d", ret);
             }
-            break;   
+            break; 
+        case CMD_LP_DEPTH_SUBSCRIBE_ALL:    
+            ret = on_method_depth_subscribe_all(ses, pkg, params);
+            if (ret < 0) {
+                log_error("on_method_depth_subscribe_all fail: %d", ret);
+            }
+            break;  
         case CMD_LP_DEPTH_UNSUBSCRIBE:    
             ret = on_method_depth_unsubscribe(ses, pkg, params);
             if (ret < 0) {

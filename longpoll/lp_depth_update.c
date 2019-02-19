@@ -47,7 +47,7 @@ static void depth_on_notify(struct depth_key *key, json_t *depth_data)
 
 static json_t* generate_depth_data(json_t *depth_data, int limit) {
     if (depth_data == NULL) {
-        return json_null();
+        return json_array();
     }
 
     json_t *new_data = json_array();

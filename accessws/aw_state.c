@@ -153,10 +153,7 @@ static int on_market_status_reply(json_t *result)
     bool need_notify = false;
     const char *key;
     json_t *value;
-    int total = 0;
-    int updated = 0;
     json_object_foreach(result, key, value) {
-        ++total;
         dict_entry *entry = dict_find(dict_market_state, key);
         if (entry == NULL) {
             struct market_val val;
@@ -167,7 +164,6 @@ static int on_market_status_reply(json_t *result)
 
             dict_add(dict_market_state, (char*)key, &val);
             need_notify = true;
-            ++updated;
             return 0;
         }
         struct market_val *info = entry->val;
@@ -182,7 +178,6 @@ static int on_market_status_reply(json_t *result)
             json_incref(info->last);
             info->update_time = current_timestamp();
             need_notify = true;
-            ++updated;
         }
 
         free(last_str);

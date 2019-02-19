@@ -6,7 +6,6 @@
 # include "ca_depth_cache.h"
 # include "ca_depth_update.h"
 # include "ca_server.h"
-# include "ca_cli.h"
 
 # include "ut_title.h"
 
@@ -66,6 +65,7 @@ int main(int argc, char *argv[])
         printf("process: %s exist\n", __process__);
         exit(EXIT_FAILURE);
     }
+    process_title_init(argc, argv);
 
     int ret;
     ret = init_mpd();
@@ -85,33 +85,39 @@ int main(int argc, char *argv[])
         error(EXIT_FAILURE, errno, "init log fail: %d", ret);
     }
 
-    daemon(1, 1);
-    process_keepalive();
+    for (int i = 0; i < settings.worker_num; ++i) {
+        int pid = fork();
+        if (pid < 0) {
+            error(EXIT_FAILURE, errno, "fork error");
+        } else if (pid != 0) {
+            process_title_set("%s_worker_%d", __process__, i);
+            daemon(1, 1);
+            process_keepalive1(settings.debug);
 
-    ret = init_depth_cache();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init depth cache fail: %d", ret);
-    }
-    ret = init_depth_update();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init depth update fail: %d", ret);
-    }
-    ret = init_server();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init server fail: %d", ret);
-    }
-    ret = init_cli();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init cli fail: %d", ret);
+            ret = init_depth_cache(settings.cache_timeout);
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init depth cache fail: %d", ret);
+            }
+            ret = init_depth_update();
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init depth update fail: %d", ret);
+            }
+            ret = init_server(i);
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init server fail: %d", ret);
+            }
+
+            nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
+            nw_timer_start(&cron_timer);
+
+            log_vip("server start");
+            log_stderr("server start");
+            nw_loop_run();
+            log_vip("server stop");
+            return 0;
+        }
     }
 
-    nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
-    nw_timer_start(&cron_timer);
-
-    log_vip("server start");
-    log_stderr("server start");
-    nw_loop_run();
-    log_vip("server stop");
-
+    log_stderr("main process exit...");
     return 0;
 }

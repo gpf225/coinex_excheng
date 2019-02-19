@@ -8,6 +8,11 @@
 # include <google/cmockery.h>
 # include <string.h>
 
+# include "ut_sds.h"
+# include "ut_log.h"
+# include "ut_rpc.h"
+# include "ut_misc.h"
+
 static json_t* get_error_json(int code, const char *message)
 {
     json_t *error_json = json_object();
@@ -250,6 +255,37 @@ void test_reply_error_json(void **state)
     free(json2_str);
 }
 
+static struct nw_ses* test_create_ses()
+{
+    const char *cfg = "tcp@127.0.0.1:8080"; 
+    nw_ses *ses = malloc(sizeof(nw_ses));   
+    memset(ses, 0, sizeof(nw_ses));
+    int sock_type = 0;
+    int ret = nw_sock_cfg_parse(cfg, &ses->peer_addr, &sock_type);
+    if (ret != 0) {
+        return NULL;
+    }
+    return ses;
+}
+
+void test_reply_macro_log(void **state)
+{
+    const char *data = "{\"key\": 1121}";
+    struct rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(rpc_pkg));
+    pkg.body = strdup(data);
+    pkg.body_size = strlen(data);
+    
+    struct nw_ses *ses = test_create_ses();
+    struct rpc_pkg *pkg_p = &pkg;
+    REPLY_TRACE_LOG(ses, pkg_p);
+    REPLY_INVALID_LOG(ses, pkg_p);
+    REPLY_ERROR_LOG(ses, pkg_p);
+
+    free(pkg.body);
+    free(ses);
+}
+
 int main()
 {
     const UnitTest tests[] = {  
@@ -264,7 +300,8 @@ int main()
         unit_test(test_reply_reload_ok_case1),
         unit_test(test_reply_reload_invalid_case1),
         unit_test(test_reply_result_json),
-        unit_test(test_reply_error_json)
+        unit_test(test_reply_error_json),
+        unit_test(test_reply_macro_log)
     }; 
     
     return run_tests(tests);  

@@ -6,7 +6,6 @@
 # include "ca_config.h"
 # include "ca_depth_cache.h"
 # include "ca_depth_update.h"
-# include "ca_statistic.h"
 
 static rpc_svr *svr = NULL;
 
@@ -69,6 +68,22 @@ int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     return ret;
 }
 
+static json_t* get_json(struct depth_cache_val *cache_val, size_t limit)
+{
+    json_t *depth_data = cache_val->data;
+    json_t *new_data = json_array();
+    int size = json_array_size(depth_data) > limit ? limit : json_array_size(depth_data);
+    for (int i = 0; i < size; ++i) {
+        json_t *unit = json_array_get(depth_data, i);
+        json_array_append(new_data, unit);
+    }
+
+    json_object_set(new_data, "last", json_object_get(depth_data, "last"));
+    json_object_set(new_data, "time", json_object_get(depth_data, "time"));
+
+    return new_data;
+}
+
 static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 3) {
@@ -87,31 +102,27 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
    
-    stat_depth_inc();
     struct depth_cache_val *cache_val = depth_cache_get(market, interval, limit);
     if (cache_val == NULL) {
-        stat_depth_cache_miss();
         depth_update(ses, pkg, market, interval, limit, true);
         return 0;
     }
     
     double now = current_timestamp();
     if ((now - cache_val->time) < (settings.cache_timeout * 2)) {
-        reply_result(ses, pkg, cache_val->data);
-        profile_inc("reply_cache", 1);
-        stat_depth_cache_hit();
-           
-        if ((now - cache_val->time) < settings.cache_timeout) {
-            return 0;
-        } else {
-            stat_depth_cache_update();
+        json_t *reply_json = get_json(cache_val, limit);
+        reply_result(ses, pkg, reply_json);
+        json_decref(reply_json);
+        profile_inc("depth_cache", 1);
+
+        if ((now - cache_val->time) > settings.cache_timeout) {
             cache_val->time = now;
             depth_update(ses, pkg, market, interval, limit, false);
+            profile_inc("depth_update", 1);
         }
-    } else {
-        stat_depth_cache_miss();
-        stat_depth_cache_update();  
+    } else { 
         depth_update(ses, pkg, market, interval, limit, true);
+        profile_inc("depth_update", 1);
         return 0;
     }
 
@@ -134,7 +145,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     int ret;
     switch (pkg->command) {
     case CMD_ORDER_DEPTH:
-        profile_inc("cmd_market_status", 1);
+        profile_inc("on_cmd_order_depth", 1);
         ret = on_cmd_order_depth(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_depth %s fail: %d", params_str, ret);
@@ -164,9 +175,17 @@ static void svr_on_connection_close(nw_ses *ses)
     log_trace("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
 }
 
-int init_server()
+int init_server(int worker_id)
 {
-    assert(svr == NULL);
+    if (settings.svr.bind_count != 1) {
+        return -__LINE__;
+    }
+
+    nw_svr_bind *bind_arr = settings.svr.bind_arr;
+    if (bind_arr->addr.family != AF_INET) {
+        return -__LINE__;
+    }
+    bind_arr->addr.in.sin_port = htons(ntohs(bind_arr->addr.in.sin_port) + worker_id);
 
     rpc_svr_type type;
     memset(&type, 0, sizeof(type));

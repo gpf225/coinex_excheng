@@ -4,8 +4,9 @@
  */
 
 # include "ar_server.h"
-# include "ar_market_info.h"
+# include "ar_market.h"
 # include "ar_ticker.h"
+# include "ar_depth.h"
 
 static http_svr *svr;
 static rpc_clt *listener;
@@ -14,9 +15,8 @@ static nw_state *state_context;
 static dict_t *method_map;
 static nw_timer timer;
 
-static rpc_clt *matchengine;
 static rpc_clt *marketprice;
-static rpc_clt *cache;
+static rpc_clt **cache_worker_arr;
 
 struct state_data {
     nw_ses      *ses;
@@ -263,6 +263,12 @@ static bool is_good_merge(const char *merge_str)
     return false;
 }
 
+static int get_cache_id(const char *market)
+{
+    uint32_t hash = dict_generic_hash_function(market, strlen(market));
+    return hash % settings.cache_worker_num;
+}
+
 static int on_market_depth(nw_ses *ses, dict_t *params)
 {
     dict_entry *entry;
@@ -288,8 +294,19 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         }
     }
 
-    if (!rpc_clt_connected(cache)) {
-        return reply_internal_error(ses);
+    if (strcmp("0", merge) == 0) {
+        json_t *result = depth_get_json(market, limit);
+        if (result == NULL) {
+            return reply_invalid_params(ses);
+        }
+        
+        char *result_str = json_dumps(result, 0);
+        send_http_response_simple(ses, 200, result_str, sdslen(result_str));
+        profile_inc("depth_merge_0", 1);
+
+        free(result_str);
+        json_decref(result);  
+        return 0;
     }
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
@@ -312,9 +329,10 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     pkg.body_size = strlen(pkg.body);
 
     state->cmd = pkg.command;
-    rpc_clt_send(cache, &pkg);
+    int id = get_cache_id(market);
+    rpc_clt_send(cache_worker_arr[id], &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(cache)), pkg.command, pkg.sequence, (char *)pkg.body);
+            nw_sock_human_addr(rpc_clt_peer_addr(cache_worker_arr[id])), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
     json_decref(query_params);
 
@@ -393,7 +411,7 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
     state->cmd = pkg.command;
     rpc_clt_send(marketprice, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
+            nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
     json_decref(query_params);
 
@@ -517,7 +535,7 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     state->cmd = pkg.command;
     rpc_clt_send(marketprice, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
+            nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
     json_decref(query_params);
 
@@ -775,6 +793,40 @@ static void on_timer(nw_timer *timer, void *privdata)
     dict_clear(backend_cache);
 }
 
+static int init_cache_clt(void)
+{
+    cache_worker_arr = malloc(sizeof(void *) * settings.cache_worker_num);
+    for (int i = 0; i < settings.cache_worker_num; ++i) {
+        sds name = sdsempty();
+        name = sdscatprintf(name, "cache_worker_%d", i);
+
+        rpc_clt_cfg cfg;
+        memset(&cfg, 0, sizeof(cfg));
+        cfg.name = name;
+        cfg.addr_count = 1;
+        cfg.addr_arr = malloc(sizeof(nw_addr_t));
+        memcpy(cfg.addr_arr, &settings.cache.addr_arr, sizeof(nw_addr_t));
+        cfg.addr_arr->in.sin_port = htons(ntohs(cfg.addr_arr->in.sin_port) + i);
+        cfg.sock_type = settings.cache.sock_type;
+        cfg.max_pkg_size = 1000 * 1000;
+
+        rpc_clt_type ct;
+        memset(&ct, 0, sizeof(ct));
+        ct.on_connect = on_backend_connect;
+        ct.on_recv_pkg = on_backend_recv_pkg;
+        cache_worker_arr[i] = rpc_clt_create(&cfg, &ct);
+        if (cache_worker_arr[i] == NULL) {
+            return -__LINE__;
+        }
+        if (rpc_clt_start(cache_worker_arr[i]) < 0) {
+            return -__LINE__;
+        }
+
+        sdsfree(name);
+    }
+
+    return 0;
+}
 static int init_backend(void)
 {
     rpc_clt_type ct;
@@ -782,23 +834,16 @@ static int init_backend(void)
     ct.on_connect = on_backend_connect;
     ct.on_recv_pkg = on_backend_recv_pkg;
 
-    matchengine = rpc_clt_create(&settings.matchengine, &ct);
-    if (matchengine == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(matchengine) < 0)
-        return -__LINE__;
-
     marketprice = rpc_clt_create(&settings.marketprice, &ct);
     if (marketprice == NULL)
         return -__LINE__;
     if (rpc_clt_start(marketprice) < 0)
         return -__LINE__;
 
-    cache = rpc_clt_create(&settings.cache, &ct);
-    if (cache == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(cache) < 0)
-        return -__LINE__;
+    int ret = init_cache_clt();
+    if (ret != 0) {
+        return ret;
+    }
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));

@@ -42,6 +42,7 @@
 
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
+# define DEPTH_LIMIT_MAX        50
 
 struct settings{
     process_cfg         process;

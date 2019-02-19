@@ -37,8 +37,11 @@
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
 # include "ut_http_svr.h"
+# include "ut_rpc_reply.h"
 
 # define MARKET_NAME_MAX_LEN    16
+# define INTERVAL_MAX_LEN       16
+# define DEPTH_LIMIT_MAX        50
 # define AR_LISTENER_BIND       "seqpacket@/tmp/accessrest_listener.sock"
 
 typedef struct depth_limit_cfg {
@@ -60,13 +63,14 @@ struct settings {
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
     rpc_clt_cfg         cache;
+    rpc_clt_cfg         longpoll;
 
     int                 worker_num;
+    int                 cache_worker_num;
     double              backend_timeout;
     double              cache_timeout;
     double              state_interval;
     double              market_interval;
-    double              market_info_interval;
 
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;

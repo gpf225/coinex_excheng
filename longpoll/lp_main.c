@@ -84,11 +84,7 @@ int main(int argc, char *argv[])
     }
     
     daemon(1, 1);
-    if (settings.debug) {
-        init_signal();
-    } else {
-        process_keepalive();
-    }
+    process_keepalive1(settings.debug);
 
     ret = init_market();
     if (ret < 0) {

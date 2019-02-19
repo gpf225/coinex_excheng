@@ -39,11 +39,19 @@
     "cache": {
         "name": "cache",
         "addr": [
-            "tcp@127.0.0.1:7816"
+            "tcp@127.0.0.1:7801"
         ],
         "max_pkg_size": 2000000
     },
-    "worker_num": 1,
+    "longpoll": {
+        "name": "longpoll",
+        "addr": [
+            "tcp@127.0.0.1:10001"
+        ],
+        "max_pkg_size": 2000000
+    },
+    "cache_worker_num": 2,
+    "worker_num": 2,
     "backend_timeout": 1.0,
     "cache_timeout": 0.5,
     "state_interval": 0.5,

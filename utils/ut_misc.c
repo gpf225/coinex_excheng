@@ -92,6 +92,14 @@ int process_keepalive(void)
 
     return -1;
 }
+int process_keepalive1(bool debug)
+{
+    if (debug) {
+        init_signal();
+        return 0;
+    }
+    return process_keepalive();
+}
 
 int set_core_limit(size_t limit)
 {

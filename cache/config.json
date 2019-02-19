@@ -14,10 +14,10 @@
         "addr": "127.0.0.1:4444"
     },
     "svr": {
-        "bind": "tcp@0.0.0.0:7816",
+        "bind": "tcp@0.0.0.0:7801",
         "max_pkg_size": 10240
     },
-    "cli": "tcp@127.0.0.1:7817",
+    "worker_num": 2,
     "matchengine": {
         "name": "matchengine",
         "addr": [

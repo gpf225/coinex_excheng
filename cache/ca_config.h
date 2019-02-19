@@ -44,8 +44,8 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
+    int                 worker_num;
     rpc_clt_cfg         matchengine;
-    cli_svr_cfg         cli;
     
     double              backend_timeout;
     double              cache_timeout;

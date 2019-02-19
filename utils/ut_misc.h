@@ -8,12 +8,14 @@
 
 # include <endian.h>
 # include <byteswap.h>
+# include <stdbool.h>
 
 # include "ut_sds.h"
 # include "ut_log.h"
 
 int process_exist(const char *fmt, ...);
 int process_keepalive(void);
+int process_keepalive1(bool debug);
 
 int set_core_limit(size_t limit);
 int set_file_limit(size_t limit);
