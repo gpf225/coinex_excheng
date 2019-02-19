@@ -805,7 +805,7 @@ static int init_cache_clt(void)
         cfg.name = name;
         cfg.addr_count = 1;
         cfg.addr_arr = malloc(sizeof(nw_addr_t));
-        memcpy(cfg.addr_arr, &settings.cache.addr_arr, sizeof(nw_addr_t));
+        memcpy(cfg.addr_arr, settings.cache.addr_arr, sizeof(nw_addr_t));
         cfg.addr_arr->in.sin_port = htons(ntohs(cfg.addr_arr->in.sin_port) + i);
         cfg.sock_type = settings.cache.sock_type;
         cfg.max_pkg_size = 1000 * 1000;
