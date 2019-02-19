@@ -142,6 +142,17 @@ void test_depth_unsubscribe_all(void **state)
     assert_int_equal(dict_size(depth_sub), 4);
     assert_int_equal(dict_size(depth_item), 2);
 
+    dict_t *dict_depth_sub = depth_get_sub();
+    dict_entry *entry = NULL;
+    dict_iterator *iter = dict_get_iterator(dict_depth_sub);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct depth_val *val = entry->val;
+        dict_t *sessions = val->sessions;
+        assert_int_equal(1, dict_size(sessions));
+        assert_true(dict_find(sessions, ses2) != NULL);
+        assert_true(dict_find(sessions, ses1) == NULL);
+    }
+
     assert_int_equal(depth_unsubscribe_all(ses2), 4);
     assert_int_equal(dict_size(depth_sub), 0);
     assert_int_equal(dict_size(depth_item), 0);

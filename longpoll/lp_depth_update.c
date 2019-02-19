@@ -27,8 +27,6 @@ static void depth_on_notify(struct depth_key *key, json_t *depth_data)
     }
 
     struct depth_val *val = entry->val;
-    assert(dict_size(val->sessions) > 0);
-
     dict_entry *session_entry = NULL;
     dict_iterator *iter = dict_get_iterator(val->sessions);
     while ( (session_entry = dict_next(iter)) != NULL) {

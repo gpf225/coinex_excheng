@@ -5,7 +5,6 @@
 
 
 # include "ar_config.h"
-# include "ar_market.h"
 # include "ar_depth.h"
 
 static dict_t *dict_state;
@@ -55,7 +54,9 @@ static int on_market_status_reply(json_t *result)
 {
     const char *key;
     json_t *value;
+    int count = 0;
     json_object_foreach(result, key, value) {
+        ++count;
         dict_entry *entry = dict_find(dict_state, key);
         if (entry == NULL) {
             struct state_val val;
@@ -64,7 +65,7 @@ static int on_market_status_reply(json_t *result)
             json_incref(val.last);
 
             dict_add(dict_state, (char*)key, &val);
-            return 0;
+            continue;
         }
 
         struct state_val *val = entry->val;
@@ -72,7 +73,8 @@ static int on_market_status_reply(json_t *result)
         val->last = value;
         json_incref(val->last);
     }
-
+    
+    log_trace("updated %d market state", count);
     return 0;
 }
 
@@ -227,14 +229,16 @@ json_t *get_market_ticker(const void *market)
 
 json_t *get_market_ticker_all(void)
 {
-    dict_t *dict_market = get_market();
     json_t *ticker = json_object();
 
     dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(dict_market);
+    dict_iterator *iter = dict_get_iterator(dict_state);
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
         struct state_val *info = entry->val;
+        if (info->last == NULL) {
+            continue;
+        }
         set_sell_and_buy(market, info->last);
         json_object_set(ticker, market, info->last);
     }

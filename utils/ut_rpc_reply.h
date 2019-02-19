@@ -41,11 +41,13 @@ json_t* reply_get_error_json(int id, int code, const char *message);
 }
 
 
-# define REPLY_INVALID_LOG(ses, pkg) {                              \
-    sds hex = hexdump(pkg->body, pkg->body_size);                   \
-    log_fatal("invalid reply from: %s, cmd: %u, reply: \n%s",       \
-        nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);    \
-    sdsfree(hex);                                                   \
+# define REPLY_INVALID_LOG(ses, pkg) {                                       \
+    sds reply_str = sdsnewlen(pkg->body, pkg->body_size);                    \
+    sds hex = hexdump(pkg->body, pkg->body_size);                            \
+    log_fatal("invalid reply from: %s, cmd: %u, reply: \n%s \n%s",           \
+        nw_sock_human_addr(&ses->peer_addr), pkg->command, hex, reply_str);  \
+    sdsfree(hex);                                                            \
+    sdsfree(reply_str);                                                      \
 }
 
 # define REPLY_ERROR_LOG(ses, pkg) {                                     \

@@ -272,7 +272,10 @@ int state_unsubscribe(nw_ses *ses)
 
 int state_send_last(nw_ses *ses)
 {
-    return notify_message(ses, CMD_LP_STATE_UPDATE, last_full_result);
+    if (last_full_result != NULL) {
+        return notify_message(ses, CMD_LP_STATE_UPDATE, last_full_result);
+    }
+    return 0;
 }
 
 size_t state_subscribe_number(void)

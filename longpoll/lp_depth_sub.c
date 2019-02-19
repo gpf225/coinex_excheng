@@ -180,7 +180,7 @@ static int depth_item_add(const char *market, const char *interval, int limit)
     
     struct depth_limit_val *val = entry->val;
     if (depth_limit_list_find(val, limit) == -1) {
-        log_info("subscribe depth, %s-%s-%d", market, interval, limit);
+        log_info("add depth item, %s-%s-%d", market, interval, limit);
         depth_limit_list_add(val, limit);
     }
 
@@ -199,6 +199,7 @@ static int depth_item_remove(const char *market, const char *interval, int limit
     int index = depth_limit_list_find(val, limit);
     if (index != -1) {
         depth_limit_list_remove(val, index);
+        log_info("remove depth item, %s-%s-%d", market, interval, limit);
         if (val->size == 0) {
             dict_delete(dict_depth_item, &key);
         }
@@ -232,13 +233,11 @@ int depth_subscribe(nw_ses *ses, const char *market, const char *interval, uint3
             log_fatal("dict_create failed, server maybe run in a dangerious way!!!");
             return -__LINE__;
         }
-        
         entry = dict_add(dict_depth_sub, &key, &val);
         if (entry == NULL) {
             log_fatal("dict_add failed, server maybe run in a dangerious way!!!");
             return -__LINE__;
         }
-        
         depth_item_add(market, interval, limit);
     }
 
@@ -248,7 +247,7 @@ int depth_subscribe(nw_ses *ses, const char *market, const char *interval, uint3
         return -__LINE__;
     }
     
-    log_info("a new one subscribe market depth: %p-%s-%s-%d", ses, market, interval, limit);
+    log_info("ses:%p subscribe depth: %s-%s-%d", ses, market, interval, limit);
     return 0;  
 }
 
@@ -273,7 +272,7 @@ int depth_unsubscribe(nw_ses *ses, const char *market, const char *interval, uin
         depth_item_remove(market, interval, limit);
     }
     
-    log_info("one subscriber unsubscribe market depth: %s-%s-%d", market, interval, limit);
+    log_info("ses:%p unsubscribe depth: %s-%s-%d", ses, market, interval, limit);
     return 0;
 }
 
@@ -291,7 +290,7 @@ int depth_unsubscribe_all(nw_ses *ses)
         struct depth_val *val = entry->val;
         if (dict_delete(val->sessions, ses) == 1) {
             struct depth_key *key = entry->key;
-            log_info("subscribe_item[%s-%s-%d] removed.", key->market, key->interval, key->limit);
+            log_info("ses:%p unsubscribe depth: %s-%s-%d size:%u", ses, key->market, key->interval, key->limit, dict_size(val->sessions));
 
             if (dict_size(val->sessions) == 0) {
                 depth_item_remove(key->market, key->interval, key->limit);
