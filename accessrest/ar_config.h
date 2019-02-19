@@ -76,6 +76,7 @@ struct settings {
     depth_merge_cfg     depth_merge;
     
     char                *market_url;
+    bool                debug;
 };
 
 extern struct settings settings;

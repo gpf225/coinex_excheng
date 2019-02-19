@@ -9,6 +9,7 @@
 # include "ar_ticker.h"
 # include "ar_server.h"
 # include "ar_listener.h"
+# include "ar_depth.h"
 
 const char *__process__ = "accessrest";
 const char *__version__ = "0.1.0";
@@ -102,7 +103,7 @@ int main(int argc, char *argv[])
 
     process_title_set("%s_listener", __process__);
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive1(settings.debug);
     dlog_set_no_shift(default_dlog);
 
     ret = init_listener();
@@ -113,11 +114,15 @@ int main(int argc, char *argv[])
 
 server:
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive1(settings.debug);
 
     ret = init_market();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init market fail: %d", ret);
+    }
+    ret = init_depth();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init depth fail: %d", ret);
     }
     ret = init_ticker();
     if (ret < 0) {

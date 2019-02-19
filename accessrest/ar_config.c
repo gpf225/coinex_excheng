@@ -103,6 +103,7 @@ static int read_config_from_json(json_t *root)
 
     ERR_RET(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET(read_depth_merge_cfg(root, "depth_merge"));
+    ERR_RET(read_cfg_bool(root, "debug", &settings.debug, false, true));
 
     return 0;
 }
