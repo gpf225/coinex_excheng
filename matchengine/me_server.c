@@ -949,13 +949,20 @@ static json_t *get_depth(market_t *market, size_t limit)
     json_t *asks = json_array();
     skiplist_iter *iter = skiplist_get_iterator(market->asks);
     skiplist_node *node = skiplist_next(iter);
+    int count = 0;
     size_t index = 0;
     while (node && index < limit) {
+        if (++count > settings.depth_merge_max) {
+            break;
+        }
         index++;
         order_t *order = node->value;
         mpd_copy(price, order->price, &mpd_ctx);
         mpd_copy(amount, order->left, &mpd_ctx);
         while ((node = skiplist_next(iter)) != NULL) {
+            if (++count > settings.depth_merge_max) {
+                break;
+            }
             order = node->value;
             if (mpd_cmp(price, order->price, &mpd_ctx) == 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
@@ -973,13 +980,20 @@ static json_t *get_depth(market_t *market, size_t limit)
     json_t *bids = json_array();
     iter = skiplist_get_iterator(market->bids);
     node = skiplist_next(iter);
+    count = 0;
     index = 0;
     while (node && index < limit) {
+        if (++count > settings.depth_merge_max) {
+            break;
+        }
         index++;
         order_t *order = node->value;
         mpd_copy(price, order->price, &mpd_ctx);
         mpd_copy(amount, order->left, &mpd_ctx);
         while ((node = skiplist_next(iter)) != NULL) {
+            if (++count > settings.depth_merge_max) {
+                break;
+            }
             order = node->value;
             if (mpd_cmp(price, order->price, &mpd_ctx) == 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);

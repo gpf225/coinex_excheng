@@ -87,6 +87,7 @@ struct settings {
     int                 slice_interval;
     int                 slice_keeptime;
     int                 history_thread;
+    int                 depth_merge_max;
     double              cache_timeout;
 };
 
