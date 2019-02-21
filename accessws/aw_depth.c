@@ -333,39 +333,36 @@ static int on_depth_update(json_t *result)
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-    log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);
+    log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s", 
+        nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);
 
-    json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
-    if (reply == NULL) {
-        sds hex = hexdump(pkg->body, pkg->body_size);
-        log_fatal("invalid reply from: %s, cmd: %u, reply: \n%s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
-        sdsfree(hex);
-        sdsfree(reply_str);
-        return;
-    }
-
-    json_t *error = json_object_get(reply, "error");
-    json_t *result = json_object_get(reply, "result");
-    if (error == NULL || !json_is_null(error) || result == NULL) {
-        log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
-        sdsfree(reply_str);
-        json_decref(reply);
-        return;
-    }
-
-    if (pkg->command == CMD_LP_DEPTH_UPDATE) {
-        int ret = on_depth_update(result);
-        if (ret < 0) {
-            log_error("on_depth_update: %d, reply: %s", ret, reply_str);
+    ut_rpc_reply_t *rpc_reply = reply_load(pkg->body, pkg->body_size);
+    do {
+        if (!reply_valid(rpc_reply)) {
+            REPLY_INVALID_LOG(ses, pkg);
+            break;
         }
-    } else {
-        if (pkg->command != CMD_LP_DEPTH_SUBSCRIBE && pkg->command != CMD_LP_DEPTH_UNSUBSCRIBE) {
+        if (!reply_ok(rpc_reply)) {
+            REPLY_ERROR_LOG(ses, pkg);
+            break;
+        }
+        
+        if (pkg->command == CMD_LP_DEPTH_UPDATE) {
+            int ret = on_depth_update(rpc_reply->result);
+            if (ret < 0) {
+                log_error("on_depth_update: %d, reply: %s", ret, reply_str);
+            }
+        } else if (pkg->command == CMD_LP_DEPTH_SUBSCRIBE) {
+            log_trace("market depth subscribe success");
+        } else if (pkg->command == CMD_LP_DEPTH_UNSUBSCRIBE) {
+            log_trace("market depth unsubscribe success");   
+        } else {
             log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
         }
-    }
+    } while(0);
 
+    reply_release(rpc_reply);
     sdsfree(reply_str);
-    json_decref(reply);
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)

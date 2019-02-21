@@ -193,48 +193,37 @@ static int on_market_status_reply(json_t *result)
 
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
-    sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-    //log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);
+    sds reply_str = sdsnewlen(pkg->body, pkg->body_size);                               
+    log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s", 
+        nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);   
 
-    json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
-    if (reply == NULL) {
-        sds hex = hexdump(pkg->body, pkg->body_size);
-        log_fatal("invalid reply from: %s, cmd: %u, reply: \n%s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
-        sdsfree(hex);
-        sdsfree(reply_str);
-        return;
-    }
-
-    json_t *error = json_object_get(reply, "error");
-    json_t *result = json_object_get(reply, "result");
-    if (error == NULL || !json_is_null(error) || result == NULL) {
-        log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
-        sdsfree(reply_str);
-        json_decref(reply);
-        return;
-    }
-
-    int ret;
-    switch (pkg->command) {
-    case CMD_LP_STATE_SUBSCRIBE:
-        log_trace("market state subscribe success");
-        break;
-    case CMD_LP_STATE_UNSUBSCRIBE:
-        log_trace("market state unsubscribe success");
-        break;
-    case CMD_LP_STATE_UPDATE:
-        ret = on_market_status_reply(result);
-        if (ret < 0) {
-            log_error("on_market_status_reply: %d, reply: %s", ret, reply_str);
+    ut_rpc_reply_t *rpc_reply = reply_load(pkg->body, pkg->body_size);
+    do {
+        if (!reply_valid(rpc_reply)) {
+            REPLY_INVALID_LOG(ses, pkg);
+            break;
         }
-        break;
-    default:
-        log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
-        break;
-    }
+        if (!reply_ok(rpc_reply)) {
+            REPLY_ERROR_LOG(ses, pkg);
+            break;
+        }
+        
+        if (pkg->command == CMD_LP_STATE_UPDATE) {
+            int ret = on_market_status_reply(rpc_reply->result);
+            if (ret < 0) {
+                log_error("on_market_status_reply: %d, reply: %s", ret, reply_str);
+            }
+        } else if (pkg->command == CMD_LP_STATE_SUBSCRIBE) {
+            log_trace("market state subscribe success");
+        } else if (pkg->command == CMD_LP_STATE_UNSUBSCRIBE) {
+            log_trace("market state unsubscribe success");   
+        } else {
+            log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
+        }
+    } while(0);
 
+    reply_release(rpc_reply);
     sdsfree(reply_str);
-    json_decref(reply);
 }
 
 static void subscribe_state(void)

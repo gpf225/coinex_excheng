@@ -40,7 +40,6 @@ json_t* reply_get_error_json(int id, int code, const char *message);
     sdsfree(reply_str);                                                                 \
 }
 
-
 # define REPLY_INVALID_LOG(ses, pkg) {                                       \
     sds reply_str = sdsnewlen(pkg->body, pkg->body_size);                    \
     sds hex = hexdump(pkg->body, pkg->body_size);                            \

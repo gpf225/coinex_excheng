@@ -39,6 +39,7 @@
 # include "ut_rpc_cmd.h"
 # include "ut_ws_svr.h"
 # include "ut_comm_dict.h"
+# include "ut_rpc_reply.h"
 
 # define ASSET_NAME_MAX_LEN     16
 # define MARKET_NAME_MAX_LEN    16
