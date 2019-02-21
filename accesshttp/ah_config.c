@@ -50,7 +50,7 @@ static int read_config_from_json(json_t *root)
         printf("load monitorcenter clt config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_rpc_clt(root, "cache", &settings.monitorcenter);
+    ret = load_cfg_rpc_clt(root, "cache", &settings.cache);
     if (ret < 0) {
         printf("load cache clt config fail: %d\n", ret);
         return -__LINE__;
