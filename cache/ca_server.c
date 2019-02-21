@@ -93,7 +93,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (market == NULL) {
         return reply_error_internal_error(ses, pkg);
     }
-    const size_t limit = json_integer_value(json_array_get(params, 1));
+    size_t limit = json_integer_value(json_array_get(params, 1));
     if (limit == 0) {
         return reply_error_internal_error(ses, pkg);
     }
@@ -117,10 +117,12 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
         if ((now - cache_val->time) > settings.cache_timeout) {
             cache_val->time = now;
+            limit = depth_cache_get_update_limit(cache_val, limit);
             depth_update(ses, pkg, market, interval, limit, false);
             profile_inc("depth_update", 1);
         }
     } else { 
+        limit = depth_cache_get_update_limit(cache_val, limit);
         depth_update(ses, pkg, market, interval, limit, true);
         profile_inc("depth_update", 1);
         return 0;

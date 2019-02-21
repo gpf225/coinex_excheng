@@ -68,6 +68,9 @@ int depth_cache_set(const char *market, const char *interval, uint32_t limit, js
         val.time = current_timestamp();
         val.data = data;
         json_incref(val.data);
+        val.limit = limit;
+        val.limit_last_hit_time = current_timestamp();
+
         if (dict_add(dict_cache, &key, &val) == NULL) {
             return -__LINE__;
         }
@@ -75,14 +78,16 @@ int depth_cache_set(const char *market, const char *interval, uint32_t limit, js
     }
     
     struct depth_cache_val *val = entry->val;
+    val->limit = limit;
     val->time = current_timestamp();
     json_decref(val->data);
     val->data = data;
     json_incref(val->data);
+
     return 0;
 }
 
-struct depth_cache_val* depth_cache_get(const char *market, const char *interval, uint32_t limit)
+depth_cache_val* depth_cache_get(const char *market, const char *interval, uint32_t limit)
 {
     depth_cache_key key;
     memset(&key, 0, sizeof(depth_cache_key));
@@ -110,16 +115,18 @@ struct depth_cache_val* depth_cache_get(const char *market, const char *interval
 
 uint32_t depth_cache_get_update_limit(depth_cache_val *val, uint32_t limit)
 {
+    assert(val->limit >= limit);
+
     double cur = current_timestamp();
     if (cur - val->limit_last_hit_time < limit_exipre_time) {
-        return limit;
+        return val->limit;
     }
 
     if (val->second_limit >= limit) {
-        val->limit_last_hit_time = cur;
         val->limit = val->second_limit;
         val->second_limit = limit;
-        return val->second_limit;
+        val->limit_last_hit_time = cur;
+        return val->limit;
     }
     
     val->limit = limit;
@@ -146,4 +153,9 @@ int init_depth_cache(double timeout)
     cache_timeout = timeout;
     limit_exipre_time = 10.0 * cache_timeout;
     return 0;
+}
+
+void fini_depth_cache(void)
+{
+    dict_release(dict_cache);
 }
