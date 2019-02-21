@@ -176,7 +176,7 @@ static int read_config_from_json(json_t *root)
         printf("load history_thread fail: %d", ret);
         return -__LINE__;
     }
-    ret = read_cfg_int(root, "depth_merge_max", &settings.depth_merge_max, false, 800);
+    ret = read_cfg_int(root, "depth_merge_max", &settings.depth_merge_max, false, 1000);
     if (ret < 0) {
         printf("load depth_merge_max fail: %d", ret);
         return -__LINE__;
