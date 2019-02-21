@@ -17,7 +17,7 @@
         "bind": "tcp@0.0.0.0:7801",
         "max_pkg_size": 10240
     },
-    "worker_num": 1,
+    "worker_num": 4,
     "matchengine": {
         "name": "matchengine",
         "addr": [

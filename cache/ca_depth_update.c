@@ -31,43 +31,43 @@ static void on_backend_connect(nw_ses *ses, bool result)
 
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
-    log_trace("recv depth pkg from: %s, sequence: %u", nw_sock_human_addr(&ses->peer_addr), pkg->sequence);
+    REPLY_TRACE_LOG(ses, pkg);
+
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
     if (entry == NULL) {
         return;
     }
-    struct state_data *state = entry->data;
     
+    struct state_data *state = entry->data;
     bool success = false;
-    json_t *reply = NULL;
+    ut_rpc_reply_t *rpc_reply = NULL;
     do {
-        reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
-        if (reply == NULL) {
+        rpc_reply = reply_load(pkg->body, pkg->body_size);
+        if (!reply_valid(rpc_reply)) {
+            REPLY_INVALID_LOG(ses, pkg);
             break;
         }
-        json_t *error = json_object_get(reply, "error");
-        if (!error) {
-            break;
-        }
-
-        json_t *result = json_object_get(reply, "result");
-        if (!result) {
+        if (!reply_ok(rpc_reply)) {
+            REPLY_ERROR_LOG(ses, pkg);
             break;
         }
         
-        depth_cache_set(state->market, state->interval, state->limit, result);
-        if (state->reply) {
-            reply_result(state->ses, &state->pkg, result);
+        if (pkg->command == CMD_ORDER_DEPTH) {
+            depth_cache_set(state->market, state->interval, state->limit, rpc_reply->result);
+            if (state->reply) {
+                reply_result(state->ses, &state->pkg, rpc_reply->result);
+            }
+            success = true;
+        } else {
+            log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
         }
-        success = true;
-    } while (0);
+    } while(0);
 
     if (!success) {
         reply_error_internal_error(state->ses, &state->pkg);
     }
-    if (reply) {
-        json_decref(reply);
-    }
+
+    reply_release(rpc_reply);
     nw_state_del(state_context, pkg->sequence);
 }
 

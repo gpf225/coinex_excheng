@@ -15,6 +15,7 @@ static rpc_clt *matchengine;
 static rpc_clt *marketprice;
 static rpc_clt *readhistory;
 static rpc_clt *monitorcenter;
+static rpc_clt **cache_worker_arr;
 
 struct state_info {
     nw_ses  *ses;
@@ -67,6 +68,20 @@ static void reply_time_out(nw_ses *ses, int64_t id)
     reply_error(ses, id, 5, "service timeout", 504);
 }
 
+static int get_cache_id(json_t *params)
+{
+    // market
+    if (!json_is_string(json_array_get(params, 0))) {
+        return 0;
+    }
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (market == NULL || strlen(market) == 0) {
+        return 0;
+    }
+    uint32_t hash = dict_generic_hash_function(market, strlen(market));
+    return hash % settings.cache_worker_num;
+}
+
 static int on_http_request(nw_ses *ses, http_request_t *request)
 {
     log_trace("new http request, url: %s, method: %u", request->url, request->method);
@@ -103,7 +118,12 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         reply_not_found(ses, json_integer_value(id));
     } else {
         struct request_info *req = entry->val;
-        if (!rpc_clt_connected(req->clt)) {
+        rpc_clt *clt = req->clt;
+        if (req->cmd == CMD_ORDER_DEPTH) {
+            clt = cache_worker_arr[get_cache_id(params)];
+        }
+
+        if (!rpc_clt_connected(clt)) {
             reply_internal_error(ses);
             json_decref(body);
             return 0;
@@ -125,9 +145,9 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         pkg.body      = json_dumps(params, 0);
         pkg.body_size = strlen(pkg.body);
 
-        rpc_clt_send(req->clt, &pkg);
+        rpc_clt_send(clt, &pkg);
         log_debug("send request to %s, cmd: %u, sequence: %u",
-                nw_sock_human_addr(rpc_clt_peer_addr(req->clt)), pkg.command, pkg.sequence);
+                nw_sock_human_addr(rpc_clt_peer_addr(clt)), pkg.command, pkg.sequence);
         free(pkg.body);
     }
 
@@ -286,7 +306,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.put_market", matchengine, CMD_ORDER_PUT_MARKET));
     ERR_RET_LN(add_handler("order.cancel", matchengine, CMD_ORDER_CANCEL));
     ERR_RET_LN(add_handler("order.book", matchengine, CMD_ORDER_BOOK));
-    ERR_RET_LN(add_handler("order.depth", matchengine, CMD_ORDER_DEPTH));
+    ERR_RET_LN(add_handler("order.depth", cache_worker_arr[0], CMD_ORDER_DEPTH));
     ERR_RET_LN(add_handler("order.pending", matchengine, CMD_ORDER_PENDING));
     ERR_RET_LN(add_handler("order.pending_detail", matchengine, CMD_ORDER_PENDING_DETAIL));
     ERR_RET_LN(add_handler("order.deals", readhistory, CMD_ORDER_DEALS));
@@ -317,6 +337,41 @@ static int init_methods_handler(void)
 
     ERR_RET_LN(add_handler("config.update_asset", matchengine, CMD_CONFIG_UPDATE_ASSET));
     ERR_RET_LN(add_handler("config.update_market", matchengine, CMD_CONFIG_UPDATE_MARKET));
+
+    return 0;
+}
+
+static int init_cache_clt(void)
+{
+    cache_worker_arr = malloc(sizeof(void *) * settings.cache_worker_num);
+    for (int i = 0; i < settings.cache_worker_num; ++i) {
+        sds name = sdsempty();
+        name = sdscatprintf(name, "cache_worker_%d", i);
+
+        rpc_clt_cfg cfg;
+        memset(&cfg, 0, sizeof(cfg));
+        cfg.name = name;
+        cfg.addr_count = 1;
+        cfg.addr_arr = malloc(sizeof(nw_addr_t));
+        memcpy(cfg.addr_arr, settings.cache.addr_arr, sizeof(nw_addr_t));
+        cfg.addr_arr->in.sin_port = htons(ntohs(cfg.addr_arr->in.sin_port) + i);
+        cfg.sock_type = settings.cache.sock_type;
+        cfg.max_pkg_size = 1000 * 1000;
+
+        rpc_clt_type ct;
+        memset(&ct, 0, sizeof(ct));
+        ct.on_connect = on_backend_connect;
+        ct.on_recv_pkg = on_backend_recv_pkg;
+        cache_worker_arr[i] = rpc_clt_create(&cfg, &ct);
+        if (cache_worker_arr[i] == NULL) {
+            return -__LINE__;
+        }
+        if (rpc_clt_start(cache_worker_arr[i]) < 0) {
+            return -__LINE__;
+        }
+
+        sdsfree(name);
+    }
 
     return 0;
 }
@@ -369,6 +424,11 @@ int init_server(void)
         return -__LINE__;
     if (rpc_clt_start(monitorcenter) < 0)
         return -__LINE__;
+
+    int ret = init_cache_clt();
+    if (ret != 0) {
+        return ret;
+    }
 
     svr = http_svr_create(&settings.svr, on_http_request);
     if (svr == NULL)

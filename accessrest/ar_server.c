@@ -825,6 +825,7 @@ static int init_cache_clt(void)
 
     return 0;
 }
+
 static int init_backend(void)
 {
     rpc_clt_type ct;

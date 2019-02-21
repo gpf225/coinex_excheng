@@ -50,6 +50,12 @@ int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
     return ret;
 }
 
+static int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
+{
+    profile_inc("error_invalid_argument", 1);
+    return reply_error(ses, pkg, 1, "invalid argument");
+}
+
 int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)
 {
     return reply_error(ses, pkg, 2, "internal error");
@@ -91,15 +97,15 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
     const char *market = json_string_value(json_array_get(params, 0));
     if (market == NULL) {
-        return reply_error_internal_error(ses, pkg);
+        return reply_error_invalid_argument(ses, pkg);
     }
     size_t limit = json_integer_value(json_array_get(params, 1));
     if (limit == 0) {
-        return reply_error_internal_error(ses, pkg);
+        return reply_error_invalid_argument(ses, pkg);
     }
     const char *interval = json_string_value(json_array_get(params, 2));
     if (interval == NULL) {
-        return reply_error_internal_error(ses, pkg);
+        return reply_error_invalid_argument(ses, pkg);
     }
    
     struct depth_cache_val *cache_val = depth_cache_get(market, interval, limit);

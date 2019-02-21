@@ -90,6 +90,8 @@ static void on_notify_subscribe(struct depth_key *key, struct depth_limit_val *l
 
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
+    REPLY_TRACE_LOG(ses, pkg);
+    
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
     if (entry == NULL) {
         return;

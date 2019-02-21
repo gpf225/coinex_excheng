@@ -165,6 +165,8 @@ static void on_state_update(const char *market, json_t *result)
 
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
+    REPLY_TRACE_LOG(ses, pkg);
+
     nw_state_entry *state_entry = nw_state_get(state_context, pkg->sequence);
     if (state_entry == NULL) {
         return;

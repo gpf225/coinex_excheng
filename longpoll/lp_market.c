@@ -118,6 +118,8 @@ void on_market_update(json_t *params)
 
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
+    REPLY_TRACE_LOG(ses, pkg);
+    
     ut_rpc_reply_t *rpc_reply = reply_load(pkg->body, pkg->body_size);
     if (rpc_reply == NULL) {
         log_fatal("reply_load returns NULL, system maybe lack memory");
