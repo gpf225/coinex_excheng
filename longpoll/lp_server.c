@@ -135,8 +135,8 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         const char *market = json_string_value(json_array_get(item, 0));
         const char *interval = json_string_value(json_array_get(item, 1));
         int limit = json_integer_value(json_array_get(item, 2));
-        if (limit > DEPTH_LIMIT_MAX) {
-            limit = DEPTH_LIMIT_MAX;
+        if (limit > settings.depth_limit_max) {
+            limit = settings.depth_limit_max;
         }
 
         int ret = depth_subscribe(ses, market, interval, limit);
@@ -159,7 +159,7 @@ static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *para
     }
 
     const char *interval = "0";
-    const int limit = DEPTH_LIMIT_MAX;
+    const int limit = settings.depth_limit_max;
 
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_market);
@@ -237,7 +237,7 @@ static int on_method_state_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_method_state_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    market_unsubscribe(ses);
+    state_unsubscribe(ses);
     return reply_success(ses, pkg);
 }
 

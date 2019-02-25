@@ -37,5 +37,6 @@
     "poll_state_interval":0.5,
     "poll_market_interval": 60.0,
     "statistic_interval":10.0,
-    "backend_timeout":1.0
+    "backend_timeout":1.0,
+    "depth_limit_max":50
 }

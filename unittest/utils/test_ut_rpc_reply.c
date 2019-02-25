@@ -1,6 +1,3 @@
-# ifndef _TEST_UT_RPC_REPLY_H_
-# define _TEST_UT_RPC_REPLY_H_
-
 # include "../../utils/ut_rpc_reply.h"
 # include <stdarg.h>
 # include <stddef.h>
@@ -306,5 +303,3 @@ int main()
     
     return run_tests(tests);  
 }
-
-# endif

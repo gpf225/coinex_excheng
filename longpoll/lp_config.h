@@ -42,7 +42,6 @@
 
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
-# define DEPTH_LIMIT_MAX        50
 
 struct settings{
     process_cfg         process;
@@ -58,7 +57,8 @@ struct settings{
     double poll_market_interval;
     double statistic_interval;
     double backend_timeout;
-    bool debug;
+    bool   debug;
+    int    depth_limit_max;
 };
 
 extern struct settings settings;

@@ -111,8 +111,6 @@ int main(int argc, char *argv[])
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
     }
 
-    dlog_set_no_shift(default_dlog);
-
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
     nw_timer_start(&cron_timer);
 
