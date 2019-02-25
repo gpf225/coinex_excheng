@@ -15,7 +15,6 @@ typedef struct ut_rpc_reply
     int id;
     int code;
     char *message;
-    json_t *error;
     json_t *result;
 
 } ut_rpc_reply_t;

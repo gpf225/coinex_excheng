@@ -35,7 +35,7 @@ static void depth_on_notify(struct depth_key *key, json_t *depth_data)
         json_object_set_new(reply, "interval", json_string(key->interval));
         json_object_set_new(reply, "limit", json_integer(key->limit));
         json_object_set    (reply, "data", depth_data);
-        
+
         nw_ses *ses = session_entry->key;
         notify_message(ses, CMD_LP_DEPTH_UPDATE, reply);
         json_decref(reply);

@@ -56,6 +56,69 @@ void test_depth_subscribe(void **state)
     fini_depth_sub();
 }
 
+void test_depth_subscribe_press(void **state)
+{
+    int ret = init_depth_sub();
+    assert_int_equal(ret, 0);
+
+    dict_t *depth_sub = depth_get_sub();
+    dict_t *depth_item = depth_get_item();
+    assert_int_equal(dict_size(depth_sub), 0);
+    assert_int_equal(dict_size(depth_item), 0);
+   
+    const int market_total = 100;
+    char *markets[100];
+    for (int i = 0; i < market_total; ++i) {
+        char buf[32] = {0};
+        snprintf(buf, sizeof(buf), "market_%d", i);
+        markets[i] = strdup(buf);
+    }
+    
+    const int ses_total = 100;
+    nw_ses *seses[100];
+    for (int i = 0; i < ses_total; ++i) {
+        seses[i] = new_ses();
+        printf("ses[%d]:%p\n", i, seses[i]);
+    }
+     
+    const char *interval = "0";
+    const int limit = 50;
+    for (int i = 0; i < ses_total; ++i) {
+        for (int j = 0; j < market_total; ++j) {
+            printf("ses:%p i:%d j:%d\n", seses[i], i, j);
+            depth_subscribe(seses[i], markets[j], interval, limit);
+        }
+    }
+
+    printf("depth_sub size:%u\n", dict_size(depth_sub));
+    printf("depth_item size:%u\n", dict_size(depth_item));
+
+    depth_unsubscribe_all(seses[2]);
+    depth_unsubscribe_all(seses[5]);
+
+    printf("depth_sub size:%u\n", dict_size(depth_sub));
+    printf("depth_item size:%u\n", dict_size(depth_item));
+    
+    dict_entry *entry = NULL;
+    dict_iterator *iter = dict_get_iterator(depth_sub);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct depth_val *val = entry->val;
+        dict_t *sessions = val->sessions;
+        struct depth_key *key = entry->key;
+        printf("market:%s sessions:%u\n", key->market, dict_size(sessions));
+    }
+    dict_release_iterator(iter);
+     
+    for (int i = 0; i < ses_total; ++i) {
+        free(seses[i]);
+    }
+
+    for (int i = 0; i < market_total; ++i) {
+        free(markets[i]);
+    }
+    fini_depth_sub();
+}
+
 void test_depth_unsubscribe(void **state)
 {
     int ret = init_depth_sub();
@@ -152,6 +215,7 @@ void test_depth_unsubscribe_all(void **state)
         assert_true(dict_find(sessions, ses2) != NULL);
         assert_true(dict_find(sessions, ses1) == NULL);
     }
+    dict_release_iterator(iter);
 
     assert_int_equal(depth_unsubscribe_all(ses2), 4);
     assert_int_equal(dict_size(depth_sub), 0);
@@ -164,13 +228,18 @@ void test_depth_unsubscribe_all(void **state)
 
 int main()
 {
+    
     const UnitTest tests[] = {  
         unit_test(test_depth_subscribe),
         unit_test(test_depth_unsubscribe),
-        unit_test(test_depth_unsubscribe_all)
+        unit_test(test_depth_unsubscribe_all),
+        unit_test(test_depth_subscribe_press)
     }; 
     
     return run_tests(tests);  
+    
+    //test_depth_subscribe_press(NULL);
+    //return 0;
 }
 
 # endif
