@@ -34,5 +34,6 @@
     "market_url": "http://192.168.0.6:8000/internal/exchange/market/list",
     "brokers": "127.0.0.1:9092",
     "slice_interval": 3600,
-    "slice_keeptime": 259200 
+    "slice_keeptime": 259200,
+    "depth_merge_max": 800 
 }
