@@ -500,3 +500,9 @@ size_t deals_subscribe_number(void)
     return count;
 }
 
+void fini_deals(void)
+{
+    dict_release(dict_market);
+    dict_release(dict_user);
+}
+

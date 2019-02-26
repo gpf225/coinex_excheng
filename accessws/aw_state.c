@@ -343,3 +343,9 @@ size_t state_subscribe_number(void)
 {
     return dict_size(dict_session);
 }
+
+void fini_state(void)
+{
+    dict_release(dict_market_state);
+    dict_release(dict_session);
+}

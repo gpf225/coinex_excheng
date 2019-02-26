@@ -37,8 +37,12 @@ static void depth_on_notify(struct depth_key *key, json_t *depth_data)
         json_object_set    (reply, "data", depth_data);
 
         nw_ses *ses = session_entry->key;
-        notify_message(ses, CMD_LP_DEPTH_UPDATE, reply);
+        int ret = notify_message(ses, CMD_LP_DEPTH_UPDATE, reply);
         json_decref(reply);
+        if (ret != 0) {
+            log_error("notify_message failed at ses:%p ret:%d", ses, ret);
+            break;
+        }
     }
     dict_release_iterator(iter);
 }

@@ -113,7 +113,7 @@ json_t* reply_get_result_json(int id, json_t *result)
 {
     json_t *reply = json_object();
     json_object_set_new(reply, "error", json_null());
-    json_object_set_new(reply, "result", result);
+    json_object_set    (reply, "result", result);
     json_object_set_new(reply, "id", json_integer(id));
 
     return reply;

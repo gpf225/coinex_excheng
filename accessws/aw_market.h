@@ -13,5 +13,6 @@ int init_market(void);
 bool market_exists(const char *market);
 json_t* get_market_array(void);
 dict_t* get_market(void);
+void fini_market(void);
 
 # endif

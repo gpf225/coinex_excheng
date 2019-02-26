@@ -64,5 +64,5 @@ struct settings{
 extern struct settings settings;
 
 int init_config(const char *path);
-
+void fini_config(void);
 # endif

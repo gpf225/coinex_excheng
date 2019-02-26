@@ -174,3 +174,8 @@ dict_t* get_market(void)
 {
     return dict_market;
 }
+
+void fini_market(void)
+{
+    dict_release(dict_market);
+}

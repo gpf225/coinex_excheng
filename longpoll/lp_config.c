@@ -81,3 +81,8 @@ int init_config(const char *path)
     
     return 0;
 }
+
+void fini_config(void)
+{
+    
+}

@@ -120,6 +120,7 @@ int main(int argc, char *argv[])
     log_vip("server stop");
 
     fini_depth_sub();
-
+    fini_state();
+    fini_market();
     return 0;
 }

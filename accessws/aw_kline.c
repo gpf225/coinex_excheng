@@ -327,3 +327,7 @@ size_t kline_subscribe_number(void)
     return count;
 }
 
+void fini_kline(void)
+{
+    dict_release(dict_kline);
+}

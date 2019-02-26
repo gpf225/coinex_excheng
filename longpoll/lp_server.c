@@ -30,10 +30,10 @@ static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
     reply.pkg_type = RPC_PKG_TYPE_REPLY;
     reply.body = message_data;
     reply.body_size = strlen(message_data);
-    rpc_send(ses, &reply);
+    int ret = rpc_send(ses, &reply);
     free(message_data);
 
-    return 0;
+    return ret;
 }
 
 static int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)

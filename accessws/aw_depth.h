@@ -14,5 +14,6 @@ int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char 
 int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char *interval);
 int depth_unsubscribe(nw_ses *ses);
 size_t depth_subscribe_number(void);
+void fini_depth(void);
 
 # endif

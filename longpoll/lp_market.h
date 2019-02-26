@@ -19,5 +19,5 @@ int market_unsubscribe(nw_ses *ses);
 void on_market_update(json_t *params);
 size_t market_subscribe_number(void);
 int market_send_last(nw_ses *ses);
-
+void fini_market(void);
 # endif

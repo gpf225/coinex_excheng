@@ -11,7 +11,6 @@
 
 static dict_t *dict_sub = NULL; 
 static dict_t *dict_market_state = NULL; 
-static json_t *last_full_result = NULL;
 
 static rpc_clt *marketprice = NULL;
 static nw_state *state_context;
@@ -83,20 +82,17 @@ static void notify_subscribers(void)
         return ;
     }
 
-    if (last_full_result != NULL) {
-        json_decref(last_full_result);
-    }
-    last_full_result = get_notify_full();
-
+    json_t *result = get_notify_full();
     int count = 0;
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_sub);
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
-        notify_message(ses, CMD_LP_STATE_UPDATE, last_full_result);
+        notify_message(ses, CMD_LP_STATE_UPDATE, result);
         ++count;
     }
     dict_release_iterator(iter);
+    json_decref(result);
  
     stat_state_update(count);
     return ;
@@ -274,13 +270,19 @@ int state_unsubscribe(nw_ses *ses)
 
 int state_send_last(nw_ses *ses)
 {
-    if (last_full_result != NULL) {
-        return notify_message(ses, CMD_LP_STATE_UPDATE, last_full_result);
-    }
-    return 0;
+    json_t *result = get_notify_full();
+    int ret = notify_message(ses, CMD_LP_STATE_UPDATE, result);
+    json_decref(result);
+    return ret;
 }
 
 size_t state_subscribe_number(void)
 {
     return dict_size(dict_sub);
+}
+
+void fini_state(void) 
+{
+    dict_release(dict_sub);
+    dict_release(dict_market_state);
 }

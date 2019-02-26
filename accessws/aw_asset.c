@@ -290,3 +290,8 @@ size_t asset_subscribe_number(void)
     return dict_size(dict_sub);
 }
 
+void fini_asset(void)
+{
+    dict_release(dict_sub);
+}
+

@@ -236,6 +236,7 @@ int depth_subscribe(nw_ses *ses, const char *market, const char *interval, uint3
         entry = dict_add(dict_depth_sub, &key, &val);
         if (entry == NULL) {
             log_fatal("dict_add failed, server maybe run in a dangerious way!!!");
+            dict_release(val.sessions);
             return -__LINE__;
         }
         depth_item_add(market, interval, limit);

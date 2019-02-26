@@ -255,3 +255,12 @@ bool market_exists(const char *market)
 {
     return (dict_find(dict_market, market) != NULL);
 }
+
+void fini_market(void)
+{
+    dict_release(dict_market);
+    dict_release(dict_sub);
+    if (last_market_info != NULL) {
+        json_decref(last_market_info);
+    }
+}
