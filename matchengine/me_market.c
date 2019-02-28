@@ -1076,6 +1076,9 @@ static bool check_fee_asset(mpd_t *trade_amount, mpd_t *balance, mpd_t *taker_fe
     mpd_set_string(multiplier, "1.1", &mpd_ctx);
 
     mpd_mul(fee_amount, trade_amount, taker_fee, &mpd_ctx);
+    if (fee_discount != NULL) {
+        mpd_mul(fee_amount, fee_amount, fee_discount, &mpd_ctx);
+    }
     mpd_mul(fee_amount, fee_amount, fee_discount, &mpd_ctx);
     mpd_mul(fee_amount, fee_amount, multiplier, &mpd_ctx);
 
