@@ -1079,7 +1079,6 @@ static bool check_fee_asset(mpd_t *trade_amount, mpd_t *balance, mpd_t *taker_fe
     if (fee_discount != NULL) {
         mpd_mul(fee_amount, fee_amount, fee_discount, &mpd_ctx);
     }
-    mpd_mul(fee_amount, fee_amount, fee_discount, &mpd_ctx);
     mpd_mul(fee_amount, fee_amount, multiplier, &mpd_ctx);
 
     mpd_t *total_amount = mpd_new(&mpd_ctx);
