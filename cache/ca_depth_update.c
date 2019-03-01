@@ -14,9 +14,6 @@ struct state_data {
     char market[MARKET_NAME_MAX_LEN];
     char interval[INTERVAL_MAX_LEN];
     uint32_t limit;
-    nw_ses *ses;
-    rpc_pkg pkg;
-    bool reply;
 };
 
 static void on_backend_connect(nw_ses *ses, bool result)
@@ -39,7 +36,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
     
     struct state_data *state = entry->data;
-    bool success = false;
     ut_rpc_reply_t *rpc_reply = NULL;
     do {
         rpc_reply = reply_load(pkg->body, pkg->body_size);
@@ -54,24 +50,16 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         
         if (pkg->command == CMD_ORDER_DEPTH) {
             depth_cache_set(state->market, state->interval, state->limit, rpc_reply->result);
-            if (state->reply) {
-                reply_result(state->ses, &state->pkg, rpc_reply->result);
-            }
-            success = true;
         } else {
             log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
         }
     } while(0);
 
-    if (!success) {
-        reply_error_internal_error(state->ses, &state->pkg);
-    }
-
     reply_release(rpc_reply);
     nw_state_del(state_context, pkg->sequence);
 }
 
-int depth_update(nw_ses *ses, rpc_pkg *ses_pkg, const char *market, const char *interval, uint32_t limit, bool reply)
+int depth_update(const char *market, const char *interval, uint32_t limit)
 {
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
@@ -83,12 +71,6 @@ int depth_update(nw_ses *ses, rpc_pkg *ses_pkg, const char *market, const char *
     strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
     strncpy(state->interval, interval, INTERVAL_MAX_LEN - 1);
     state->limit = limit;
-    state->reply = reply;
-    if (reply) {
-        state->ses = ses;
-        memset(&state->pkg, 0, sizeof(rpc_pkg));
-        memcpy(&state->pkg, ses_pkg, RPC_PKG_HEAD_SIZE);
-    }
     
     rpc_pkg req_pkg;
     memset(&req_pkg, 0, sizeof(req_pkg));

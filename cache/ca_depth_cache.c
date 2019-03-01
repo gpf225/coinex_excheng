@@ -6,9 +6,10 @@
 # include "ca_depth_cache.h"
 
 # define DEPTH_LIMIT_MAX_SIZE 32
+# define LIMIT_EXPIRE_FACTOR  4
 
-static double cache_timeout = 1.0;
-static int limit_exipre_time = 10.0;
+static int cache_timeout = 1000;
+static int limit_exipre_time = 4000;
 static dict_t *dict_cache;
 
 typedef struct depth_cache_key {
@@ -65,11 +66,12 @@ int depth_cache_set(const char *market, const char *interval, uint32_t limit, js
     if (entry == NULL) {
         struct depth_cache_val val;
         memset(&val, 0, sizeof(depth_cache_val));
-        val.time = current_timestamp();
+        val.time = current_millis();
         val.data = data;
         json_incref(val.data);
         val.limit = limit;
-        val.limit_last_hit_time = current_timestamp();
+        val.limit_last_hit_time = current_millis();
+        val.updating = false;
 
         if (dict_add(dict_cache, &key, &val) == NULL) {
             return -__LINE__;
@@ -79,10 +81,11 @@ int depth_cache_set(const char *market, const char *interval, uint32_t limit, js
     
     struct depth_cache_val *val = entry->val;
     val->limit = limit;
-    val->time = current_timestamp();
+    val->time = current_millis();
     json_decref(val->data);
     val->data = data;
     json_incref(val->data);
+    val->updating = false;
 
     return 0;
 }
@@ -105,7 +108,7 @@ depth_cache_val* depth_cache_get(const char *market, const char *interval, uint3
     }
 
     if (limit == val->limit) {
-        val->limit_last_hit_time = current_timestamp();
+        val->limit_last_hit_time = current_millis();
     } else if (limit > val->second_limit) {
         val->second_limit = limit;
     }
@@ -117,7 +120,7 @@ uint32_t depth_cache_get_update_limit(depth_cache_val *val, uint32_t limit)
 {
     assert(val->limit >= limit);
 
-    double cur = current_timestamp();
+    uint64_t cur = current_millis();
     if (cur - val->limit_last_hit_time < limit_exipre_time) {
         return val->limit;
     }
@@ -134,7 +137,7 @@ uint32_t depth_cache_get_update_limit(depth_cache_val *val, uint32_t limit)
     return limit;
 }
 
-int init_depth_cache(double timeout)
+int init_depth_cache(int timeout)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
@@ -151,7 +154,7 @@ int init_depth_cache(double timeout)
     }
 
     cache_timeout = timeout;
-    limit_exipre_time = 10.0 * cache_timeout;
+    limit_exipre_time = LIMIT_EXPIRE_FACTOR * cache_timeout;
     return 0;
 }
 

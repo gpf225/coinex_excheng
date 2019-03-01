@@ -38,6 +38,7 @@
 
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
+# define DEPTH_LIMIT_MAX_LEN    101
 
 struct settings {
     bool                debug;
@@ -49,7 +50,7 @@ struct settings {
     rpc_clt_cfg         matchengine;
     
     double              backend_timeout;
-    double              cache_timeout;
+    int                 cache_timeout;
 };
 
 extern struct settings settings;

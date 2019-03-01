@@ -26,5 +26,5 @@
         "max_pkg_size": 2000000
     },
     "backend_timeout": 1.0,
-    "cache_timeout": 0.5
+    "cache_timeout": 1000
 }

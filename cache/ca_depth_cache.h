@@ -24,13 +24,15 @@
 */
 typedef struct depth_cache_val {
     uint32_t limit;
-    double time;
+    uint64_t time;
     json_t *data;
-    double limit_last_hit_time;
+    uint64_t limit_last_hit_time;
     uint32_t second_limit;
+    bool updating;
+    uint64_t update_millis;
 }depth_cache_val;
 
-int init_depth_cache(double timeout);
+int init_depth_cache(int timeout);
 
 int depth_cache_set(const char *market, const char *interval, uint32_t limit, json_t *data);
 depth_cache_val* depth_cache_get(const char *market, const char *interval, uint32_t limit);

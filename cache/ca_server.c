@@ -6,6 +6,7 @@
 # include "ca_config.h"
 # include "ca_depth_cache.h"
 # include "ca_depth_update.h"
+# include "ca_depth_wait_queue.h"
 
 static rpc_svr *svr = NULL;
 
@@ -114,7 +115,29 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return 0;
     }
     
-    double now = current_timestamp();
+    uint64_t now = current_millis();
+    if ((now - cache_val->time) < settings.cache_timeout) {
+        json_t *reply_json = get_json(cache_val, limit);
+        reply_result(ses, pkg, reply_json);
+        json_decref(reply_json);
+        profile_inc("depth_cache", 1);
+        return 0;
+    }
+
+    depth_wait_queue_req_add(market, interval, limit, ses, pkg);
+    if (cache_val->updating) {
+        if (now - cache_val->update_millis < 200) {
+            return 0;
+        }
+        log_warn("%s-%s-%u not reply, update_millis:%"PRIu64" now:%"PRIu64, market, interval, limit, cache_val->update_millis, now);
+    }
+    cache_val->updating = true;
+    cache_val->update_millis = now;
+    limit = depth_cache_get_update_limit(cache_val, limit);
+    depth_update(ses, pkg, market, interval, limit, false);
+    profile_inc("depth_update", 1);
+    return 0;
+/*
     if ((now - cache_val->time) < (settings.cache_timeout * 2)) {
         json_t *reply_json = get_json(cache_val, limit);
         reply_result(ses, pkg, reply_json);
@@ -122,7 +145,8 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         profile_inc("depth_cache", 1);
 
         if ((now - cache_val->time) > settings.cache_timeout) {
-            cache_val->time = now;
+            //cache_val->time = now;
+            depth_wait_queue_add(market, interval, limit, ses, pkg);
             limit = depth_cache_get_update_limit(cache_val, limit);
             depth_update(ses, pkg, market, interval, limit, false);
             profile_inc("depth_update", 1);
@@ -135,6 +159,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
 
     return 0;
+*/
 }
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
