@@ -6,6 +6,7 @@
 # include "aw_config.h"
 # include "aw_server.h"
 # include "aw_auth.h"
+# include "aw_auth_sub.h"
 # include "aw_sign.h"
 # include "aw_kline.h"
 # include "aw_depth.h"
@@ -13,7 +14,9 @@
 # include "aw_deals.h"
 # include "aw_order.h"
 # include "aw_asset.h"
+# include "aw_asset_sub.h"
 # include "aw_common.h"
+# include "aw_sub_user.h"
 
 static ws_svr *svr;
 static dict_t *method_map;
@@ -129,6 +132,12 @@ int send_error_require_auth(nw_ses *ses, uint64_t id)
     return send_error(ses, id, 6, "require authentication");
 }
 
+int send_error_require_auth_sub(nw_ses *ses, uint64_t id)
+{
+    profile_inc("error_require_auth_sub", 1);
+    return send_error(ses, id, 7, "sub users require authentication");
+}
+
 int send_result(nw_ses *ses, uint64_t id, json_t *result)
 {
     json_t *reply = json_object();
@@ -186,6 +195,11 @@ static int on_method_server_time(nw_ses *ses, uint64_t id, struct clt_info *info
 static int on_method_server_auth(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     return send_auth_request(ses, id, info, params);
+}
+
+static int on_method_server_auth_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    return send_auth_sub_request(ses, id, info, params);
 }
 
 static int on_method_server_sign(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
@@ -685,6 +699,56 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
     return 0;
 }
 
+static int on_method_asset_query_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (json_array_size(params) != 2) {
+        return send_error_invalid_argument(ses, id);
+    }
+    if (!info->auth) {
+        return send_error_require_auth(ses, id);
+    }
+
+    if (!rpc_clt_connected(matchengine)) {
+        return send_error_internal_error(ses, id);
+    }
+
+    uint32_t sub_user_id = json_integer_value(json_array_get(params, 0));
+    if (!sub_user_has(info->user_id, ses, sub_user_id)) {
+        return send_error_require_auth_sub(ses, id);
+    }
+    json_t *asset_list = json_array_get(params, 1);
+    if (!json_is_null(asset_list) && !json_is_array(asset_list)) {
+        return send_error_invalid_argument(ses, id);
+    }
+
+    json_t *query_params = json_array();
+    json_array_append_new(query_params, json_integer(sub_user_id));
+    json_array_extend(query_params, asset_list);
+
+    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
+    struct state_data *state = entry->data;
+    state->ses = ses;
+    state->ses_id = ses->id;
+    state->request_id = id;
+
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
+    pkg.command   = CMD_ASSET_QUERY;
+    pkg.sequence  = entry->id;
+    pkg.req_id    = id;
+    pkg.body      = json_dumps(query_params, 0);
+    pkg.body_size = strlen(pkg.body);
+
+    rpc_clt_send(matchengine, &pkg);
+    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
+            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
+    free(pkg.body);
+    json_decref(query_params);
+
+    return 0;
+}
+
 static int on_method_asset_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
@@ -717,6 +781,43 @@ static int on_method_asset_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
     asset_unsubscribe(info->user_id, ses);
     return send_success(ses, id);
 }
+
+static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!info->auth) {
+        return send_error_require_auth(ses, id);
+    }
+
+    if (json_array_size(params) != 0) {
+        if (!sub_user_auth(info->user_id, ses, params)) {
+            return send_error_require_auth_sub(ses, id);
+        }
+
+        asset_unsubscribe_sub(ses);
+        asset_subscribe_sub(ses, params);
+        return send_success(ses, id);
+    }
+
+    json_t *sub_users = sub_user_get_sub_uses(info->user_id, ses);
+    if (sub_users == NULL) {
+        return send_error_require_auth_sub(ses, id);
+    }
+    
+    asset_unsubscribe_sub(ses);
+    asset_subscribe_sub(ses, sub_users);
+    json_decref(sub_users);
+    return send_success(ses, id);
+}
+
+static int on_method_asset_unsubscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!info->auth)
+        return send_error_require_auth(ses, id);
+
+    asset_unsubscribe_sub(ses);
+    return send_success(ses, id);
+}
+
 
 static int on_message(nw_ses *ses, const char *remote, const char *url, void *message, size_t size)
 {
@@ -795,6 +896,8 @@ static void on_close(nw_ses *ses, const char *remote)
     if (info->auth) {
         order_unsubscribe(info->user_id, ses);
         asset_unsubscribe(info->user_id, ses);
+        asset_unsubscribe_sub(ses);
+        sub_user_remove(info->user_id, ses);
     }
     profile_inc("connection_close", 1);
 }
@@ -898,6 +1001,7 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("server.ping",       on_method_server_ping));
     ERR_RET_LN(add_handler("server.time",       on_method_server_time));
     ERR_RET_LN(add_handler("server.auth",       on_method_server_auth));
+    ERR_RET_LN(add_handler("server.auth_sub",   on_method_server_auth_sub));
     ERR_RET_LN(add_handler("server.sign",       on_method_server_sign));
 
     ERR_RET_LN(add_handler("kline.query",       on_method_kline_query));
@@ -925,8 +1029,11 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("order.unsubscribe", on_method_order_unsubscribe));
 
     ERR_RET_LN(add_handler("asset.query",       on_method_asset_query));
+    ERR_RET_LN(add_handler("asset.query_sub",   on_method_asset_query_sub));
     ERR_RET_LN(add_handler("asset.subscribe",   on_method_asset_subscribe));
     ERR_RET_LN(add_handler("asset.unsubscribe", on_method_asset_unsubscribe));
+    ERR_RET_LN(add_handler("asset.subscribe_sub",   on_method_asset_subscribe_sub));
+    ERR_RET_LN(add_handler("asset.unsubscribe_sub", on_method_asset_unsubscribe_sub));
 
     return 0;
 }

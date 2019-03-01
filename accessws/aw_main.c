@@ -8,6 +8,7 @@
 # include "aw_server.h"
 # include "aw_http.h"
 # include "aw_auth.h"
+# include "aw_auth_sub.h"
 # include "aw_sign.h"
 # include "aw_kline.h"
 # include "aw_depth.h"
@@ -15,8 +16,10 @@
 # include "aw_deals.h"
 # include "aw_order.h"
 # include "aw_asset.h"
+# include "aw_asset_sub.h"
 # include "aw_message.h"
 # include "aw_listener.h"
+# include "aw_sub_user.h"
 
 const char *__process__ = "accessws";
 const char *__version__ = "0.1.0";
@@ -131,6 +134,10 @@ server:
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init auth fail: %d", ret);
     }
+    ret = init_auth_sub();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init auth sub fail: %d", ret);
+    }
     ret = init_sign();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init sing fail: %d", ret);
@@ -158,6 +165,14 @@ server:
     ret = init_asset();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init asset fail: %d", ret);
+    }
+    ret = init_asset_sub();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init asset sub fail: %d", ret);
+    }
+    ret = sub_user_init();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init sub_user_init fail: %d", ret);
     }
     ret = init_message();
     if (ret < 0) {
