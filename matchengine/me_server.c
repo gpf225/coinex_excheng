@@ -12,6 +12,7 @@
 # include "me_operlog.h"
 # include "me_history.h"
 # include "me_message.h"
+# include "me_asset_backup.h"
 
 static rpc_svr *svr;
 static dict_t *dict_cache;
@@ -433,6 +434,20 @@ static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
 
     int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
+static int on_cmd_asset_backup(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    json_t *result = json_object();
+    int ret = make_asset_backup(result);
+    if (ret < 0) {
+        json_decref(result);
+        return reply_error_internal_error(ses, pkg);
+    }
+
+    ret = reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -934,13 +949,20 @@ static json_t *get_depth(market_t *market, size_t limit)
     json_t *asks = json_array();
     skiplist_iter *iter = skiplist_get_iterator(market->asks);
     skiplist_node *node = skiplist_next(iter);
+    int count = 1;
     size_t index = 0;
     while (node && index < limit) {
+        if (count > settings.depth_merge_max) {
+            break;
+        }
         index++;
         order_t *order = node->value;
         mpd_copy(price, order->price, &mpd_ctx);
         mpd_copy(amount, order->left, &mpd_ctx);
         while ((node = skiplist_next(iter)) != NULL) {
+            if (++count > settings.depth_merge_max) {
+                break;
+            }
             order = node->value;
             if (mpd_cmp(price, order->price, &mpd_ctx) == 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
@@ -958,13 +980,20 @@ static json_t *get_depth(market_t *market, size_t limit)
     json_t *bids = json_array();
     iter = skiplist_get_iterator(market->bids);
     node = skiplist_next(iter);
+    count = 1;
     index = 0;
     while (node && index < limit) {
+        if (count > settings.depth_merge_max) {
+            break;
+        }
         index++;
         order_t *order = node->value;
         mpd_copy(price, order->price, &mpd_ctx);
         mpd_copy(amount, order->left, &mpd_ctx);
         while ((node = skiplist_next(iter)) != NULL) {
+            if (++count > settings.depth_merge_max) {
+                break;
+            }
             order = node->value;
             if (mpd_cmp(price, order->price, &mpd_ctx) == 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
@@ -1002,8 +1031,12 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
     json_t *asks = json_array();
     skiplist_iter *iter = skiplist_get_iterator(market->asks);
     skiplist_node *node = skiplist_next(iter);
+    size_t count = 1;
     size_t index = 0;
     while (node && index < limit) {
+        if (count > settings.depth_merge_max) {
+            break;
+        }
         index++;
         order_t *order = node->value;
         mpd_divmod(q, r, order->price, interval, &mpd_ctx);
@@ -1013,6 +1046,9 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         }
         mpd_copy(amount, order->left, &mpd_ctx);
         while ((node = skiplist_next(iter)) != NULL) {
+            if (++count > settings.depth_merge_max) {
+                break;
+            }
             order = node->value;
             if (mpd_cmp(price, order->price, &mpd_ctx) >= 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
@@ -1030,14 +1066,21 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
     json_t *bids = json_array();
     iter = skiplist_get_iterator(market->bids);
     node = skiplist_next(iter);
+    count = 1;
     index = 0;
     while (node && index < limit) {
+        if (count > settings.depth_merge_max) {
+            break;
+        }
         index++;
         order_t *order = node->value;
         mpd_divmod(q, r, order->price, interval, &mpd_ctx);
         mpd_mul(price, q, interval, &mpd_ctx);
         mpd_copy(amount, order->left, &mpd_ctx);
         while ((node = skiplist_next(iter)) != NULL) {
+            if (++count > settings.depth_merge_max) {
+                break;
+            }
             order = node->value;
             if (mpd_cmp(price, order->price, &mpd_ctx) <= 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
@@ -1630,6 +1673,17 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_asset_query_lock(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_query_lock %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_BACKUP:
+        if (!is_service_availablce()) {
+            reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
+        profile_inc("cmd_asset_backup", 1);
+        ret = on_cmd_asset_backup(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_backup %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_PUT_LIMIT:
