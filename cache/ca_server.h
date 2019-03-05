@@ -11,6 +11,7 @@ int init_server(int work_id);
 int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result);
 int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message);
 int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg);
+int notify_message(nw_ses *ses, int command, json_t *message);
 
 # endif
 

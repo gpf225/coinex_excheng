@@ -1,10 +1,10 @@
 /*
  * Description: 
- *     History: zhoumugui@viabtc.com, 2019/02/27, create
+ *     History: zhoumugui@viabtc.com, 2019/03/01, create
  */
 
-# include "ca_depth_wait_queue.h"
-# include "ca_common.h"
+# include "ar_depth_wait_queue.h"
+# include "ar_depth_common.h"
 
 static dict_t *depth_wait_queue = NULL;
 
@@ -35,7 +35,7 @@ static dict_t *dict_create_wait_session(void)
     dt.key_compare = dict_ses_hash_compare;
     dt.val_destructor = depth_depth_wait_list_free;
 
-    return dict_create(&dt, 32);
+    return dict_create(&dt, 1024);
 }
 
 static void *list_depth_wait_item_dup(void *val)
@@ -72,7 +72,7 @@ static list_t *create_depth_item_list(void)
     return list_create(&type);
 }
 
-int depth_wait_queue_add(const char *market, const char *interval, uint32_t limit, nw_ses *ses, uint32_t sequence, rpc_pkg *pkg)
+int depth_wait_queue_add(const char *market, const char *interval, uint32_t limit, nw_ses *ses, uint32_t sequence)
 {
     struct depth_key key;
     depth_set_key(&key, market, interval, 0);    
@@ -109,7 +109,6 @@ int depth_wait_queue_add(const char *market, const char *interval, uint32_t limi
     memset(&item, 0, sizeof(struct depth_wait_item));
     item.limit = limit;
     item.sequence = sequence;
-    memcpy(&item.pkg, pkg, RPC_PKG_HEAD_SIZE);
     if (list_find(list, &item) != NULL) {
         return 0;
     }
@@ -200,4 +199,15 @@ void fini_depth_wait_queue(void)
 {
     dict_release(depth_wait_queue);
 }
+
+
+
+
+
+
+
+
+
+
+
 

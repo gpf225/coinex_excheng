@@ -4,98 +4,74 @@
  */
 
 # include "ca_depth_cache.h"
+# include "ca_common.h"
 
 # define DEPTH_LIMIT_MAX_SIZE 32
-# define LIMIT_EXPIRE_FACTOR  4
 
 static int cache_timeout = 1000;
-static int limit_exipre_time = 4000;
 static dict_t *dict_cache;
 
-typedef struct depth_cache_key {
-    char market[MARKET_NAME_MAX_LEN];
-    char interval[INTERVAL_MAX_LEN];
-}depth_cache_key;
-
-static uint32_t dict_depth_cache_key_hash_func(const void *key)
+static struct depth_cache_val *depth_cache_val_create(void)
 {
-    return dict_generic_hash_function(key, sizeof(struct depth_cache_key));
+    struct depth_cache_val *val = malloc(sizeof(struct depth_cache_val));
+    if (val == NULL) {
+        return NULL;
+    }
+    memset(val, 0, sizeof(struct depth_cache_val));
+    val->limits = depth_limit_list_create();
+    if (val->limits == NULL) {
+        free(val);
+        return NULL;
+    }
+    return val;
 }
 
-static int dict_depth_cache_key_compare(const void *key1, const void *key2)
-{
-    return memcmp(key1, key2, sizeof(struct depth_cache_key));
-}
-
-static void *dict_depth_cache_key_dup(const void *key)
-{
-    struct depth_cache_key *obj = malloc(sizeof(struct depth_cache_key));
-    memcpy(obj, key, sizeof(struct depth_cache_key));
-    return obj;
-}
-
-static void dict_depth_cache_key_free(void *key)
-{
-    free(key);
-}
-
-static void *dict_depth_cache_val_dup(const void *val)
-{
-    struct depth_cache_val *obj = malloc(sizeof(struct depth_cache_val));
-    memcpy(obj, val, sizeof(struct depth_cache_val));
-    return obj;
-}
-
-static void dict_depth_cache_val_free(void *val)
+static void depth_cache_val_free(void *val)
 {
     struct depth_cache_val *obj = val;
     if (obj->data != NULL) {
         json_decref(obj->data);
     }
+    depth_limit_list_free(obj->limits);
     free(obj);
 }
 
 int depth_cache_set(const char *market, const char *interval, uint32_t limit, json_t *data)
 {
-    depth_cache_key key;
-    memset(&key, 0, sizeof(depth_cache_key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(key.interval, interval, INTERVAL_MAX_LEN - 1);
+    struct depth_key key;
+    depth_set_key(&key, market, interval, 0);
 
     dict_entry *entry = dict_find(dict_cache, &key);
     if (entry == NULL) {
-        struct depth_cache_val val;
-        memset(&val, 0, sizeof(depth_cache_val));
-        val.time = current_millis();
-        val.data = data;
-        json_incref(val.data);
-        val.limit = limit;
-        val.limit_last_hit_time = current_millis();
-        val.updating = false;
-
-        if (dict_add(dict_cache, &key, &val) == NULL) {
+        struct depth_cache_val *val = depth_cache_val_create();
+        if (val == NULL) {
             return -__LINE__;
         }
+
+        if (dict_add(dict_cache, &key, val) == NULL) {
+            depth_cache_val_free(val);
+            return -__LINE__;
+        }
+        depth_limit_list_add(val->limits, limit, current_timestamp());
         return 0;
     }
     
     struct depth_cache_val *val = entry->val;
-    val->limit = limit;
-    val->time = current_millis();
-    json_decref(val->data);
+    if (val->data != NULL) {
+        json_decref(val->data);
+    }
     val->data = data;
     json_incref(val->data);
-    val->updating = false;
+    val->limit = limit;
+    val->time = current_millis();
 
     return 0;
 }
 
 depth_cache_val* depth_cache_get(const char *market, const char *interval, uint32_t limit)
 {
-    depth_cache_key key;
-    memset(&key, 0, sizeof(depth_cache_key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(key.interval, interval, INTERVAL_MAX_LEN - 1);
+    struct depth_key key;
+    depth_set_key(&key, market, interval, 0);
 
     dict_entry *entry = dict_find(dict_cache, &key);
     if (entry == NULL) {
@@ -103,50 +79,64 @@ depth_cache_val* depth_cache_get(const char *market, const char *interval, uint3
     }
 
     depth_cache_val *val = entry->val;
+    depth_limit_list_reset(val->limits, limit, current_timestamp());
     if (limit > val->limit) {
         return NULL;
     }
 
-    if (limit == val->limit) {
-        val->limit_last_hit_time = current_millis();
-    } else if (limit > val->second_limit) {
-        val->second_limit = limit;
-    }
-
+    uint64_t now = current_millis();
+    if (now - val->time >= cache_timeout) {
+        return NULL;
+    } 
+    val->ttl = now - val->time - cache_timeout;
     return val;
 }
 
-uint32_t depth_cache_get_update_limit(depth_cache_val *val, uint32_t limit)
+uint32_t depth_cache_get_update_limit(const char *market, const char *interval, uint32_t limit)
 {
-    assert(val->limit >= limit);
+    struct depth_key key;
+    depth_set_key(&key, market, interval, 0);
 
-    uint64_t cur = current_millis();
-    if (cur - val->limit_last_hit_time < limit_exipre_time) {
-        return val->limit;
+    dict_entry *entry = dict_find(dict_cache, &key);
+    if (entry == NULL) {
+        return limit;
     }
 
-    if (val->second_limit >= limit) {
-        val->limit = val->second_limit;
-        val->second_limit = limit;
-        val->limit_last_hit_time = cur;
-        return val->limit;
+    depth_cache_val *val = entry->val;
+    uint32_t max_limit = 0;
+    while (1) {
+        max_limit = depth_limit_list_max(val->limits);
+        if (max_limit == 0) {
+            break; 
+        }
+        uint32_t last_time = depth_limit_list_get(val->limits, max_limit);
+        uint32_t now = current_timestamp();
+        uint32_t diff = now - last_time;
+        if (diff < 3) {
+            // 当某个limit在3秒内有被访问，符合要求
+            break;
+        } else if (diff > 5) {
+            // 当某个limit选项连续5秒都未有请求来到时，从limit列表移除
+            depth_limit_list_remove(val->limits, max_limit);
+        }
+    }
+
+    if (limit > max_limit) {
+        return limit;
     }
     
-    val->limit = limit;
-    val->limit_last_hit_time = cur;
-    return limit;
+    return max_limit;
 }
 
 int init_depth_cache(int timeout)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_depth_cache_key_hash_func;
-    dt.key_compare = dict_depth_cache_key_compare;
-    dt.key_dup = dict_depth_cache_key_dup;
-    dt.key_destructor = dict_depth_cache_key_free;
-    dt.val_dup = dict_depth_cache_val_dup;
-    dt.val_destructor = dict_depth_cache_val_free;
+    dt.hash_function = dict_depth_key_hash_func;
+    dt.key_compare = dict_depth_key_compare;
+    dt.key_dup = dict_depth_key_dup;
+    dt.key_destructor = dict_depth_key_free;
+    dt.val_destructor = depth_cache_val_free;
 
     dict_cache = dict_create(&dt, 256);
     if (dict_cache == NULL) {
@@ -154,7 +144,6 @@ int init_depth_cache(int timeout)
     }
 
     cache_timeout = timeout;
-    limit_exipre_time = LIMIT_EXPIRE_FACTOR * cache_timeout;
     return 0;
 }
 

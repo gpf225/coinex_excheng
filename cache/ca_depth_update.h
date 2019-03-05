@@ -9,6 +9,6 @@
 # include "ca_config.h"
 
 int init_depth_update(void);
-int depth_update(const char *market, const char *interval, uint32_t limit);
+int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval, uint32_t limit);
 
 # endif

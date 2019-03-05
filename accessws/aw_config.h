@@ -68,6 +68,7 @@ struct settings {
     rpc_clt_cfg         marketprice;
     rpc_clt_cfg         readhistory;
     rpc_clt_cfg         longpoll;
+    rpc_clt_cfg         cache;
 
     kafka_consumer_cfg  deals;
     kafka_consumer_cfg  stops;

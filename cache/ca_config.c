@@ -43,6 +43,7 @@ static int read_config_from_json(json_t *root)
     
     ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 4));
     ERR_RET_LN(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
+    ERR_RET_LN(read_cfg_real(root, "poll_depth_interval", &settings.poll_depth_interval, false, 0.5));
     ERR_RET_LN(read_cfg_int(root, "cache_timeout", &settings.cache_timeout, false, 1000));
 
     return 0;

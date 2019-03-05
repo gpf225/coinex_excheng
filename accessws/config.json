@@ -50,6 +50,13 @@
         ],
         "max_pkg_size": 2000000
     },
+    "cache": {
+        "name": "cache",
+        "addr": [
+            "tcp@127.0.0.1:7801"
+        ],
+        "max_pkg_size": 2000000
+    },
     "deals": {
         "brokers": "127.0.0.1:9092",
         "topic": "deals",

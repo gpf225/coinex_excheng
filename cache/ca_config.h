@@ -50,6 +50,7 @@ struct settings {
     rpc_clt_cfg         matchengine;
     
     double              backend_timeout;
+    double              poll_depth_interval;
     int                 cache_timeout;
 };
 

@@ -6,7 +6,6 @@
 # include "ca_config.h"
 # include "ca_depth_cache.h"
 # include "ca_depth_update.h"
-# include "ca_depth_wait_queue.h"
 
 static rpc_svr *svr = NULL;
 
@@ -75,6 +74,15 @@ int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     return ret;
 }
 
+int notify_message(nw_ses *ses, int command, json_t *message)
+{
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.command = command;
+
+    return reply_result(ses, &pkg, message);
+}
+
 static json_t* get_json(struct depth_cache_val *cache_val, size_t limit)
 {
     json_t *depth_data = cache_val->data;
@@ -110,13 +118,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
    
     struct depth_cache_val *cache_val = depth_cache_get(market, interval, limit);
-    if (cache_val == NULL) {
-        depth_update(ses, pkg, market, interval, limit, true);
-        return 0;
-    }
-    
-    uint64_t now = current_millis();
-    if ((now - cache_val->time) < settings.cache_timeout) {
+    if (cache_val != NULL) {
         json_t *reply_json = get_json(cache_val, limit);
         reply_result(ses, pkg, reply_json);
         json_decref(reply_json);
@@ -124,42 +126,8 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return 0;
     }
 
-    depth_wait_queue_req_add(market, interval, limit, ses, pkg);
-    if (cache_val->updating) {
-        if (now - cache_val->update_millis < 200) {
-            return 0;
-        }
-        log_warn("%s-%s-%u not reply, update_millis:%"PRIu64" now:%"PRIu64, market, interval, limit, cache_val->update_millis, now);
-    }
-    cache_val->updating = true;
-    cache_val->update_millis = now;
-    limit = depth_cache_get_update_limit(cache_val, limit);
-    depth_update(ses, pkg, market, interval, limit, false);
-    profile_inc("depth_update", 1);
+    depth_update(ses, pkg, market, interval, limit);
     return 0;
-/*
-    if ((now - cache_val->time) < (settings.cache_timeout * 2)) {
-        json_t *reply_json = get_json(cache_val, limit);
-        reply_result(ses, pkg, reply_json);
-        json_decref(reply_json);
-        profile_inc("depth_cache", 1);
-
-        if ((now - cache_val->time) > settings.cache_timeout) {
-            //cache_val->time = now;
-            depth_wait_queue_add(market, interval, limit, ses, pkg);
-            limit = depth_cache_get_update_limit(cache_val, limit);
-            depth_update(ses, pkg, market, interval, limit, false);
-            profile_inc("depth_update", 1);
-        }
-    } else { 
-        limit = depth_cache_get_update_limit(cache_val, limit);
-        depth_update(ses, pkg, market, interval, limit, true);
-        profile_inc("depth_update", 1);
-        return 0;
-    }
-
-    return 0;
-*/
 }
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)

@@ -26,5 +26,6 @@
         "max_pkg_size": 2000000
     },
     "backend_timeout": 1.0,
+    "poll_depth_interval":0.5,
     "cache_timeout": 1000
 }
