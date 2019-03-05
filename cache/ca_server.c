@@ -6,6 +6,8 @@
 # include "ca_config.h"
 # include "ca_depth_cache.h"
 # include "ca_depth_update.h"
+# include "ca_depth_sub.h"
+# include "ca_common.h"
 
 static rpc_svr *svr = NULL;
 
@@ -83,20 +85,15 @@ int notify_message(nw_ses *ses, int command, json_t *message)
     return reply_result(ses, &pkg, message);
 }
 
-static json_t* get_json(struct depth_cache_val *cache_val, size_t limit)
+static int reply_success(nw_ses *ses, rpc_pkg *pkg)
 {
-    json_t *depth_data = cache_val->data;
-    json_t *new_data = json_array();
-    int size = json_array_size(depth_data) > limit ? limit : json_array_size(depth_data);
-    for (int i = 0; i < size; ++i) {
-        json_t *unit = json_array_get(depth_data, i);
-        json_array_append(new_data, unit);
-    }
+    json_t *result = json_object();
+    json_object_set_new(result, "status", json_string("success"));
 
-    json_object_set(new_data, "last", json_object_get(depth_data, "last"));
-    json_object_set(new_data, "time", json_object_get(depth_data, "time"));
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
 
-    return new_data;
+    return ret;
 }
 
 static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -108,7 +105,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (market == NULL) {
         return reply_error_invalid_argument(ses, pkg);
     }
-    size_t limit = json_integer_value(json_array_get(params, 1));
+    uint32_t limit = json_integer_value(json_array_get(params, 1));
     if (limit == 0) {
         return reply_error_invalid_argument(ses, pkg);
     }
@@ -119,16 +116,88 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
    
     struct depth_cache_val *cache_val = depth_cache_get(market, interval, limit);
     if (cache_val != NULL) {
-        json_t *reply_json = get_json(cache_val, limit);
+        json_t *reply_json = depth_get_result_rest(cache_val->data, cache_val->limit, limit, cache_val->ttl);
         reply_result(ses, pkg, reply_json);
         json_decref(reply_json);
         profile_inc("depth_cache", 1);
         return 0;
     }
-
+    
+    limit = depth_cache_get_update_limit(market, interval, limit);
     depth_update(ses, pkg, market, interval, limit);
     return 0;
 }
+
+static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    size_t params_len = json_array_size(params);
+    if (params_len < 1) {
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    for (size_t i = 0; i < params_len; ++i) {
+        json_t *item = json_array_get(params, i);
+        const char *market = json_string_value(json_array_get(item, 0));
+        const char *interval = json_string_value(json_array_get(item, 1));
+        const int limit = json_integer_value(json_array_get(item, 2));
+
+        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || limit <= 0 || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+            log_warn("market[%s] interval[%s] limit[%d] not valid, can not been subscribed", market, interval, limit);
+            return reply_error_invalid_argument(ses, pkg);
+        }
+    }
+
+    for (size_t i = 0; i < params_len; ++i) {
+        json_t *item = json_array_get(params, i);
+        const char *market = json_string_value(json_array_get(item, 0));
+        const char *interval = json_string_value(json_array_get(item, 1));
+        int limit = json_integer_value(json_array_get(item, 2));
+        int ret = depth_subscribe(ses, market, interval, limit);
+        if (ret != 0) {
+            log_warn("subscribe %s-%s-%d failed.", market, interval, limit);
+            continue;  // 忽略该错误，继续执行
+        }
+    }
+
+    return reply_success(ses, pkg);
+}
+
+static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    size_t params_len = json_array_size(params);
+    if (params_len < 1) {
+        depth_unsubscribe_all(ses);
+        return reply_success(ses, pkg);
+    }
+
+    for (size_t i = 0; i < params_len; ++i) {
+        json_t *item = json_array_get(params, i);
+        const char *market = json_string_value(json_array_get(item, 0));
+        const char *interval = json_string_value(json_array_get(item, 1));
+        const int limit = json_integer_value(json_array_get(item, 2));
+
+        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || limit <= 0 || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+            log_warn("market[%s] interval[%s] limit[%d] not valid, can not been subscribed", market, interval, limit);
+            return reply_error_invalid_argument(ses, pkg);
+        }
+    }
+
+    for (size_t i = 0; i < params_len; ++i) {
+        json_t *item = json_array_get(params, i);
+        const char *market = json_string_value(json_array_get(item, 0));
+        const char *interval = json_string_value(json_array_get(item, 1));
+        const int limit = json_integer_value(json_array_get(item, 2));
+
+        int ret = depth_unsubscribe(ses, market, interval, limit);
+        if (ret != 0) {
+            log_warn("unsubscribe %s-%s-%d failed.", market, interval, limit);
+            continue;  // 忽略该错误，继续执行
+        }
+    }
+
+    return reply_success(ses, pkg);
+}
+
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
@@ -150,6 +219,18 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_order_depth(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_depth %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_LP_DEPTH_SUBSCRIBE:    
+        ret = on_method_depth_subscribe(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_method_depth_subscribe fail: %d", ret);
+        }
+        break;  
+    case CMD_LP_DEPTH_UNSUBSCRIBE:    
+        ret = on_method_depth_unsubscribe(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_method_depth_unsubscribe fail: %d", ret);
         }
         break;
     default:
@@ -176,18 +257,8 @@ static void svr_on_connection_close(nw_ses *ses)
     log_trace("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
 }
 
-int init_server(int worker_id)
+int init_server(void)
 {
-    if (settings.svr.bind_count != 1) {
-        return -__LINE__;
-    }
-
-    nw_svr_bind *bind_arr = settings.svr.bind_arr;
-    if (bind_arr->addr.family != AF_INET) {
-        return -__LINE__;
-    }
-    bind_arr->addr.in.sin_port = htons(ntohs(bind_arr->addr.in.sin_port) + worker_id);
-
     rpc_svr_type type;
     memset(&type, 0, sizeof(type));
     type.on_recv_pkg = svr_on_recv_pkg;

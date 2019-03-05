@@ -6,7 +6,7 @@
 # ifndef _RH_SERVER_H_
 # define _RH_SERVER_H_
 
-int init_server(int work_id);
+int init_server(void);
 
 int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result);
 int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message);

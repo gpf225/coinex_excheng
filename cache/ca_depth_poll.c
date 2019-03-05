@@ -7,7 +7,7 @@
 # include "ca_depth_sub.h"
 # include "ca_depth_cache.h"
 # include "ca_depth_update.h"
-# include "ca_depth_sub.h"
+# include "ca_depth_wait_queue.h"
 # include "ca_server.h"
 # include "ca_common.h"
 
@@ -94,7 +94,8 @@ static void on_poll_depth(nw_timer *timer, void *privdata)
             depth_sub_handle(key->market, key->interval, cache_val->data,  cache_val->limit);
             continue;
         }
-
+        
+        limit = depth_cache_get_update_limit(key->market, key->interval, limit);
         depth_update(NULL, NULL, key->market, key->interval, limit);
     }
     dict_release_iterator(iter);

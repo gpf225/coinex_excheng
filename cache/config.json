@@ -17,7 +17,6 @@
         "bind": "tcp@0.0.0.0:7801",
         "max_pkg_size": 10240
     },
-    "worker_num": 4,
     "matchengine": {
         "name": "matchengine",
         "addr": [
@@ -26,6 +25,6 @@
         "max_pkg_size": 2000000
     },
     "backend_timeout": 1.0,
-    "poll_depth_interval":0.5,
+    "poll_depth_interval":1.0,
     "cache_timeout": 1000
 }

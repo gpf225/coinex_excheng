@@ -62,11 +62,6 @@ static json_t* generate_depth_data(json_t *array, int limit) {
 
 json_t *depth_get_result(json_t *result, uint32_t limit, uint32_t target_limit)
 {
-    if (target_limit >= limit) {
-        json_incref(result);
-        return result;
-    }
-
     json_t *asks_array = json_object_get(result, "asks");
     json_t *bids_array = json_object_get(result, "bids");
 
