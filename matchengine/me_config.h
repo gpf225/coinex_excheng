@@ -89,6 +89,9 @@ struct settings {
     int                 history_thread;
     int                 depth_merge_max;
     double              cache_timeout;
+
+    char               *usdc_assets[32];
+    int                 usdc_assets_num;
 };
 
 extern struct settings settings;
