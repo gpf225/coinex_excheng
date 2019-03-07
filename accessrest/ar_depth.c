@@ -72,6 +72,8 @@ static void longpoll_subscribe_depth(void)
     
     static uint32_t sequence = 0;
     json_t *params = json_array();
+    json_array_append_new(params, json_string("0"));
+    json_array_append_new(params, json_integer(1));
     
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
@@ -230,4 +232,9 @@ json_t* depth_get_json(const char *market, int limit)
     json_object_set    (new_depth_data, "time", json_object_get(val->data, "time"));
 
     return new_depth_data;
+}
+
+void fini_depth(void)
+{
+    dict_release(dict_depth);
 }

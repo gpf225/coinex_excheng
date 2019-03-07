@@ -3,7 +3,7 @@
  *     History: zhoumugui@viabtc.com, 2019/02/28, create
  */
 
-# include "ar_depth_common.h"
+# include "ar_common.h"
 
 uint32_t dict_depth_key_hash_func(const void *key)
 {

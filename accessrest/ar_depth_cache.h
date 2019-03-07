@@ -15,10 +15,10 @@ typedef struct depth_cache_val {
 }depth_cache_val;
 
 int init_depth_cache();
+void fini_depth_cache(void);
 
 int depth_cache_set(const char *market, const char *interval, uint32_t limit, uint32_t ttl, json_t *data);
 
 struct depth_cache_val *depth_cache_get(const char *market, const char *interval, uint32_t limit);
-void fini_depth_cache(void);
 
 # endif

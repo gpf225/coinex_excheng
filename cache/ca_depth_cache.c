@@ -28,7 +28,7 @@ static void dict_depth_cache_val_free(void *val)
     free(obj);
 }
 
-int depth_cache_set(const char *market, const char *interval, uint32_t limit, json_t *data)
+struct depth_cache_val* depth_cache_set(const char *market, const char *interval, uint32_t limit, json_t *data)
 {
     struct depth_key key;
     depth_set_key(&key, market, interval, 0);
@@ -36,27 +36,34 @@ int depth_cache_set(const char *market, const char *interval, uint32_t limit, js
     if (entry == NULL) {
         struct depth_cache_val val;
         memset(&val, 0, sizeof(depth_cache_val));
-        val.time = current_millis();
-        val.data = data;
-        json_incref(val.data);
-        val.limit = limit;
-        val.limit_last_hit_time = val.time;
-
-        if (dict_add(dict_cache, &key, &val) == NULL) {
-            return -__LINE__;
+        val.limit_last_hit_time = current_millis();
+    
+        entry = dict_add(dict_cache, &key, &val);
+        if (entry == NULL) {
+            return NULL;
         }
-        return 0;
     }
 
+    uint64_t now = current_millis();
     struct depth_cache_val *val = entry->val;
-    json_decref(val->data);
+    if (val->limit > limit) {
+        if (val->time + cache_timeout > now) {
+            return val;
+        }
+    }
+    
+    if (val->data != NULL) {
+        json_decref(val->data);
+    }
+    
     val->data = data;
     json_incref(val->data);
 
     val->limit = limit;
-    val->time = current_millis();
+    val->time = now;
+    val->ttl = cache_timeout;
     
-    return 0;
+    return val;
 }
 
 depth_cache_val* depth_cache_get(const char *market, const char *interval, uint32_t limit)
@@ -78,10 +85,10 @@ depth_cache_val* depth_cache_get(const char *market, const char *interval, uint3
         val->limit_last_hit_time = now;
     }
 
-    if (now - val->time > cache_timeout) {
+    if (now - val->time >= cache_timeout) {
         return NULL;
     } 
-    val->ttl = now - val->time - cache_timeout;
+    val->ttl = val->time + cache_timeout - now;
 
     if (limit > val->second_limit) {
         val->second_limit = limit;
@@ -101,6 +108,9 @@ uint32_t depth_cache_get_update_limit(const char *market, const char *interval, 
     
     uint64_t now = current_millis();
     depth_cache_val *val = entry->val;
+    if (limit >= val->limit) {
+        return limit;
+    }
     if (now - val->limit_last_hit_time < DEPTH_LIMIT_EXPIRE_TIME) {
         return val->limit;
     }

@@ -4,7 +4,7 @@
  */
 
 # include "lp_depth_sub.h"
-# include "lp_common_struct.h"
+# include "lp_common.h"
 
 static dict_t *dict_depth_sub = NULL;  // map: depth_key => depth_val
 static dict_t *dict_depth_item = NULL; // map: depth_key => depth_limit_val
@@ -101,8 +101,8 @@ static dict_t* dict_create_depth_session(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = common_ses_hash_func;
-    dt.key_compare = common_ses_compare;
+    dt.hash_function = dict_ses_hash_func;
+    dt.key_compare = dict_ses_compare;
     return dict_create(&dt, 16);
 }
 

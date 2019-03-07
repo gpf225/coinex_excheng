@@ -250,3 +250,8 @@ json_t *get_market_ticker_all(void)
 
     return data;
 }
+
+void fini_ticker(void)
+{
+    dict_release(dict_state);
+}

@@ -9,6 +9,7 @@
 # include "ar_config.h"
 
 int init_depth(void);
+void fini_depth(void);
 json_t* depth_get_json(const char *market, int limit);
 
 # endif

@@ -135,9 +135,6 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         const char *market = json_string_value(json_array_get(item, 0));
         const char *interval = json_string_value(json_array_get(item, 1));
         int limit = json_integer_value(json_array_get(item, 2));
-        if (limit > settings.depth_limit_max) {
-            limit = settings.depth_limit_max;
-        }
 
         int ret = depth_subscribe(ses, market, interval, limit);
         if (ret != 0) {
@@ -151,6 +148,9 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
+    if (json_array_size(params) != 2) {
+        return reply_error_invalid_argument(ses, pkg);
+    }
     dict_t *dict_market = get_market();
     if (dict_size(dict_market) == 0) {
         log_warn("market does not prepared, please try later");
@@ -158,8 +158,12 @@ static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *para
         return 0;
     }
 
-    const char *interval = "0";
-    const int limit = settings.depth_limit_max;
+    const char *interval = json_string_value(json_array_get(params, 0));
+    const int limit = json_integer_value(json_array_get(params, 1));
+    if (limit <= 0 || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+        log_warn("interval[%s] limit[%d] not valid, can not been subscribed", interval, limit);
+        return reply_error_invalid_argument(ses, pkg);
+    }
 
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_market);

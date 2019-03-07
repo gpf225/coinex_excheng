@@ -4,7 +4,7 @@
  */
 
 # include "ar_depth_cache.h"
-# include "ar_depth_common.h"
+# include "ar_common.h"
 
 # define DEPTH_LIMIT_MAX_SIZE 32
 
@@ -35,8 +35,9 @@ int depth_cache_set(const char *market, const char *interval, uint32_t limit, ui
     if (entry == NULL) {
         struct depth_cache_val val;
         memset(&val, 0, sizeof(struct depth_cache_val));
-
-        if (dict_add(dict_cache, &key, &val) == NULL) {
+        
+        entry = dict_add(dict_cache, &key, &val);
+        if (entry == NULL) {
             return -__LINE__;
         }
     }
@@ -50,7 +51,6 @@ int depth_cache_set(const char *market, const char *interval, uint32_t limit, ui
     json_incref(val->data);
     val->limit = limit;
     val->expire_time = current_millis() + ttl;
-    json_incref(result);
 
     return 0;
 }

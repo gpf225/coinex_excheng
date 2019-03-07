@@ -4,7 +4,7 @@
  */
 
 # include "ar_depth_wait_queue.h"
-# include "ar_depth_common.h"
+# include "ar_common.h"
 
 static dict_t *depth_wait_queue = NULL;
 
@@ -142,6 +142,9 @@ int depth_wait_queue_remove(const char *market, const char *interval, uint32_t l
         return 0;
     }
     list_del(list, node);
+    if (list_len(list) == 0) {
+        dict_delete(val->dict_wait_session, ses);
+    }
     return 1;
 }
 

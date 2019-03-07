@@ -8,6 +8,9 @@
 # include "ca_depth_update.h"
 # include "ca_depth_sub.h"
 # include "ca_common.h"
+# include "ca_statistic.h"
+# include "ca_depth_wait_queue.h"
+# include "ca_depth_sub.h"
 
 static rpc_svr *svr = NULL;
 
@@ -22,7 +25,8 @@ static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
     if (message_data == NULL) {
         return -__LINE__;
     }
-    log_trace("connection: %s send: %s", nw_sock_human_addr(&ses->peer_addr), message_data);
+    //log_trace("connection: %s send: %s", nw_sock_human_addr(&ses->peer_addr), message_data);
+    log_trace("reply to connection: %s.", nw_sock_human_addr(&ses->peer_addr));
 
     rpc_pkg reply;
     memcpy(&reply, pkg, sizeof(reply));
@@ -96,7 +100,7 @@ static int reply_success(nw_ses *ses, rpc_pkg *pkg)
     return ret;
 }
 
-static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params, bool is_rest)
 {
     if (json_array_size(params) != 3) {
         return reply_error_internal_error(ses, pkg);
@@ -114,17 +118,30 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
     }
    
+    stat_depth_req();
     struct depth_cache_val *cache_val = depth_cache_get(market, interval, limit);
     if (cache_val != NULL) {
-        json_t *reply_json = depth_get_result_rest(cache_val->data, cache_val->limit, limit, cache_val->ttl);
+        json_t *reply_json = NULL;
+        if (is_rest) {
+            reply_json = depth_get_result_rest(cache_val->data, cache_val->limit, limit, cache_val->ttl);
+        } else {
+            reply_json = depth_get_result(cache_val->data, cache_val->limit, limit);
+        }
+        
         reply_result(ses, pkg, reply_json);
         json_decref(reply_json);
         profile_inc("depth_cache", 1);
+        stat_depth_cached();
+        log_trace("%s-%s-%u hit cache, ttl:%"PRIu64, market, interval, limit, cache_val->ttl);
         return 0;
     }
     
-    limit = depth_cache_get_update_limit(market, interval, limit);
-    depth_update(ses, pkg, market, interval, limit);
+    if (is_rest) {
+        depth_update_rest(ses, pkg, market, interval, limit);
+    } else {
+        depth_update_http(ses, pkg, market, interval, limit);
+    }
+    
     return 0;
 }
 
@@ -216,9 +233,16 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     switch (pkg->command) {
     case CMD_ORDER_DEPTH:
         profile_inc("on_cmd_order_depth", 1);
-        ret = on_cmd_order_depth(ses, pkg, params);
+        ret = on_cmd_order_depth(ses, pkg, params, false);
         if (ret < 0) {
             log_error("on_cmd_order_depth %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ORDER_DEPTH_REST:
+        profile_inc("on_cmd_order_depth_rest", 1);
+        ret = on_cmd_order_depth(ses, pkg, params, true);
+        if (ret < 0) {
+            log_error("on_cmd_order_depth_rest %s fail: %d", params_str, ret);
         }
         break;
     case CMD_LP_DEPTH_SUBSCRIBE:    
@@ -255,6 +279,8 @@ static void svr_on_new_connection(nw_ses *ses)
 static void svr_on_connection_close(nw_ses *ses)
 {
     log_trace("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
+    depth_wait_queue_remove_all(ses);
+    depth_unsubscribe_all(ses);
 }
 
 int init_server(void)

@@ -67,6 +67,11 @@ struct settings {
 
     int                 worker_num;
     int                 cache_worker_num;
+    int                 kline_max;
+    int                 kline_default;
+    int                 deal_default;
+    int                 depth_limit_max;
+    int                 depth_limit_default;
     double              backend_timeout;
     double              cache_timeout;
     double              state_interval;

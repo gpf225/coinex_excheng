@@ -9,7 +9,8 @@
 # include "ar_depth.h"
 # include "ar_depth_cache.h"
 # include "ar_depth_update.h"
-# include "ar_depth_common.h"
+# include "ar_common.h"
+# include "ar_statistic.h" 
 
 static http_svr *svr;
 static rpc_clt *listener;
@@ -286,20 +287,21 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     if (!is_good_merge(merge))
         return reply_invalid_params(ses);
 
-    int limit = 20;
+    int limit = settings.depth_limit_default;
     entry = dict_find(params, "limit");
     if (entry) {
         limit = atoi(entry->val);
         if (!is_good_limit(limit)) {
-            limit = 20;
+            limit = settings.depth_limit_default;
         }
     }
-
+    stat_depth_req();
     struct depth_cache_val *val = depth_cache_get(market, merge, limit);
     if (val != NULL) {
         json_t *new_result = depth_get_result(val->data, val->limit, limit);
         reply_json(ses, new_result, NULL);
         json_decref(new_result);
+        stat_depth_cached();
         return 0;
     } 
     
@@ -365,7 +367,7 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_string(market));
-    json_array_append_new(query_params, json_integer(1000));
+    json_array_append_new(query_params, json_integer(settings.deal_default));
     json_array_append_new(query_params, json_integer(last_id));
 
     rpc_pkg pkg;
@@ -430,12 +432,12 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     char *market = entry->val;
     strtoupper(market);
 
-    int limit = 1000;
+    int limit = settings.kline_default;
     entry = dict_find(params, "limit");
     if (entry) {
         limit = atoi(entry->val);
         if (limit <= 0) {
-            limit = 1000;
+            limit = settings.kline_default;
         }
     }
 

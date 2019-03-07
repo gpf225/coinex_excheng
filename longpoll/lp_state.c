@@ -4,7 +4,7 @@
  */
 
 # include "lp_state.h"
-# include "lp_common_struct.h"
+# include "lp_common.h"
 # include "lp_market.h"
 # include "lp_server.h"
 # include "lp_statistic.h"
@@ -44,10 +44,10 @@ static int init_dict_market_state(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = common_str_hash_func;
-    dt.key_dup        = common_str_const_dup;
-    dt.key_destructor = common_str_free;
-    dt.key_compare    = common_str_compare;
+    dt.hash_function  = dict_str_hash_func;
+    dt.key_dup        = dict_str_dup;
+    dt.key_destructor = dict_str_free;
+    dt.key_compare    = dict_str_compare;
     dt.val_dup        = dict_market_state_val_dup;
     dt.val_destructor = dict_market_state_val_free;
 
@@ -219,7 +219,7 @@ int init_state(void)
     if (ret < 0) {
         return ret;
     }
-    dict_sub = common_create_ses_dict(16);
+    dict_sub = create_ses_dict(16);
     if (dict_sub == NULL) {
         return -__LINE__;
     }

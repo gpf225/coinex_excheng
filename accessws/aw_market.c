@@ -5,7 +5,7 @@
 
 # include "aw_market.h"
 # include "aw_http.h"
-# include "aw_common_struct.h"
+# include "aw_common.h"
 
 static dict_t *dict_market = NULL;
 static rpc_clt *longpoll = NULL;
@@ -14,10 +14,10 @@ static int init_dict_market()
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = common_str_hash_func;
-    dt.key_dup        = common_str_const_dup;
-    dt.key_destructor = common_str_free;
-    dt.key_compare    = common_str_compare;
+    dt.hash_function  = dict_str_hash_func;
+    dt.key_dup        = dict_str_dup;
+    dt.key_destructor = dict_str_free;
+    dt.key_compare    = dict_str_compare;
 
     dict_market = dict_create(&dt, 64);
     if (dict_market == NULL) {

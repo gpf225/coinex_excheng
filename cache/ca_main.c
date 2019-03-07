@@ -6,7 +6,10 @@
 # include "ca_depth_cache.h"
 # include "ca_depth_update.h"
 # include "ca_depth_wait_queue.h"
+# include "ca_depth_sub.h"
+# include "ca_depth_poll.h"
 # include "ca_server.h"
+# include "ca_statistic.h"
 
 # include "ut_title.h"
 
@@ -66,7 +69,6 @@ int main(int argc, char *argv[])
         printf("process: %s exist\n", __process__);
         exit(EXIT_FAILURE);
     }
-    process_title_init(argc, argv);
 
     int ret;
     ret = init_mpd();
@@ -100,6 +102,18 @@ int main(int argc, char *argv[])
     ret = init_depth_wait_queue();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init depth wait queue fail: %d", ret);
+    }
+    ret = init_depth_sub();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init depth sub fail: %d", ret);
+    }
+    ret = init_depth_poll();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init depth poll fail: %d", ret);
+    }
+    ret = init_statistic();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init statistic fail: %d", ret);
     }
     ret = init_server();
     if (ret < 0) {

@@ -72,7 +72,7 @@ static list_t *create_depth_item_list(void)
     return list_create(&type);
 }
 
-int depth_wait_queue_add(const char *market, const char *interval, uint32_t limit, nw_ses *ses, uint32_t sequence, rpc_pkg *pkg)
+int depth_wait_queue_add(const char *market, const char *interval, uint32_t limit, nw_ses *ses, uint32_t sequence, rpc_pkg *pkg, int wait_type)
 {
     struct depth_key key;
     depth_set_key(&key, market, interval, 0);    
@@ -109,6 +109,7 @@ int depth_wait_queue_add(const char *market, const char *interval, uint32_t limi
     memset(&item, 0, sizeof(struct depth_wait_item));
     item.limit = limit;
     item.sequence = sequence;
+    item.wait_type = wait_type;
     memcpy(&item.pkg, pkg, RPC_PKG_HEAD_SIZE);
     if (list_find(list, &item) != NULL) {
         return 0;
@@ -143,6 +144,9 @@ int depth_wait_queue_remove(const char *market, const char *interval, uint32_t l
         return 0;
     }
     list_del(list, node);
+    if (list_len(list) == 0) {
+        dict_delete(val->dict_wait_session, ses);
+    }
     return 1;
 }
 

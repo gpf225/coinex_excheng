@@ -337,4 +337,9 @@ json_t *get_market_list(void)
     return data;
 }
 
+void fini_market(void)
+{
+    dict_release(dict_market);
+}
+
 

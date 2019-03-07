@@ -7,7 +7,7 @@
 # include "aw_market.h"
 # include "aw_state.h"
 # include "aw_server.h"
-# include "aw_common_struct.h"
+# include "aw_common.h"
 
 static dict_t *dict_market_state;
 static dict_t *dict_session;
@@ -37,10 +37,10 @@ static int init_dict_market_state(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = common_str_hash_func;
-    dt.key_dup        = common_str_const_dup;
-    dt.key_destructor = common_str_free;
-    dt.key_compare    = common_str_compare;
+    dt.hash_function  = dict_str_hash_func;
+    dt.key_dup        = dict_str_dup;
+    dt.key_destructor = dict_str_free;
+    dt.key_compare    = dict_str_compare;
     dt.val_dup        = dict_market_val_dup;
     dt.val_destructor = dict_market_val_free;
 
@@ -63,8 +63,8 @@ static int init_dict_session(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = common_ses_hash_func;
-    dt.key_compare    = common_ses_compare;
+    dt.hash_function  = dict_ses_hash_func;
+    dt.key_compare    = dict_ses_compare;
     dt.val_destructor = dict_list_val_free;
 
     dict_session = dict_create(&dt, 64);
@@ -121,7 +121,7 @@ static void notify_state(void)
     dict_iterator *iter = dict_get_iterator(dict_session);
     while ((entry = dict_next(iter)) != NULL) {
         if (entry->val == NULL) {
-            if (full_result == NULL)
+            if (full_result == NULL) 
                 full_result = get_notify_full(last_notify);
             result = full_result;
         } else {
@@ -292,7 +292,7 @@ int state_subscribe(nw_ses *ses, json_t *market_list)
         return 0;
     }
 
-    list_t *list = common_create_str_list();
+    list_t *list = create_str_list();
     if (list == NULL)
         return -__LINE__;
     for (size_t i = 0; i < json_array_size(market_list); ++i) {

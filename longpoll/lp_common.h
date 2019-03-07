@@ -1,13 +1,12 @@
 /*
  * Description: 
- *     History: zhoumugui@viabtc.com, 2018/12/27, create
+ *     History: zhoumugui@viabtc.com, 2019/01/28, create
  */
 
-# ifndef _AW_COMMON_H_
-# define _AW_COMMON_H_
+# ifndef _LP_COMMON_H_
+# define _LP_COMMON_H_
 
-# include "aw_config.h"
-# include <stdbool.h>
+# include "lp_config.h"
 
 uint32_t dict_ses_hash_func(const void *key);
 int      dict_ses_compare(const void *key1, const void *key2);
@@ -23,12 +22,4 @@ dict_t*  create_ses_dict(uint32_t init_size);
 list_t*  create_str_list(void);
 
 
-bool is_good_limit(int limit);
-bool is_good_interval(const char *interval);
-bool is_good_market(const char *market);
-
-bool is_empty_string(const char *str);
-
-
 # endif
-

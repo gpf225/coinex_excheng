@@ -13,6 +13,20 @@
 
 static dict_t *dict_notified_ses = NULL;
 static nw_timer update_timer;
+static uint32_t batchNo = 0;
+
+static bool is_json_equal(json_t *lhs, json_t *rhs)
+{
+    if (lhs == NULL || rhs == NULL) {
+        return false;
+    }
+    char *lhs_str = json_dumps(lhs, JSON_SORT_KEYS);
+    char *rhs_str = json_dumps(rhs, JSON_SORT_KEYS);
+    int ret = strcmp(lhs_str, rhs_str);
+    free(lhs_str);
+    free(rhs_str);
+    return ret == 0;
+}
 
 static int depth_notify_sub(const char *market, const char *interval, uint32_t limit, json_t *result, uint32_t result_limit)
 {
@@ -24,8 +38,24 @@ static int depth_notify_sub(const char *market, const char *interval, uint32_t l
         return 0;
     }
 
-    json_t *reply_result = depth_get_result(result, result_limit, limit);
     struct depth_sub_val *val = entry->val;
+    if (val->batchNo == batchNo) {
+        return 0;
+    }
+    val->batchNo = batchNo;
+
+    json_t *reply_result = depth_get_result(result, result_limit, limit);
+    if (is_json_equal(val->last, reply_result)) {
+        json_decref(reply_result);
+        return 0;
+    }
+
+    if (val->last != NULL) {
+        json_decref(val->last);
+        val->last = reply_result;
+        json_incref(val->last);
+    }
+
     dict_iterator *iter = dict_get_iterator(val->sessions);
     while ( (entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
@@ -37,7 +67,7 @@ static int depth_notify_sub(const char *market, const char *interval, uint32_t l
         json_object_set_new(reply, "market", json_string(market));
         json_object_set_new(reply, "interval", json_string(interval));
         json_object_set_new(reply, "limit", json_integer(limit));
-        json_object_set_new(reply, "data", reply_result);
+        json_object_set    (reply, "data", reply_result);
 
         int ret = notify_message(ses, CMD_LP_DEPTH_UPDATE, reply);
         json_decref(reply);
@@ -48,6 +78,8 @@ static int depth_notify_sub(const char *market, const char *interval, uint32_t l
         dict_add(dict_notified_ses, ses, NULL);
     }
     dict_release_iterator(iter);
+    json_decref(reply_result);
+
     return 0;
 }
 
@@ -81,7 +113,8 @@ static void on_poll_depth(nw_timer *timer, void *privdata)
         log_info("no depth subscribers.");
         return ;
     }
-
+    
+    ++batchNo;
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(depth_item);
     while ( (entry = dict_next(iter)) != NULL) {
@@ -95,8 +128,7 @@ static void on_poll_depth(nw_timer *timer, void *privdata)
             continue;
         }
         
-        limit = depth_cache_get_update_limit(key->market, key->interval, limit);
-        depth_update(NULL, NULL, key->market, key->interval, limit);
+        depth_update_sub(key->market, key->interval, limit);
     }
     dict_release_iterator(iter);
 }

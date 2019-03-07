@@ -9,6 +9,7 @@
 # include "ar_config.h"
 
 int init_market(void);
+void fini_market(void);
 
 json_t* get_market_info_list(void);
 

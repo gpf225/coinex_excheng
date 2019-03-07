@@ -10,10 +10,10 @@
 
 # include "ca_config.h"
 
-# define DEPTH_LIMIT_MAX_SIZE 32
-
 struct depth_sub_val {
     dict_t *sessions; 
+    uint32_t batchNo;
+    json_t *last;
 };
 
 /* 

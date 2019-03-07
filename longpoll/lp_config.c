@@ -45,13 +45,11 @@ static int read_config_from_json(json_t *root)
     ERR_RET(read_cfg_real(root, "poll_depth_interval", &settings.poll_depth_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "poll_state_interval", &settings.poll_state_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "poll_market_interval", &settings.poll_market_interval, false, 60.0));
-    ERR_RET(read_cfg_real(root, "statistic_interval", &settings.statistic_interval, false, 10.0));
+    ERR_RET(read_cfg_real(root, "statistic_interval", &settings.statistic_interval, false, 60.0));
 
     ERR_RET(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 5));
     ERR_RET(read_cfg_bool(root, "debug", &settings.debug, false, true));
-    ERR_RET(read_cfg_int(root, "depth_limit_max", &settings.depth_limit_max, false, 50));
     
-    log_stderr("poll_depth_interval:%f poll_state_interval:%f", settings.poll_depth_interval, settings.poll_state_interval);
     return 0;
 }
 

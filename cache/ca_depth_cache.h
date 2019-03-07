@@ -33,7 +33,7 @@ typedef struct depth_cache_val {
 
 int init_depth_cache(int timeout);
 
-int depth_cache_set(const char *market, const char *interval, uint32_t limit, json_t *data);
+struct depth_cache_val* depth_cache_set(const char *market, const char *interval, uint32_t limit, json_t *data);
 depth_cache_val* depth_cache_get(const char *market, const char *interval, uint32_t limit);
 uint32_t depth_cache_get_update_limit(const char *market, const char *interval, uint32_t limit);
 

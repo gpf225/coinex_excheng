@@ -96,6 +96,13 @@ static int read_config_from_json(json_t *root)
     
     ERR_RET(read_cfg_int(root, "cache_worker_num", &settings.cache_worker_num, false, 4));
     ERR_RET(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));
+
+    ERR_RET(read_cfg_int(root, "kline_max",            &settings.kline_max,            false, 1000));
+    ERR_RET(read_cfg_int(root, "kline_default",        &settings.kline_default,        false, 100));
+    ERR_RET(read_cfg_int(root, "deal_default",         &settings.deal_default,         false, 100));
+    ERR_RET(read_cfg_int(root, "depth_limit_max",      &settings.depth_limit_max,      false, 50));
+    ERR_RET(read_cfg_int(root, "depth_limit_default",  &settings.depth_limit_default,  false, 20));
+
     ERR_RET(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
     ERR_RET(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.5));
     ERR_RET(read_cfg_real(root, "state_interval", &settings.state_interval, false, 0.5));
