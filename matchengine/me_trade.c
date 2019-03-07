@@ -118,13 +118,31 @@ json_t *get_market_last_info(void)
     return result;
 }
 
+static bool need_convert(const char *asset)
+{
+    for (int i = 0; i < settings.usdc_assets_num; ++i) {
+        if (strcmp(asset, settings.usdc_assets[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 mpd_t *get_fee_price(market_t *m, const char *asset)
 {
     if (strcmp(asset, m->money) == 0) {
         return mpd_one;
     }
+    
     char name[100];
-    snprintf(name, sizeof(name), "%s%s", asset, m->money);
+    if (strcmp(asset, "CET") == 0) {
+        if (need_convert(m->money)) {
+            snprintf(name, sizeof(name), "%s%s", asset, "USDC");
+        }
+    } else {
+        snprintf(name, sizeof(name), "%s%s", asset, m->money);
+    }
+    
     market_t *m_fee = get_market(name);
     if (m_fee == NULL)
         return NULL;
