@@ -94,6 +94,19 @@ static int read_config_from_json(json_t *root)
     ERR_RET(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET(read_depth_merge_cfg(root, "depth_merge"));
 
+    ERR_RET(read_cfg_int(root, "depth_limit_default", &settings.depth_limit_default, false, 20));
+    ERR_RET(read_cfg_int(root, "kline_max",     &settings.kline_max,     false, 1000));
+    ERR_RET(read_cfg_int(root, "kline_default", &settings.kline_default, false, 100));
+    ERR_RET(read_cfg_int(root, "deal_max",      &settings.deal_max,      false, 1000));
+    ERR_RET(read_cfg_int(root, "deal_default",  &settings.deal_default,  false, 100));
+
+    if (settings.kline_default > settings.kline_max) {
+        return -__LINE__;
+    }
+    if (settings.deal_default > settings.deal_max) {
+        return -__LINE__;
+    }
+
     return 0;
 }
 

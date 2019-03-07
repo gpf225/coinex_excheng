@@ -71,6 +71,12 @@ struct settings {
     depth_merge_cfg     depth_merge;
     
     char                *market_url;
+    
+    int                 depth_limit_default;
+    int                 kline_max;
+    int                 kline_default;
+    int                 deal_max;
+    int                 deal_default;
 };
 
 extern struct settings settings;
