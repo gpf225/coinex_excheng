@@ -379,7 +379,7 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
 
     bool is_reply = false;
     sds cache_key = sdsempty();
-    cache_key = sdscatprintf(cache_key, "market_deals_%s_%d", market, last_id);
+    cache_key = sdscatprintf(cache_key, "market_deals_%s_%d_%d", market, limit, last_id);
     double now = current_timestamp();
     struct cache_val *cache_val = get_cache(cache_key);
     if (cache_val) {
