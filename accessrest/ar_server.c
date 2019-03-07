@@ -278,12 +278,12 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     if (!is_good_merge(merge))
         return reply_invalid_params(ses);
 
-    int limit = 20;
+    int limit = settings.depth_limit_default;
     entry = dict_find(params, "limit");
     if (entry) {
         limit = atoi(entry->val);
         if (!is_good_limit(limit)) {
-            limit = 20;
+            limit = settings.depth_limit_default;
         }
     }
 
@@ -366,9 +366,20 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
         }
     }
 
+    int limit = settings.deal_default;
+    entry = dict_find(params, "limit");
+    if (entry) {
+        limit = atoi(entry->val);
+        if (limit <= 0) {
+            limit = settings.deal_default;
+        } else if (limit > settings.deal_max) {
+            limit = settings.deal_default;
+        }
+    }
+
     bool is_reply = false;
     sds cache_key = sdsempty();
-    cache_key = sdscatprintf(cache_key, "market_deals_%s_%d", market, last_id);
+    cache_key = sdscatprintf(cache_key, "market_deals_%s_%d_%d", market, limit, last_id);
     double now = current_timestamp();
     struct cache_val *cache_val = get_cache(cache_key);
     if (cache_val) {
@@ -406,7 +417,7 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_string(market));
-    json_array_append_new(query_params, json_integer(1000));
+    json_array_append_new(query_params, json_integer(limit));
     json_array_append_new(query_params, json_integer(last_id));
 
     rpc_pkg pkg;
@@ -471,12 +482,14 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     char *market = entry->val;
     strtoupper(market);
 
-    int limit = 1000;
+    int limit = settings.kline_default;
     entry = dict_find(params, "limit");
     if (entry) {
         limit = atoi(entry->val);
         if (limit <= 0) {
-            limit = 1000;
+            limit = settings.kline_default;
+        } else if (limit > settings.kline_max) {
+            limit = settings.kline_default;
         }
     }
 
