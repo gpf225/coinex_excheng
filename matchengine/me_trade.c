@@ -138,6 +138,8 @@ mpd_t *get_fee_price(market_t *m, const char *asset)
     if (strcmp(asset, "CET") == 0) {
         if (need_convert(m->money)) {
             snprintf(name, sizeof(name), "%s%s", asset, "USDC");
+        } else {
+            snprintf(name, sizeof(name), "%s%s", asset, m->money);
         }
     } else {
         snprintf(name, sizeof(name), "%s%s", asset, m->money);
