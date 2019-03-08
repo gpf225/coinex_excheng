@@ -24,6 +24,6 @@ int dict_ses_hash_compare(const void *key1, const void *key2);
 
 void depth_set_key(struct depth_key *key, const char *market, const char *interval, uint32_t limit);
 
-json_t *depth_get_result(json_t *result, uint32_t limit, uint32_t target_limit);
+json_t *depth_get_result(json_t *result, uint32_t limit);
 
 # endif

@@ -7,7 +7,6 @@
 # include "ca_depth_update.h"
 # include "ca_depth_wait_queue.h"
 # include "ca_depth_sub.h"
-# include "ca_depth_poll.h"
 # include "ca_server.h"
 # include "ca_statistic.h"
 
@@ -106,10 +105,6 @@ int main(int argc, char *argv[])
     ret = init_depth_sub();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init depth sub fail: %d", ret);
-    }
-    ret = init_depth_poll();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init depth poll fail: %d", ret);
     }
     ret = init_statistic();
     if (ret < 0) {

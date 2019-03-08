@@ -14,10 +14,6 @@ static dict_t *dict_depth_update_queue = NULL;
 static rpc_clt *cache = NULL;
 static nw_state *state_context = NULL;
 
-typedef struct depth_req_val {
-    uint32_t limit;
-}depth_req_val;
-
 struct state_data {
     char market[MARKET_NAME_MAX_LEN];
     char interval[INTERVAL_MAX_LEN];
@@ -25,18 +21,6 @@ struct state_data {
     nw_ses *ses;
     uint64_t ses_id;
 };
-
-static void *dict_depth_req_val_dup(const void *val)
-{
-    struct depth_req_val *obj = malloc(sizeof(struct depth_req_val));
-    memcpy(obj, val, sizeof(struct depth_req_val));
-    return obj;
-}
-
-static void dict_depth_req_val_free(void *val)
-{
-    free(val);
-}
 
 static int init_depth_update_queue(void)
 {
@@ -46,8 +30,6 @@ static int init_depth_update_queue(void)
     dt.key_compare = dict_depth_key_compare;
     dt.key_dup = dict_depth_key_dup;
     dt.key_destructor = dict_depth_key_free;
-    dt.val_dup = dict_depth_req_val_dup;
-    dt.val_destructor = dict_depth_req_val_free;
 
     dict_depth_update_queue = dict_create(&dt, 128);
     if (dict_depth_update_queue == NULL) {
@@ -66,29 +48,27 @@ static void on_backend_connect(nw_ses *ses, bool result)
     }
 }
 
-static void reply_to_ses(const char *market, const char *interval, uint32_t limit, json_t *result, nw_ses *ses, list_t *list)
+static void reply_to_ses(const char *market, const char *interval, json_t *result, nw_ses *ses, list_t *list)
 {
     list_node *node = NULL;
     list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
     while ((node = list_next(iter)) != NULL) {
         struct depth_wait_item *item = node->value;
-        if (limit >= item->limit) {
-            nw_state_del(state_context, item->sequence);
-            stat_depth_update_released();
+        nw_state_del(state_context, item->sequence);
+        stat_depth_update_released();
 
-            json_t *new_result = depth_get_result(result, limit, item->limit);
-            int ret = send_result(ses, new_result);
-            if (ret != 0) {
-                log_error("send_result failed, ses:%p at %s-%s-%u", ses, market, interval, item->limit);
-            }
-            list_del(list, node);
-            json_decref(new_result);  
+        json_t *new_result = depth_get_result(result, item->limit);
+        int ret = send_result(ses, new_result);
+        if (ret != 0) {
+            log_error("send_result failed, ses:%p at %s-%s-%u", ses, market, interval, item->limit);
         }
+        list_del(list, node);
+        json_decref(new_result);  
     } 
     list_release_iterator(iter);  
 }
 
-static void result_handle(const char *market, const char *interval, uint32_t limit, json_t *result)
+static void result_handle(const char *market, const char *interval, json_t *result)
 {
     struct depth_wait_val *val = depth_wait_queue_get(market, interval);
     if (val == NULL) {
@@ -97,11 +77,11 @@ static void result_handle(const char *market, const char *interval, uint32_t lim
 
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(val->dict_wait_session);
-    log_trace("%s-%s-%u size:%u", market, interval, limit, dict_size(val->dict_wait_session));
+    log_trace("%s-%s size:%u", market, interval, dict_size(val->dict_wait_session));
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
         list_t *list = entry->val;
-        reply_to_ses(market, interval, limit, result, ses, list);
+        reply_to_ses(market, interval, result, ses, list);
         if (list_len(list) == 0) {
             dict_delete(val->dict_wait_session, ses);
         }
@@ -109,20 +89,11 @@ static void result_handle(const char *market, const char *interval, uint32_t lim
     dict_release_iterator(iter);
 }
 
-static void depth_update_queue_remove(const char *market, const char *interval, uint32_t limit)
+static void depth_update_queue_remove(const char *market, const char *interval)
 {
     struct depth_key key;
     depth_set_key(&key, market, interval, 0);
-    dict_entry *entry = dict_find(dict_depth_update_queue, &key);
-    if (entry == NULL) {
-        return ;
-    }
-    struct depth_req_val *val = entry->val;
-    log_trace("%s-%s %u-%u", market, interval, limit, val->limit);
-    assert(val->limit >= limit);
-    if (limit == val->limit) {
-        dict_delete(dict_depth_update_queue, &key);
-    }
+    dict_delete(dict_depth_update_queue, &key);
 }
 
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
@@ -135,7 +106,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
     struct state_data *state = entry->data;
     log_trace("depth reply from cache, depth: %s-%s-%u", state->market, state->interval, state->limit);
-    depth_update_queue_remove(state->market, state->interval, state->limit);
+    depth_update_queue_remove(state->market, state->interval);
     ut_rpc_reply_t *rpc_reply = NULL;
     do {
         rpc_reply = reply_load(pkg->body, pkg->body_size);
@@ -154,8 +125,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 break;
             }
             uint32_t ttl = json_integer_value(json_object_get(rpc_reply->result, "ttl"));
-            depth_cache_set(state->market, state->interval, state->limit, ttl, rpc_reply->result);
-            result_handle(state->market, state->interval, state->limit, rpc_reply->result);
+            depth_cache_set(state->market, state->interval, ttl, rpc_reply->result);
+            result_handle(state->market, state->interval, rpc_reply->result);
         } else {
             log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
         }
@@ -179,37 +150,30 @@ static void push_to_wait_queue(nw_ses *ses, const char *market, const char *inte
 
 int depth_update(nw_ses *ses, const char *market, const char *interval, uint32_t limit)
 {
+    push_to_wait_queue(ses, market, interval, limit);
+
     struct depth_key key;
     depth_set_key(&key, market, interval, 0);
     dict_entry *entry = dict_find(dict_depth_update_queue, &key);
-    if (entry == NULL) {
-        struct depth_req_val val;
-        memset(&val, 0, sizeof(val));
-        entry = dict_add(dict_depth_update_queue, &key, &val);
-        if (entry == NULL) {
-            log_fatal("dict_add failed");
-            return -__LINE__;
-        }
-    }
-    
-    push_to_wait_queue(ses, market, interval, limit);
-    struct depth_req_val *val = entry->val;
-    if (val->limit >= limit) {
+    if (entry != NULL) {    
         stat_depth_update_wait();
         return 0;
     }
+
+    if (dict_add(dict_depth_update_queue, &key, NULL) == NULL) {
+        return -__LINE__;
+    }
     stat_depth_update();
-    val->limit = limit;
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
     strncpy(state->interval, interval, INTERVAL_MAX_LEN - 1);
-    state->limit = limit;
+    state->limit = settings.depth_limit_max;
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
-    json_array_append_new(params, json_integer(limit));
+    json_array_append_new(params, json_integer(settings.depth_limit_max));
     json_array_append_new(params, json_string(interval));
     
     rpc_pkg req_pkg;
@@ -233,7 +197,7 @@ static void on_timeout(nw_state_entry *entry)
     struct state_data *state = entry->data;
     log_error("query depth timeout, %s-%s-%u state id: %u", state->market, state->interval, state->limit, entry->id);
 
-    depth_update_queue_remove(state->market, state->interval, state->limit);
+    depth_update_queue_remove(state->market, state->interval);
     if (state->ses != NULL && state->ses->id == state->ses_id) {
         depth_wait_queue_remove(state->market, state->interval, state->limit, state->ses, entry->id);
         reply_time_out(state->ses);

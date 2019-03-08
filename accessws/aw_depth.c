@@ -9,7 +9,8 @@
 
 # define CLEAN_INTERVAL 60
 
-static dict_t *dict_depth;
+static dict_t *dict_depth_sub = NULL; 
+static dict_t *dict_depth_sub_counter = NULL; 
 static rpc_clt *cache = NULL;
 
 struct depth_key {
@@ -22,6 +23,10 @@ struct depth_val {
     dict_t *sessions;
     json_t *last;
     time_t  last_clean;
+};
+
+struct depth_sub_counter{
+    uint count;
 };
 
 static uint32_t dict_ses_hash_func(const void *key)
@@ -70,6 +75,57 @@ static void dict_depth_val_free(void *val)
     if (obj->last)
         json_decref(obj->last);
     free(obj);
+}
+
+static void *dict_depth_sub_counter_dup(const void *val)
+{
+    struct depth_sub_counter *obj = malloc(sizeof(struct depth_sub_counter));
+    memcpy(obj, val, sizeof(struct depth_sub_counter));
+    return obj;
+}
+
+static void dict_depth_sub_counter_free(void *val)
+{
+    free(val);
+}
+
+static int init_dict_depth_sub(void)
+{
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function = dict_depth_hash_func;
+    dt.key_compare = dict_depth_key_compare;
+    dt.key_dup = dict_depth_key_dup;
+    dt.key_destructor = dict_depth_key_free;
+    dt.val_dup = dict_depth_val_dup;
+    dt.val_destructor = dict_depth_val_free;
+
+    dict_depth_sub = dict_create(&dt, 512);
+    if (dict_depth_sub == NULL) {
+        log_stderr("dict_create failed");
+        return -__LINE__;
+    }
+
+    return 0;
+}
+
+static int init_dict_depth_sub_counter(void)
+{
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function = dict_depth_hash_func;
+    dt.key_compare = dict_depth_key_compare;
+    dt.key_dup = dict_depth_key_dup;
+    dt.key_destructor = dict_depth_key_free;
+    dt.val_dup = dict_depth_sub_counter_dup;
+    dt.val_destructor = dict_depth_sub_counter_free;
+
+    dict_depth_sub_counter = dict_create(&dt, 256);
+    if (dict_depth_sub_counter == NULL) {
+        return -__LINE__;
+    }
+
+    return 0;
 }
 
 static json_t *get_list_diff(json_t *list1, json_t *list2, uint32_t limit, int side)
@@ -202,7 +258,6 @@ static json_t* get_depth_json(struct depth_key *key)
     json_t *item = json_array();
     json_array_append_new(item, json_string(key->market));
     json_array_append_new(item, json_string(key->interval));
-    json_array_append_new(item, json_integer(key->limit));
     return item;
 }
 
@@ -246,13 +301,13 @@ static void cache_unsubscribe(struct depth_key *key)
 
 static void cache_subscribe_all(void) 
 {
-    if (dict_size(dict_depth) == 0) {
+    if (dict_size(dict_depth_sub_counter) == 0) {
         return ;
     }
     
     json_t *params = json_array();
     dict_entry *entry = NULL;
-    dict_iterator *iter = dict_get_iterator(dict_depth);
+    dict_iterator *iter = dict_get_iterator(dict_depth_sub_counter);
     while ((entry = dict_next(iter)) != NULL) {
         struct depth_key *key = entry->key;
         json_array_append_new(params, get_depth_json(key));
@@ -315,9 +370,8 @@ static int notify_depth(const char *market, const char *interval, uint32_t limit
 {
     struct depth_key key;
     depth_set_key(&key, market, interval, limit);
-    dict_entry *entry = dict_find(dict_depth, &key);
+    dict_entry *entry = dict_find(dict_depth_sub, &key);
     if (entry == NULL) {
-        log_info("depth_item[%s-%s-%d] not subscribed", key.market, key.interval, key.limit);
         return 0;
     }
     
@@ -354,16 +408,13 @@ static int result_handle(json_t *result)
 {
     const char *market = json_string_value(json_object_get(result, "market"));
     const char *interval = json_string_value(json_object_get(result, "interval"));
-    const int limit = json_integer_value(json_object_get(result, "limit"));
     json_t *depth_data = json_object_get(result, "data");
     if ( (market == NULL) || (interval == NULL) || (depth_data == NULL) ) {
         return -__LINE__;
     } 
 
     for (int i = 0; i < settings.depth_limit.count; ++i) {
-        if (limit >= settings.depth_limit.limit[i]) {
-            notify_depth(market, interval, settings.depth_limit.limit[i], depth_data);
-        }
+        notify_depth(market, interval, settings.depth_limit.limit[i], depth_data);
     }
 
     return 0;
@@ -372,8 +423,7 @@ static int result_handle(json_t *result)
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-    log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s", 
-        nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);
+    log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);
 
     ut_rpc_reply_t *rpc_reply = reply_load(pkg->body, pkg->body_size);
     do {
@@ -416,18 +466,13 @@ static void on_backend_connect(nw_ses *ses, bool result)
 
 int init_depth(void)
 {
-    dict_types dt;
-    memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_depth_hash_func;
-    dt.key_compare = dict_depth_key_compare;
-    dt.key_dup = dict_depth_key_dup;
-    dt.key_destructor = dict_depth_key_free;
-    dt.val_dup = dict_depth_val_dup;
-    dt.val_destructor = dict_depth_val_free;
-
-    dict_depth = dict_create(&dt, 64);
-    if (dict_depth == NULL) {
-        return -__LINE__;
+    int ret = init_dict_depth_sub();
+    if (ret != 0) {
+        return ret;
+    }
+    ret = init_dict_depth_sub_counter();
+    if (ret != 0) {
+        return ret;
     }
     
     rpc_clt_type ct;
@@ -446,12 +491,47 @@ int init_depth(void)
     return 0;
 }
 
+static int depth_sub_counter_inc(const char *market, const char *interval) 
+{
+    struct depth_key key;
+    depth_set_key(&key, market, interval, 0);
+
+    dict_entry *entry = dict_find(dict_depth_sub_counter, &key);
+    if (entry == NULL) {
+        struct depth_sub_counter counter;
+        memset(&counter, 0, sizeof(counter));
+
+        entry = dict_add(dict_depth_sub_counter, &key, &counter);
+        if (entry == NULL) {
+            return -__LINE__;
+        }
+    }
+    struct depth_sub_counter *counter = entry->val;
+    ++counter->count;
+
+    return counter->count;
+}
+
+static int depth_sub_counter_dec(const char *market, const char *interval) 
+{
+    struct depth_key key;
+    depth_set_key(&key, market, interval, 0);
+
+    dict_entry *entry = dict_find(dict_depth_sub_counter, &key);
+    assert(entry != NULL);
+    struct depth_sub_counter *counter = entry->val;
+    assert(counter->count > 0);
+    --counter->count;
+
+    return counter->count;
+}
+
 int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
 {
     struct depth_key key;
     depth_set_key(&key, market, interval, limit);
-
-    dict_entry *entry = dict_find(dict_depth, &key);
+    
+    dict_entry *entry = dict_find(dict_depth_sub, &key);
     if (entry == NULL) {
         struct depth_val val;
         memset(&val, 0, sizeof(val));
@@ -464,37 +544,36 @@ int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char 
         if (val.sessions == NULL) {
             return -__LINE__;
         }
-
-        entry = dict_add(dict_depth, &key, &val);
+        entry = dict_add(dict_depth_sub, &key, &val);
         if (entry == NULL) {
+            dict_release(val.sessions);
             return -__LINE__;
         }
-        dict_add(val.sessions, ses, NULL);
-        log_info("ses:%p subscribe market:%s interval:%s limit:%u", ses, key.market, key.interval, key.limit);
-        cache_subscribe(&key);
-        return 0;
     }
 
     struct depth_val *obj = entry->val;
-    if (dict_size(obj->sessions) == 0) {
-        log_info("ses:%p subscribe market:%s interval:%s limit:%u", ses, key.market, key.interval, key.limit);
+    if (dict_find(obj->sessions, ses) != NULL) {
+        return 0;
+    }
+
+    dict_add(obj->sessions, ses, NULL);
+    int count = depth_sub_counter_inc(market, interval);
+    if (count == 1) {
         cache_subscribe(&key);
     }
-    dict_add(obj->sessions, ses, NULL);
-
-    return 0;
+    return 0;  
 }
 
 int depth_unsubscribe(nw_ses *ses)
 {
-    dict_iterator *iter = dict_get_iterator(dict_depth);
+    dict_iterator *iter = dict_get_iterator(dict_depth_sub);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
         struct depth_val *obj = entry->val;
         if (dict_delete(obj->sessions, ses) == 1) {
-            if (dict_size(obj->sessions) == 0) {
-                struct depth_key *key = entry->key;
-                log_info("ses:%p unsubscribe market:%s interval:%s limit:%u", ses, key->market, key->interval, key->limit);
+            struct depth_key *key = entry->key;
+            int count = depth_sub_counter_dec(key->market, key->interval);
+            if (count == 0) {
                 cache_unsubscribe(key);
             }
         }
@@ -512,7 +591,7 @@ int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char
     strncpy(key.interval, interval, INTERVAL_MAX_LEN - 1);
     key.limit = limit;
 
-    dict_entry *entry = dict_find(dict_depth, &key);
+    dict_entry *entry = dict_find(dict_depth_sub, &key);
     if (entry == NULL)
         return 0;
 
@@ -533,7 +612,7 @@ int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char
 size_t depth_subscribe_number(void)
 {
     size_t count = 0;
-    dict_iterator *iter = dict_get_iterator(dict_depth);
+    dict_iterator *iter = dict_get_iterator(dict_depth_sub);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
         struct depth_val *obj = entry->val;
@@ -546,5 +625,6 @@ size_t depth_subscribe_number(void)
 
 void fini_depth(void)
 {
-    dict_release(dict_depth);
+    dict_release(dict_depth_sub);
+    dict_release(dict_depth_sub_counter);
 }

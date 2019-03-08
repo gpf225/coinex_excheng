@@ -60,7 +60,7 @@ static json_t* generate_depth_data(json_t *array, int limit) {
     return new_data;
 }
 
-json_t *depth_get_result(json_t *result, uint32_t limit, uint32_t target_limit)
+json_t *depth_get_result(json_t *result, uint32_t limit)
 {
     json_t *asks_array = json_object_get(result, "asks");
     json_t *bids_array = json_object_get(result, "bids");

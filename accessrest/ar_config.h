@@ -41,7 +41,6 @@
 
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
-# define DEPTH_LIMIT_MAX        50
 # define AR_LISTENER_BIND       "seqpacket@/tmp/accessrest_listener.sock"
 
 typedef struct depth_limit_cfg {

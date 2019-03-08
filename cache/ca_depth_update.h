@@ -11,6 +11,6 @@
 int init_depth_update(void);
 int depth_update_http(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval, uint32_t limit);
 int depth_update_rest(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval, uint32_t limit);
-int depth_update_sub(const char *market, const char *interval, uint32_t limit);
+int depth_update_sub(const char *market, const char *interval);
 
 # endif

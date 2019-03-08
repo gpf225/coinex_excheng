@@ -117,22 +117,24 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params, bool is
     if (interval == NULL) {
         return reply_error_invalid_argument(ses, pkg);
     }
+    if (limit > settings.depth_limit_max) {
+        limit = settings.depth_limit_max;
+    }
    
     stat_depth_req();
-    struct depth_cache_val *cache_val = depth_cache_get(market, interval, limit);
+    struct depth_cache_val *cache_val = depth_cache_get(market, interval);
     if (cache_val != NULL) {
         json_t *reply_json = NULL;
         if (is_rest) {
-            reply_json = depth_get_result_rest(cache_val->data, cache_val->limit, limit, cache_val->ttl);
+            reply_json = depth_get_result_rest(cache_val->data, limit, cache_val->ttl);
         } else {
-            reply_json = depth_get_result(cache_val->data, cache_val->limit, limit);
+            reply_json = depth_get_result(cache_val->data, limit);
         }
         
         reply_result(ses, pkg, reply_json);
         json_decref(reply_json);
         profile_inc("depth_cache", 1);
         stat_depth_cached();
-        log_trace("%s-%s-%u hit cache, ttl:%"PRIu64, market, interval, limit, cache_val->ttl);
         return 0;
     }
     
@@ -156,10 +158,9 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         json_t *item = json_array_get(params, i);
         const char *market = json_string_value(json_array_get(item, 0));
         const char *interval = json_string_value(json_array_get(item, 1));
-        const int limit = json_integer_value(json_array_get(item, 2));
 
-        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || limit <= 0 || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-            log_warn("market[%s] interval[%s] limit[%d] not valid, can not been subscribed", market, interval, limit);
+        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+            log_warn("market[%s] interval[%s] not valid, can not been subscribed", market, interval);
             return reply_error_invalid_argument(ses, pkg);
         }
     }
@@ -168,12 +169,14 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         json_t *item = json_array_get(params, i);
         const char *market = json_string_value(json_array_get(item, 0));
         const char *interval = json_string_value(json_array_get(item, 1));
-        int limit = json_integer_value(json_array_get(item, 2));
-        int ret = depth_subscribe(ses, market, interval, limit);
+
+        int ret = depth_subscribe(ses, market, interval);
         if (ret != 0) {
-            log_warn("subscribe %s-%s-%d failed.", market, interval, limit);
+            log_warn("subscribe %s-%s failed.", market, interval);
             continue;  // 忽略该错误，继续执行
         }
+
+        depth_send_last(ses, market, interval);
     }
 
     return reply_success(ses, pkg);
@@ -191,10 +194,9 @@ static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params
         json_t *item = json_array_get(params, i);
         const char *market = json_string_value(json_array_get(item, 0));
         const char *interval = json_string_value(json_array_get(item, 1));
-        const int limit = json_integer_value(json_array_get(item, 2));
 
-        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || limit <= 0 || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-            log_warn("market[%s] interval[%s] limit[%d] not valid, can not been subscribed", market, interval, limit);
+        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+            log_warn("market[%s] interval[%s] not valid, can not been subscribed", market, interval);
             return reply_error_invalid_argument(ses, pkg);
         }
     }
@@ -203,11 +205,10 @@ static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params
         json_t *item = json_array_get(params, i);
         const char *market = json_string_value(json_array_get(item, 0));
         const char *interval = json_string_value(json_array_get(item, 1));
-        const int limit = json_integer_value(json_array_get(item, 2));
 
-        int ret = depth_unsubscribe(ses, market, interval, limit);
+        int ret = depth_unsubscribe(ses, market, interval);
         if (ret != 0) {
-            log_warn("unsubscribe %s-%s-%d failed.", market, interval, limit);
+            log_warn("unsubscribe %s-%s failed.", market, interval);
             continue;  // 忽略该错误，继续执行
         }
     }

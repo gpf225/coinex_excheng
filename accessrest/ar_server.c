@@ -296,9 +296,9 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         }
     }
     stat_depth_req();
-    struct depth_cache_val *val = depth_cache_get(market, merge, limit);
+    struct depth_cache_val *val = depth_cache_get(market, merge);
     if (val != NULL) {
-        json_t *new_result = depth_get_result(val->data, val->limit, limit);
+        json_t *new_result = depth_get_result(val->data, limit);
         reply_json(ses, new_result, NULL);
         json_decref(new_result);
         stat_depth_cached();

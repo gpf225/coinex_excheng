@@ -60,13 +60,8 @@ static json_t* generate_depth_data(json_t *array, int limit) {
     return new_data;
 }
 
-json_t *depth_get_result(json_t *result, uint32_t result_limit, uint32_t limit)
+json_t *depth_get_result(json_t *result, uint32_t limit)
 {
-    if (limit >= result_limit) {
-        json_incref(result);
-        return result;
-    }
-
     json_t *asks_array = json_object_get(result, "asks");
     json_t *bids_array = json_object_get(result, "bids");
 
@@ -79,9 +74,9 @@ json_t *depth_get_result(json_t *result, uint32_t result_limit, uint32_t limit)
     return new_result;
 }
 
-json_t *depth_get_result_rest(json_t *result, uint32_t result_limit, uint32_t limit, uint64_t ttl)
+json_t *depth_get_result_rest(json_t *result, uint32_t limit, uint64_t ttl)
 {
-    json_t *new_result = depth_get_result(result, result_limit, limit);
+    json_t *new_result = depth_get_result(result, limit);
     json_object_set_new(new_result, "ttl", json_integer(ttl));
     return new_result;
 }

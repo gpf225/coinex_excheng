@@ -5,7 +5,7 @@
 
 # include "ca_depth_update.h"
 # include "ca_depth_cache.h"
-# include "ca_depth_poll.h"
+# include "ca_depth_sub.h"
 # include "ca_depth_wait_queue.h"
 # include "ca_common.h"
 # include "ca_server.h"
@@ -18,10 +18,6 @@ static dict_t *dict_depth_update_queue = NULL;
 static rpc_clt *matchengine = NULL;
 static nw_state *state_context = NULL;
 
-typedef struct depth_req_val {
-    uint32_t limit;
-}depth_req_val;
-
 struct state_data {
     char market[MARKET_NAME_MAX_LEN];
     char interval[INTERVAL_MAX_LEN];
@@ -29,18 +25,6 @@ struct state_data {
     nw_ses *ses;
     uint64_t ses_id;
 };
-
-static void *dict_depth_req_val_dup(const void *val)
-{
-    struct depth_req_val *obj = malloc(sizeof(struct depth_req_val));
-    memcpy(obj, val, sizeof(struct depth_req_val));
-    return obj;
-}
-
-static void dict_depth_req_val_free(void *val)
-{
-    free(val);
-}
 
 static int init_depth_update_queue(void)
 {
@@ -50,8 +34,6 @@ static int init_depth_update_queue(void)
     dt.key_compare = dict_depth_key_compare;
     dt.key_dup = dict_depth_key_dup;
     dt.key_destructor = dict_depth_key_free;
-    dt.val_dup = dict_depth_req_val_dup;
-    dt.val_destructor = dict_depth_req_val_free;
 
     dict_depth_update_queue = dict_create(&dt, 128);
     if (dict_depth_update_queue == NULL) {
@@ -82,9 +64,9 @@ static void reply_to_ses(const char *market, const char *interval, uint32_t limi
 
             json_t *new_result = NULL;
             if (item->wait_type == WAIT_TYPE_REST) {
-                new_result = depth_get_result_rest(result, limit, item->limit, ttl);
+                new_result = depth_get_result_rest(result, limit, ttl);
             } else {
-                new_result = depth_get_result(result, limit, item->limit);
+                new_result = depth_get_result(result, limit);
             }
             int ret = reply_result(ses, &item->pkg, new_result);
             if (ret != 0) {
@@ -117,19 +99,11 @@ static void result_handle(const char *market, const char *interval, uint32_t lim
     dict_release_iterator(iter);
 }
 
-static void depth_update_queue_remove(const char *market, const char *interval, uint32_t limit)
+static void depth_update_queue_remove(const char *market, const char *interval)
 {
     struct depth_key key;
     depth_set_key(&key, market, interval, 0);
-    dict_entry *entry = dict_find(dict_depth_update_queue, &key);
-    if (entry == NULL) {
-        return ;
-    }
-    struct depth_req_val *val = entry->val;
-    assert(val->limit >= limit);
-    if (limit == val->limit) {
-        dict_delete(dict_depth_update_queue, &key);
-    }
+    dict_delete(dict_depth_update_queue, &key);
 }
 
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
@@ -142,7 +116,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
     struct state_data *state = entry->data;
     log_trace("depth reply from matchengine, depth: %s-%s-%u", state->market, state->interval, state->limit);
-    depth_update_queue_remove(state->market, state->interval, state->limit);
+    depth_update_queue_remove(state->market, state->interval);
 
     ut_rpc_reply_t *rpc_reply = NULL;
     do {
@@ -157,12 +131,11 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         
         if (pkg->command == CMD_ORDER_DEPTH) {
-            struct depth_cache_val *val = depth_cache_set(state->market, state->interval, state->limit, rpc_reply->result);
+            struct depth_cache_val *val = depth_cache_set(state->market, state->interval, rpc_reply->result);
             if (val == NULL) {
-                log_fatal("add cache failed, %s-%s-%u", state->market, state->interval, state->limit);
                 break;
             }
-            //depth_sub_handle(state->market, state->interval, rpc_reply->result, state->limit);
+            depth_sub_reply(state->market, state->interval, rpc_reply->result);
             result_handle(state->market, state->interval, state->limit, rpc_reply->result, val->ttl);
         } else {
             log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
@@ -189,29 +162,22 @@ static void push_to_wait_queue(nw_ses *ses, rpc_pkg *pkg, const char *market, co
 
 static int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval, uint32_t limit, int wait_type)
 {
+    push_to_wait_queue(ses, pkg, market, interval, limit, wait_type);
+
     struct depth_key key;
     depth_set_key(&key, market, interval, 0);
     dict_entry *entry = dict_find(dict_depth_update_queue, &key);
-    if (entry == NULL) {
-        struct depth_req_val val;
-        memset(&val, 0, sizeof(struct depth_req_val));
-        entry = dict_add(dict_depth_update_queue, &key, &val);
-        if (entry == NULL) {
-            return -__LINE__;
-        }
-    }
-    
-    push_to_wait_queue(ses, pkg, market, interval, limit, wait_type);
-    struct depth_req_val *val = entry->val;
-    if (val->limit >= limit) {
-        log_trace("%s-%s-%u has an ongoing request which limit is:%u", market, interval, limit, val->limit);
+    if (entry != NULL) {
         stat_depth_update_wait();
         return 0;
     }
+
+    if (dict_add(dict_depth_update_queue, &key, NULL) == NULL) {
+        return -__LINE__;
+    }
+
     stat_depth_update();
-    limit = depth_cache_get_update_limit(market, interval, limit);
-    val->limit = limit;
-    log_trace("going to update depth %s-%s-%u", market, interval, limit);
+    log_trace("going to update depth %s-%s", market, interval);
     
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
@@ -221,7 +187,7 @@ static int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const cha
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
-    json_array_append_new(params, json_integer(limit));
+    json_array_append_new(params, json_integer(settings.depth_limit_max));
     json_array_append_new(params, json_string(interval));
     
     rpc_pkg req_pkg;
@@ -249,9 +215,9 @@ int depth_update_rest(nw_ses *ses, rpc_pkg *pkg, const char *market, const char 
     return depth_update(ses, pkg, market, interval, limit, WAIT_TYPE_REST);
 }
 
-int depth_update_sub(const char *market, const char *interval, uint32_t limit)
+int depth_update_sub(const char *market, const char *interval)
 {
-    return depth_update(NULL, NULL, market, interval, limit, 0);
+    return depth_update(NULL, NULL, market, interval, settings.depth_limit_max, 0);
 }
 
 
@@ -260,7 +226,7 @@ static void on_timeout(nw_state_entry *entry)
     stat_depth_update_timeout();
     struct state_data *state = entry->data;
     log_fatal("query order depth timeout, state id: %u, %s-%s-%u", entry->id, state->market, state->interval, state->limit);
-    depth_update_queue_remove(state->market, state->interval, state->limit);
+    depth_update_queue_remove(state->market, state->interval);
     if (state->ses != NULL) {
         depth_wait_queue_remove(state->market, state->interval, state->limit, state->ses, entry->id);
     }

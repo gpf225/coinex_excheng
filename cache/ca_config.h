@@ -39,7 +39,7 @@
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
 # define DEPTH_LIMIT_MAX_LEN    101
-# define DEPTH_LIMIT_MAX_SIZE 32
+# define DEPTH_LIMIT_MAX_SIZE   32
 
 struct settings {
     bool                debug;
@@ -52,6 +52,7 @@ struct settings {
     double              backend_timeout;
     double              poll_depth_interval;
     int                 cache_timeout;
+    int                 depth_limit_max;
 };
 
 extern struct settings settings;

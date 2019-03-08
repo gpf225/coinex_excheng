@@ -10,6 +10,6 @@
 
 int init_depth(void);
 void fini_depth(void);
-json_t* depth_get_json(const char *market, int limit);
+json_t* depth_get_last_one(const char *market);
 
 # endif

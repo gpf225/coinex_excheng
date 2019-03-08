@@ -49,21 +49,6 @@ static void dict_depth_val_free(void *val)
     free(obj);
 }
 
-static json_t* generate_depth_data(json_t *depth_data, int limit) {
-    if (depth_data == NULL) {
-        return json_array();
-    }
-
-    json_t *new_data = json_array();
-    int size = json_array_size(depth_data) > limit ? limit : json_array_size(depth_data);
-    for (int i = 0; i < size; ++i) {
-        json_t *unit = json_array_get(depth_data, i);
-        json_array_append(new_data, unit);
-    }
-
-    return new_data;
-}
-
 static void longpoll_subscribe_depth(void)
 {
     if (!rpc_clt_connected(longpoll)) {
@@ -100,8 +85,8 @@ static int on_update_depth(json_t *result)
         log_error("depth result invalid");
         return -__LINE__;
     }
-    if ((strcmp("0", interval) != 0) || (limit != DEPTH_LIMIT_MAX)) {
-        log_error("depth interval not 0 or limit not %d", DEPTH_LIMIT_MAX);
+    if ((strcmp("0", interval) != 0) || (limit != 1)) {
+        log_error("depth interval not 0 or limit not %d", 1);
         return -__LINE__;
     }
 
@@ -203,7 +188,22 @@ int init_depth(void)
     return 0;
 }
 
-json_t* depth_get_json(const char *market, int limit)
+static json_t* generate_depth_data(json_t *depth_data, int limit) {
+    if (depth_data == NULL) {
+        return json_array();
+    }
+
+    json_t *new_data = json_array();
+    int size = json_array_size(depth_data) > limit ? limit : json_array_size(depth_data);
+    for (int i = 0; i < size; ++i) {
+        json_t *unit = json_array_get(depth_data, i);
+        json_array_append(new_data, unit);
+    }
+
+    return new_data;
+}
+
+json_t* depth_get_last_one(const char *market)
 {
     dict_entry *entry = dict_find(dict_depth, market);
     if (entry == NULL) {
@@ -211,23 +211,12 @@ json_t* depth_get_json(const char *market, int limit)
     }
 
     struct depth_val *val = entry->val;
-    double cur = current_timestamp();
-    if (cur - val->time > 10 * settings.cache_timeout) {
-        log_warn("depth expired, cur:%f time:%f", cur, val->time);
-        return NULL;
-    }
-
-    if (limit == DEPTH_LIMIT_MAX) {
-        json_incref(val->data);
-        return val->data;
-    }
-
     json_t *asks_array = json_object_get(val->data, "asks");
     json_t *bids_array = json_object_get(val->data, "bids");
 
     json_t *new_depth_data = json_object();
-    json_object_set_new(new_depth_data, "asks", generate_depth_data(asks_array, limit));
-    json_object_set_new(new_depth_data, "bids", generate_depth_data(bids_array, limit));
+    json_object_set_new(new_depth_data, "asks", generate_depth_data(asks_array, 1));
+    json_object_set_new(new_depth_data, "bids", generate_depth_data(bids_array, 1));
     json_object_set    (new_depth_data, "last", json_object_get(val->data, "last"));
     json_object_set    (new_depth_data, "time", json_object_get(val->data, "time"));
 

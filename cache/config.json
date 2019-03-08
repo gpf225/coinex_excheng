@@ -26,5 +26,6 @@
     },
     "backend_timeout": 5.0,
     "poll_depth_interval":1.0,
-    "cache_timeout": 1000
+    "cache_timeout": 1000,
+    "depth_limit_max": 50
 }

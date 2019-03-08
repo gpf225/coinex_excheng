@@ -26,7 +26,7 @@ static void depth_depth_cache_val_free(void *val)
     free(obj);
 }
 
-int depth_cache_set(const char *market, const char *interval, uint32_t limit, uint32_t ttl, json_t *result)
+int depth_cache_set(const char *market, const char *interval, uint32_t ttl, json_t *result)
 {
     struct depth_key key;
     depth_set_key(&key, market, interval, 0);
@@ -49,13 +49,12 @@ int depth_cache_set(const char *market, const char *interval, uint32_t limit, ui
 
     val->data = result;
     json_incref(val->data);
-    val->limit = limit;
     val->expire_time = current_millis() + ttl;
 
     return 0;
 }
 
-depth_cache_val* depth_cache_get(const char *market, const char *interval, uint32_t limit)
+depth_cache_val* depth_cache_get(const char *market, const char *interval)
 {
     struct depth_key key;
     depth_set_key(&key, market, interval, 0);
@@ -66,10 +65,6 @@ depth_cache_val* depth_cache_get(const char *market, const char *interval, uint3
     }
 
     depth_cache_val *val = entry->val;
-    if (limit > val->limit) {
-        return NULL;
-    }
-
     uint64_t now = current_millis();
     if (now >= val->expire_time) {
         return NULL;
