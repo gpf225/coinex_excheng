@@ -34,5 +34,7 @@
     "market_url": "http://120.78.203.98:8000/internal/exchange/market/list",
     "brokers": "127.0.0.1:9092",
     "slice_interval": 3600,
-    "slice_keeptime": 259200 
+    "slice_keeptime": 259200,
+    "depth_merge_max": 800,
+    "usdc_assets": ["TUSD", "PAX", "GUSD"]
 }

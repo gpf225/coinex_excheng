@@ -59,7 +59,8 @@
     "market_url": "http://120.78.203.98:8000/internal/exchange/market/list",
     "kline_max": 1000,
     "kline_default": 100,
+    "deal_max": 1000,
     "deal_default": 100,
     "depth_limit_max": 50,
-    "depth_imit_default": 20
+    "depth_limit_default": 20
 }

@@ -103,6 +103,34 @@ static int load_markets(json_t *node)
     return 0;
 }
 
+static int load_usdc_assets(json_t *node)
+{
+    if (node == NULL) {
+        log_stderr("no usdc_assets config");
+        return -__LINE__;
+    }
+    settings.usdc_assets_num = json_array_size(node);
+    if (settings.usdc_assets_num >= 32) {
+        log_stderr("usdc asset num large than 32");
+        return -__LINE__;
+    }
+
+    for (size_t i = 0; i < settings.usdc_assets_num; ++i) {
+        const char *market = json_string_value(json_array_get(node, i));
+        if (market == NULL) {
+            log_stderr("usdc asset must been strings");
+            return -__LINE__;
+        }
+
+        settings.usdc_assets[i] = strdup(market); 
+    }
+    
+    for (int i = 0; i < settings.usdc_assets_num; ++i) {
+        log_stderr("usdc assets:%s\n", settings.usdc_assets[i]);
+    }
+    return 0;
+}
+
 static int read_config_from_json(json_t *root)
 {
     int ret;
@@ -174,6 +202,16 @@ static int read_config_from_json(json_t *root)
     ret = read_cfg_int(root, "history_thread", &settings.history_thread, false, 10);
     if (ret < 0) {
         printf("load history_thread fail: %d", ret);
+        return -__LINE__;
+    }
+    ret = read_cfg_int(root, "depth_merge_max", &settings.depth_merge_max, false, 1000);
+    if (ret < 0) {
+        printf("load depth_merge_max fail: %d", ret);
+        return -__LINE__;
+    }
+    ret = load_usdc_assets(json_object_get(root, "usdc_assets"));
+    if (ret < 0) {
+        printf("load load_usdc_assets fail: %d", ret);
         return -__LINE__;
     }
 

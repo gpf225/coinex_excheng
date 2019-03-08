@@ -77,6 +77,7 @@ struct settings {
 
     int                 worker_num;
     char                *auth_url;
+    char                *auth_sub_url;
     char                *sign_url;
     char                *accesshttp;
     double              backend_timeout;
