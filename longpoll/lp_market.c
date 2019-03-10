@@ -6,7 +6,6 @@
 # include "lp_market.h"
 # include "lp_common.h"
 # include "lp_server.h"
-# include "lp_statistic.h"
 
 static json_t *last_market_info = NULL;
 static dict_t *dict_sub;
@@ -67,7 +66,6 @@ static void notify_subscribers(json_t *params)
         ++count;
     }
     dict_release_iterator(iter);
-    stat_market_update(count);
 }
 
 void on_market_update(json_t *params)
@@ -154,7 +152,6 @@ static void poll_market_list(void)
         log_error("matchengine does not connected");
         return ;
     }
-    stat_market_poll();
     
     json_t *params = json_array();
     rpc_pkg pkg;

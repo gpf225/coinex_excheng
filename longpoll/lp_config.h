@@ -52,7 +52,6 @@ struct settings{
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
 
-    double poll_depth_interval;
     double poll_state_interval;
     double poll_market_interval;
     double statistic_interval;

@@ -194,8 +194,8 @@ static int on_market_status_reply(json_t *result)
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     sds reply_str = sdsnewlen(pkg->body, pkg->body_size);                               
-    log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s", 
-        nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);   
+    //log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s", 
+    //    nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);   
 
     ut_rpc_reply_t *rpc_reply = reply_load(pkg->body, pkg->body_size);
     do {

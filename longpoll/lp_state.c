@@ -7,7 +7,6 @@
 # include "lp_common.h"
 # include "lp_market.h"
 # include "lp_server.h"
-# include "lp_statistic.h"
 
 static dict_t *dict_sub = NULL; 
 static dict_t *dict_market_state = NULL; 
@@ -94,7 +93,6 @@ static void notify_subscribers(void)
     dict_release_iterator(iter);
     json_decref(result);
  
-    stat_state_update(count);
     return ;
 }
 
@@ -248,7 +246,7 @@ int init_state(void)
         return -__LINE__;
     }
     
-    nw_timer_set(&update_state_timer, settings.poll_depth_interval, true, on_poll_state, NULL);
+    nw_timer_set(&update_state_timer, settings.poll_state_interval, true, on_poll_state, NULL);
     nw_timer_start(&update_state_timer);
 
     return 0;

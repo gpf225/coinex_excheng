@@ -5,11 +5,8 @@
 
 # include "lp_server.h"
 # include "lp_config.h"
-# include "lp_depth_sub.h"
-# include "lp_depth_update.h"
 # include "lp_market.h"
 # include "lp_state.h"
-# include "lp_statistic.h"
 
 # include "ut_title.h"
 
@@ -94,18 +91,6 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init state fail: %d", ret);
     }
-    ret = init_depth_sub();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init depth fail: %d", ret);
-    }
-    ret = init_depth_update();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init depth update fail: %d", ret);
-    }
-    ret = init_statistic();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init statistic fail: %d", ret);
-    }
     ret = init_server();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
@@ -119,7 +104,6 @@ int main(int argc, char *argv[])
     nw_loop_run();
     log_vip("server stop");
 
-    fini_depth_sub();
     fini_state();
     fini_market();
     return 0;

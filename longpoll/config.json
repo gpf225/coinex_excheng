@@ -33,7 +33,6 @@
         ],
         "max_pkg_size": 2000000
     },
-    "poll_depth_interval":1.0,
     "poll_state_interval":1.0,
     "poll_market_interval": 60.0,
     "backend_timeout":1.0

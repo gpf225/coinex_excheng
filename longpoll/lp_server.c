@@ -5,7 +5,6 @@
 
 # include "lp_server.h"
 # include "lp_config.h"
-# include "lp_depth_sub.h"
 # include "lp_market.h"
 # include "lp_state.h"
 
@@ -106,110 +105,8 @@ static void svr_on_new_connection(nw_ses *ses)
 static void svr_on_connection_close(nw_ses *ses)
 {
     log_info("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
-    depth_unsubscribe_all(ses);
     market_unsubscribe(ses);
     state_unsubscribe(ses);
-}
-
-static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    size_t params_len = json_array_size(params);
-    if (params_len < 1) {
-        return reply_error_invalid_argument(ses, pkg);
-    }
-
-    for (size_t i = 0; i < params_len; ++i) {
-        json_t *item = json_array_get(params, i);
-        const char *market = json_string_value(json_array_get(item, 0));
-        const char *interval = json_string_value(json_array_get(item, 1));
-        const int limit = json_integer_value(json_array_get(item, 2));
-
-        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || limit <= 0 || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-            log_warn("market[%s] interval[%s] limit[%d] not valid, can not been subscribed", market, interval, limit);
-            return reply_error_invalid_argument(ses, pkg);
-        }
-    }
-
-    for (size_t i = 0; i < params_len; ++i) {
-        json_t *item = json_array_get(params, i);
-        const char *market = json_string_value(json_array_get(item, 0));
-        const char *interval = json_string_value(json_array_get(item, 1));
-        int limit = json_integer_value(json_array_get(item, 2));
-
-        int ret = depth_subscribe(ses, market, interval, limit);
-        if (ret != 0) {
-            log_warn("subscribe %s-%s-%d failed.", market, interval, limit);
-            continue;  // 忽略该错误，继续执行
-        }
-    }
-
-    return reply_success(ses, pkg);
-}
-
-static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    if (json_array_size(params) != 2) {
-        return reply_error_invalid_argument(ses, pkg);
-    }
-    dict_t *dict_market = get_market();
-    if (dict_size(dict_market) == 0) {
-        log_warn("market does not prepared, please try later");
-        rpc_svr_close_clt(svr, ses);  // force to close the connection, let clients know we are not prepared yet.
-        return 0;
-    }
-
-    const char *interval = json_string_value(json_array_get(params, 0));
-    const int limit = json_integer_value(json_array_get(params, 1));
-    if (limit <= 0 || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-        log_warn("interval[%s] limit[%d] not valid, can not been subscribed", interval, limit);
-        return reply_error_invalid_argument(ses, pkg);
-    }
-
-    dict_entry *entry = NULL;
-    dict_iterator *iter = dict_get_iterator(dict_market);
-    while ((entry = dict_next(iter)) != NULL) {
-        const char *market = entry->key;
-        depth_subscribe(ses, market, interval, limit);
-    }
-    dict_release_iterator(iter);
-    
-    return reply_success(ses, pkg);
-}
-
-static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    size_t params_len = json_array_size(params);
-    if (params_len < 1) {
-        depth_unsubscribe_all(ses);
-        return reply_success(ses, pkg);
-    }
-
-    for (size_t i = 0; i < params_len; ++i) {
-        json_t *item = json_array_get(params, i);
-        const char *market = json_string_value(json_array_get(item, 0));
-        const char *interval = json_string_value(json_array_get(item, 1));
-        const int limit = json_integer_value(json_array_get(item, 2));
-
-        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || limit <= 0 || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-            log_warn("market[%s] interval[%s] limit[%d] not valid, can not been subscribed", market, interval, limit);
-            return reply_error_invalid_argument(ses, pkg);
-        }
-    }
-
-    for (size_t i = 0; i < params_len; ++i) {
-        json_t *item = json_array_get(params, i);
-        const char *market = json_string_value(json_array_get(item, 0));
-        const char *interval = json_string_value(json_array_get(item, 1));
-        const int limit = json_integer_value(json_array_get(item, 2));
-
-        int ret = depth_unsubscribe(ses, market, interval, limit);
-        if (ret != 0) {
-            log_warn("unsubscribe %s-%s-%d failed.", market, interval, limit);
-            continue;  // 忽略该错误，继续执行
-        }
-    }
-
-    return reply_success(ses, pkg);
 }
 
 static int on_method_market_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -256,25 +153,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     
     int ret = 0;
     switch (pkg->command) {
-        case CMD_LP_DEPTH_SUBSCRIBE:    
-            ret = on_method_depth_subscribe(ses, pkg, params);
-            if (ret < 0) {
-                log_error("on_method_depth_subscribe fail: %d", ret);
-            }
-            break; 
-        case CMD_LP_DEPTH_SUBSCRIBE_ALL:    
-            ret = on_method_depth_subscribe_all(ses, pkg, params);
-            if (ret < 0) {
-                log_error("on_method_depth_subscribe_all fail: %d", ret);
-            }
-            break;  
-        case CMD_LP_DEPTH_UNSUBSCRIBE:    
-            ret = on_method_depth_unsubscribe(ses, pkg, params);
-            if (ret < 0) {
-                log_error("on_method_depth_unsubscribe fail: %d", ret);
-            }
-            break;
-
         case CMD_LP_MARKET_SUBSCRIBE:    
             ret = on_method_market_subscribe(ses, pkg, params);
             if (ret < 0) {

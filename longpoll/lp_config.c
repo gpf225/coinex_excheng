@@ -42,7 +42,6 @@ static int read_config_from_json(json_t *root)
         return -__LINE__;
     }
 
-    ERR_RET(read_cfg_real(root, "poll_depth_interval", &settings.poll_depth_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "poll_state_interval", &settings.poll_state_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "poll_market_interval", &settings.poll_market_interval, false, 60.0));
     ERR_RET(read_cfg_real(root, "statistic_interval", &settings.statistic_interval, false, 60.0));
