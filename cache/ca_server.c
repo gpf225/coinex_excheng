@@ -11,6 +11,7 @@
 # include "ca_statistic.h"
 # include "ca_depth_wait_queue.h"
 # include "ca_depth_sub.h"
+# include "ca_market.h"
 
 static rpc_svr *svr = NULL;
 
@@ -175,10 +176,36 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
             log_warn("subscribe %s-%s failed.", market, interval);
             continue;  // 忽略该错误，继续执行
         }
-
         depth_send_last(ses, market, interval);
     }
 
+    return reply_success(ses, pkg);
+}
+
+static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    dict_t *dict_market = get_market();
+    if (dict_size(dict_market) == 0) {
+        log_warn("market does not prepared, please try later");
+        rpc_svr_close_clt(svr, ses);  // force to close the connection, let clients try again.
+        return 0;
+    }
+
+    const char *interval = "0";
+    dict_entry *entry = NULL;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        const char *market = entry->key;
+        int ret = depth_subscribe(ses, market, interval);
+        if (ret != 0) {
+            log_warn("subscribe %s-%s failed.", market, interval);
+            continue;  // 忽略该错误，继续执行
+        }
+
+        depth_send_last(ses, market, interval);
+    }
+    dict_release_iterator(iter);
+    
     return reply_success(ses, pkg);
 }
 
@@ -251,7 +278,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         if (ret < 0) {
             log_error("on_method_depth_subscribe fail: %d", ret);
         }
-        break;  
+        break; 
+    case CMD_LP_DEPTH_SUBSCRIBE_ALL:    
+        ret = on_method_depth_subscribe_all(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_method_depth_subscribe_all fail: %d", ret);
+        }
+        break;   
     case CMD_LP_DEPTH_UNSUBSCRIBE:    
         ret = on_method_depth_unsubscribe(ses, pkg, params);
         if (ret < 0) {

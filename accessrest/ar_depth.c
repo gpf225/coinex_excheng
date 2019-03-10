@@ -6,7 +6,7 @@
 # include "ar_depth.h"
 
 static dict_t *dict_depth = NULL;
-static rpc_clt *longpoll = NULL;
+static rpc_clt *cache = NULL;
 
 struct depth_val{
     double time;
@@ -49,17 +49,15 @@ static void dict_depth_val_free(void *val)
     free(obj);
 }
 
-static void longpoll_subscribe_depth(void)
+static void cache_subscribe_depth(void)
 {
-    if (!rpc_clt_connected(longpoll)) {
+    if (!rpc_clt_connected(cache)) {
         return ;
     }
     
     static uint32_t sequence = 0;
-    json_t *params = json_array();
-    json_array_append_new(params, json_string("0"));
-    json_array_append_new(params, json_integer(1));
     
+    json_t *params = json_array();
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
     pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
@@ -68,8 +66,9 @@ static void longpoll_subscribe_depth(void)
     pkg.body      = json_dumps(params, 0);
     pkg.body_size = strlen(pkg.body);
 
-    rpc_clt_send(longpoll, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s", nw_sock_human_addr(rpc_clt_peer_addr(longpoll)), pkg.command, pkg.sequence, (char *)pkg.body);
+    rpc_clt_send(cache, &pkg);
+    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
+     nw_sock_human_addr(rpc_clt_peer_addr(cache)), pkg.command, pkg.sequence, (char *)pkg.body);
     
     free(pkg.body);
     json_decref(params);
@@ -79,14 +78,13 @@ static int on_update_depth(json_t *result)
 {
     const char *market = json_string_value(json_object_get(result, "market"));
     const char *interval = json_string_value(json_object_get(result, "interval"));
-    const int limit = json_integer_value(json_object_get(result, "limit"));
     json_t *depth_data = json_object_get(result, "data");
     if ( (market == NULL) || (interval == NULL) || (depth_data == NULL) ) {
         log_error("depth result invalid");
         return -__LINE__;
     }
-    if ((strcmp("0", interval) != 0) || (limit != 1)) {
-        log_error("depth interval not 0 or limit not %d", 1);
+    if (strcmp("0", interval) != 0) {
+        log_error("depth interval not 0");
         return -__LINE__;
     }
 
@@ -149,10 +147,10 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 static void on_backend_connect(nw_ses *ses, bool result)
 {
     if (result) {
-        log_info("connect to longpoll success");
-        longpoll_subscribe_depth();
+        log_info("connect to cache success");
+        cache_subscribe_depth();
     } else {
-        log_error("can not connect to longpoll...");
+        log_error("can not connect to cache...");
     }
 }
 
@@ -177,11 +175,11 @@ int init_depth(void)
     ct.on_connect = on_backend_connect;
     ct.on_recv_pkg = on_backend_recv_pkg;
 
-    longpoll = rpc_clt_create(&settings.longpoll, &ct);
-    if (longpoll == NULL) {
+    cache = rpc_clt_create(&settings.cache, &ct);
+    if (cache == NULL) {
         return -__LINE__;
     }
-    if (rpc_clt_start(longpoll) < 0){
+    if (rpc_clt_start(cache) < 0){
         return -__LINE__;
     }
 
@@ -203,7 +201,7 @@ static json_t* generate_depth_data(json_t *depth_data, int limit) {
     return new_data;
 }
 
-json_t* depth_get_last_one(const char *market)
+json_t* depth_get_json(const char *market, int limit)
 {
     dict_entry *entry = dict_find(dict_depth, market);
     if (entry == NULL) {
@@ -215,8 +213,8 @@ json_t* depth_get_last_one(const char *market)
     json_t *bids_array = json_object_get(val->data, "bids");
 
     json_t *new_depth_data = json_object();
-    json_object_set_new(new_depth_data, "asks", generate_depth_data(asks_array, 1));
-    json_object_set_new(new_depth_data, "bids", generate_depth_data(bids_array, 1));
+    json_object_set_new(new_depth_data, "asks", generate_depth_data(asks_array, limit));
+    json_object_set_new(new_depth_data, "bids", generate_depth_data(bids_array, limit));
     json_object_set    (new_depth_data, "last", json_object_get(val->data, "last"));
     json_object_set    (new_depth_data, "time", json_object_get(val->data, "time"));
 

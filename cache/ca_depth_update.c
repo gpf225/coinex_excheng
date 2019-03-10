@@ -115,7 +115,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
     struct state_data *state = entry->data;
-    log_trace("depth reply from matchengine, depth: %s-%s-%u", state->market, state->interval, state->limit);
+//    log_trace("depth reply from matchengine, depth: %s-%s-%u", state->market, state->interval, state->limit);
     depth_update_queue_remove(state->market, state->interval);
 
     ut_rpc_reply_t *rpc_reply = NULL;
@@ -148,16 +148,18 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
 static void push_to_wait_queue(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval, uint32_t limit, int wait_type)
 {
+    if (ses == NULL) {
+        return ;
+    }
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
     strncpy(state->interval, interval, INTERVAL_MAX_LEN - 1);
     state->limit = limit;
-    if (ses != NULL) {
-        state->ses = ses;
-        state->ses_id = ses->id;
-        depth_wait_queue_add(state->market, state->interval, state->limit, ses, state_entry->id, pkg, wait_type);
-    }
+    state->ses = ses;
+    state->ses_id = ses->id;
+    depth_wait_queue_add(state->market, state->interval, state->limit, ses, state_entry->id, pkg, wait_type);
+    
 }
 
 static int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval, uint32_t limit, int wait_type)
@@ -177,7 +179,7 @@ static int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const cha
     }
 
     stat_depth_update();
-    log_trace("going to update depth %s-%s", market, interval);
+    //log_trace("going to update depth %s-%s", market, interval);
     
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;

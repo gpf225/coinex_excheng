@@ -9,6 +9,7 @@
 # include "ca_depth_sub.h"
 # include "ca_server.h"
 # include "ca_statistic.h"
+# include "ca_market.h"
 
 # include "ut_title.h"
 
@@ -105,6 +106,10 @@ int main(int argc, char *argv[])
     ret = init_depth_sub();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init depth sub fail: %d", ret);
+    }
+    ret = init_market();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
     }
     ret = init_statistic();
     if (ret < 0) {

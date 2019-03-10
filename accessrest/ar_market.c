@@ -342,4 +342,9 @@ void fini_market(void)
     dict_release(dict_market);
 }
 
+bool market_exist(const char *market)
+{
+    return dict_find(dict_market, market) != NULL;
+}
+
 

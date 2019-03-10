@@ -279,6 +279,9 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         return reply_invalid_params(ses);
     char *market = entry->val;
     strtoupper(market);
+    if (!market_exist(market)) {
+        return reply_invalid_params(ses);
+    }
 
     entry = dict_find(params, "merge");
     if (entry == NULL)
@@ -296,6 +299,15 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         }
         if (limit > settings.depth_limit_max) {
             limit = settings.depth_limit_max;
+        }
+    }
+
+    if (strcmp("0", merge) == 0) {
+        json_t *result = depth_get_json(market, limit);
+        if (result != NULL) {
+            reply_json(ses, result, NULL);
+            json_decref(result);
+            return 0;
         }
     }
 

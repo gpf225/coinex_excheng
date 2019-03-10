@@ -108,9 +108,14 @@ int depth_sub_reply(const char *market, const char *interval, json_t *result)
 
 static void on_poll_depth_timer(nw_timer *timer, void *privdata) 
 {   
+    log_trace("depth sub size:%u", dict_size(dict_depth_sub));
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_depth_sub);
     while ( (entry = dict_next(iter)) != NULL) {
+        struct depth_sub_val *val = entry->val;
+        if (dict_size(val->sessions) == 0) {
+            continue;
+        }
         struct depth_key *key = entry->key;
         struct depth_cache_val *cache_val = depth_cache_get(key->market, key->interval);
         if (cache_val != NULL) {

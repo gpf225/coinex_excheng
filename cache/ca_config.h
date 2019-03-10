@@ -51,6 +51,7 @@ struct settings {
     
     double              backend_timeout;
     double              poll_depth_interval;
+    double              market_interval;
     int                 cache_timeout;
     int                 depth_limit_max;
 };

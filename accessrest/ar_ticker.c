@@ -174,7 +174,7 @@ int init_ticker(void)
 
 static void set_sell_and_buy(const char *market, json_t *ticker)
 {
-    json_t *depth_result = depth_get_last_one(market);
+    json_t *depth_result = depth_get_json(market, 1);
     if (depth_result == NULL) {
         json_object_set_new(ticker, "buy", json_string("0"));
         json_object_set_new(ticker, "buy_amount", json_string("0"));
