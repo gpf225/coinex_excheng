@@ -132,10 +132,16 @@ int update_balance(void)
     for (size_t i = 0; i < settings.asset_num; ++i) {
         dict_entry *entry = dict_find(dict_asset, settings.assets[i].name);
         if (!entry) {
-            struct asset_type type;
-            type.prec_save = settings.assets[i].prec_save;
-            type.prec_show = settings.assets[i].prec_show;
-            if (dict_add(dict_asset, settings.assets[i].name, &type) == NULL)
+            struct asset_type *type = malloc(sizeof(struct asset_type));
+            if (type == NULL)
+                return -__LINE__;
+            type->prec_save = settings.assets[i].prec_save;
+            type->prec_show = settings.assets[i].prec_show;
+            type->min = mpd_new(&mpd_ctx);
+            mpd_set_i32(type->min, -type->prec_show, &mpd_ctx);
+            mpd_pow(type->min, mpd_ten, type->min, &mpd_ctx);
+            log_info("add asset: %s, prec save: %d, prec show: %d", settings.assets[i].name, type->prec_save, type->prec_show);
+            if (dict_add(dict_asset, settings.assets[i].name, type) == NULL)
                 return -__LINE__;
         } else {
             struct asset_type *type = entry->val;
