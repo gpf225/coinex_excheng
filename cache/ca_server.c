@@ -270,19 +270,22 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             log_error("on_cmd_order_depth_rest %s fail: %d", params_str, ret);
         }
         break;
-    case CMD_LP_DEPTH_SUBSCRIBE:    
+    case CMD_LP_DEPTH_SUBSCRIBE:   
+        profile_inc("on_method_depth_subscribe", 1); 
         ret = on_method_depth_subscribe(ses, pkg, params);
         if (ret < 0) {
             log_error("on_method_depth_subscribe fail: %d", ret);
         }
         break; 
-    case CMD_LP_DEPTH_SUBSCRIBE_ALL:    
+    case CMD_LP_DEPTH_SUBSCRIBE_ALL:   
+        profile_inc("on_method_depth_subscribe_all", 1);  
         ret = on_method_depth_subscribe_all(ses, pkg, params);
         if (ret < 0) {
             log_error("on_method_depth_subscribe_all fail: %d", ret);
         }
         break;   
-    case CMD_LP_DEPTH_UNSUBSCRIBE:    
+    case CMD_LP_DEPTH_UNSUBSCRIBE:
+        profile_inc("on_method_depth_unsubscribe", 1);      
         ret = on_method_depth_unsubscribe(ses, pkg, params);
         if (ret < 0) {
             log_error("on_method_depth_unsubscribe fail: %d", ret);

@@ -167,6 +167,7 @@ static int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const cha
     depth_set_key(&key, market, interval, 0);
     dict_entry *entry = dict_find(dict_depth_update_queue, &key);
     if (entry != NULL) {
+        profile_inc("depth_wait", 1);
         return 0;
     }
 

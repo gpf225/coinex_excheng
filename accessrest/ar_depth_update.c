@@ -8,7 +8,6 @@
 # include "ar_depth_wait_queue.h"
 # include "ar_server.h"
 # include "ar_common.h"
-# include "ar_statistic.h"
 
 static dict_t *dict_depth_update_queue = NULL;
 static rpc_clt *cache = NULL;
@@ -55,7 +54,6 @@ static void reply_to_ses(const char *market, const char *interval, json_t *resul
     while ((node = list_next(iter)) != NULL) {
         struct depth_wait_item *item = node->value;
         nw_state_del(state_context, item->sequence);
-        stat_depth_update_released();
 
         json_t *new_result = depth_get_result(result, item->limit);
         int ret = send_result(ses, new_result);
@@ -156,14 +154,12 @@ int depth_update(nw_ses *ses, const char *market, const char *interval, uint32_t
     depth_set_key(&key, market, interval, 0);
     dict_entry *entry = dict_find(dict_depth_update_queue, &key);
     if (entry != NULL) {    
-        stat_depth_update_wait();
         return 0;
     }
 
     if (dict_add(dict_depth_update_queue, &key, NULL) == NULL) {
         return -__LINE__;
     }
-    stat_depth_update();
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
@@ -193,7 +189,6 @@ int depth_update(nw_ses *ses, const char *market, const char *interval, uint32_t
 
 static void on_timeout(nw_state_entry *entry)
 {
-    stat_depth_update_timeout();
     struct state_data *state = entry->data;
     log_error("query depth timeout, %s-%s-%u state id: %u", state->market, state->interval, state->limit, entry->id);
 

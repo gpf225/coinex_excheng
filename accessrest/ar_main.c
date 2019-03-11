@@ -13,7 +13,6 @@
 # include "ar_depth_cache.h"
 # include "ar_depth_update.h"
 # include "ar_depth_wait_queue.h"
-# include "ar_statistic.h"
 
 const char *__process__ = "accessrest";
 const char *__version__ = "0.1.0";
@@ -151,10 +150,6 @@ server:
     ret = init_ticker();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init ticker fail: %d", ret);
-    }
-    ret = init_statistic();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init statistic fail: %d", ret);
     }
     ret = init_server();
     if (ret < 0) {

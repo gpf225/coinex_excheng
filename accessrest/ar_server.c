@@ -10,7 +10,6 @@
 # include "ar_depth_cache.h"
 # include "ar_depth_update.h"
 # include "ar_common.h"
-# include "ar_statistic.h" 
 
 static http_svr *svr;
 static rpc_clt *listener;
@@ -307,17 +306,17 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         if (result != NULL) {
             reply_json(ses, result, NULL);
             json_decref(result);
+            profile_inc("depth_cache_0", 1);
             return 0;
         }
     }
 
-    stat_depth_req();
     struct depth_cache_val *val = depth_cache_get(market, merge);
     if (val != NULL) {
         json_t *new_result = depth_get_result(val->data, limit);
         reply_json(ses, new_result, NULL);
         json_decref(new_result);
-        stat_depth_cached();
+        profile_inc("depth_cache", 1);
         return 0;
     } 
     
