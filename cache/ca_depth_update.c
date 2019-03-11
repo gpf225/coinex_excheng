@@ -9,7 +9,6 @@
 # include "ca_depth_wait_queue.h"
 # include "ca_common.h"
 # include "ca_server.h"
-# include "ca_statistic.h"
 
 # define WAIT_TYPE_HTTP  1
 # define WAIT_TYPE_REST  2
@@ -60,7 +59,6 @@ static void reply_to_ses(const char *market, const char *interval, uint32_t limi
         struct depth_wait_item *item = node->value;
         if (limit >= item->limit) {
             nw_state_del(state_context, item->sequence);
-            stat_depth_update_released();
 
             json_t *new_result = NULL;
             if (item->wait_type == WAIT_TYPE_REST) {
@@ -115,7 +113,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
     struct state_data *state = entry->data;
-//    log_trace("depth reply from matchengine, depth: %s-%s-%u", state->market, state->interval, state->limit);
     depth_update_queue_remove(state->market, state->interval);
 
     ut_rpc_reply_t *rpc_reply = NULL;
@@ -170,7 +167,6 @@ static int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const cha
     depth_set_key(&key, market, interval, 0);
     dict_entry *entry = dict_find(dict_depth_update_queue, &key);
     if (entry != NULL) {
-        stat_depth_update_wait();
         return 0;
     }
 
@@ -178,9 +174,6 @@ static int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const cha
         return -__LINE__;
     }
 
-    stat_depth_update();
-    //log_trace("going to update depth %s-%s", market, interval);
-    
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
@@ -225,7 +218,6 @@ int depth_update_sub(const char *market, const char *interval)
 
 static void on_timeout(nw_state_entry *entry)
 {
-    stat_depth_update_timeout();
     struct state_data *state = entry->data;
     log_fatal("query order depth timeout, state id: %u, %s-%s-%u", entry->id, state->market, state->interval, state->limit);
     depth_update_queue_remove(state->market, state->interval);

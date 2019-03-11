@@ -72,7 +72,7 @@ void test_depth_wait_queue_remove(void **state)
     assert_int_equal(list_len(wait_list), 1);
     ret = depth_wait_queue_remove("CETBTC", "0", 50, ses1, 4);
     assert_int_equal(list_len(wait_list), 0);
-    assert_int_equal(dict_size(wait_session), 2);
+    assert_int_equal(dict_size(wait_session), 1);
 
     free(ses1);
     free(ses2);

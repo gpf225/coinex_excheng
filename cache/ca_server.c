@@ -8,7 +8,6 @@
 # include "ca_depth_update.h"
 # include "ca_depth_sub.h"
 # include "ca_common.h"
-# include "ca_statistic.h"
 # include "ca_depth_wait_queue.h"
 # include "ca_depth_sub.h"
 # include "ca_market.h"
@@ -122,7 +121,6 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params, bool is
         limit = settings.depth_limit_max;
     }
    
-    stat_depth_req();
     struct depth_cache_val *cache_val = depth_cache_get(market, interval);
     if (cache_val != NULL) {
         json_t *reply_json = NULL;
@@ -135,7 +133,6 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params, bool is
         reply_result(ses, pkg, reply_json);
         json_decref(reply_json);
         profile_inc("depth_cache", 1);
-        stat_depth_cached();
         return 0;
     }
     
