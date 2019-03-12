@@ -22,7 +22,8 @@
 
 
 步骤3：更新accessrest服务
-3.1 更新accessrest的配置文件config.json。
+3.1 先备份accessrest.exe和config.json文件。
+3.2 更新accessrest的配置文件config.json。
 ```
 "cache": {
     "name": "cache",
@@ -44,9 +45,9 @@
 "depth_limit_max": 50,
 ```
 注意,longpoll和cache只能在某一台机器上部署，因此两台机器的accessrest配置文件的IP地址是不一样的。
-3.2 上传accessrest.exe文件，并启动。
+3.3 上传accessrest.exe文件，并启动。
 
-
+---accessws和accesshttp暂缓部署，等待accessrest稳定以后再部署---
 步骤4：更新accessws服务
 4.1 更新config.json配置文件。
 ```

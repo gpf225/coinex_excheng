@@ -6,3 +6,4 @@ cd ../cache/ &&  make clean && make
 cd ../longpoll/ &&  make clean && make
 cd ../accessrest/ &&  make clean && make
 cd ../accessws/ &&  make clean && make
+cd ../accesshttp/ &&  make clean && make
