@@ -16,6 +16,7 @@
 # include "aw_deals.h"
 # include "aw_order.h"
 # include "aw_asset.h"
+# include "aw_market.h"
 # include "aw_asset_sub.h"
 # include "aw_message.h"
 # include "aw_listener.h"
@@ -113,18 +114,35 @@ int main(int argc, char *argv[])
 
     process_title_set("%s_listener", __process__);
     daemon(1, 1);
-    process_keepalive();
+    if (settings.debug) {
+        init_signal();
+    } else {
+        process_keepalive();
+    }
     dlog_set_no_shift(default_dlog);
 
     ret = init_listener();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init listener fail: %d", ret);
     }
-    goto run;
+
+    nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
+    nw_timer_start(&cron_timer);
+
+    log_vip("server start");
+    log_stderr("server start");
+    nw_loop_run();
+    log_vip("server stop");
+
+    goto end;
 
 server:
     daemon(1, 1);
-    process_keepalive();
+    if (settings.debug) {
+        init_signal();
+    } else {
+        process_keepalive();
+    }
 
     ret = init_http();
     if (ret < 0) {
@@ -141,6 +159,10 @@ server:
     ret = init_sign();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init sing fail: %d", ret);
+    }
+    ret = init_market();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
     }
     ret = init_kline();
     if (ret < 0) {
@@ -183,7 +205,6 @@ server:
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
     }
 
-run:
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
     nw_timer_start(&cron_timer);
 
@@ -192,6 +213,15 @@ run:
     nw_loop_run();
     log_vip("server stop");
 
+    fini_asset();
+    fini_deals();
+    fini_depth();
+    fini_kline();
+    fini_market();
+    fini_order();
+    fini_state();
+    
+end:
     return 0;
 }
 

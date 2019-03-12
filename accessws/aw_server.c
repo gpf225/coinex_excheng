@@ -380,7 +380,7 @@ static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_
             return send_error_invalid_argument_depth(ses, id, market, limit, interval);
         }
         
-        int ret = depth_subscribe_multi(ses, market, limit, interval);
+        int ret = depth_subscribe(ses, market, limit, interval);
         if (ret < 0) {
             depth_unsubscribe(ses);
             return send_error_subscribe_depth_failed(ses, id, market, limit, interval);

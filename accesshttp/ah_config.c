@@ -50,9 +50,15 @@ static int read_config_from_json(json_t *root)
         printf("load monitorcenter clt config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_rpc_clt(root, "cache", &settings.cache);
+    if (ret < 0) {
+        printf("load cache clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
 
     ERR_RET(read_cfg_real(root, "timeout", &settings.timeout, false, 5.0));
     ERR_RET(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));
+    ERR_RET(read_cfg_int(root, "cache_worker_num", &settings.cache_worker_num, false, 4));
 
     return 0;
 }

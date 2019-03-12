@@ -15,6 +15,7 @@ static rpc_clt *matchengine;
 static rpc_clt *marketprice;
 static rpc_clt *readhistory;
 static rpc_clt *monitorcenter;
+static rpc_clt *cache;
 
 struct state_info {
     nw_ses  *ses;
@@ -103,7 +104,9 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         reply_not_found(ses, json_integer_value(id));
     } else {
         struct request_info *req = entry->val;
-        if (!rpc_clt_connected(req->clt)) {
+        rpc_clt *clt = req->clt;
+
+        if (!rpc_clt_connected(clt)) {
             reply_internal_error(ses);
             json_decref(body);
             return 0;
@@ -125,9 +128,9 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         pkg.body      = json_dumps(params, 0);
         pkg.body_size = strlen(pkg.body);
 
-        rpc_clt_send(req->clt, &pkg);
+        rpc_clt_send(clt, &pkg);
         log_debug("send request to %s, cmd: %u, sequence: %u",
-                nw_sock_human_addr(rpc_clt_peer_addr(req->clt)), pkg.command, pkg.sequence);
+                nw_sock_human_addr(rpc_clt_peer_addr(clt)), pkg.command, pkg.sequence);
         free(pkg.body);
     }
 
@@ -286,7 +289,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.put_market", matchengine, CMD_ORDER_PUT_MARKET));
     ERR_RET_LN(add_handler("order.cancel", matchengine, CMD_ORDER_CANCEL));
     ERR_RET_LN(add_handler("order.book", matchengine, CMD_ORDER_BOOK));
-    ERR_RET_LN(add_handler("order.depth", matchengine, CMD_ORDER_DEPTH));
+    ERR_RET_LN(add_handler("order.depth", cache, CMD_ORDER_DEPTH));
     ERR_RET_LN(add_handler("order.pending", matchengine, CMD_ORDER_PENDING));
     ERR_RET_LN(add_handler("order.pending_detail", matchengine, CMD_ORDER_PENDING_DETAIL));
     ERR_RET_LN(add_handler("order.deals", readhistory, CMD_ORDER_DEALS));
@@ -368,6 +371,12 @@ int init_server(void)
     if (monitorcenter == NULL)
         return -__LINE__;
     if (rpc_clt_start(monitorcenter) < 0)
+        return -__LINE__;
+
+    cache = rpc_clt_create(&settings.cache, &ct);
+    if (cache == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(cache) < 0)
         return -__LINE__;
 
     svr = http_svr_create(&settings.svr, on_http_request);

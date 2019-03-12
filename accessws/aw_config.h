@@ -39,6 +39,7 @@
 # include "ut_rpc_cmd.h"
 # include "ut_ws_svr.h"
 # include "ut_comm_dict.h"
+# include "ut_rpc_reply.h"
 
 # define ASSET_NAME_MAX_LEN     16
 # define MARKET_NAME_MAX_LEN    16
@@ -66,6 +67,8 @@ struct settings {
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
     rpc_clt_cfg         readhistory;
+    rpc_clt_cfg         longpoll;
+    rpc_clt_cfg         cache;
 
     kafka_consumer_cfg  deals;
     kafka_consumer_cfg  stops;
@@ -89,6 +92,7 @@ struct settings {
 
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;
+    bool debug;
 };
 
 extern struct settings settings;

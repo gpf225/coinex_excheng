@@ -77,28 +77,40 @@ static int read_config_from_json(json_t *root)
         printf("load marketprice clt config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_rpc_clt(root, "cache", &settings.cache);
+    if (ret < 0) {
+        printf("load cache clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_rpc_clt(root, "longpoll", &settings.longpoll);
+    if (ret < 0) {
+        printf("load longpoll clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
 
     ret = read_cfg_str(root, "market_url", &settings.market_url, NULL);
     if (ret < 0) {
         printf("load market url config fail: %d\n", ret);
         return -__LINE__;
     }
-
+    
     ERR_RET(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));
+
+    ERR_RET(read_cfg_int(root, "kline_max",            &settings.kline_max,            false, 1000));
+    ERR_RET(read_cfg_int(root, "kline_default",        &settings.kline_default,        false, 100));
+    ERR_RET(read_cfg_int(root, "deal_max",             &settings.deal_max,             false, 1000));
+    ERR_RET(read_cfg_int(root, "deal_default",         &settings.deal_default,         false, 100));
+    ERR_RET(read_cfg_int(root, "depth_limit_max",      &settings.depth_limit_max,      false, 50));
+    ERR_RET(read_cfg_int(root, "depth_limit_default",  &settings.depth_limit_default,  false, 20));
+
     ERR_RET(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
     ERR_RET(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.5));
     ERR_RET(read_cfg_real(root, "state_interval", &settings.state_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "market_interval", &settings.market_interval, false, 60));
-    ERR_RET(read_cfg_real(root, "market_info_interval", &settings.market_info_interval, false, 60));
 
     ERR_RET(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET(read_depth_merge_cfg(root, "depth_merge"));
-
-    ERR_RET(read_cfg_int(root, "depth_limit_default", &settings.depth_limit_default, false, 20));
-    ERR_RET(read_cfg_int(root, "kline_max",     &settings.kline_max,     false, 1000));
-    ERR_RET(read_cfg_int(root, "kline_default", &settings.kline_default, false, 100));
-    ERR_RET(read_cfg_int(root, "deal_max",      &settings.deal_max,      false, 1000));
-    ERR_RET(read_cfg_int(root, "deal_default",  &settings.deal_default,  false, 100));
+    ERR_RET(read_cfg_bool(root, "debug", &settings.debug, false, true));
 
     if (settings.kline_default > settings.kline_max) {
         return -__LINE__;

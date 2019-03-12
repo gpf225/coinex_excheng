@@ -1,12 +1,9 @@
 /*
- * Copyright (c) 2018, Mugui Zhou <zhoumugui@viabtc.com>
- * All rights reserved.
- *
  * Description: 
  *     History: zhoumugui@viabtc.com, 2018/12/18, create
  */
 
-# include "ar_market_info.h"
+# include "ar_market.h"
 # include "nw_job.h"
 # include "ut_log.h"
 
@@ -14,9 +11,9 @@
 
 static const long HTTP_TIMEOUT = 2000L;
 
-static dict_t *dict_market_info = NULL;
+static dict_t *dict_market = NULL;
 static nw_job *job = NULL;
-static nw_timer market_info_update_timer;
+static nw_timer market_update_timer;
 
 struct market_val {
     int     id;
@@ -152,13 +149,13 @@ static int load_markets(json_t *market_infos)
             return -__LINE__;
         }
 
-        dict_entry *entry = dict_find(dict_market_info, market_name);
+        dict_entry *entry = dict_find(dict_market, market_name);
         if (entry == NULL) {
             struct market_val val;
             memset(&val, 0, sizeof(val));
             val.id = update_id;
             val.info = market_item;
-            dict_add(dict_market_info, (char *)market_name, &val);
+            dict_add(dict_market, (char *)market_name, &val);
             log_info("add market info: %s", market_name);
         } else {
             struct market_val *info = entry->val;
@@ -171,11 +168,11 @@ static int load_markets(json_t *market_infos)
     }
 
     dict_entry *entry = NULL;
-    dict_iterator *iter = dict_get_iterator(dict_market_info);
+    dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
         struct market_val *info = entry->val;
         if (info->id != update_id) {
-            dict_delete(dict_market_info, entry->key);
+            dict_delete(dict_market, entry->key);
             log_info("del market info: %s", (char *)entry->key);
         }
     }
@@ -253,12 +250,12 @@ static void on_job_cleanup(nw_job_entry *entry)
     }
 }
 
-static void on_update_market_info(nw_timer *timer, void *privdata)
+static void on_update_market(nw_timer *timer, void *privdata)
 {
     nw_job_add(job, 0, NULL);
 }
 
-int init_market_info(void)
+int init_market(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
@@ -269,8 +266,8 @@ int init_market_info(void)
     dt.val_dup = dict_market_val_dup;
     dt.val_destructor = dict_market_val_free;
 
-    dict_market_info = dict_create(&dt, 64);
-    if (dict_market_info == NULL) {
+    dict_market = dict_create(&dt, 64);
+    if (dict_market == NULL) {
         return -__LINE__;
     }
 
@@ -299,8 +296,8 @@ int init_market_info(void)
     }
     json_decref(result);
 
-    nw_timer_set(&market_info_update_timer, settings.market_info_interval, true, on_update_market_info, NULL);
-    nw_timer_start(&market_info_update_timer);
+    nw_timer_set(&market_update_timer, settings.market_interval, true, on_update_market, NULL);
+    nw_timer_start(&market_update_timer);
 
     return 0;
 }
@@ -310,7 +307,7 @@ json_t *get_market_info_list(void)
     json_t *info_list = json_object();
 
     dict_entry *entry = NULL;
-    dict_iterator *iter = dict_get_iterator(dict_market_info);
+    dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
         struct market_val *val = entry->val;
         const char *market_name = entry->key;
@@ -321,5 +318,33 @@ json_t *get_market_info_list(void)
     return info_list;
 }
 
+dict_t *get_market(void)
+{
+    return dict_market;
+}
+
+json_t *get_market_list(void)
+{
+    json_t *data = json_array();
+
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        json_array_append_new(data, json_string(entry->key));
+    }
+    dict_release_iterator(iter);
+
+    return data;
+}
+
+void fini_market(void)
+{
+    dict_release(dict_market);
+}
+
+bool market_exist(const char *market)
+{
+    return dict_find(dict_market, market) != NULL;
+}
 
 

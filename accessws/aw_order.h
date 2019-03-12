@@ -13,6 +13,7 @@ int order_unsubscribe(uint32_t user_id, nw_ses *ses);
 int order_on_update(uint32_t user_id, int event, json_t *order);
 int order_on_update_stop(uint32_t user_id, int event, json_t *order);
 size_t order_subscribe_number(void);
+void fini_order(void);
 
 # endif
 

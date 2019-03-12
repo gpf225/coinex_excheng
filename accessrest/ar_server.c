@@ -4,8 +4,12 @@
  */
 
 # include "ar_server.h"
-# include "ar_market_info.h"
+# include "ar_market.h"
 # include "ar_ticker.h"
+# include "ar_depth.h"
+# include "ar_depth_cache.h"
+# include "ar_depth_update.h"
+# include "ar_common.h"
 
 static http_svr *svr;
 static rpc_clt *listener;
@@ -14,7 +18,6 @@ static nw_state *state_context;
 static dict_t *method_map;
 static nw_timer timer;
 
-static rpc_clt *matchengine;
 static rpc_clt *marketprice;
 
 struct state_data {
@@ -87,13 +90,7 @@ static int reply_error(nw_ses *ses, int code, const char *message, uint32_t stat
     return 0;
 }
 
-static int reply_internal_error(nw_ses *ses)
-{
-    profile_inc("error_internal", 1);
-    return reply_error(ses, 1, "internal error", 502);
-}
-
-static int reply_time_out(nw_ses *ses)
+int reply_time_out(nw_ses *ses)
 {
     profile_inc("error_timeout", 1);
     return reply_error(ses, 1, "service timeout", 504);
@@ -128,6 +125,17 @@ static int reply_json(nw_ses *ses, json_t *data, sds cache_key)
     profile_inc("reply_normal", 1);
 
     return 0;
+}
+
+int reply_internal_error(nw_ses *ses)
+{
+    profile_inc("error_internal", 1);
+    return reply_error(ses, 1, "internal error", 502);
+}
+
+int send_result(nw_ses *ses, json_t *data)
+{
+    return reply_json(ses, data, NULL);
 }
 
 static int on_ping(nw_ses *ses, dict_t *params)
@@ -270,6 +278,9 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         return reply_invalid_params(ses);
     char *market = entry->val;
     strtoupper(market);
+    if (!market_exist(market)) {
+        return reply_invalid_params(ses);
+    }
 
     entry = dict_find(params, "merge");
     if (entry == NULL)
@@ -285,66 +296,31 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         if (!is_good_limit(limit)) {
             limit = settings.depth_limit_default;
         }
-    }
-
-    bool is_reply = false;
-    sds cache_key = sdsempty();
-    cache_key = sdscatprintf(cache_key, "market_depth_%s_%s_%d", market, merge, limit);
-    double now = current_timestamp();
-    struct cache_val *cache_val = get_cache(cache_key);
-    if (cache_val) {
-        if ((now - cache_val->time) < (settings.cache_timeout * 2)) {
-            send_http_response_simple(ses, 200, cache_val->data, sdslen(cache_val->data));
-            profile_inc("reply_cache", 1);
-            is_reply = true;
-            if ((now - cache_val->time) < settings.cache_timeout) {
-                sdsfree(cache_key);
-                return 0;
-            } else {
-                cache_val->time = now;
-            }
-        } else {
-            clear_cache(cache_key);
+        if (limit > settings.depth_limit_max) {
+            limit = settings.depth_limit_max;
         }
     }
 
-    if (!rpc_clt_connected(matchengine)) {
-        sdsfree(cache_key);
-        if (!is_reply) {
-            return reply_internal_error(ses);
-        } else {
-            return -__LINE__;
+    if (strcmp("0", merge) == 0) {
+        json_t *result = depth_get_json(market, limit);
+        if (result != NULL) {
+            reply_json(ses, result, NULL);
+            json_decref(result);
+            profile_inc("depth_cache_0", 1);
+            return 0;
         }
     }
 
-    nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = state_entry->data;
-    if (!is_reply) {
-        state->ses = ses;
-        state->ses_id = ses->id;
-    }
-    state->cache_key = cache_key;
-
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_string(market));
-    json_array_append_new(query_params, json_integer(limit));
-    json_array_append_new(query_params, json_string(merge));
-
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ORDER_DEPTH;
-    pkg.sequence  = state_entry->id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    state->cmd = pkg.command;
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
-    json_decref(query_params);
-
+    struct depth_cache_val *val = depth_cache_get(market, merge);
+    if (val != NULL) {
+        json_t *new_result = depth_get_result(val->data, limit);
+        reply_json(ses, new_result, NULL);
+        json_decref(new_result);
+        profile_inc("depth_cache", 1);
+        return 0;
+    } 
+    
+    depth_update(ses, market, merge, limit);
     return 0;
 }
 
@@ -431,7 +407,7 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
     state->cmd = pkg.command;
     rpc_clt_send(marketprice, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
+            nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
     json_decref(query_params);
 
@@ -557,7 +533,7 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     state->cmd = pkg.command;
     rpc_clt_send(marketprice, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
+            nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
     json_decref(query_params);
 
@@ -821,12 +797,6 @@ static int init_backend(void)
     memset(&ct, 0, sizeof(ct));
     ct.on_connect = on_backend_connect;
     ct.on_recv_pkg = on_backend_recv_pkg;
-
-    matchengine = rpc_clt_create(&settings.matchengine, &ct);
-    if (matchengine == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(matchengine) < 0)
-        return -__LINE__;
 
     marketprice = rpc_clt_create(&settings.marketprice, &ct);
     if (marketprice == NULL)

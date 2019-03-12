@@ -187,3 +187,7 @@ size_t order_subscribe_number(void)
     return dict_size(dict_sub);
 }
 
+void fini_order(void)
+{
+    dict_release(dict_sub);
+}

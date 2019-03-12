@@ -5,10 +5,14 @@
 
 # include "ut_title.h"
 # include "ar_config.h"
-# include "ar_market_info.h"
+# include "ar_market.h"
 # include "ar_ticker.h"
 # include "ar_server.h"
 # include "ar_listener.h"
+# include "ar_depth.h"
+# include "ar_depth_cache.h"
+# include "ar_depth_update.h"
+# include "ar_depth_wait_queue.h"
 
 const char *__process__ = "accessrest";
 const char *__version__ = "0.1.0";
@@ -102,22 +106,46 @@ int main(int argc, char *argv[])
 
     process_title_set("%s_listener", __process__);
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive1(settings.debug);
     dlog_set_no_shift(default_dlog);
 
     ret = init_listener();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init listener fail: %d", ret);
     }
-    goto run;
+
+    nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
+    nw_timer_start(&cron_timer);
+
+    log_vip("listener server start");
+    log_stderr("listener server start");
+    nw_loop_run();
+    log_vip("listener server stop");
+    goto end;
 
 server:
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive1(settings.debug);
 
-    ret = init_market_info();
+    ret = init_market();
     if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init market info fail: %d", ret);
+        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
+    }
+    ret = init_depth();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init depth fail: %d", ret);
+    }
+    ret = init_depth_cache();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init depth cache fail: %d", ret);
+    }
+    ret = init_depth_wait_queue();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init depth wait queue fail: %d", ret);
+    }
+    ret = init_depth_update();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init depth update fail: %d", ret);
     }
     ret = init_ticker();
     if (ret < 0) {
@@ -128,15 +156,19 @@ server:
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
     }
 
-run:
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
     nw_timer_start(&cron_timer);
 
-    log_vip("server start");
-    log_stderr("server start");
+    log_vip("work server start");
+    log_stderr("work server start");
     nw_loop_run();
-    log_vip("server stop");
+    log_vip("work server stop");
 
+    fini_depth();
+    fini_market();
+    fini_ticker();
+    fini_depth_cache();
+end:
     return 0;
 }
 
