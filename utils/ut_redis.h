@@ -1,6 +1,7 @@
 /*
  * Description: 
  *     History: yang@haipo.me, 2016/03/27, create
+ *              zhoumugui@viabtc.com 2019/03/13, add function connect to redis directly.
  */
 
 # ifndef _UT_REDIS_H_
@@ -14,6 +15,14 @@ typedef struct redis_addr {
     char *host;
     int   port;
 } redis_addr;
+
+typedef struct redis_cfg {
+    char *host;
+    char *password;
+    int   port;
+    uint32_t timeout;
+    int db;
+} redis_cfg;
 
 typedef struct redis_sentinel_cfg {
     char *name;
@@ -34,15 +43,16 @@ typedef struct redis_sentinel_t {
     int db;
 } redis_sentinel_t;
 
-redis_sentinel_t *redis_sentinel_create(redis_sentinel_cfg *cfg);
+//redis_sentinel_t *redis_sentinel_create(redis_sentinel_cfg *cfg);
 void redis_sentinel_release(redis_sentinel_t *context);
 
 /* host should be freed by caller */
-int redis_sentinel_get_master_addr(redis_sentinel_t *context, redis_addr *addr);
-int redis_sentinel_get_slave_addr(redis_sentinel_t *context, redis_addr *addr);
+//int redis_sentinel_get_master_addr(redis_sentinel_t *context, redis_addr *addr);
+//int redis_sentinel_get_slave_addr(redis_sentinel_t *context, redis_addr *addr);
 
-redisContext *redis_sentinel_connect_master(redis_sentinel_t *context);
-redisContext *redis_sentinel_connect_slave(redis_sentinel_t *context);
+//redisContext *redis_sentinel_connect_master(redis_sentinel_t *context);
+//redisContext *redis_sentinel_connect_slave(redis_sentinel_t *context);
+redisContext *redis_connect(redis_cfg *cfg);
 
 int redis_addr_cfg_parse(const char *cfg, redis_addr *addr);
 

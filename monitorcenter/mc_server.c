@@ -7,7 +7,6 @@
 # include "mc_server.h"
 
 static rpc_svr *svr;
-static redis_sentinel_t *redis;
 static redisContext *redis_store;
 static dict_t *monitor_set;
 static dict_t *monitor_val;
@@ -139,7 +138,7 @@ void *redis_query(const char *format, ...)
     for (int i = 0; i < 2; ++i) {
         if (redis_store == NULL) {
             log_info("redis connection lost, try connect");
-            redis_store = redis_sentinel_connect_master(redis);
+            redis_store = redis_connect(&settings.redis);
             if (redis_store == NULL) {
                 log_error("redis_sentinel_connect_master fail");
                 break;
@@ -981,10 +980,7 @@ int init_server(void)
     if (rpc_svr_start(svr) < 0)
         return -__LINE__;
 
-    redis = redis_sentinel_create(&settings.redis);
-    if (redis == NULL)
-        return -__LINE__;
-    redis_store = redis_sentinel_connect_master(redis);
+    redis_store = redis_connect(&settings.redis);
     if (redis_store == NULL)
         return -__LINE__;
 
