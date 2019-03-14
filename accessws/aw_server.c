@@ -29,6 +29,7 @@ static nw_timer timer;
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
 static rpc_clt *readhistory;
+static rpc_clt *cache;
 
 struct state_data {
     nw_ses      *ses;
@@ -290,7 +291,7 @@ static int on_method_kline_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
 
 static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (!rpc_clt_connected(matchengine))
+    if (!rpc_clt_connected(cache))
         return send_error_internal_error(ses, id);
 
     sds key = sdsempty();
@@ -319,9 +320,9 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
     pkg.body      = params_str;
     pkg.body_size = strlen(pkg.body);
 
-    rpc_clt_send(matchengine, &pkg);
+    rpc_clt_send(cache, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
+            nw_sock_human_addr(rpc_clt_peer_addr(cache)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
 
     return 0;
@@ -1173,6 +1174,12 @@ static int init_backend(void)
     if (readhistory == NULL)
         return -__LINE__;
     if (rpc_clt_start(readhistory) < 0)
+        return -__LINE__;
+
+    cache = rpc_clt_create(&settings.cache, &ct);
+    if (cache == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(cache) < 0)
         return -__LINE__;
 
     dict_types dt;
