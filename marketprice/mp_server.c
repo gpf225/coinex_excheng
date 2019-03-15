@@ -133,21 +133,13 @@ static int on_cmd_market_status(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (period <= 0 || period > settings.sec_max)
         return reply_error_invalid_argument(ses, pkg);
 
-    sds cache_key = NULL;
-    if (process_cache(ses, pkg, &cache_key))
-        return 0;
-
     double task_start = current_timestamp();
     json_t *result = get_market_status(market, period);
     if (result == NULL) {
-        sdsfree(cache_key);
         return reply_error_internal_error(ses, pkg);
     }
     profile_inc("profile_status_times", 1);
     profile_inc("profile_status_costs", (int)((current_timestamp() - task_start) * 1000000));
-
-    add_cache(cache_key, result);
-    sdsfree(cache_key);
 
     int ret = reply_result(ses, pkg, result);
     json_decref(result);
