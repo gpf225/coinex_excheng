@@ -15,13 +15,6 @@
 # include "me_asset_backup.h"
 
 static rpc_svr *svr;
-static dict_t *dict_cache;
-static nw_timer cache_timer;
-
-struct cache_val {
-    double      time;
-    json_t      *result;
-};
 
 static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
@@ -102,41 +95,6 @@ static int reply_success(nw_ses *ses, rpc_pkg *pkg)
     int ret = reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
-}
-
-static bool check_cache(nw_ses *ses, rpc_pkg *pkg, sds *cache_key)
-{
-    sds key = sdsempty();
-    key = sdscatprintf(key, "%u", pkg->command);
-    key = sdscatlen(key, pkg->body, pkg->body_size);
-    dict_entry *entry = dict_find(dict_cache, key);
-    if (entry == NULL) {
-        *cache_key = key;
-        return false;
-    }
-
-    struct cache_val *cache = entry->val;
-    double now = current_timestamp();
-    if ((now - cache->time) > settings.cache_timeout) {
-        dict_delete(dict_cache, key);
-        *cache_key = key;
-        return false;
-    }
-
-    reply_result(ses, pkg, cache->result);
-    sdsfree(key);
-    return true;
-}
-
-static int add_cache(sds cache_key, json_t *result)
-{
-    struct cache_val cache;
-    cache.time = current_timestamp();
-    cache.result = result;
-    json_incref(result);
-    dict_replace(dict_cache, cache_key, &cache);
-
-    return 0;
 }
 
 static int on_cmd_asset_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -1141,12 +1099,6 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
     }
 
-    sds cache_key = NULL;
-    if (check_cache(ses, pkg, &cache_key)) {
-        mpd_del(interval);
-        return 0;
-    }
-
     profile_inc("get_depth", 1);
     json_t *result = NULL;
     if (mpd_cmp(interval, mpd_zero, &mpd_ctx) == 0) {
@@ -1157,12 +1109,8 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     mpd_del(interval);
 
     if (result == NULL) {
-        sdsfree(cache_key);
         return reply_error_internal_error(ses, pkg);
     }
-
-    add_cache(cache_key, result);
-    sdsfree(cache_key);
 
     int ret = reply_result(ses, pkg, result);
     json_decref(result);
@@ -1848,45 +1796,6 @@ static void svr_on_connection_close(nw_ses *ses)
     log_trace("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
 }
 
-static uint32_t cache_dict_hash_function(const void *key)
-{
-    return dict_generic_hash_function(key, sdslen((sds)key));
-}
-
-static int cache_dict_key_compare(const void *key1, const void *key2)
-{
-    return sdscmp((sds)key1, (sds)key2);
-}
-
-static void *cache_dict_key_dup(const void *key)
-{
-    return sdsdup((const sds)key);
-}
-
-static void cache_dict_key_free(void *key)
-{
-    sdsfree(key);
-}
-
-static void *cache_dict_val_dup(const void *val)
-{
-    struct cache_val *obj = malloc(sizeof(struct cache_val));
-    memcpy(obj, val, sizeof(struct cache_val));
-    return obj;
-}
-
-static void cache_dict_val_free(void *val)
-{
-    struct cache_val *obj = val;
-    json_decref(obj->result);
-    free(val);
-}
-
-static void on_cache_timer(nw_timer *timer, void *privdata)
-{
-    dict_clear(dict_cache);
-}
-
 int init_server(void)
 {
     rpc_svr_type type;
@@ -1900,22 +1809,6 @@ int init_server(void)
         return -__LINE__;
     if (rpc_svr_start(svr) < 0)
         return -__LINE__;
-
-    dict_types dt;
-    memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = cache_dict_hash_function;
-    dt.key_compare    = cache_dict_key_compare;
-    dt.key_dup        = cache_dict_key_dup;
-    dt.key_destructor = cache_dict_key_free;
-    dt.val_dup        = cache_dict_val_dup;
-    dt.val_destructor = cache_dict_val_free;
-
-    dict_cache = dict_create(&dt, 64);
-    if (dict_cache == NULL)
-        return -__LINE__;
-
-    nw_timer_set(&cache_timer, 60, true, on_cache_timer, NULL);
-    nw_timer_start(&cache_timer);
 
     return 0;
 }
