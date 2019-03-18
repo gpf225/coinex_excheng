@@ -403,6 +403,20 @@ int load_cfg_redis_sentinel(json_t *root, const char *key, redis_sentinel_cfg *c
     return 0;
 }
 
+int load_cfg_redis(json_t *root, const char *key, redis_cfg *cfg)
+{
+    json_t *node = json_object_get(root, key);
+    if (!node || !json_is_object(node))
+        return -__LINE__;
+
+    ERR_RET(read_cfg_str(node, "host", &cfg->host, NULL));
+    ERR_RET(read_cfg_int(node, "port", &cfg->port, true, 0));
+    ERR_RET(read_cfg_int(node, "db", &cfg->db, false, 0));
+    ERR_RET(read_cfg_str(node, "password", &cfg->password, NULL));
+    ERR_RET(read_cfg_uint32(node, "timeout", &cfg->timeout, false, 3000));
+    return 0;
+}
+
 int read_cfg_str(json_t *root, const char *key, char **val, const char *default_val)
 {
     json_t *node = json_object_get(root, key);

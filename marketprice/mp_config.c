@@ -45,7 +45,7 @@ static int read_config_from_json(json_t *root)
         printf("load kafka deals config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_redis_sentinel(root, "redis", &settings.redis);
+    ret = load_cfg_redis(root, "redis", &settings.redis);
     if (ret < 0) {
         printf("load kafka deals config fail: %d\n", ret);
         return -__LINE__;

@@ -286,6 +286,48 @@ redisContext *redis_sentinel_connect_slave(redis_sentinel_t *context)
     return NULL;
 }
 
+redisContext *redis_connect(redis_cfg *cfg)
+{
+    struct timeval timeout;
+    timeout.tv_sec = cfg->timeout / 1000;
+    timeout.tv_usec = (cfg->timeout % 1000) * 1000;
+
+    redisContext *redis = redisConnectWithTimeout(cfg->host, cfg->port, timeout);
+    if (redis == NULL || redis->err) {
+        log_error("connect to redis:%s:%d failed", cfg->host, cfg->port);
+        if (redis != NULL) {
+            redisFree(redis);
+        }
+        return NULL;
+    }
+    if (cfg->password != NULL && strlen(cfg->password) != 0) {
+        redisReply *reply = redisCommand(redis, "auth %s", cfg->password);
+        if (reply == NULL || reply->type == REDIS_REPLY_ERROR) {
+            log_error("redis auth failed, please checkout your password.");
+            if (reply != NULL) {
+                freeReplyObject(reply);
+            }
+            redisFree(redis);
+            return NULL;
+        }
+        freeReplyObject(reply);
+    }
+
+    if (cfg->db > 0) {
+        redisReply *reply = redisCommand(redis, "SELECT %d", cfg->db);
+        if (redis == NULL || reply->type == REDIS_REPLY_ERROR) {
+            if (reply != NULL) {
+                freeReplyObject(reply);
+            }
+            redisFree(redis);
+            return NULL;
+        }
+        freeReplyObject(reply);
+    }
+
+    return redis;
+}
+
 int redis_addr_cfg_parse(const char *cfg, redis_addr *addr)
 {
     char *sep = strchr(cfg, ':');

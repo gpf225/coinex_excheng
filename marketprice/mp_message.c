@@ -36,7 +36,6 @@ struct update_key {
 
 static int worker_id;
 
-static redis_sentinel_t *redis;
 static kafka_consumer_t *deals;
 static dict_t *dict_market;
 
@@ -119,6 +118,11 @@ static void list_deals_free(void *val)
 static void list_deals_json_free(void *val)
 {
     json_decref(val);
+}
+
+static redisContext *get_redis_connection()
+{
+    return redis_connect(&settings.redis);
 }
 
 static int load_market_kline(redisContext *context, sds key, dict_t *dict, time_t start)
@@ -354,7 +358,7 @@ static int init_market(void)
     if (dict_market == NULL)
         return -__LINE__;
 
-    redisContext *context = redis_sentinel_connect_master(redis);
+    redisContext *context = get_redis_connection();
     if (context == NULL)
         return -__LINE__;
     json_t *r = get_market_list();
@@ -719,7 +723,7 @@ static int flush_update(redisContext *context, struct market_info *info)
 
 static int flush_market(void)
 {
-    redisContext *context = redis_sentinel_connect_master(redis);
+    redisContext *context = get_redis_connection();
     if (context == NULL)
         return -__LINE__;
 
@@ -833,7 +837,7 @@ static int clear_key(redisContext *context, const char *key, time_t end)
 
 static int clear_redis(void)
 {
-    redisContext *context = redis_sentinel_connect_master(redis);
+    redisContext *context = get_redis_connection();
     if (context == NULL)
         return 1;
     time_t now = time(NULL);
@@ -904,7 +908,7 @@ static void on_market_timer(nw_timer *timer, void *privdata)
 
 static int64_t get_message_offset(void)
 {
-    redisContext *context = redis_sentinel_connect_master(redis);
+    redisContext *context = get_redis_connection();
     if (context == NULL)
         return -__LINE__;
     redisReply *reply = redisCmd(context, "GET k:offset");
@@ -925,10 +929,6 @@ static int64_t get_message_offset(void)
 int init_message(int id)
 {
     worker_id = id;
-
-    redis = redis_sentinel_create(&settings.redis);
-    if (redis == NULL)
-        return -__LINE__;
 
     int ret;
     ret = init_market();

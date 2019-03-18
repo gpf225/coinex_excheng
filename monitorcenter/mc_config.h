@@ -45,7 +45,7 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
-    redis_sentinel_cfg  redis;
+    redis_cfg           redis;
 };
 
 extern struct settings settings;
