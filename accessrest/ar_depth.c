@@ -216,7 +216,7 @@ json_t* depth_get_json(const char *market, int limit)
     json_object_set_new(new_depth_data, "asks", generate_depth_data(asks_array, limit));
     json_object_set_new(new_depth_data, "bids", generate_depth_data(bids_array, limit));
     json_object_set    (new_depth_data, "last", json_object_get(val->data, "last"));
-    json_object_set    (new_depth_data, "time", json_integer(current_millis()));
+    json_object_set    (new_depth_data, "time", json_object_get(val->data, "time"));
 
     return new_depth_data;
 }
