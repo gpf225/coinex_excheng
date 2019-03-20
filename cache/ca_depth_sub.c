@@ -17,6 +17,7 @@ static nw_timer update_timer;
 struct depth_sub_val {
     dict_t *sessions; 
     json_t *last;
+    double time;
 };
 
 static void *dict_depth_sub_val_dup(const void *val)
@@ -41,7 +42,7 @@ static dict_t* dict_create_depth_session(void)
     dt.key_compare = dict_ses_hash_compare;
     return dict_create(&dt, 16);
 }
-/*
+
 static bool is_json_equal(json_t *lhs, json_t *rhs)
 {
     if (lhs == NULL || rhs == NULL) {
@@ -66,7 +67,7 @@ static bool is_depth_equal(json_t *last, json_t *now)
     }
     return is_json_equal(json_object_get(last, "bids"), json_object_get(now, "bids"));
 }
-*/
+
 static json_t* get_reply_result(const char *market, const char *interval, json_t *result)
 {
     json_t *reply = json_object();
@@ -85,17 +86,20 @@ int depth_sub_reply(const char *market, const char *interval, json_t *result)
         return 0;
     }
 
-//    struct depth_sub_val *val = entry->val;
-//    if (is_depth_equal(val->last, result)) {
-//        return 0;
-//    }
+    const double now = current_timestamp();
+    struct depth_sub_val *val = entry->val;
+    if (is_depth_equal(val->last, result)) {
+        if (now - val->time <= settings.poll_depth_interval) {
+            return 0;
+        }
+    }
    
-    struct depth_sub_val *val = entry->val; 
     if (val->last != NULL) {
         json_decref(val->last);
     }
     val->last = result;
     json_incref(val->last);
+    val->time = now;
 
     dict_iterator *iter = dict_get_iterator(val->sessions);
     while ((entry = dict_next(iter)) != NULL) {
