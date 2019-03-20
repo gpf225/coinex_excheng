@@ -57,22 +57,20 @@ static void reply_to_ses(const char *market, const char *interval, uint32_t limi
     list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
     while ((node = list_next(iter)) != NULL) {
         struct depth_wait_item *item = node->value;
-        if (limit >= item->limit) {
-            nw_state_del(state_context, item->sequence);
+        nw_state_del(state_context, item->sequence);
 
-            json_t *new_result = NULL;
-            if (item->wait_type == WAIT_TYPE_REST) {
-                new_result = depth_get_result_rest(result, limit, ttl);
-            } else {
-                new_result = depth_get_result(result, limit);
-            }
-            int ret = reply_result(ses, &item->pkg, new_result);
-            if (ret != 0) {
-                log_error("send_result failed, ses:%p at %s-%s-%u", ses, market, interval, item->limit);
-            }
-            list_del(list, node);
-            json_decref(new_result);  
+        json_t *new_result = NULL;
+        if (item->wait_type == WAIT_TYPE_REST) {
+            new_result = depth_get_result_rest(result, limit, ttl);
+        } else {
+            new_result = depth_get_result(result, limit);
         }
+        int ret = reply_result(ses, &item->pkg, new_result);
+        if (ret != 0) {
+            log_error("send_result failed, ses:%p at %s-%s-%u", ses, market, interval, item->limit);
+        }
+        list_del(list, node);
+        json_decref(new_result);  
     } 
     list_release_iterator(iter);  
 }
@@ -179,7 +177,7 @@ static int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const cha
     struct state_data *state = state_entry->data;
     strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
     strncpy(state->interval, interval, INTERVAL_MAX_LEN - 1);
-    state->limit = limit;
+    state->limit = settings.depth_limit_max;
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));

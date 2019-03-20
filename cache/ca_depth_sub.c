@@ -17,6 +17,7 @@ static nw_timer update_timer;
 struct depth_sub_val {
     dict_t *sessions; 
     json_t *last;
+    double time;
 };
 
 static void *dict_depth_sub_val_dup(const void *val)
@@ -85,16 +86,20 @@ int depth_sub_reply(const char *market, const char *interval, json_t *result)
         return 0;
     }
 
+    const double now = current_timestamp();
     struct depth_sub_val *val = entry->val;
     if (is_depth_equal(val->last, result)) {
-        return 0;
+        if (now - val->time <= settings.poll_depth_interval) {
+            return 0;
+        }
     }
-
+   
     if (val->last != NULL) {
         json_decref(val->last);
     }
     val->last = result;
     json_incref(val->last);
+    val->time = now;
 
     dict_iterator *iter = dict_get_iterator(val->sessions);
     while ((entry = dict_next(iter)) != NULL) {
