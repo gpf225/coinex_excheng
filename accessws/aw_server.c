@@ -17,6 +17,7 @@
 # include "aw_asset_sub.h"
 # include "aw_common.h"
 # include "aw_sub_user.h"
+# include "aw_market.h"
 
 static ws_svr *svr;
 static dict_t *method_map;
@@ -291,25 +292,36 @@ static int on_method_kline_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
 
 static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
+    if (json_array_size(params) != 3) {
+        return send_error_invalid_argument(ses, id);
+    }
+
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (market == NULL || !market_exists(market)) {
+        return send_error_invalid_argument(ses, id);
+    }
+    uint32_t limit = json_integer_value(json_array_get(params, 1));
+    if (!is_good_limit(limit)) {
+        limit = settings.depth_limit_default;
+    }
+    const char *interval = json_string_value(json_array_get(params, 2));
+    if (interval == NULL || !is_good_interval(interval)) {
+        return send_error_invalid_argument(ses, id);
+    }
+    
     if (!rpc_clt_connected(cache))
         return send_error_internal_error(ses, id);
 
-    sds key = sdsempty();
-    char *params_str = json_dumps(params, 0);
-    key = sdscatprintf(key, "%u-%s", CMD_ORDER_DEPTH, params_str);
-    int ret = check_cache(ses, id, key);
-    if (ret > 0) {
-        sdsfree(key);
-        free(params_str);
-        return 0;
-    }
+    json_t *new_params = json_array();
+    json_array_append_new(new_params, json_string(market));
+    json_array_append_new(new_params, json_integer(limit));
+    json_array_append_new(new_params, json_string(interval));
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;
     state->ses = ses;
     state->ses_id = ses->id;
     state->request_id = id;
-    state->cache_key = key;
 
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
@@ -317,13 +329,14 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
     pkg.command   = CMD_ORDER_DEPTH;
     pkg.sequence  = entry->id;
     pkg.req_id    = id;
-    pkg.body      = params_str;
+    pkg.body      = json_dumps(new_params, 0);
     pkg.body_size = strlen(pkg.body);
 
     rpc_clt_send(cache, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
             nw_sock_human_addr(rpc_clt_peer_addr(cache)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
+    json_decref(new_params);
 
     return 0;
 }

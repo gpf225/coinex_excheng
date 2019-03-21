@@ -115,6 +115,7 @@ static int read_config_from_json(json_t *root)
     }
 
     ERR_RET(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));
+    ERR_RET(read_cfg_int(root, "depth_limit_default",  &settings.depth_limit_default,  false, 20));
     ERR_RET(read_cfg_str(root, "auth_url", &settings.auth_url, NULL));
     ERR_RET(read_cfg_str(root, "auth_sub_url", &settings.auth_sub_url, NULL));
     ERR_RET(read_cfg_str(root, "sign_url", &settings.sign_url, NULL));
