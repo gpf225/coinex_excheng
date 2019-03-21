@@ -76,6 +76,7 @@ struct settings {
     kafka_consumer_cfg  balances;
 
     int                 worker_num;
+    int                 depth_limit_default;
     char                *auth_url;
     char                *auth_sub_url;
     char                *sign_url;

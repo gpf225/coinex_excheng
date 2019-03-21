@@ -302,7 +302,7 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
     }
     uint32_t limit = json_integer_value(json_array_get(params, 1));
     if (!is_good_limit(limit)) {
-        return send_error_invalid_argument(ses, id);
+        limit = settings.depth_limit_default;
     }
     const char *interval = json_string_value(json_array_get(params, 2));
     if (interval == NULL || !is_good_interval(interval)) {
