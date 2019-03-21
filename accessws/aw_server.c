@@ -291,6 +291,23 @@ static int on_method_kline_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
 
 static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
+    if (json_array_size(params) != 3) {
+        return reply_error_internal_error(ses, pkg);
+    }
+
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (market == NULL || !market_exists(market)) {
+        return reply_error_invalid_argument(ses, pkg);
+    }
+    uint32_t limit = json_integer_value(json_array_get(params, 1));
+    if (!is_good_limit(limit)) {
+        return reply_error_invalid_argument(ses, pkg);
+    }
+    const char *interval = json_string_value(json_array_get(params, 2));
+    if (interval == NULL || is_good_interval(interval)) {
+        return reply_error_invalid_argument(ses, pkg);
+    }
+    
     if (!rpc_clt_connected(cache))
         return send_error_internal_error(ses, id);
 
