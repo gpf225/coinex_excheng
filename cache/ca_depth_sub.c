@@ -108,6 +108,7 @@ int depth_sub_reply(const char *market, const char *interval, json_t *result)
         notify_message(ses, CMD_LP_DEPTH_UPDATE, reply);
         json_decref(reply);
     }
+    dict_release_iterator(iter);
     return 0;
 }
 
