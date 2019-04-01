@@ -72,6 +72,23 @@ static sds on_cmd_unfreeze(const char *cmd, int argc, sds *argv)
     return sdscatprintf(reply, "unfreeze success, user_id: %d\n", user_id);
 }
 
+static sds on_cmd_history_control(const char *cmd, int argc, sds *argv)
+{
+    if (argc != 1) {
+        sds reply = sdsempty();
+        return sdscatprintf(reply, "usage: %s history_mode[1, 2, 3]\n", cmd);
+    }
+
+    uint32_t mode = strtoul(argv[0], NULL, 0);
+    if (mode != HISTORY_MODE_DIRECT && mode != HISTORY_MODE_KAFKA && mode != HISTORY_MODE_DOUBLE) {
+        return sdsnew("failed, mode should be 1, 2 or 3\n");
+    }
+
+    settings.history_mode = mode;
+    sds reply = sdsempty();
+    return sdscatprintf(reply, "change history mode success: %d\n", mode);
+}
+
 int init_cli(void)
 {
     svr = cli_svr_create(&settings.cli);
@@ -82,6 +99,7 @@ int init_cli(void)
     cli_svr_add_cmd(svr, "status", on_cmd_status);
     cli_svr_add_cmd(svr, "makeslice", on_cmd_makeslice);
     cli_svr_add_cmd(svr, "unfreeze", on_cmd_unfreeze);
+    cli_svr_add_cmd(svr, "hiscontrol", on_cmd_history_control);
 
     return 0;
 }

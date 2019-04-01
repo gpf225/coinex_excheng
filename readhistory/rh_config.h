@@ -40,13 +40,18 @@
 
 # define QUERY_LIMIT    1001
 
+typedef struct ut_mysql_slice {
+    uint32_t count;
+    mysql_cfg *configs;
+}ut_mysql_slice;
+
 struct settings {
     bool                debug;
     process_cfg         process;
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
-    mysql_cfg           db_history;
+    ut_mysql_slice      db_histories;
     int                 worker_num;
 };
 

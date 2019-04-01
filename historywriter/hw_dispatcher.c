@@ -10,8 +10,6 @@
 # include "ut_mysql.h"
 # include "ut_profile.h"
 
-# define HISTORY_HASH_NUM  100
-
 struct dict_sql_key {
     uint32_t hash;
     uint32_t type;
