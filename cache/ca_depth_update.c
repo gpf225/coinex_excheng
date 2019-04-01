@@ -117,10 +117,12 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     do {
         rpc_reply = reply_load(pkg->body, pkg->body_size);
         if (!reply_valid(rpc_reply)) {
+            log_error("invalid reply %s-%s-%u", state->market, state->interval, state->limit);
             REPLY_INVALID_LOG(ses, pkg);
             break;
         }
         if (!reply_ok(rpc_reply)) {
+            log_error("error reply %s-%s-%u", state->market, state->interval, state->limit);
             REPLY_ERROR_LOG(ses, pkg);
             break;
         }
@@ -170,6 +172,7 @@ static int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const cha
     }
 
     if (dict_add(dict_depth_update_queue, &key, NULL) == NULL) {
+        log_error("add request to queue failed.");
         return -__LINE__;
     }
 
@@ -191,7 +194,7 @@ static int depth_update(nw_ses *ses, rpc_pkg *pkg, const char *market, const cha
     req_pkg.sequence  = state_entry->id;
     req_pkg.body      = json_dumps(params, 0);
     req_pkg.body_size = strlen(req_pkg.body);
-
+    
     rpc_clt_send(matchengine, &req_pkg);
     free(req_pkg.body);
     json_decref(params);
