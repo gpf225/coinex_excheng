@@ -202,6 +202,7 @@ int cache_subscribe_depth(const char *market)
 
 int cache_unsubscribe_depth(const char *market)
 {
+    dict_delete(dict_depth, market);
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, json_string("0"));  // interval
