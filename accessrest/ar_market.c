@@ -179,12 +179,12 @@ static int load_markets(json_t *market_infos)
         struct market_val *info = entry->val;
         if (info->id != update_id) {
             const char *market = entry->key;
-            dict_delete(dict_market, market);
-            log_info("del market info: %s", market);
             if (market_need_update) {
                 log_info("going to unsubscribe market:%s", market);
                 cache_unsubscribe_depth(market);
             }
+            dict_delete(dict_market, market);
+            log_info("del market info: %s", market);
         }
     }
     dict_release_iterator(iter);
