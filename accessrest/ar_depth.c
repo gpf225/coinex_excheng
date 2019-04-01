@@ -49,28 +49,32 @@ static void dict_depth_val_free(void *val)
     free(obj);
 }
 
-static void cache_subscribe_depth(void)
+static int send_request_to_cache(int cmd, json_t *params)
 {
     if (!rpc_clt_connected(cache)) {
-        return ;
+        return -__LINE__;
     }
-    
     static uint32_t sequence = 0;
-    
-    json_t *params = json_array();
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
     pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_LP_DEPTH_SUBSCRIBE_ALL;
+    pkg.command   = cmd;
     pkg.sequence  = ++sequence;
     pkg.body      = json_dumps(params, 0);
     pkg.body_size = strlen(pkg.body);
 
     rpc_clt_send(cache, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-     nw_sock_human_addr(rpc_clt_peer_addr(cache)), pkg.command, pkg.sequence, (char *)pkg.body);
+        nw_sock_human_addr(rpc_clt_peer_addr(cache)), pkg.command, pkg.sequence, (char *)pkg.body);
     
     free(pkg.body);
+    return 0;
+}
+
+static void cache_subscribe_depth_all(void)
+{
+    json_t *params = json_array();
+    send_request_to_cache(CMD_LP_DEPTH_SUBSCRIBE_ALL, params);
     json_decref(params);
 }
 
@@ -135,7 +139,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 REPLY_ERROR_LOG(ses, pkg);
             }
         } else {
-            if (pkg->command != CMD_LP_DEPTH_SUBSCRIBE_ALL) {
+            if (pkg->command != CMD_LP_DEPTH_SUBSCRIBE_ALL && pkg->command != CMD_LP_DEPTH_SUBSCRIBE && pkg->command != CMD_LP_DEPTH_UNSUBSCRIBE) {
                 log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
             }
         }
@@ -148,7 +152,7 @@ static void on_backend_connect(nw_ses *ses, bool result)
 {
     if (result) {
         log_info("connect to cache success");
-        cache_subscribe_depth();
+        cache_subscribe_depth_all();
     } else {
         log_error("can not connect to cache...");
     }
@@ -184,6 +188,26 @@ int init_depth(void)
     }
 
     return 0;
+}
+
+int cache_subscribe_depth(const char *market)
+{
+    json_t *params = json_array();
+    json_array_append_new(params, json_string(market));
+    json_array_append_new(params, json_string("0"));  // interval
+    int ret = send_request_to_cache(CMD_LP_DEPTH_SUBSCRIBE, params);
+    json_decref(params);
+    return ret;
+}
+
+int cache_unsubscribe_depth(const char *market)
+{
+    json_t *params = json_array();
+    json_array_append_new(params, json_string(market));
+    json_array_append_new(params, json_string("0"));  // interval
+    int ret = send_request_to_cache(CMD_LP_DEPTH_UNSUBSCRIBE, params);
+    json_decref(params);
+    return ret;
 }
 
 static json_t* generate_depth_data(json_t *depth_data, int limit) {

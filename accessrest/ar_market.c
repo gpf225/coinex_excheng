@@ -4,6 +4,7 @@
  */
 
 # include "ar_market.h"
+# include "ar_depth.h"
 # include "nw_job.h"
 # include "ut_log.h"
 
@@ -14,6 +15,7 @@ static const long HTTP_TIMEOUT = 2000L;
 static dict_t *dict_market = NULL;
 static nw_job *job = NULL;
 static nw_timer market_update_timer;
+static bool market_need_update = false;
 
 struct market_val {
     int     id;
@@ -157,6 +159,10 @@ static int load_markets(json_t *market_infos)
             val.info = market_item;
             dict_add(dict_market, (char *)market_name, &val);
             log_info("add market info: %s", market_name);
+            if (market_need_update) {
+                log_info("going to subscribe market:%s", market_name);
+                cache_subscribe_depth(market_name);
+            }
         } else {
             struct market_val *info = entry->val;
             info->id = update_id;
@@ -172,8 +178,13 @@ static int load_markets(json_t *market_infos)
     while ((entry = dict_next(iter)) != NULL) {
         struct market_val *info = entry->val;
         if (info->id != update_id) {
-            dict_delete(dict_market, entry->key);
-            log_info("del market info: %s", (char *)entry->key);
+            const char *market = entry->key;
+            dict_delete(dict_market, market);
+            log_info("del market info: %s", market);
+            if (market_need_update) {
+                log_info("going to unsubscribe market:%s", market);
+                cache_unsubscribe_depth(market);
+            }
         }
     }
     dict_release_iterator(iter);
@@ -296,6 +307,7 @@ int init_market(void)
     }
     json_decref(result);
 
+    market_need_update = true;
     nw_timer_set(&market_update_timer, settings.market_interval, true, on_update_market, NULL);
     nw_timer_start(&market_update_timer);
 
