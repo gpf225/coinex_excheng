@@ -3,12 +3,11 @@
  *     History: zhoumugui@viabtc.com, 2019/01/22, create
  */
 
-# include "ca_depth_cache.h"
-# include "ca_depth_update.h"
-# include "ca_depth_wait_queue.h"
-# include "ca_depth_sub.h"
+# include "ca_config.h"
+# include "ca_depth.h"
 # include "ca_server.h"
 # include "ca_market.h"
+# include "ca_cache.h"
 
 # include "ut_title.h"
 
@@ -90,21 +89,13 @@ int main(int argc, char *argv[])
     daemon(1, 1);
     process_keepalive1(settings.debug);
 
-    ret = init_depth_cache(settings.cache_timeout);
+    ret = init_cache();
     if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init depth cache fail: %d", ret);
+        error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
     }
-    ret = init_depth_update();
+    ret = init_depth();
     if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init depth update fail: %d", ret);
-    }
-    ret = init_depth_wait_queue();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init depth wait queue fail: %d", ret);
-    }
-    ret = init_depth_sub();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init depth sub fail: %d", ret);
+        error(EXIT_FAILURE, errno, "init depth fail: %d", ret);
     }
     ret = init_market();
     if (ret < 0) {
@@ -125,3 +116,4 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+

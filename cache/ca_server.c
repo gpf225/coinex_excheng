@@ -4,15 +4,15 @@
  */
 
 # include "ca_config.h"
-# include "ca_depth_cache.h"
-# include "ca_depth_update.h"
-# include "ca_depth_sub.h"
-# include "ca_common.h"
-# include "ca_depth_wait_queue.h"
-# include "ca_depth_sub.h"
+# include "ca_cache.h"
+# include "ca_depth.h"
+# include "ca_kline.h"
 # include "ca_market.h"
+# include "ca_deals.h"
+# include "ca_status.h"
+# include "ca_server.h"
 
-static rpc_svr *svr = NULL;
+static rpc_svr *svr;
 
 static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
@@ -25,8 +25,6 @@ static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
     if (message_data == NULL) {
         return -__LINE__;
     }
-    //log_trace("connection: %s send: %s", nw_sock_human_addr(&ses->peer_addr), message_data);
-    log_trace("reply to connection: %s.", nw_sock_human_addr(&ses->peer_addr));
 
     rpc_pkg reply;
     memcpy(&reply, pkg, sizeof(reply));
@@ -56,15 +54,22 @@ int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
     return ret;
 }
 
-static int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
+int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
 {
-    profile_inc("error_invalid_argument", 1);
+    profile_inc("invalid_argument", 1);
     return reply_error(ses, pkg, 1, "invalid argument");
 }
 
 int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)
 {
+    profile_inc("error_internal_error", 1);
     return reply_error(ses, pkg, 2, "internal error");
+}
+
+int reply_time_out(nw_ses *ses, rpc_pkg *pkg)
+{
+    profile_inc("error_time_out", 1);
+    return reply_error(ses, pkg, 3, "service timeout");
 }
 
 int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
@@ -80,15 +85,6 @@ int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     return ret;
 }
 
-int notify_message(nw_ses *ses, int command, json_t *message)
-{
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.command = command;
-
-    return reply_result(ses, &pkg, message);
-}
-
 static int reply_success(nw_ses *ses, rpc_pkg *pkg)
 {
     json_t *result = json_object();
@@ -100,146 +96,237 @@ static int reply_success(nw_ses *ses, rpc_pkg *pkg)
     return ret;
 }
 
-static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params, bool is_rest)
+static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 3) {
+    if (json_array_size(params) != 2) {
         return reply_error_internal_error(ses, pkg);
     }
     const char *market = json_string_value(json_array_get(params, 0));
     if (market == NULL) {
         return reply_error_invalid_argument(ses, pkg);
     }
-    uint32_t limit = json_integer_value(json_array_get(params, 1));
-    if (limit == 0) {
-        return reply_error_invalid_argument(ses, pkg);
-    }
-    const char *interval = json_string_value(json_array_get(params, 2));
+    const char *interval = json_string_value(json_array_get(params, 1));
     if (interval == NULL) {
         return reply_error_invalid_argument(ses, pkg);
     }
-    if (limit > settings.depth_limit_max) {
-        limit = settings.depth_limit_max;
-    }
-   
-    struct depth_cache_val *cache_val = depth_cache_get(market, interval);
-    if (cache_val != NULL) {
-        json_t *reply_json = NULL;
-        if (is_rest) {
-            reply_json = depth_get_result_rest(cache_val->data, limit, cache_val->ttl);
-        } else {
-            reply_json = depth_get_result(cache_val->data, limit);
-        }
-        
-        reply_result(ses, pkg, reply_json);
-        json_decref(reply_json);
-        profile_inc("depth_cache", 1);
-        return 0;
-    }
-    
-    if (is_rest) {
-        depth_update_rest(ses, pkg, market, interval, limit);
-    } else {
-        depth_update_http(ses, pkg, market, interval, limit);
-    }
-    
+
+    depth_request(ses, pkg, market, interval);
     return 0;
 }
 
 static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    size_t params_len = json_array_size(params);
-    if (params_len < 1) {
+    const char *market = json_string_value(json_array_get(params, 0));
+    const char *interval = json_string_value(json_array_get(params, 1));
+
+    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+        log_error("parameter error");
         return reply_error_invalid_argument(ses, pkg);
     }
 
-    for (size_t i = 0; i < params_len; ++i) {
-        json_t *item = json_array_get(params, i);
-        const char *market = json_string_value(json_array_get(item, 0));
-        const char *interval = json_string_value(json_array_get(item, 1));
-
-        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-            log_warn("market[%s] interval[%s] not valid, can not been subscribed", market, interval);
-            return reply_error_invalid_argument(ses, pkg);
-        }
+    if (!market_exist(market)) {
+        log_error("market not exist, market: %s", market);
+        return reply_error_invalid_argument(ses, pkg);
     }
 
-    for (size_t i = 0; i < params_len; ++i) {
-        json_t *item = json_array_get(params, i);
-        const char *market = json_string_value(json_array_get(item, 0));
-        const char *interval = json_string_value(json_array_get(item, 1));
-
-        int ret = depth_subscribe(ses, market, interval);
-        if (ret != 0) {
-            log_warn("subscribe %s-%s failed.", market, interval);
-            continue;  // 忽略该错误，继续执行
-        }
-        depth_send_last(ses, market, interval);
+    depth_unsubscribe(ses, market, interval);
+    int ret = depth_subscribe(ses, market, interval);
+    if (ret != 0) {
+        log_error("depth_subscribe fail, market: %s, interval: %s", market, interval);
+        reply_error_internal_error(ses, pkg);
+        return ret;
     }
 
-    return reply_success(ses, pkg);
+    reply_success(ses, pkg);
+    depth_send_last(ses, market, interval);
+
+    return 0;
 }
 
 static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     dict_t *dict_market = get_market();
     if (dict_size(dict_market) == 0) {
-        log_warn("market does not prepared, please try later");
-        rpc_svr_close_clt(svr, ses);  // force to close the connection, let clients try again.
+        log_error("dict_market is null");
+        reply_error_internal_error(ses, pkg);
         return 0;
     }
 
     const char *interval = "0";
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_market);
+
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
         int ret = depth_subscribe(ses, market, interval);
         if (ret != 0) {
-            log_warn("subscribe %s-%s failed.", market, interval);
-            continue;  // 忽略该错误，继续执行
+            log_error("depth_subscribe fail, market: %s, interval: %s", market, interval);
+            continue;
         }
-
         depth_send_last(ses, market, interval);
     }
     dict_release_iterator(iter);
     
+    add_subscribe_depth_all_ses(ses);
     return reply_success(ses, pkg);
 }
 
 static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    size_t params_len = json_array_size(params);
-    if (params_len < 1) {
-        depth_unsubscribe_all(ses);
-        return reply_success(ses, pkg);
+    const char *market = json_string_value(json_array_get(params, 0));
+    const char *interval = json_string_value(json_array_get(params, 1));
+
+    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+        log_error("parameter error");
+        return reply_error_invalid_argument(ses, pkg);
     }
 
-    for (size_t i = 0; i < params_len; ++i) {
-        json_t *item = json_array_get(params, i);
-        const char *market = json_string_value(json_array_get(item, 0));
-        const char *interval = json_string_value(json_array_get(item, 1));
-
-        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-            log_warn("market[%s] interval[%s] not valid, can not been subscribed", market, interval);
-            return reply_error_invalid_argument(ses, pkg);
-        }
-    }
-
-    for (size_t i = 0; i < params_len; ++i) {
-        json_t *item = json_array_get(params, i);
-        const char *market = json_string_value(json_array_get(item, 0));
-        const char *interval = json_string_value(json_array_get(item, 1));
-
-        int ret = depth_unsubscribe(ses, market, interval);
-        if (ret != 0) {
-            log_warn("unsubscribe %s-%s failed.", market, interval);
-            continue;  // 忽略该错误，继续执行
-        }
-    }
-
+    depth_unsubscribe(ses, market, interval);
     return reply_success(ses, pkg);
 }
 
+static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (!market)
+        return reply_error_invalid_argument(ses, pkg);
+    if (!market_exist(market))
+        return reply_error_invalid_argument(ses, pkg);
+
+    int limit = json_integer_value(json_array_get(params, 1));
+    if (limit <= 0 || limit > MARKET_DEALS_MAX)
+        return reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_integer(json_array_get(params, 2)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint64_t last_id = json_integer_value(json_array_get(params, 2));
+
+    deals_request(ses, pkg, market, limit, last_id);
+    return 0;
+}
+
+static int on_method_deals_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    const char *market = json_string_value(json_array_get(params, 0));
+
+    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
+        log_error("parameter error");
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    if (!market_exist(market)) {
+        log_error("market not exist, market: %s", market);
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    deals_unsubscribe(ses, market);
+    int ret = deals_subscribe(ses, market);
+    if (ret != 0) {
+        log_error("deals_subscribe fail, market: %s", market);
+        reply_error_internal_error(ses, pkg);
+        return ret;
+    }
+
+    reply_success(ses, pkg);
+    return 0;
+}
+
+static int on_method_deals_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    const char *market = json_string_value(json_array_get(params, 0));
+
+    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
+        log_error("parameter error");
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    deals_unsubscribe(ses, market);
+    reply_success(ses, pkg);
+
+    return 0;
+}
+
+static int on_method_kline_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    const char *market = json_string_value(json_array_get(params, 0));
+    int interval = json_integer_value(json_array_get(params, 1));
+
+    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval < 0) {
+        log_error("parameter error");
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    if (!market_exist(market)) {
+        log_error("market not exist, market: %s", market);
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    kline_unsubscribe(ses, market, interval);
+    int ret = kline_subscribe(ses, market, interval);
+    if (ret != 0) {
+        log_error("kline_subscribe fail, market: %s, interval: %d", market, interval);
+        reply_error_internal_error(ses, pkg);
+        return ret;
+    }
+
+    reply_success(ses, pkg);
+    return 0;
+}
+
+static int on_method_kline_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    const char *market = json_string_value(json_array_get(params, 0));
+    int interval = json_integer_value(json_array_get(params, 1));
+
+    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval < 0) {
+        log_error("parameter error");
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    kline_unsubscribe(ses, market, interval);
+    reply_success(ses, pkg);
+
+    return 0;
+}
+
+static int on_method_status_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
+        log_error("parameter error");
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    if (!market_exist(market)) {
+        log_error("market not exist, market: %s", market);
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    status_unsubscribe(ses, market, 86400);
+    int ret = status_subscribe(ses, market, 86400);
+    if (ret != 0) {
+        log_error("status_subscribe fail, market: %s", market);
+        reply_error_internal_error(ses, pkg);
+        return ret;
+    }
+
+    reply_success(ses, pkg);
+    return 0;
+}
+
+static int on_method_status_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
+        log_error("parameter error");
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    status_unsubscribe(ses, market, 86400);
+    reply_success(ses, pkg);
+
+    return 0;
+}
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
@@ -251,44 +338,83 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return ;
     }
 
-    sds params_str = sdsnewlen(pkg->body, pkg->body_size);
-    log_trace("from: %s cmd: %u, squence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, params_str);
-
     int ret;
     switch (pkg->command) {
-    case CMD_ORDER_DEPTH:
-        profile_inc("on_cmd_order_depth", 1);
-        ret = on_cmd_order_depth(ses, pkg, params, false);
+    case CMD_CACHE_DEPTH:
+        profile_inc("cmd_cache_depth", 1);
+        ret = on_method_order_depth(ses, pkg, params);
         if (ret < 0) {
-            log_error("on_cmd_order_depth %s fail: %d", params_str, ret);
+            log_error("on_method_order_depth fail: %d", ret);
         }
         break;
-    case CMD_ORDER_DEPTH_REST:
-        profile_inc("on_cmd_order_depth_rest", 1);
-        ret = on_cmd_order_depth(ses, pkg, params, true);
-        if (ret < 0) {
-            log_error("on_cmd_order_depth_rest %s fail: %d", params_str, ret);
-        }
-        break;
-    case CMD_LP_DEPTH_SUBSCRIBE:   
-        profile_inc("on_method_depth_subscribe", 1); 
+    case CMD_CACHE_DEPTH_SUBSCRIBE:
+        profile_inc("cmd_cache_depth_sub", 1);
         ret = on_method_depth_subscribe(ses, pkg, params);
         if (ret < 0) {
             log_error("on_method_depth_subscribe fail: %d", ret);
         }
-        break; 
-    case CMD_LP_DEPTH_SUBSCRIBE_ALL:   
-        profile_inc("on_method_depth_subscribe_all", 1);  
+        break;
+    case CMD_CACHE_DEPTH_SUBSCRIBE_ALL:
+        profile_inc("cmd_cache_depth_sub_all", 1);
         ret = on_method_depth_subscribe_all(ses, pkg, params);
         if (ret < 0) {
             log_error("on_method_depth_subscribe_all fail: %d", ret);
         }
-        break;   
-    case CMD_LP_DEPTH_UNSUBSCRIBE:
-        profile_inc("on_method_depth_unsubscribe", 1);      
+        break;
+    case CMD_CACHE_DEPTH_UNSUBSCRIBE:
+        profile_inc("cmd_cache_depth_unsub", 1);
         ret = on_method_depth_unsubscribe(ses, pkg, params);
         if (ret < 0) {
             log_error("on_method_depth_unsubscribe fail: %d", ret);
+        }
+        break;
+    case CMD_CACHE_DEALS:
+        profile_inc("cmd_cache_deals", 1);
+        ret = on_cmd_market_deals(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_market_deals fail: %d", ret);
+        }
+        break;
+    case CMD_CACHE_DEALS_SUBSCRIBE:
+        profile_inc("cmd_cache_deals_sub", 1);
+        ret = on_method_deals_subscribe(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_method_deals_subscribe fail: %d", ret);
+        }
+        break;
+    case CMD_CACHE_DEALS_UNSUBSCRIBE:
+        profile_inc("cmd_cache_deals_unsub", 1);
+        ret = on_method_deals_unsubscribe(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_method_deals_unsubscribe fail: %d", ret);
+        }
+        break;
+    case CMD_CACHE_KLINE_SUBSCRIBE:
+        profile_inc("cmd_cache_kline_sub", 1);
+        ret = on_method_kline_subscribe(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_method_kline_subscribe fail: %d", ret);
+        }
+        break;
+    case CMD_CACHE_KLINE_UNSUBSCRIBE:
+        profile_inc("cmd_cache_kline_unsub", 1);
+        ret = on_method_kline_unsubscribe(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_method_kline_unsubscribe fail: %d", ret);
+        }
+        break;
+    case CMD_CACHE_STATUS_SUBSCRIBE:
+        profile_inc("cmd_cache_status_sub", 1);
+        ret = on_method_status_subscribe(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_method_status_subscribe fail: %d", ret);
+        }
+        break;
+    case CMD_CACHE_STATUS_UNSUBSCRIBE:
+        profile_inc("cmd_cache_status_unsub", 1);
+        ret = on_method_status_unsubscribe(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_method_status_unsubscribe fail: %d", ret);
         }
         break;
     default:
@@ -296,12 +422,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     }
 
-    sdsfree(params_str);
     json_decref(params);
-
     if (ret != 0) {
-        rpc_svr_close_clt(svr, ses); 
+        sds params_str = sdsnewlen(pkg->body, pkg->body_size);
+        log_info("from: %s cmd: %u, squence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, params_str);
+        sdsfree(params_str);
     }
+
     return;
 }
 
@@ -312,9 +439,13 @@ static void svr_on_new_connection(nw_ses *ses)
 
 static void svr_on_connection_close(nw_ses *ses)
 {
-    log_trace("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
-    depth_wait_queue_remove_all(ses);
-    depth_unsubscribe_all(ses);
+    log_info("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
+
+    unsubscribe_kline_all(ses);
+    unsubscribe_depth_all(ses);
+    deals_unsubscribe_all(ses);
+    status_unsubscribe_all(ses);
+    del_subscribe_depth_all_ses(ses);
 }
 
 int init_server(void)
@@ -335,3 +466,4 @@ int init_server(void)
 
     return 0;
 }
+
