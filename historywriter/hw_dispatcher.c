@@ -9,6 +9,7 @@
 # include "hw_dump.h"
 # include "ut_mysql.h"
 # include "ut_profile.h"
+# include "ut_define.h"
 
 struct dict_sql_key {
     uint32_t hash;
