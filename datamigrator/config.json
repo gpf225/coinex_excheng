@@ -18,7 +18,7 @@
         "host": "localhost",
         "user": "root",
         "pass": "shit",
-        "name": "trade_history"
+        "name": "exchange_web"
     },
     "db_history": {
         "host": "localhost",
@@ -26,7 +26,7 @@
         "pass": "shit",
         "name": "trade_history"
     },
-    "db_history": [
+    "db_histories": [
          {
             "host": "localhost",
             "user": "root",

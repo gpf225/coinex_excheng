@@ -20,7 +20,12 @@ static int migrate_user(uint32_t user_id)
     double migrate_end_time = settings.migirate_end_time;
     if (settings.migrate_mode == MIGRATE_MODE_FULL) {
         migrate_end_time = order_get_end_time(user_id, migrate_start_time, settings.least_day_per_user, settings.max_order_per_user);
+        if (migrate_end_time < 0.9) {
+            log_error("could not get user_id:%d migration end time", user_id);
+            return -__LINE__;
+        }
     }
+    log_info("user_id:%d migrate_end_time:%f settings.migirate_end_time:%f", user_id, migrate_end_time, settings.migirate_end_time);
 
     int ret = stop_migrate(user_id, migrate_start_time, settings.migirate_end_time);  // stop的end_time为配置的时间，表示迁移所有stop
     if (ret != 0) {
@@ -51,17 +56,20 @@ static int migrate_user(uint32_t user_id)
 
 static void *thread_routine(void *data)
 {
+    bool error = false;
     log_info("start migration thread");
     while (true) {
         user_list_t *user_list = get_next_user_list();
             if (user_list == NULL) {
             log_error("could not get user list");
+            error = true;
             break;
         }
 
         if (user_list->size == 0) {
             log_info("no more users, migration completed.");
             user_list_free(user_list);
+            error = false;
             break;
         }
         
@@ -69,24 +77,28 @@ static void *thread_routine(void *data)
             last_user_id = user_list->users[i];
             int ret = migrate_user(last_user_id);
             if (ret != 0) {
-                user_list_free(user_list);
+                error = true;
                 break;
             }
         }
         user_list_free(user_list);
+        if (error) {
+            break; 
+        }
        
         if (is_stop_migrate) {
             log_info("want to stop migration, last completed user_id:%u", last_user_id);
+            error = false;
             break;
         }
         ++has_migrated;
     }
     
-    log_info("stop migration thread, has_migrated:%u", has_migrated);
+    log_info("stop migration thread, has_migrated:%u last_user_id:%d error: %s", has_migrated, last_user_id, error ? "error" : "none");
     return NULL;
 }
 
-static int start_migrate(void)
+static int start_migration(void)
 {
     pthread_t tid = 0;
     if (pthread_create(&tid, NULL, thread_routine, NULL) != 0) {
@@ -96,9 +108,9 @@ static int start_migrate(void)
     return 0;
 }
 
-int init_migrate(void)
+int start_migrate(void)
 {
-    int ret = start_migrate();
+    int ret = start_migration();
     if (ret != 0) {
         return ret;
     }

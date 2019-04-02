@@ -7,6 +7,7 @@
 # include "dm_user.h"
 # include "dm_dbpool.h"
 # include "dm_cli.h"
+# include "dm_migrate.h"
 
 # include <stdio.h>
 # include <stdlib.h>
@@ -69,7 +70,7 @@ int main(int argc, char *argv[])
         printf("process: %s exist\n", __process__);
         exit(EXIT_FAILURE);
     }
-    process_title_init(argc, argv);
+    //process_title_init(argc, argv);
 
     int ret;
     ret = init_mpd();
@@ -103,6 +104,10 @@ int main(int argc, char *argv[])
     ret = init_cli();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init cli fail: %d", ret);
+    }
+    ret = start_migrate();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "start_migrate fail: %d", ret);
     }
 
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);

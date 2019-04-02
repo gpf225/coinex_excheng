@@ -31,11 +31,12 @@ static int insert_into_new_db(uint32_t user_id, MYSQL_RES *result, size_t num_ro
     }
 
     int ret = mysql_real_query(new_conn, sql, sdslen(sql));
-    sdsfree(sql);
     if (ret != 0) {
         log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(new_conn), mysql_error(new_conn));
+        sdsfree(sql);
         return -__LINE__;
     }
+    sdsfree(sql);
     return 0;
 }
 
@@ -88,16 +89,15 @@ int order_migrate(uint32_t user_id, double migrate_start_time, double migrate_en
 double order_get_end_time(uint32_t user_id, double migrate_start_time, int least_day_per_user, int max_order_per_user)
 {
     sds sql = sdsempty();  
-    sql = sdscatprintf(sql, "SELECT `finish_time` from `order_history_%u` WHERE `create_time` <= '%f' ORDER BY `id` DESC LIMIT '%d', 1", 
+    sql = sdscatprintf(sql, "SELECT `finish_time` from `order_history_%u` WHERE `create_time` <= '%f' ORDER BY `id` DESC LIMIT %d, 1", 
         user_id % HISTORY_HASH_NUM, migrate_start_time, max_order_per_user);
     
     MYSQL *conn = get_old_db_connection();
-    log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
     if (ret != 0) {
         log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
-        return 1.0;  // 返回1.0表示未找到合适的迁移截止时间，需要迁移所有数据
+        return 0.0;  // 返回0.0出错
     }
     sdsfree(sql);
 

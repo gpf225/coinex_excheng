@@ -73,7 +73,7 @@ static int read_config_from_json(json_t *root)
         printf("load cli config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_db_histories(root, "db_history", &settings.db_histories);
+    ret = load_db_histories(root, "db_histories", &settings.db_histories);
     if (ret < 0) {
         printf("load db histories fail: %d\n", ret);
         return -__LINE__;

@@ -8,7 +8,7 @@
 
 # include "dm_config.h"
 
-int init_migrate(void);
+int start_migrate(void);
 
 void migrate_cancel(void);
 
