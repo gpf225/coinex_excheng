@@ -70,7 +70,6 @@ int main(int argc, char *argv[])
         printf("process: %s exist\n", __process__);
         exit(EXIT_FAILURE);
     }
-    //process_title_init(argc, argv);
 
     int ret;
     ret = init_mpd();
