@@ -70,7 +70,7 @@ function create_all_tables() {
     done
 }
 
-if [ $1 = "drop" ]; then
+if [ $1 = "drop_20190331_coinex_ensure" ]; then
     echo "---drop all databases---"
     drop_all_database
 elif [ $1 = "create" ]; then   
@@ -83,7 +83,7 @@ else
     echo "       bash init_trade_history.sh drop"
     echo ""
     echo "create: create all databases, what you need will be created by this command"
-    echo "drop:   drop all databases created in command create"
+    echo "drop:   drop all databases created in command create, if you want to drop database, please see this script and copy the drop option"
 fi
 
 
