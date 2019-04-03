@@ -103,6 +103,13 @@ static int read_config_from_json(json_t *root)
         }
     }
 
+    if (settings.migirate_end_time < 10.0) {
+        if (settings.migrate_mode == MIGRATE_MODE_PART) {
+            log_stderr("when migirate_end_time does not setted, the migrate mode may be full migration");
+            return -__LINE__;
+        }
+    }
+
     return 0;
 }
 
