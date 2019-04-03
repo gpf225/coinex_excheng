@@ -7,6 +7,18 @@
 # include "dm_common.h"
 # include "dm_dbpool.h"
 
+static bool str_not_null(const char *str)
+{
+    if (str == NULL) {
+        return false;
+    }
+
+    if (strcmp("null", str) == 0 || strcmp("(null)", str) == 0) {
+        return false;
+    } 
+    return true;
+}
+
 static int insert_into_new_db(uint32_t user_id, MYSQL_RES *result, size_t num_rows, long *last_id)
 {
     const uint32_t hash = user_id % HISTORY_HASH_NUM;
@@ -24,7 +36,7 @@ static int insert_into_new_db(uint32_t user_id, MYSQL_RES *result, size_t num_ro
         }
 
         sql = sdscatprintf(sql, "('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
-            row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15]);
+            row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[11], row[12], row[13], str_not_null(row[14]) ? row[14] : "", str_not_null(row[15]) ? row[15] : "");
         if (i == num_rows - 1) {
             *last_id = to_long(row[0]);
         }

@@ -506,16 +506,9 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
-    if (!json_is_integer(json_object_get(params, "user_id"))) {
-        log_error("request does not have user_id field");
-        reply_error_invalid_argument(ses, pkg);
-        json_decref(params);
-        return ;
-    }
-
-    uint32_t user_id = json_integer_value(json_object_get(params, "user_id"));
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id == 0) {
-        log_error("request invalid, user_id should not be 0");
+        log_error("request does not have user_id field");
         reply_error_invalid_argument(ses, pkg);
         json_decref(params);
         return ;

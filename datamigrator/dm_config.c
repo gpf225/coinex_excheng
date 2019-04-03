@@ -95,6 +95,13 @@ static int read_config_from_json(json_t *root)
     ERR_RET(read_cfg_uint32(root, "last_user_id", &settings.last_user_id, false, 0));
     ERR_RET(read_cfg_real(root, "migrate_start_time", &settings.migirate_start_time, true, 1.0));
     ERR_RET(read_cfg_real(root, "migrate_end_time", &settings.migirate_end_time, false, 1.0));
+    
+    if (settings.migirate_end_time > 10.0) {
+        if (settings.migrate_mode == MIGRATE_MODE_FULL) {
+            log_stderr("when migirate_end_time has been setted, the migrate mode may be part migration");
+            return -__LINE__;
+        }
+    }
 
     return 0;
 }

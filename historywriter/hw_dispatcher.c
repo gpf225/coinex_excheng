@@ -240,7 +240,7 @@ int dispatch_stop(json_t *msg)
     }
 
     sql = sdscatprintf(sql, "(%"PRIu64", %f, %f, %u, '%s', '%s', '%s', %u, %u, %d, ", stop_id, create_time, update_time,
-            user_id, market, source, fee_asset, type, side, status);
+            user_id, market, source, fee_asset ? fee_asset : "", type, side, status);
     sql = sdscatprintf(sql, "'%s', '%s', '%s', '%s', '%s', '%s')", stop_price, price, amount, taker_fee, maker_fee, fee_discount);
     val->sql = sql;
     profile_inc("history_user_stop", 1);
@@ -267,7 +267,7 @@ static int append_user_deal(double t, uint32_t user_id, const char *market, uint
     }
 
     sql = sdscatprintf(sql, "(%f, %u, '%s', %"PRIu64", %"PRIu64", %"PRIu64", %d, %d, ", t, user_id, market, deal_id, order_id, deal_order_id, side, role);
-    sql = sdscatprintf(sql, "'%s', '%s', '%s', '%s', '%s', '%s', '%s')", price, amount, deal, fee, deal_fee, fee_asset, deal_fee_asset);
+    sql = sdscatprintf(sql, "'%s', '%s', '%s', '%s', '%s', '%s', '%s')", price, amount, deal, fee, deal_fee, fee_asset ? fee_asset : "", deal_fee_asset ? deal_fee_asset : "");
     val->sql = sql;
     profile_inc("history_user_deal", 1);
 
