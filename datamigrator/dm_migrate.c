@@ -25,7 +25,7 @@ static int migrate_user(uint32_t user_id)
             return -__LINE__;
         }
     }
-    log_info("user_id:%d migrate_end_time:%f settings.migirate_end_time:%f", user_id, migrate_end_time, settings.migirate_end_time);
+    log_info("user_id:%d migrate_start_time:%f migrate_end_time:%f settings.migirate_end_time:%f", user_id, migrate_start_time, migrate_end_time, settings.migirate_end_time);
 
     int ret = stop_migrate(user_id, migrate_start_time, settings.migirate_end_time);  // stop的end_time为配置的时间，表示迁移所有stop
     if (ret != 0) {
@@ -80,6 +80,7 @@ static void *thread_routine(void *data)
                 error = true;
                 break;
             }
+            ++has_migrated;
         }
         user_list_free(user_list);
         if (error) {
@@ -91,7 +92,6 @@ static void *thread_routine(void *data)
             error = false;
             break;
         }
-        ++has_migrated;
     }
     
     log_info("stop migration thread, has_migrated:%u last_user_id:%d error: %s", has_migrated, last_user_id, error ? "error" : "none");

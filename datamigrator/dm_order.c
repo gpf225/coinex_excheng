@@ -46,13 +46,13 @@ int order_migrate(uint32_t user_id, double migrate_start_time, double migrate_en
     log_info("order migrate start, user_id:%u", user_id);
     MYSQL *conn = get_old_db_connection();
     uint32_t total = 0;
-    long last_order_id = LONG_MAX;
+    long last_order_id = 0;
 
     while (true) {
         sds sql = sdsempty();
          sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, `price`, `amount`, "
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
-            "FROM `order_history_%u` WHERE `user_id` = %u AND `id` < %ld AND `finish_time` <= '%f' AND `finish_time` > '%f' ORDER BY `id` LIMIT %d",
+            "FROM `order_history_%u` WHERE `user_id` = %u AND `id` > %ld AND `finish_time` <= '%f' AND `finish_time` > '%f' ORDER BY `id` ASC LIMIT %d",
              user_id % HISTORY_HASH_NUM, user_id, last_order_id, migrate_start_time, migrate_end_time, QUERY_LIMIT);
 
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -89,9 +89,10 @@ int order_migrate(uint32_t user_id, double migrate_start_time, double migrate_en
 double order_get_end_time(uint32_t user_id, double migrate_start_time, int least_day_per_user, int max_order_per_user)
 {
     sds sql = sdsempty();  
-    sql = sdscatprintf(sql, "SELECT `finish_time` from `order_history_%u` WHERE `create_time` <= '%f' ORDER BY `id` DESC LIMIT %d, 1", 
+    sql = sdscatprintf(sql, "SELECT `finish_time` from `order_history_%u` WHERE `finish_time` <= '%f' ORDER BY `id` DESC LIMIT %d, 1", 
         user_id % HISTORY_HASH_NUM, migrate_start_time, max_order_per_user);
     
+    log_trace("sql:%s", sql);
     MYSQL *conn = get_old_db_connection();
     int ret = mysql_real_query(conn, sql, sdslen(sql));
     if (ret != 0) {
@@ -114,7 +115,7 @@ double order_get_end_time(uint32_t user_id, double migrate_start_time, int least
     mysql_free_result(result);
     
     int now = current_timestamp();
-    now = time / 86400 * 86400;
+    now = now / 86400 * 86400;
     if (now - time < least_day_per_user * 86400) {
         time = now - least_day_per_user * 86400;
     }

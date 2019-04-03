@@ -22,7 +22,10 @@ static int insert_into_new_db(uint32_t user_id, MYSQL_RES *result, size_t num_ro
             sql = sdscatprintf(sql, ", ");
         }
 
-        sql = sdscatprintf(sql, "('%s', '%s', '%s', '%s', '%s', '%s', '%s')", row[1], row[2], row[3], row[4], row[5], row[6], row[7]);
+        sql = sdscatprintf(sql, "('%s', '%s', '%s', '%s', '%s', '%s'", row[1], row[2], row[3], row[4], row[5], row[6]);
+        char buf[10 * 1024] = {0};
+        mysql_real_escape_string(new_conn, buf, row[7], strlen(row[7]));
+        sql = sdscatprintf(sql, ", '%s')", buf);
         if (i == num_rows - 1) {
             *last_id = to_long(row[0]);
         }
@@ -44,11 +47,11 @@ int balance_migrate(uint32_t user_id, double migrate_start_time, double migrate_
     MYSQL *conn = get_old_db_connection();
 
     uint32_t total = 0;
-    long last_id = LONG_MAX;
+    long last_id = 0;
     while (true) {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `time`, `user_id`, `asset`, `business`, `change`, `balance`, `detail` "
-            "FROM `balance_history_%u` where `user_id` = %u AND `id` < '%ld' AND `time` <= '%f' AND `time` > '%f' ORDER BY `id` DESC LIMIT %d",
+            "FROM `balance_history_%u` where `user_id` = %u AND `id` > '%ld' AND `time` <= '%f' AND `time` > '%f' ORDER BY `id` ASC LIMIT %d",
             user_id % HISTORY_HASH_NUM, user_id, last_id, migrate_start_time, migrate_end_time, QUERY_LIMIT);
 
         int ret = mysql_real_query(conn, sql, sdslen(sql));
