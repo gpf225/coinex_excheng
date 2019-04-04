@@ -31,16 +31,13 @@ static void dict_fee_rate_key_free(void *key)
     free(key);
 }
 
-static void *dict_fee_rate_val_dup(const void *val)
-{
-    struct dict_fee_rate_val *obj = malloc(sizeof(struct dict_fee_rate_val));
-    memcpy(obj, val, sizeof(struct dict_fee_rate_val));
-    return obj;
-}
-
 static void dict_fee_rate_val_free(void *val)
 {
-    free(val);
+    struct dict_fee_rate_val *obj = val;
+    for (int i = 0; i < MAX_GEAR; i++)
+        mpd_del(obj->volume_gear[i]);
+
+    free(obj);
 }
 
 // [0 ~ 0.0001) [0.0001, 0.0002) ...
@@ -49,7 +46,7 @@ static uint32_t get_gear(mpd_t *fee_rate)
     mpd_t *gear = mpd_new(&mpd_ctx);
 
     int i;
-	for (i = 19; i >= 0; i--) {
+	for (i = MAX_GEAR-1; i >= 0; i--) {
     	mpd_set_i32(gear, i, &mpd_ctx);
         mpd_mul(gear, gear, mpd_interval, &mpd_ctx);
 
@@ -62,36 +59,32 @@ static uint32_t get_gear(mpd_t *fee_rate)
     return i;
 }
 
-int fee_rate_process(const char *market, const char *stock, const char *fee_rate_str)
+int fee_rate_process(const char *market, const char *stock, mpd_t *fee_rate, mpd_t *volume)
 {
 	struct dict_fee_rate_key fee_rate_key;
     memset(&fee_rate_key, 0, sizeof(fee_rate_key));
     strncpy(fee_rate_key.market, market, MARKET_NAME_MAX_LEN - 1);
     strncpy(fee_rate_key.stock, stock, STOCK_NAME_MAX_LEN - 1);
 
-    mpd_t *fee_rate = NULL;
-    if (!fee_rate_str || (fee_rate = decimal(fee_rate_str, 0)) == NULL) {
-        log_error("fee_rate invalid");
-        return  -__LINE__;
-    }
-
     dict_entry *entry = dict_find(dict_fee_rate, &fee_rate_key);
     if (entry == NULL) {
-		struct dict_fee_rate_val fee_rate_val;
-		memset(&fee_rate_val, 0, sizeof(fee_rate_val));	
-		entry = dict_add(dict_fee_rate, &fee_rate_key, &fee_rate_val);	
+		struct dict_fee_rate_val *fee_rate_val = malloc(sizeof(struct dict_fee_rate_val));
+		entry = dict_add(dict_fee_rate, &fee_rate_key, fee_rate_val);	
 		if (entry == NULL) {
         	log_fatal("dict_add fail");
-        	mpd_del(fee_rate);
         	return  -__LINE__;
 		}
+
+        for (int i = 0; i < MAX_GEAR; i++) {
+            fee_rate_val->volume_gear[i] = mpd_new(&mpd_ctx);
+            mpd_copy(fee_rate_val->volume_gear[i], mpd_zero, &mpd_ctx);
+        }
     }
 
-	uint32_t index_gear = get_gear(fee_rate);
-	struct dict_fee_rate_val *p_fee_rate_val = entry->val;
-	p_fee_rate_val->gear[index_gear] = p_fee_rate_val->gear[index_gear] + 1;
+	uint32_t index = get_gear(fee_rate);
+	struct dict_fee_rate_val *rate_val = entry->val;
+    mpd_add(rate_val->volume_gear[index], rate_val->volume_gear[index], volume, &mpd_ctx);
 
-    mpd_del(fee_rate);
     return 0;
 }
 
@@ -107,7 +100,6 @@ int init_fee_rate(void)
     type.hash_function  = dict_fee_rate_hash_function;
     type.key_compare    = dict_fee_rate_key_compare;
     type.key_dup        = dict_fee_rate_key_dup;
-    type.val_dup        = dict_fee_rate_val_dup;
     type.key_destructor = dict_fee_rate_key_free;
     type.val_destructor = dict_fee_rate_val_free;
     dict_fee_rate = dict_create(&type, 64);

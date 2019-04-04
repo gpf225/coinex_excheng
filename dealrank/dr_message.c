@@ -11,6 +11,8 @@
 # include "dr_operlog.h"
 
 static kafka_consumer_t *kafka_deals;
+mpd_t *mpd_two;
+
 #define OFFSET_FILE  "./offset.json"
 
 static void write_offset_file(int64_t offset)
@@ -66,25 +68,35 @@ void store_message(uint32_t ask_user_id, uint32_t bid_user_id, uint32_t taker_us
     ret = deals_process(ask_is_taker, ask_user_id, timestamp, MARKET_TRADE_SIDE_SELL, market, stock, amount, price, ask_fee_asset, ask_fee);
     if (ret != 0) {
         log_error("deals_process fail, ret: %d", ret);
+        return;
     }
 
     ret = deals_process(bid_is_taker, bid_user_id, timestamp, MARKET_TRADE_SIDE_BUY, market, stock, amount, price, bid_fee_asset, bid_fee);
     if (ret != 0) {
         log_error("deals_process fail, ret: %d", ret);
+        return;
     }
 
-    ret = fee_rate_process(market, stock, ask_fee_rate);
+    mpd_t *fee_ask = decimal(ask_fee_rate, 0);
+    mpd_t *fee_bid = decimal(bid_fee_rate, 0);
+    mpd_t *fee_average = mpd_new(&mpd_ctx);
+    mpd_add(fee_average, fee_ask, fee_bid, &mpd_ctx);
+    mpd_div(fee_average, fee_average, mpd_two, &mpd_ctx);
+
+    mpd_t *volume = decimal(amount, settings.prec);
+    ret = fee_rate_process(market, stock, fee_average, volume);
     if (ret != 0) {
         log_error("fee_rate_process fail, ret: %d", ret);
     }
+    mpd_del(fee_ask);
+    mpd_del(fee_bid);
+    mpd_del(fee_average);
+    mpd_del(volume);
 
-    ret = fee_rate_process(market, stock, bid_fee_rate);
-    if (ret != 0) {
-        log_error("fee_rate_process fail, ret: %d", ret);
-    } 
+    return;
 }
 
-static void append_deal_msg_process(uint32_t ask_user_id, uint32_t bid_user_id, uint32_t taker_user_id, double timestamp, const char *market, const char *stock, 
+static void append_deal_msg_operlog(uint32_t ask_user_id, uint32_t bid_user_id, uint32_t taker_user_id, double timestamp, const char *market, const char *stock, 
         const char *amount, const char *price, const char *ask_fee_asset, const char *bid_fee_asset, const char *ask_fee, const char *bid_fee, const char *ask_fee_rate, const char *bid_fee_rate)
 {
     bool need_del_operlog = false;
@@ -98,7 +110,7 @@ static void append_deal_msg_process(uint32_t ask_user_id, uint32_t bid_user_id, 
         need_del_operlog = true;
     }
 
-    append_deal_msg(need_del_operlog, ask_user_id, bid_user_id, taker_user_id, timestamp, market, stock, amount, price, 
+    append_deal_operlog(need_del_operlog, ask_user_id, bid_user_id, taker_user_id, timestamp, market, stock, amount, price, 
             ask_fee_asset, bid_fee_asset, ask_fee, bid_fee, ask_fee_rate, bid_fee_rate);
     return;
 }
@@ -123,7 +135,7 @@ static void append_deal_msg_process(uint32_t ask_user_id, uint32_t bid_user_id, 
     const char *ask_fee_rate_str  = json_string_value(json_object_get(msg, "ask_fee_rate"));
     const char *bid_fee_rate_str  = json_string_value(json_object_get(msg, "bid_fee_rate"));
 
-    append_deal_msg_process(ask_user_id, bid_user_id, taker_user_id, timestamp, market, stock, amount_str, price_str, ask_fee_asset_str, 
+    append_deal_msg_operlog(ask_user_id, bid_user_id, taker_user_id, timestamp, market, stock, amount_str, price_str, ask_fee_asset_str, 
         bid_fee_asset_str, ask_fee_str, bid_fee_str, ask_fee_rate_str, bid_fee_rate_str);
 
     store_message(ask_user_id, bid_user_id, taker_user_id, timestamp, market, stock, amount_str, price_str, ask_fee_asset_str, 
@@ -155,6 +167,9 @@ static void on_deals_message(sds message, int64_t offset)
 
 int init_message(void)
 {
+    mpd_two = mpd_new(&mpd_ctx);
+    mpd_set_string(mpd_two, "2", &mpd_ctx);
+
     int64_t offset = read_offset_file();
     log_info("kafka offset: %zd", offset);
 

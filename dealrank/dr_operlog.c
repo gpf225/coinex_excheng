@@ -11,11 +11,10 @@ static MYSQL *mysql_conn;
 static nw_job *job;
 static dict_t *dict_sql;
 static nw_timer timer;
-static bool delete_flag = false;
 
-#define SQL_KEY          10086
-#define SQL_TYPE_INSERT  0
-#define SQL_TYPE_DELETE  1
+#define SQL_KEY_INSERT      1
+#define SQL_KEY_DEL_TABLE   2
+#define MAX_SQL_LEN         10240
 
 struct dict_sql_key {
     uint32_t key;
@@ -71,7 +70,7 @@ static void delete_operlog_table(MYSQL *conn)
     if (ret != 0) {
         log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
     }
-    
+
     return;
 }
 
@@ -80,8 +79,9 @@ static void on_job(nw_job_entry *entry, void *privdata)
     MYSQL *conn = privdata;
     struct dict_sql_val *val = entry->request;
 
-    if (val->type == SQL_TYPE_DELETE) {
+    if (sdslen(val->sql) == 0) {
         delete_operlog_table(conn);
+        return;
     }
 
     while (true) {
@@ -122,14 +122,13 @@ static void on_timer(nw_timer *t, void *privdata)
     flush_operlog_to_db();   
 }
 
-static struct dict_sql_val *get_sql(struct dict_sql_key *key, int type)
+static struct dict_sql_val *get_sql(struct dict_sql_key *key)
 {
     dict_entry *entry = dict_find(dict_sql, key);
     if (!entry) {
         struct dict_sql_val *val = (struct dict_sql_val *)malloc(sizeof(struct dict_sql_val));
         memset(val, 0, sizeof(struct dict_sql_val));
 
-        val->type = type;
         val->sql = sdsempty();
         entry = dict_add(dict_sql, key, val);
         if (entry == NULL) {
@@ -140,22 +139,41 @@ static struct dict_sql_val *get_sql(struct dict_sql_key *key, int type)
     return entry->val;
 }
 
-int append_deal_msg(bool del_operlog, uint32_t ask_user_id, uint32_t bid_user_id, uint32_t taker_user_id, double timestamp, const char *market, const char *stock, const char *amount, 
+sds history_status(sds reply)
+{
+    return sdscatprintf(reply, "history pending %d\n", job->request_count);
+}
+
+int append_deal_operlog(bool del_operlog, uint32_t ask_user_id, uint32_t bid_user_id, uint32_t taker_user_id, double timestamp, const char *market, const char *stock, const char *amount, 
         const char *price, const char *ask_fee_asset, const char *bid_fee_asset, const char *ask_fee, const char *bid_fee, const char *ask_fee_rate, const char *bid_fee_rate)
 {
-    int type = SQL_TYPE_INSERT;
     if (del_operlog) {
         flush_operlog_to_db();
-        type = SQL_TYPE_DELETE;
+
+        //delte table
+        struct dict_sql_val *val = (struct dict_sql_val *)malloc(sizeof(struct dict_sql_val));
+        memset(val, 0, sizeof(struct dict_sql_val));
+        val->sql = sdsempty();
+
+        struct dict_sql_key sql_key;
+        sql_key.key = SQL_KEY_DEL_TABLE;
+        dict_add(dict_sql, &sql_key, val);
+        flush_operlog_to_db();
     }
 
     struct dict_sql_key sql_key;
-    sql_key.key = SQL_KEY;
-    struct dict_sql_val *val = get_sql(&sql_key, type);
+    sql_key.key = SQL_KEY_INSERT;
+    struct dict_sql_val *val = get_sql(&sql_key);
     if (val == NULL) 
         return -__LINE__;
 
     sds sql = val->sql;
+    if (sdslen(sql) >= MAX_SQL_LEN) {
+        flush_operlog_to_db();
+        val = get_sql(&sql_key);
+        sql = val->sql;
+    }
+
     if (sdslen(sql) == 0) {
         sql = sdscatprintf(sql, "INSERT INTO `statistic_operlog` (`id`, `market`, `stock`, `ask_user_id`, `bid_user_id`, `taker_user_id`, "
                 "`timestamp`, `amount`, `price`, `ask_fee_asset`, `bid_fee_asset`, `ask_fee`, `bid_fee`, `ask_fee_rate`, `bid_fee_rate`) VALUES ");
@@ -167,18 +185,7 @@ int append_deal_msg(bool del_operlog, uint32_t ask_user_id, uint32_t bid_user_id
             bid_user_id, taker_user_id, timestamp, amount, price, ask_fee_asset, bid_fee_asset, ask_fee, bid_fee, ask_fee_rate, bid_fee_rate);
 
     val->sql = sql;
-
     return 0;
-}
-
-void delete_operlog(void)
-{
-    delete_flag = true;
-}
-
-sds history_status(sds reply)
-{
-    return sdscatprintf(reply, "history pending %d\n", job->request_count);
 }
 
 int init_operlog(void)

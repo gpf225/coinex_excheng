@@ -17,7 +17,7 @@ struct deals_info {
 
 int init_history(void);
 void dump_deals_to_db(list_t *list_deals, const char *market, const char *stock, time_t start);
-void dump_fee_to_db(list_t *list_deals, const char *market, time_t start);
+void dump_fee_to_db(dict_t *dict_fee, time_t start);
 int fini_history(void);
 
 # endif

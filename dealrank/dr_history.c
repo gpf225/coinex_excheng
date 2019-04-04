@@ -152,9 +152,9 @@ void dump_deals_to_db(list_t *list_deals, const char *market, const char *stock,
     log_info("dump deals end, market: %s", market);
 }
 
-void dump_fee_to_db(list_t *list_deals, const char *market, time_t start)
+void dump_fee_to_db(dict_t *dict_fee, time_t start)
 {
-    log_info("dump fee start, market: %s, start: %zd", market, start);
+    log_info("dump fee start, start: %zd", start);
     MYSQL *conn = mysql_connect(&settings.db_history);
     if (conn == NULL) {
         log_fatal("connect mysql fail");
@@ -170,44 +170,36 @@ void dump_fee_to_db(list_t *list_deals, const char *market, time_t start)
     }
 
     size_t index = 0;
-    list_node *node;
     sds sql = sdsempty();
 
-    list_iter *iter = list_get_iterator(list_deals, LIST_START_HEAD);
-    while ((node = list_next(iter)) != NULL) {
-        struct deals_info *info = (struct deals_info*)node->value;
-        dict_entry *entry;
+    dict_entry *entry;
+    dict_iterator *iter_fee = dict_get_iterator(dict_fee);
+    while ((entry = dict_next(iter_fee)) != NULL) {
+        char *fee_asset = entry->key;
+        char *fee_str = entry->val;
 
-        dict_iterator *iter_fee = dict_get_iterator(info->dict_fee);
-        while ((entry = dict_next(iter_fee)) != NULL) {
-            char *fee_asset = entry->key;
-            char *fee_str = entry->val;
-
-            if (index == 0) {
-                sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `market`, `user_id`, `fee_asset`, `fee`) VALUES ", table);
-            } else {
-                sql = sdscatprintf(sql, ", ");
-            }
-
-            sql = sdscatprintf(sql, "(NULL, '%s', %u, '%s', '%s')", market, info->user_id, fee_asset, fee_str);
-            index += 1;
-            if (index == 1000) {
-                int ret = mysql_real_query(conn, sql, sdslen(sql));
-                if (ret != 0) {
-                    log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
-                    list_release_iterator(iter);
-                    dict_release_iterator(iter_fee);
-                    sdsfree(sql);
-                    mysql_close(conn);
-                    return;
-                }
-                sdsclear(sql);
-                index = 0;
-            }
+        if (index == 0) {
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `fee_asset`, `fee`) VALUES ", table);
+        } else {
+            sql = sdscatprintf(sql, ", ");
         }
-        dict_release_iterator(iter_fee);
+
+        sql = sdscatprintf(sql, "(NULL, '%s', '%s')", fee_asset, fee_str);
+        index += 1;
+        if (index == 1000) {
+            int ret = mysql_real_query(conn, sql, sdslen(sql));
+            if (ret != 0) {
+                log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+                dict_release_iterator(iter_fee);
+                sdsfree(sql);
+                mysql_close(conn);
+                return;
+            }
+            sdsclear(sql);
+            index = 0;
+        }
     }
-    list_release_iterator(iter);
+    dict_release_iterator(iter_fee);
 
     if (index > 0) {
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -221,7 +213,42 @@ void dump_fee_to_db(list_t *list_deals, const char *market, time_t start)
 
     mysql_close(conn);
     sdsfree(sql);
-    log_info("dump fee end, market: %s", market);
+    log_info("dump fee end, market");
+}
+
+static sds sql_append_mpd(sds sql, int count, ...)
+{
+    static char buf[2048] = {0};
+    size_t len = 0;
+    va_list ap;
+    va_start(ap, count);
+    for(int i = 0; i < count; i++)
+    {
+        if (len >= sizeof(buf)) {
+            log_fatal("sql_append_mpd fail, len: %zd", len);
+            break;
+        }
+
+        char *str;
+        mpd_t *mpd_val = va_arg(ap, mpd_t*);
+        if (mpd_cmp(mpd_val, mpd_zero, &mpd_ctx) == 0) {
+            str = mpd_to_sci(mpd_zero, 0);
+        } else {
+            str = mpd_to_sci(mpd_val, 0);
+        }
+
+        if (i < count - 1) {
+            len += snprintf(buf + len, sizeof(buf) - len, "'%s', ", str);
+        } else {
+            len += snprintf(buf + len, sizeof(buf) - len, "'%s')", str);
+        }
+
+        free(str);
+    }
+    va_end(ap);
+
+    sql = sdscat(sql, buf);
+    return sql;
 }
 
 static void dump_fee_rate_to_db(dict_t *dict_fee_rate, time_t start)
@@ -251,18 +278,20 @@ static void dump_fee_rate_to_db(dict_t *dict_fee_rate, time_t start)
         struct dict_fee_rate_val *fee_rate_val = entry->val;
 
         if (index == 0) {
-            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `market`, `stock`, `gear1`, `gear2`, `gear3`, `gear4`, `gear5`,  \
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `market`, `stock`, `gear0`, `gear1`, `gear2`, `gear3`, `gear4`, `gear5`,  \
                     `gear6`, `gear7`, `gear8`, `gear9`, `gear10`, `gear11`, `gear12`, `gear13`, `gear14`, `gear15`, `gear16`, `gear17`, \
                     `gear18`, `gear19`, `gear20`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
 
-        sql = sdscatprintf(sql, "(NULL, '%s', '%s', %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u)", 
-                fee_rate_key->market, fee_rate_key->stock, fee_rate_val->gear[0], fee_rate_val->gear[1], fee_rate_val->gear[2], fee_rate_val->gear[3], fee_rate_val->gear[4], \
-                fee_rate_val->gear[5], fee_rate_val->gear[6], fee_rate_val->gear[7], fee_rate_val->gear[8], fee_rate_val->gear[9], fee_rate_val->gear[10], \
-                fee_rate_val->gear[11], fee_rate_val->gear[12], fee_rate_val->gear[13], fee_rate_val->gear[14], fee_rate_val->gear[15], fee_rate_val->gear[16], \
-                fee_rate_val->gear[17], fee_rate_val->gear[18], fee_rate_val->gear[19]);
+        sql = sdscatprintf(sql, "(NULL, '%s', '%s', ",  fee_rate_key->market, fee_rate_key->stock);
+        sql = sql_append_mpd(sql, 21, fee_rate_val->volume_gear[0], fee_rate_val->volume_gear[1], fee_rate_val->volume_gear[2], fee_rate_val->volume_gear[3], \
+                fee_rate_val->volume_gear[4], fee_rate_val->volume_gear[5], fee_rate_val->volume_gear[6], fee_rate_val->volume_gear[7], fee_rate_val->volume_gear[8], \
+                fee_rate_val->volume_gear[9], fee_rate_val->volume_gear[10], fee_rate_val->volume_gear[11], fee_rate_val->volume_gear[12], fee_rate_val->volume_gear[13], \
+                fee_rate_val->volume_gear[14], fee_rate_val->volume_gear[15], fee_rate_val->volume_gear[16], fee_rate_val->volume_gear[17], fee_rate_val->volume_gear[18], \
+                fee_rate_val->volume_gear[18], fee_rate_val->volume_gear[20]);
+
         index += 1;
         if (index == 1000) {
             int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -270,7 +299,7 @@ static void dump_fee_rate_to_db(dict_t *dict_fee_rate, time_t start)
                 log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
                 dict_release_iterator(iter); 
                 sdsfree(sql);
-                mysql_close(conn);
+                mysql_close(conn);      
                 return;
             }
             sdsclear(sql);
@@ -284,7 +313,7 @@ static void dump_fee_rate_to_db(dict_t *dict_fee_rate, time_t start)
         if (ret != 0) {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             mysql_close(conn);
-            sdsfree(sql);
+            sdsfree(sql); 
             return;
         }
     }
@@ -298,6 +327,7 @@ static int dump_to_history(time_t start)
 {
     dict_t *dict_fee_rate = get_fee_rate_dict();
 
+
     dlog_flush_all();
     int pid = fork();
     if (pid < 0) {
@@ -305,6 +335,7 @@ static int dump_to_history(time_t start)
         return -__LINE__;
     } else if (pid > 0) {
         dict_clear(dict_fee_rate);
+        clear_fee_dict();
         return 0;
     }
 
@@ -321,7 +352,6 @@ static int dump_to_history(time_t start)
     }
     log_info("dump_deal_and_fee end");
 
-    exit(0);
     return 0;
 }
 

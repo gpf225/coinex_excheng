@@ -32,20 +32,17 @@ CREATE TABLE `statistic_deal_history_example` (
 -- 费用统计历史表，以年月日分表：例如：statistic_fee_history_20190314
 CREATE TABLE `statistic_fee_history_example` (
     `id`                    BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    `market`                VARCHAR(30) NOT NULL,
-    `stock`                 VARCHAR(16) NOT NULL,
-    `user_id`               INT UNSIGNED NOT NULL,
     `fee_asset`             VARCHAR(30) NOT NULL,
     `fee`                   DECIMAL(40,8) NOT NULL,
-    INDEX `idx_market_asset_fee` (`market`, `fee_asset`, `fee`)
+    INDEX `idx_asset_fee` (`fee_asset`, `fee`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-ECTBCH
 -- 费率统计历史表，以年月日分表：例如：statistic_fee_rate_history_20190314
 CREATE TABLE `statistic_fee_rate_history_example` (
     `id`                    BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `market`                VARCHAR(30) NOT NULL,
     `stock`                 VARCHAR(16) NOT NULL,
+    `gear0`                 DECIMAL(40,8) NOT NULL,
     `gear1`                 DECIMAL(40,8) NOT NULL,
     `gear2`                 DECIMAL(40,8) NOT NULL,
     `gear3`                 DECIMAL(40,8) NOT NULL,

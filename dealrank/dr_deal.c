@@ -18,6 +18,7 @@
 #define TYPE_TAKER_TOTAL_TRADE_NUM  9
 
 static dict_t *dict_market;
+static dict_t *dict_fee;
 
 struct dict_market_key {
     char        market[MARKET_NAME_MAX_LEN];
@@ -30,7 +31,7 @@ struct dict_market_val {
 };
 
 struct dict_minute_val {
-    dict_t *dict_user;
+    dict_t     *dict_user;
 };
 
 struct dict_user_key {
@@ -47,7 +48,6 @@ struct dict_user_val {
     uint32_t    trade_num_taker_ask;
     uint32_t    trade_num_taker_bid;
     uint32_t    trade_num_total; 
-    dict_t      *dict_fee;
 };
 
 struct dict_fee_val {
@@ -205,8 +205,6 @@ static void dict_user_val_free(void *val)
         free(obj->volume_taker_bid);
     if (obj->volume_taker_ask)
         free(obj->volume_taker_ask);
-    if (obj->dict_fee != NULL)
-        dict_release(obj->dict_fee);
 
     free(obj);
 }
@@ -397,38 +395,20 @@ static void free_user_val(struct dict_user_val *obj)
         free(obj->volume_taker_bid);
     if (obj->volume_taker_ask)
         free(obj->volume_taker_ask);
-    if (obj->dict_fee != NULL)
-        dict_release(obj->dict_fee);
 }
 
 static int process_new_minute(bool is_taker, dict_t *dict_minute, time_t minute, uint32_t user_id, int side, 
         const char *market, const char *volume_str, const char *deal_str, const char *fee_asset, const char *fee_str)
 {
-    dict_t *dict_fee = create_fee_dict();
-    if (dict_fee == NULL) {
-        log_fatal("create_fee_dict fail");
-        return -__LINE__;
-    }
-
-    //add fee to dict_fee
-    dict_entry *entry = dict_add(dict_fee, (char *)fee_asset, (char *)fee_str);
-    if (entry == NULL) {
-        log_fatal("dict_add fail");
-        dict_release(dict_fee);
-        return -__LINE__;
-    }
-
     dict_t *dict_user = create_user_dict();
     if (dict_user == NULL) {
         log_fatal("create_user_dict fail");
-        dict_release(dict_fee);
         return -__LINE__;
     }
 
     struct dict_user_val user_val;
     memset(&user_val, 0, sizeof(user_val));
     user_val.trade_num_total++;
-    user_val.dict_fee = dict_fee;
 
     if (side == MARKET_TRADE_SIDE_SELL) {
         user_val.volume_ask = strdup(volume_str);
@@ -459,7 +439,7 @@ static int process_new_minute(bool is_taker, dict_t *dict_minute, time_t minute,
         }
     }
 
-    entry = dict_add(dict_user, &user_id, &user_val);
+    dict_entry *entry = dict_add(dict_user, &user_id, &user_val);
     if (entry == NULL) {
         log_fatal("dict_add fail");
         dict_release(dict_user);
@@ -517,7 +497,7 @@ static int process_new_market(bool is_taker, struct dict_market_key *p_market_ke
     return 0;
 }
 
-static void add_fee(dict_t *dict_fee, const char *fee_asset, mpd_t *fee, const char *fee_str)
+static void add_fee(const char *fee_asset, mpd_t *fee, const char *fee_str)
 {
     dict_entry *entry = dict_find(dict_fee, fee_asset);
     if (entry != NULL) {
@@ -551,15 +531,8 @@ static int update_user_val(bool is_taker, dict_t *dict_user, uint32_t user_id, i
         p_user_val = entry->val;
     } else { // new user
         is_new_user = true;
-        dict_t *dict_fee = create_fee_dict();
-        if (dict_fee == NULL) {
-            log_fatal("create_fee_dict fail");
-            return __LINE__;
-        }
-        p_user_val->dict_fee = dict_fee;
     }
 
-    add_fee(p_user_val->dict_fee, fee_asset, fee, fee_str);
     p_user_val->trade_num_total++;
 
     if (is_new_user) {
@@ -594,7 +567,6 @@ static int update_user_val(bool is_taker, dict_t *dict_user, uint32_t user_id, i
 
         if (dict_add(dict_user, &user_id, p_user_val) == NULL) {
             log_fatal("dict_add fail");
-            dict_release(p_user_val->dict_fee);
             return -__LINE__;
         }
     } else { // add up
@@ -664,22 +636,6 @@ static int update_user_val(bool is_taker, dict_t *dict_user, uint32_t user_id, i
     return 0;
 }
 
-static dict_t *dup_fee_dic(dict_t *dict_fee)
-{
-    dict_t *dict_fee_new = create_fee_dict();
-    if (dict_fee_new == NULL)
-        return NULL;
-
-    dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(dict_fee);
-    while ((entry = dict_next(iter)) != NULL) {
-        dict_add(dict_fee_new, entry->key, entry->val);
-    }
-    dict_release_iterator(iter);    
-
-    return dict_fee_new;
-}
-
 static int count_user_val(dict_t *save_dict_user, uint32_t user_id, struct dict_user_val *in_user_val, int data_type)
 {
     bool is_new_user = false;
@@ -724,7 +680,6 @@ static int count_user_val(dict_t *save_dict_user, uint32_t user_id, struct dict_
         } else if (data_type == TYPE_TAKER_TOTAL_TRADE_NUM){
             p_user_val->trade_num_total = in_user_val->trade_num_total;   
         }
-        p_user_val->dict_fee = dup_fee_dic(in_user_val->dict_fee);
 
         if (dict_add(save_dict_user, &user_id, p_user_val) == NULL) {
             log_fatal("dict_add fail");
@@ -796,16 +751,6 @@ static int count_user_val(dict_t *save_dict_user, uint32_t user_id, struct dict_
             p_user_val->trade_num_taker_ask += in_user_val->trade_num_taker_ask;
             p_user_val->trade_num_taker_bid += in_user_val->trade_num_taker_bid;
             p_user_val->trade_num_total     += in_user_val->trade_num_total;
-
-            dict_iterator *iter = dict_get_iterator(in_user_val->dict_fee);
-            while ((entry = dict_next(iter)) != NULL) {
-                char *fee_asset = entry->key;
-                char *fee_str = entry->val;
-                mpd_t *fee = decimal(fee_str, 0);
-                add_fee(p_user_val->dict_fee, fee_asset, fee, fee_str);
-                mpd_del(fee);
-            }
-            dict_release_iterator(iter);
         } else if (data_type == TYPE_BID_VOLUME){
             mpd_t *bid_volume_total = mpd_qncopy(mpd_zero);
             mpd_t *bid_volume_old = decimal(p_user_val->volume_bid, 0);
@@ -1032,7 +977,6 @@ static int dump_to_db_day(const char *market, const char *stock, time_t start)
         info->trade_num_taker_bid = user_val->trade_num_taker_bid;
         info->trade_num_taker_ask = user_val->trade_num_taker_ask;
         info->trade_num_total = user_val->trade_num_total;
-        info->dict_fee = user_val->dict_fee;
         list_add_node_tail(list_deals, info);
     }
     dict_release_iterator(iter_dict);
@@ -1040,7 +984,7 @@ static int dump_to_db_day(const char *market, const char *stock, time_t start)
     log_info("market: %s, list_len: %ld", market, list_len(list_deals));
     
     dump_deals_to_db(list_deals, market, stock, start);
-    dump_fee_to_db(list_deals, market, start);
+    dump_fee_to_db(dict_fee, start);
 
     dict_release(save_dict_user);
     list_release(list_deals);
@@ -1254,6 +1198,11 @@ int deal_top_data(json_t **result, time_t start, time_t end, const char *market,
     return 0;
 }
 
+void clear_fee_dict(void)
+{
+    dict_clear(dict_fee);   
+}
+
 int dump_deal_and_fee(time_t start)
 {
     int ret = 0;
@@ -1311,6 +1260,8 @@ int deals_process(bool is_taker, uint32_t user_id, time_t timestamp, int side, c
     char *deal_prec_str = mpd_to_sci(deal, 0);
     char *fee_prec_str = mpd_to_sci(fee, 0);
 
+    add_fee(fee_asset, fee, fee_prec_str);
+
     dict_entry *entry = dict_find(dict_market, &market_key);
     if (entry == NULL) { //market not find
         int ret = process_new_market(is_taker, &market_key, minute, user_id, side, market, volume_prec_str, deal_prec_str, fee_asset, fee_prec_str);
@@ -1367,6 +1318,10 @@ int init_deal(void)
     if (dict_market == NULL)
         return -__LINE__;
 
+    dict_fee = create_fee_dict();
+    if (dict_fee == NULL)
+        return -__LINE__;
+    
     return 0;
 }
 
