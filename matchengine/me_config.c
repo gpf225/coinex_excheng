@@ -216,6 +216,11 @@ static int read_config_from_json(json_t *root)
     }
 
     ERR_RET_LN(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.45));
+    ERR_RET_LN(read_cfg_int(root, "history_mode", &settings.history_mode, true, 0));
+    if (settings.history_mode < HISTORY_MODE_DIRECT || settings.history_mode > HISTORY_MODE_DOUBLE) {
+        printf("invalid history_mode: %d", settings.history_mode);
+        return -__LINE__;
+    }
 
     return 0;
 }

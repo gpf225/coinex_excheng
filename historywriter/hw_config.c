@@ -1,9 +1,10 @@
 /*
  * Description: 
- *     History: yang@haipo.me, 2017/04/24, create
+ *     History: zhoumugui@viabtc, 2019/03/19, create
  */
 
-# include "rh_config.h"
+# include "hw_config.h"
+# include "ut_misc.h"
 
 struct settings settings;
 
@@ -67,9 +68,34 @@ static int read_config_from_json(json_t *root)
         printf("load alert config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_rpc_svr(root, "svr", &settings.svr);
+    ret = load_cfg_cli_svr(root, "cli", &settings.cli);
     if (ret < 0) {
-        printf("load svr config fail: %d\n", ret);
+        printf("load cli config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_kafka_consumer(root, "his_orders", &settings.orders);
+    if (ret < 0) {
+        printf("load kafka orders config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_kafka_consumer(root, "his_stops", &settings.stops);
+    if (ret < 0) {
+        printf("load kafka stop_orders config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_kafka_consumer(root, "his_balances", &settings.balances);
+    if (ret < 0) {
+        printf("load kafka balances config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_kafka_consumer(root, "his_deals", &settings.deals);
+    if (ret < 0) {
+        printf("load kafka deals config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_redis(root, "redis", &settings.redis);
+    if (ret < 0) {
+        printf("load redis config fail: %d\n", ret);
         return -__LINE__;
     }
     ret = load_db_histories(root, "db_history", &settings.db_histories);
@@ -77,7 +103,8 @@ static int read_config_from_json(json_t *root)
         printf("load db histories fail: %d\n", ret);
         return -__LINE__;
     }
-    ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 10));
+    ERR_RET_LN(read_cfg_int(root, "worker_per_db", &settings.worker_per_db, false, 2));
+    ERR_RET_LN(read_cfg_real(root, "flush_his_interval", &settings.flush_his_interval, false, 0.5));
 
     return 0;
 }
@@ -94,7 +121,6 @@ int init_config(const char *path)
         json_decref(root);
         return -__LINE__;
     }
-
     int ret = read_config_from_json(root);
     if (ret < 0) {
         json_decref(root);

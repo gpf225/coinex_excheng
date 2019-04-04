@@ -83,7 +83,7 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id,
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, `price`, `amount`, "
+    sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, `price`, `amount`, "
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
             "FROM `order_history_%u` WHERE `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
 
@@ -103,7 +103,7 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id,
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `create_time` DESC, `id` DESC");
+    sql = sdscatprintf(sql, " ORDER BY `create_time` DESC, `order_id` DESC");
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
@@ -162,7 +162,7 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id,
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, "
+    sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, "
             "`stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `fee_asset`, `fee_discount`, `status`"
             "FROM `stop_history_%u` WHERE `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
 
@@ -185,7 +185,7 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id,
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `id` DESC");
+    sql = sdscatprintf(sql, " ORDER BY `order_id` DESC");
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
@@ -312,12 +312,12 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id,
     return records;
 }
 
-json_t *get_order_detail(MYSQL *conn, uint64_t order_id)
+json_t *get_order_detail(MYSQL *conn, uint32_t user_id, uint64_t order_id)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, `price`, `amount`, "
+    sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, `price`, `amount`, "
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
-            "FROM `order_detail_%u` WHERE `id` = %"PRIu64, (uint32_t)(order_id % HISTORY_HASH_NUM), order_id);
+            "FROM `order_history_%u` WHERE `user_id` = '%u' AND `order_id` = %"PRIu64, user_id % HISTORY_HASH_NUM, user_id, order_id);
 
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -343,7 +343,7 @@ json_t *get_order_detail(MYSQL *conn, uint64_t order_id)
     json_object_set_new(detail, "ctime", json_real(ctime));
     double ftime = strtod(row[2], NULL);
     json_object_set_new(detail, "ftime", json_real(ftime));
-    uint32_t user_id = strtoul(row[3], NULL, 0);
+    //uint32_t user_id = strtoul(row[3], NULL, 0);
     json_object_set_new(detail, "user", json_integer(user_id));
     json_object_set_new(detail, "market", json_string(row[4]));
     json_object_set_new(detail, "source", json_string(row[5]));
@@ -366,11 +366,11 @@ json_t *get_order_detail(MYSQL *conn, uint64_t order_id)
     return detail;
 }
 
-json_t *get_order_deals(MYSQL *conn, uint64_t order_id, size_t offset, size_t limit)
+json_t *get_order_deals(MYSQL *conn, uint32_t user_id, uint64_t order_id, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `deal_id`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset`, `deal_order_id` "
-            "FROM `order_deal_history_%u` where `order_id` = %"PRIu64" ORDER BY `id` DESC", (uint32_t)(order_id % HISTORY_HASH_NUM), order_id);
+            "FROM `user_deal_history_%u` where `user_id` = '%u' AND `order_id` = %"PRIu64" ORDER BY `id` DESC", user_id % HISTORY_HASH_NUM, user_id, order_id);
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {

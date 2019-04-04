@@ -12,3 +12,5 @@ cd ../cache/ &&  make clean && make
 cd ../longpoll/ &&  make clean && make
 cd ../monitoragent/ &&  make clean && make
 cd ../monitorcenter/ &&  make clean && make
+cd ../historywriter/ &&  make clean && make
+cd ../datamigrator/ &&  make clean && make

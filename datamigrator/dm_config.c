@@ -1,9 +1,10 @@
 /*
  * Description: 
- *     History: yang@haipo.me, 2017/04/24, create
+ *     History: zhoumugui@viabtc, 2019/03/29, create
  */
 
-# include "rh_config.h"
+# include "dm_config.h"
+# include "ut_misc.h"
 
 struct settings settings;
 
@@ -67,17 +68,47 @@ static int read_config_from_json(json_t *root)
         printf("load alert config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_rpc_svr(root, "svr", &settings.svr);
+    ret = load_cfg_cli_svr(root, "cli", &settings.cli);
     if (ret < 0) {
-        printf("load svr config fail: %d\n", ret);
+        printf("load cli config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_db_histories(root, "db_history", &settings.db_histories);
+    ret = load_db_histories(root, "db_histories", &settings.db_histories);
     if (ret < 0) {
         printf("load db histories fail: %d\n", ret);
         return -__LINE__;
     }
-    ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 10));
+    ret = load_cfg_mysql(root, "db_history", &settings.db_history);
+    if (ret < 0) {
+        printf("load history db config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_mysql(root, "db_user", &settings.db_user);
+    if (ret < 0) {
+        printf("load user db config fail: %d\n", ret);
+        return -__LINE__;
+    }
+
+    ERR_RET(read_cfg_int(root, "least_day_per_user", &settings.least_day_per_user, false, 7));
+    ERR_RET(read_cfg_int(root, "max_order_per_user", &settings.max_order_per_user, false, 50000));
+    ERR_RET(read_cfg_int(root, "migrate_mode", &settings.migrate_mode, false, 1));
+    ERR_RET(read_cfg_uint32(root, "last_user_id", &settings.last_user_id, false, 0));
+    ERR_RET(read_cfg_real(root, "migrate_start_time", &settings.migirate_start_time, true, 1.0));
+    ERR_RET(read_cfg_real(root, "migrate_end_time", &settings.migirate_end_time, false, 1.0));
+    
+    if (settings.migirate_end_time > 10.0) {
+        if (settings.migrate_mode == MIGRATE_MODE_FULL) {
+            log_stderr("when migirate_end_time has been setted, the migrate mode may be part migration");
+            return -__LINE__;
+        }
+    }
+
+    if (settings.migirate_end_time < 10.0) {
+        if (settings.migrate_mode == MIGRATE_MODE_PART) {
+            log_stderr("when migirate_end_time does not setted, the migrate mode may be full migration");
+            return -__LINE__;
+        }
+    }
 
     return 0;
 }
@@ -94,7 +125,6 @@ int init_config(const char *path)
         json_decref(root);
         return -__LINE__;
     }
-
     int ret = read_config_from_json(root);
     if (ret < 0) {
         json_decref(root);
