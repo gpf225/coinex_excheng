@@ -323,6 +323,7 @@ dict_t *get_market(void)
     return dict_market;
 }
 
+/*ouxy
 json_t *get_market_list(void)
 {
     json_t *data = json_array();
@@ -336,6 +337,8 @@ json_t *get_market_list(void)
 
     return data;
 }
+
+*/
 
 void fini_market(void)
 {

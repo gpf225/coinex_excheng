@@ -7,8 +7,8 @@
 # define _AR_TICKER_H_
 
 int init_ticker(void);
-int fini_ticker(void);
 
+json_t *get_market_list(void);
 json_t *get_market_ticker(const void *market);
 json_t *get_market_ticker_all(void);
 
