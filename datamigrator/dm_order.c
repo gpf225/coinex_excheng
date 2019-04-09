@@ -55,7 +55,8 @@ int order_migrate(uint32_t user_id, double migrate_start_time, double migrate_en
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
             "FROM `order_history_%u` WHERE `user_id` = %u AND `id` > %ld AND `finish_time` <= '%f' AND `finish_time` > '%f' ORDER BY `id` ASC LIMIT %d",
              user_id % HISTORY_HASH_NUM, user_id, last_order_id, migrate_start_time, migrate_end_time, QUERY_LIMIT);
-
+        
+        log_trace("sql:%s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
         if (ret != 0) {
             log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
