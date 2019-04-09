@@ -101,12 +101,14 @@ int update_user_balance(bool real, uint32_t user_id, const char *asset, const ch
     if (mpd_cmp(change, mpd_zero, &mpd_ctx) >= 0) {
         result = balance_add(user_id, BALANCE_TYPE_AVAILABLE, asset, abs_change);
         if (result == NULL) {
+            mpd_del(abs_change);
             return -2;
         }
         result = balance_reset(user_id, asset);
     } else {
         result = balance_sub(user_id, BALANCE_TYPE_AVAILABLE, asset, abs_change);
         if (result == NULL) {
+            mpd_del(abs_change);
             return -2;
         }
         result = balance_reset(user_id, asset);
