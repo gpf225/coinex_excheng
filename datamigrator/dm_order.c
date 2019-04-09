@@ -29,7 +29,8 @@ static int insert_into_new_db(uint32_t user_id, MYSQL_RES *result, size_t num_ro
             *last_order_id = to_long(row[0]);
         }
     }
-
+    
+    log_trace("sql:%s", sql);
     int ret = mysql_real_query(new_conn, sql, sdslen(sql));
     if (ret != 0) {
         log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(new_conn), mysql_error(new_conn));
@@ -50,7 +51,7 @@ int order_migrate(uint32_t user_id, double migrate_start_time, double migrate_en
 
     while (true) {
         sds sql = sdsempty();
-         sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, `price`, `amount`, "
+        sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, `price`, `amount`, "
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
             "FROM `order_history_%u` WHERE `user_id` = %u AND `id` > %ld AND `finish_time` <= '%f' AND `finish_time` > '%f' ORDER BY `id` ASC LIMIT %d",
              user_id % HISTORY_HASH_NUM, user_id, last_order_id, migrate_start_time, migrate_end_time, QUERY_LIMIT);
@@ -68,7 +69,7 @@ int order_migrate(uint32_t user_id, double migrate_start_time, double migrate_en
             mysql_free_result(result);
             break;
         }
-        log_info("order migrating, user_id:%u total:%u", user_id, total);
+        log_info("order migrating, user_id:%u total:%u last_order_id:%ld", user_id, total, last_order_id);
         ret = insert_into_new_db(user_id, result, num_rows, &last_order_id);
         if (ret != 0) {
             mysql_free_result(result);
