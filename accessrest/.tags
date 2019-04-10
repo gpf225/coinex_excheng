@@ -1,0 +1,179 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+AR_LISTENER_BIND	ar_config.h	42;"	d
+HTTP_TIMEOUT	ar_market.c	/^static const long HTTP_TIMEOUT = 2000L;$/;"	v	file:
+INCS	makefile	/^INCS = -I ..\/network -I ..\/utils$/;"	m
+LIBS	makefile	/^LIBS = -L ..\/utils -lutils -L ..\/network -lnetwork -Wl,-Bstatic -lev -ljansson -lmpdec -lrdkafka -lhiredis -lcurl -lssl -lcrypto -lz -Wl,-Bdynamic -lm -lpthread -ldl$/;"	m
+MARKET_NAME_MAX_LEN	ar_config.h	41;"	d
+TARGET	makefile	/^TARGET  := accessrest.exe$/;"	m
+_AR_CACHE_H_	ar_cache.h	2;"	d
+_AR_CONFIG_H_	ar_config.h	7;"	d
+_AR_LISTENER_H_	ar_listener.h	7;"	d
+_AR_MARKET_H_	ar_market.h	7;"	d
+_AR_SERVER_H_	ar_server.h	7;"	d
+_AR_TICKER_H_	ar_ticker.h	7;"	d
+__process__	ar_main.c	/^const char *__process__ = "accessrest";$/;"	v
+__version__	ar_main.c	/^const char *__version__ = "0.1.0";$/;"	v
+add_handler	ar_server.c	/^static int add_handler(char *method, on_request_method func)$/;"	f	file:
+alert	ar_config.h	/^    alert_cfg           alert;$/;"	m	struct:settings
+backend_cache	ar_cache.c	/^static dict_t *backend_cache;$/;"	v	file:
+backend_timeout	ar_config.h	/^    double              backend_timeout;$/;"	m	struct:settings
+cache	ar_config.h	/^    rpc_clt_cfg         cache;$/;"	m	struct:settings
+cache	ar_server.c	/^static rpc_clt *cache;$/;"	v	file:
+cache	ar_ticker.c	/^static rpc_clt *cache;$/;"	v	file:
+cache_dict_hash_function	ar_cache.c	/^static uint32_t cache_dict_hash_function(const void *key)$/;"	f	file:
+cache_dict_key_compare	ar_cache.c	/^static int cache_dict_key_compare(const void *key1, const void *key2)$/;"	f	file:
+cache_dict_key_dup	ar_cache.c	/^static void *cache_dict_key_dup(const void *key)$/;"	f	file:
+cache_dict_key_free	ar_cache.c	/^static void cache_dict_key_free(void *key)$/;"	f	file:
+cache_dict_val_dup	ar_cache.c	/^static void *cache_dict_val_dup(const void *val)$/;"	f	file:
+cache_dict_val_free	ar_cache.c	/^static void cache_dict_val_free(void *val)$/;"	f	file:
+cache_key	ar_server.c	/^    sds         cache_key;$/;"	m	struct:state_data	file:
+cache_timeout	ar_config.h	/^    double              cache_timeout;$/;"	m	struct:settings
+cache_timer	ar_cache.c	/^static nw_timer cache_timer;$/;"	v	file:
+cache_val	ar_cache.h	/^struct cache_val {$/;"	s
+check_cache	ar_cache.c	/^int check_cache(nw_ses *ses, sds key, uint32_t cmd, json_t *params)$/;"	f
+cmd	ar_server.c	/^    uint32_t    cmd;$/;"	m	struct:state_data	file:
+cmd	ar_ticker.c	/^    uint32_t cmd;$/;"	m	struct:state_data	file:
+convert_kline_type_to_interval	ar_server.c	/^static int convert_kline_type_to_interval(char *type)$/;"	f	file:
+count	ar_config.h	/^    int     count;$/;"	m	struct:depth_limit_cfg
+count	ar_config.h	/^    int     count;$/;"	m	struct:depth_merge_cfg
+cron_timer	ar_main.c	/^nw_timer cron_timer;$/;"	v
+depth_limit	ar_config.h	/^    depth_limit_cfg     depth_limit;$/;"	m	struct:settings
+depth_limit_cfg	ar_config.h	/^typedef struct depth_limit_cfg {$/;"	s
+depth_limit_cfg	ar_config.h	/^} depth_limit_cfg;$/;"	t	typeref:struct:depth_limit_cfg
+depth_merge	ar_config.h	/^    depth_merge_cfg     depth_merge;$/;"	m	struct:settings
+depth_merge_cfg	ar_config.h	/^typedef struct depth_merge_cfg {$/;"	s
+depth_merge_cfg	ar_config.h	/^} depth_merge_cfg;$/;"	t	typeref:struct:depth_merge_cfg
+dict_market	ar_market.c	/^static dict_t *dict_market = NULL;$/;"	v	file:
+dict_market_hash_func	ar_market.c	/^static uint32_t dict_market_hash_func(const void *key)$/;"	f	file:
+dict_market_key_compare	ar_market.c	/^static int dict_market_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_market_key_dup	ar_market.c	/^static void *dict_market_key_dup(const void *key)$/;"	f	file:
+dict_market_key_free	ar_market.c	/^static void dict_market_key_free(void *key)$/;"	f	file:
+dict_market_val_dup	ar_market.c	/^static void *dict_market_val_dup(const void *key)$/;"	f	file:
+dict_market_val_free	ar_market.c	/^static void dict_market_val_free(void *val)$/;"	f	file:
+dict_method_hash_func	ar_server.c	/^static uint32_t dict_method_hash_func(const void *key)$/;"	f	file:
+dict_method_key_compare	ar_server.c	/^static int dict_method_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_method_key_dup	ar_server.c	/^static void *dict_method_key_dup(const void *key)$/;"	f	file:
+dict_method_key_free	ar_server.c	/^static void dict_method_key_free(void *key)$/;"	f	file:
+dict_replace_cache	ar_cache.c	/^void dict_replace_cache(sds cache_key, struct cache_val *val)$/;"	f
+fetch_market_info	ar_market.c	/^static json_t* fetch_market_info() $/;"	f	file:
+generate_depth_data	ar_cache.c	/^static json_t* generate_depth_data(json_t *array, int limit) $/;"	f	file:
+get_market	ar_market.c	/^dict_t *get_market(void)$/;"	f
+get_market_info_list	ar_market.c	/^json_t *get_market_info_list(void)$/;"	f
+get_market_item	ar_market.c	/^static json_t* get_market_item(const char *market_name, json_t *market_info) $/;"	f	file:
+get_market_list	ar_market.c	/^json_t *get_market_list(void)$/;"	f
+get_market_ticker	ar_ticker.c	/^json_t *get_market_ticker(const void *market)$/;"	f
+get_market_ticker_all	ar_ticker.c	/^json_t *get_market_ticker_all(void)$/;"	f
+http_get	ar_market.c	/^static sds http_get(const char *url)$/;"	f	file:
+id	ar_market.c	/^    int     id;$/;"	m	struct:market_val	file:
+id	ar_ticker.c	/^    int     id;$/;"	m	struct:market_val	file:
+info	ar_market.c	/^    json_t *info;$/;"	m	struct:market_val	file:
+init_backend	ar_server.c	/^static int init_backend(void)$/;"	f	file:
+init_cache	ar_cache.c	/^int init_cache(void)$/;"	f
+init_config	ar_config.c	/^int init_config(const char *path)$/;"	f
+init_listener	ar_listener.c	/^int init_listener(void)$/;"	f
+init_listener_clt	ar_server.c	/^static int init_listener_clt(void)$/;"	f	file:
+init_listener_svr	ar_listener.c	/^static int init_listener_svr(void)$/;"	f	file:
+init_log	ar_main.c	/^static int init_log(void)$/;"	f	file:
+init_market	ar_market.c	/^int init_market(void)$/;"	f
+init_process	ar_main.c	/^static int init_process(void)$/;"	f	file:
+init_server	ar_server.c	/^int init_server(void)$/;"	f
+init_svr	ar_server.c	/^static int init_svr(void)$/;"	f	file:
+init_ticker	ar_ticker.c	/^int init_ticker(void)$/;"	f
+init_worker_svr	ar_listener.c	/^static int init_worker_svr(void)$/;"	f	file:
+is_good_limit	ar_server.c	/^static bool is_good_limit(int limit)$/;"	f	file:
+is_good_merge	ar_server.c	/^static bool is_good_merge(const char *merge_str)$/;"	f	file:
+job	ar_market.c	/^static nw_job *job = NULL;$/;"	v	file:
+last	ar_ticker.c	/^    json_t *last;$/;"	m	struct:market_val	file:
+limit	ar_config.h	/^    int     *limit;$/;"	m	struct:depth_limit_cfg
+limit	ar_config.h	/^    mpd_t   **limit;$/;"	m	struct:depth_merge_cfg
+listener	ar_server.c	/^static rpc_clt *listener;$/;"	v	file:
+listener_decode_pkg	ar_listener.c	/^static int listener_decode_pkg(nw_ses *ses, void *data, size_t max)$/;"	f	file:
+listener_on_accept	ar_listener.c	/^static int listener_on_accept(nw_ses *ses, int sockfd, nw_addr_t *peer_addr)$/;"	f	file:
+listener_on_error_msg	ar_listener.c	/^static void listener_on_error_msg(nw_ses *ses, const char *msg)$/;"	f	file:
+listener_on_recv_pkg	ar_listener.c	/^static void listener_on_recv_pkg(nw_ses *ses, void *data, size_t size)$/;"	f	file:
+listener_svr	ar_listener.c	/^static nw_svr *listener_svr;$/;"	v	file:
+load_markets	ar_market.c	/^static int load_markets(json_t *market_infos)$/;"	f	file:
+log	ar_config.h	/^    log_cfg             log;$/;"	m	struct:settings
+main	ar_main.c	/^int main(int argc, char *argv[])$/;"	f
+market	ar_ticker.c	/^    char market[MARKET_NAME_MAX_LEN];$/;"	m	struct:state_data	file:
+market_exist	ar_market.c	/^bool market_exist(const char *market)$/;"	f
+market_interval	ar_config.h	/^    double              market_interval;$/;"	m	struct:settings
+market_update_timer	ar_market.c	/^static nw_timer market_update_timer;$/;"	v	file:
+market_url	ar_config.h	/^    char                *market_url;$/;"	m	struct:settings
+market_val	ar_market.c	/^struct market_val {$/;"	s	file:
+market_val	ar_ticker.c	/^struct market_val {$/;"	s	file:
+marketprice	ar_config.h	/^    rpc_clt_cfg         marketprice;$/;"	m	struct:settings
+marketprice	ar_server.c	/^static rpc_clt *marketprice;$/;"	v	file:
+matchengine	ar_config.h	/^    rpc_clt_cfg         matchengine;$/;"	m	struct:settings
+matchengine	ar_server.c	/^static rpc_clt *matchengine;$/;"	v	file:
+method_map	ar_server.c	/^static dict_t *method_map;$/;"	v	file:
+on_backend_connect	ar_server.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	ar_ticker.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_recv_pkg	ar_server.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	ar_ticker.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_cache_clear_timer	ar_cache.c	/^static void on_cache_clear_timer(nw_timer *timer, void *privdata)$/;"	f	file:
+on_cron_check	ar_main.c	/^static void on_cron_check(nw_timer *timer, void *data)$/;"	f	file:
+on_http_request	ar_server.c	/^static int on_http_request(nw_ses *ses, http_request_t *request)$/;"	f	file:
+on_job	ar_market.c	/^static void on_job(nw_job_entry *entry, void *privdata)$/;"	f	file:
+on_job_cleanup	ar_market.c	/^static void on_job_cleanup(nw_job_entry *entry)$/;"	f	file:
+on_job_finish	ar_market.c	/^static void on_job_finish(nw_job_entry *entry)$/;"	f	file:
+on_listener_connect	ar_server.c	/^static void on_listener_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_listener_recv_fd	ar_server.c	/^static void on_listener_recv_fd(nw_ses *ses, int fd)$/;"	f	file:
+on_listener_recv_pkg	ar_server.c	/^static void on_listener_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_market_deals	ar_server.c	/^static int on_market_deals(nw_ses *ses, dict_t *params)$/;"	f	file:
+on_market_depth	ar_server.c	/^static int on_market_depth(nw_ses *ses, dict_t *params)$/;"	f	file:
+on_market_info	ar_server.c	/^static int on_market_info(nw_ses *ses, dict_t *params) $/;"	f	file:
+on_market_kline	ar_server.c	/^static int on_market_kline(nw_ses *ses, dict_t *params)$/;"	f	file:
+on_market_list	ar_server.c	/^static int on_market_list(nw_ses *ses, dict_t *params)$/;"	f	file:
+on_market_status_reply	ar_ticker.c	/^static int on_market_status_reply(struct state_data *state, json_t *result)$/;"	f	file:
+on_market_ticker	ar_server.c	/^static int on_market_ticker(nw_ses *ses, dict_t *params)$/;"	f	file:
+on_market_ticker_all	ar_server.c	/^static int on_market_ticker_all(nw_ses *ses, dict_t *params)$/;"	f	file:
+on_order_depth_reply	ar_ticker.c	/^static int on_order_depth_reply(struct state_data *state, json_t *result)$/;"	f	file:
+on_ping	ar_server.c	/^static int on_ping(nw_ses *ses, dict_t *params)$/;"	f	file:
+on_release	ar_server.c	/^static void on_release(nw_state_entry *entry)$/;"	f	file:
+on_request_method	ar_server.c	/^typedef int (*on_request_method)(nw_ses *ses, dict_t *params);$/;"	t	file:
+on_timeout	ar_server.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timeout	ar_ticker.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_update_market	ar_market.c	/^static void on_update_market(nw_timer *timer, void *privdata)$/;"	f	file:
+on_update_timer	ar_ticker.c	/^static void on_update_timer(nw_timer *timer, void *privdata)$/;"	f	file:
+pack_depth_result	ar_cache.c	/^static json_t *pack_depth_result(json_t *result, uint32_t limit)$/;"	f	file:
+process	ar_config.h	/^    process_cfg         process;$/;"	m	struct:settings
+process_market_deals_result	ar_server.c	/^static json_t *process_market_deals_result(json_t *result)$/;"	f	file:
+process_market_kline_result	ar_server.c	/^static json_t *process_market_kline_result(json_t *result)$/;"	f	file:
+process_order_depth_result	ar_server.c	/^static json_t *process_order_depth_result(json_t *result)$/;"	f	file:
+query_market_depth	ar_ticker.c	/^static int query_market_depth(const char *market)$/;"	f	file:
+query_market_status	ar_ticker.c	/^static int query_market_status(const char *market)$/;"	f	file:
+read_config_from_json	ar_config.c	/^static int read_config_from_json(json_t *root)$/;"	f	file:
+read_depth_limit_cfg	ar_config.c	/^static int read_depth_limit_cfg(json_t *root, const char *key)$/;"	f	file:
+read_depth_merge_cfg	ar_config.c	/^static int read_depth_merge_cfg(json_t *root, const char *key)$/;"	f	file:
+reply_error	ar_server.c	/^static int reply_error(nw_ses *ses, int code, const char *message, uint32_t status)$/;"	f	file:
+reply_internal_error	ar_server.c	/^static int reply_internal_error(nw_ses *ses)$/;"	f	file:
+reply_invalid_params	ar_server.c	/^static int reply_invalid_params(nw_ses *ses)$/;"	f	file:
+reply_json	ar_server.c	/^static int reply_json(nw_ses *ses, json_t *data, sds cache_key)$/;"	f	file:
+reply_not_found	ar_server.c	/^static int reply_not_found(nw_ses *ses)$/;"	f	file:
+reply_time_out	ar_server.c	/^static int reply_time_out(nw_ses *ses)$/;"	f	file:
+result	ar_cache.h	/^    json_t      *result;$/;"	m	struct:cache_val
+ses	ar_server.c	/^    nw_ses      *ses;$/;"	m	struct:state_data	file:
+ses_id	ar_server.c	/^    uint64_t    ses_id;$/;"	m	struct:state_data	file:
+settings	ar_config.c	/^struct settings settings;$/;"	v	typeref:struct:settings
+settings	ar_config.h	/^struct settings {$/;"	s
+state_context	ar_server.c	/^static nw_state *state_context;$/;"	v	file:
+state_context	ar_ticker.c	/^static nw_state *state_context;$/;"	v	file:
+state_data	ar_server.c	/^struct state_data {$/;"	s	file:
+state_data	ar_ticker.c	/^struct state_data {$/;"	s	file:
+state_interval	ar_config.h	/^    double              state_interval;$/;"	m	struct:settings
+svr	ar_config.h	/^    http_svr_cfg        svr;$/;"	m	struct:settings
+svr	ar_server.c	/^static http_svr *svr;$/;"	v	file:
+time_exp	ar_cache.h	/^    double      time_exp;$/;"	m	struct:cache_val
+update_timer	ar_ticker.c	/^static nw_timer update_timer;$/;"	v	file:
+worker_num	ar_config.h	/^    int                 worker_num;$/;"	m	struct:settings
+worker_on_connection_close	ar_listener.c	/^static void worker_on_connection_close(nw_ses *ses)$/;"	f	file:
+worker_on_new_connection	ar_listener.c	/^static void worker_on_new_connection(nw_ses *ses)$/;"	f	file:
+worker_on_recv_pkg	ar_listener.c	/^static void worker_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+worker_svr	ar_listener.c	/^static rpc_svr *worker_svr;$/;"	v	file:
+write_callback_func	ar_market.c	/^static size_t write_callback_func(char *ptr, size_t size, size_t nmemb, void *userdata)$/;"	f	file:

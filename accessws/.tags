@@ -1,0 +1,532 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+ASSET_NAME_MAX_LEN	aw_config.h	44;"	d
+AW_HTTP_H	aw_http.h	7;"	d
+AW_LISTENER_BIND	aw_config.h	49;"	d
+CLEAN_INTERVAL	aw_depth.c	10;"	d	file:
+DEALS_QUERY_LIMIT	aw_deals.c	14;"	d	file:
+INCS	makefile	/^INCS = -I ..\/network -I ..\/utils$/;"	m
+INTERVAL_MAX_LEN	aw_config.h	47;"	d
+LIBS	makefile	/^LIBS = -L ..\/utils -lutils -L ..\/network -lnetwork -Wl,-Bstatic -lev -ljansson -lmpdec -lrdkafka -lhiredis -lcurl -lssl -lcrypto -lz -Wl,-Bdynamic -lm -lpthread -ldl$/;"	m
+MARKET_NAME_MAX_LEN	aw_config.h	45;"	d
+SOURCE_MAX_LEN	aw_config.h	46;"	d
+TARGET	makefile	/^TARGET  := accessws.exe$/;"	m
+_AW_ASSET_H_	aw_asset.h	7;"	d
+_AW_ASSET_SUB_H_	aw_asset_sub.h	7;"	d
+_AW_AUTH_H_	aw_auth.h	7;"	d
+_AW_AUTH_SUB_H_	aw_auth_sub.h	7;"	d
+_AW_COMMON_H_	aw_common.h	7;"	d
+_AW_CONFIG_H_	aw_config.h	7;"	d
+_AW_DEALS_H_	aw_deals.h	7;"	d
+_AW_DEPTH_H_	aw_depth.h	7;"	d
+_AW_KLINE_H_	aw_kline.h	7;"	d
+_AW_LISTENER_H_	aw_listener.h	7;"	d
+_AW_MESSAGE_H_	aw_message.h	7;"	d
+_AW_ORDER_H_	aw_order.h	7;"	d
+_AW_SERVER_H_	aw_server.h	7;"	d
+_AW_SIGN_H_	aw_sign.h	7;"	d
+_AW_STATE_H_	aw_state.h	7;"	d
+_AW_SUB_USER_H_	aw_sub_user.h	7;"	d
+__process__	aw_main.c	/^const char *__process__ = "accessws";$/;"	v
+__version__	aw_main.c	/^const char *__version__ = "0.1.0";$/;"	v
+access_id	aw_sign.c	/^    sds access_id;$/;"	m	struct:sign_request	file:
+accesshttp	aw_config.h	/^    char                *accesshttp;$/;"	m	struct:settings
+add_handler	aw_server.c	/^static int add_handler(char *method, on_request_method func)$/;"	f	file:
+add_subscribe	aw_asset_sub.c	/^static int add_subscribe(uint32_t user_id, nw_ses *ses)$/;"	f	file:
+alert	aw_config.h	/^    alert_cfg           alert;$/;"	m	struct:settings
+asset	aw_asset.c	/^    char asset[ASSET_NAME_MAX_LEN];$/;"	m	struct:state_data	file:
+asset	aw_asset.c	/^    char asset[ASSET_NAME_MAX_LEN];$/;"	m	struct:sub_unit	file:
+asset	aw_asset_sub.c	/^    char asset[ASSET_NAME_MAX_LEN];$/;"	m	struct:state_data	file:
+asset_on_update	aw_asset.c	/^int asset_on_update(uint32_t user_id, const char *asset)$/;"	f
+asset_on_update_sub	aw_asset_sub.c	/^int asset_on_update_sub(uint32_t user_id, const char *asset)$/;"	f
+asset_subscribe	aw_asset.c	/^int asset_subscribe(uint32_t user_id, nw_ses *ses, const char *asset)$/;"	f
+asset_subscribe_number	aw_asset.c	/^size_t asset_subscribe_number(void)$/;"	f
+asset_subscribe_sub	aw_asset_sub.c	/^int asset_subscribe_sub(nw_ses *ses, json_t *sub_users)$/;"	f
+asset_subscribe_sub_number	aw_asset_sub.c	/^size_t asset_subscribe_sub_number(void)$/;"	f
+asset_unsubscribe	aw_asset.c	/^int asset_unsubscribe(uint32_t user_id, nw_ses *ses)$/;"	f
+asset_unsubscribe_sub	aw_asset_sub.c	/^int asset_unsubscribe_sub(nw_ses *ses)$/;"	f
+auth	aw_server.h	/^    bool        auth;$/;"	m	struct:clt_info
+auth_sub_url	aw_config.h	/^    char                *auth_sub_url;$/;"	m	struct:settings
+auth_url	aw_config.h	/^    char                *auth_url;$/;"	m	struct:settings
+authorisation	aw_sign.c	/^    sds authorisation;$/;"	m	struct:sign_request	file:
+backend_cache	aw_server.c	/^static dict_t *backend_cache;$/;"	v	file:
+backend_timeout	aw_config.h	/^    double              backend_timeout;$/;"	m	struct:settings
+balances	aw_config.h	/^    kafka_consumer_cfg  balances;$/;"	m	struct:settings
+broadcast_update	aw_depth.c	/^static int broadcast_update(const char *market, dict_t *sessions, bool clean, json_t *result)$/;"	f	file:
+broadcast_update	aw_kline.c	/^static int broadcast_update(dict_t *sessions, json_t *result)$/;"	f	file:
+cache	aw_config.h	/^    rpc_clt_cfg         cache;$/;"	m	struct:settings
+cache	aw_deals.c	/^static rpc_clt *cache;$/;"	v	file:
+cache	aw_depth.c	/^static rpc_clt *cache;$/;"	v	file:
+cache	aw_kline.c	/^static rpc_clt *cache;$/;"	v	file:
+cache	aw_server.c	/^static rpc_clt *cache;$/;"	v	file:
+cache	aw_state.c	/^static rpc_clt *cache;$/;"	v	file:
+cache_dict_hash_function	aw_server.c	/^static uint32_t cache_dict_hash_function(const void *key)$/;"	f	file:
+cache_dict_key_compare	aw_server.c	/^static int cache_dict_key_compare(const void *key1, const void *key2)$/;"	f	file:
+cache_dict_key_dup	aw_server.c	/^static void *cache_dict_key_dup(const void *key)$/;"	f	file:
+cache_dict_key_free	aw_server.c	/^static void cache_dict_key_free(void *key)$/;"	f	file:
+cache_dict_val_dup	aw_server.c	/^static void *cache_dict_val_dup(const void *val)$/;"	f	file:
+cache_dict_val_free	aw_server.c	/^static void cache_dict_val_free(void *val)$/;"	f	file:
+cache_key	aw_server.c	/^    sds         cache_key;$/;"	m	struct:state_data	file:
+cache_send_request	aw_deals.c	/^static void cache_send_request(const char *market, int command)$/;"	f	file:
+cache_send_request	aw_depth.c	/^static void cache_send_request(int command, json_t *params)$/;"	f	file:
+cache_send_request	aw_kline.c	/^static void cache_send_request(const char *market, int interval, int command)$/;"	f	file:
+cache_send_request	aw_state.c	/^static void cache_send_request(const char *market, int command)$/;"	f	file:
+cache_timeout	aw_config.h	/^    double              cache_timeout;$/;"	m	struct:settings
+cache_val	aw_server.c	/^struct cache_val {$/;"	s	file:
+callback	aw_http.c	/^    result_callback callback;$/;"	m	struct:http_request	file:
+check_cache	aw_server.c	/^static int check_cache(nw_ses *ses, uint64_t id, sds key)$/;"	f	file:
+check_depth_cache	aw_server.c	/^static int check_depth_cache(nw_ses *ses, uint64_t id, const char *market, const char *interval, int limit)$/;"	f	file:
+clt_info	aw_server.h	/^struct clt_info {$/;"	s
+count	aw_config.h	/^    int     count;$/;"	m	struct:depth_limit_cfg
+count	aw_config.h	/^    int     count;$/;"	m	struct:depth_merge_cfg
+count	aw_depth.c	/^    uint32_t count;$/;"	m	struct:depth_sub_counter	file:
+create_ses_dict	aw_asset_sub.c	/^static dict_t* create_ses_dict()$/;"	f	file:
+create_ses_dict	aw_common.c	/^dict_t* create_ses_dict(uint32_t init_size)$/;"	f
+create_str_list	aw_common.c	/^list_t* create_str_list(void)$/;"	f
+create_sub_dict	aw_asset_sub.c	/^static dict_t* create_sub_dict()$/;"	f	file:
+create_user_dict	aw_asset_sub.c	/^static dict_t* create_user_dict()$/;"	f	file:
+create_user_id_dict	aw_sub_user.c	/^static dict_t* create_user_id_dict()$/;"	f	file:
+create_user_list	aw_asset_sub.c	/^static list_t* create_user_list() $/;"	f	file:
+cron_timer	aw_main.c	/^nw_timer cron_timer;$/;"	v
+deals	aw_config.h	/^    kafka_consumer_cfg  deals;$/;"	m	struct:settings
+deals	aw_deals.c	/^    list_t *deals;$/;"	m	struct:market_val	file:
+deals_interval	aw_config.h	/^    double              deals_interval;$/;"	m	struct:settings
+deals_new	aw_deals.c	/^int deals_new(uint32_t user_id, uint64_t id, double timestamp, int type, const char *market, const char *amount, const char *price)$/;"	f
+deals_send_full	aw_deals.c	/^int deals_send_full(nw_ses *ses, const char *market)$/;"	f
+deals_subscribe	aw_deals.c	/^int deals_subscribe(nw_ses *ses, const char *market, uint32_t user_id)$/;"	f
+deals_subscribe_number	aw_deals.c	/^size_t deals_subscribe_number(void)$/;"	f
+deals_unsubscribe	aw_deals.c	/^int deals_unsubscribe(nw_ses *ses, uint32_t user_id)$/;"	f
+debug	aw_config.h	/^    bool debug;$/;"	m	struct:settings
+depth_interval	aw_config.h	/^    double              depth_interval;$/;"	m	struct:settings
+depth_key	aw_depth.c	/^struct depth_key {$/;"	s	file:
+depth_limit	aw_config.h	/^    depth_limit_cfg     depth_limit;$/;"	m	struct:settings
+depth_limit_cfg	aw_config.h	/^typedef struct depth_limit_cfg {$/;"	s
+depth_limit_cfg	aw_config.h	/^} depth_limit_cfg;$/;"	t	typeref:struct:depth_limit_cfg
+depth_limit_default	aw_config.h	/^    int                 depth_limit_default;$/;"	m	struct:settings
+depth_merge	aw_config.h	/^    depth_merge_cfg     depth_merge;$/;"	m	struct:settings
+depth_merge_cfg	aw_config.h	/^typedef struct depth_merge_cfg {$/;"	s
+depth_merge_cfg	aw_config.h	/^} depth_merge_cfg;$/;"	t	typeref:struct:depth_merge_cfg
+depth_send_clean	aw_depth.c	/^int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char *interval)$/;"	f
+depth_set_key	aw_depth.c	/^static void depth_set_key(struct depth_key *key, const char *market, const char *interval, uint32_t limit)$/;"	f	file:
+depth_sub_counter	aw_depth.c	/^struct depth_sub_counter{$/;"	s	file:
+depth_sub_counter_dec	aw_depth.c	/^static int depth_sub_counter_dec(const char *market, const char *interval) $/;"	f	file:
+depth_sub_counter_inc	aw_depth.c	/^static int depth_sub_counter_inc(const char *market, const char *interval) $/;"	f	file:
+depth_subscribe	aw_depth.c	/^int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)$/;"	f
+depth_subscribe_number	aw_depth.c	/^size_t depth_subscribe_number(void)$/;"	f
+depth_unsubscribe	aw_depth.c	/^int depth_unsubscribe(nw_ses *ses)$/;"	f
+depth_val	aw_depth.c	/^struct depth_val {$/;"	s	file:
+dict_depth_hash_func	aw_depth.c	/^static uint32_t dict_depth_hash_func(const void *key)$/;"	f	file:
+dict_depth_key_compare	aw_depth.c	/^static int dict_depth_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_depth_key_dup	aw_depth.c	/^static void *dict_depth_key_dup(const void *key)$/;"	f	file:
+dict_depth_key_free	aw_depth.c	/^static void dict_depth_key_free(void *key)$/;"	f	file:
+dict_depth_sub	aw_depth.c	/^static dict_t *dict_depth_sub; $/;"	v	file:
+dict_depth_sub_counter	aw_depth.c	/^static dict_t *dict_depth_sub_counter; $/;"	v	file:
+dict_depth_sub_counter_dup	aw_depth.c	/^static void *dict_depth_sub_counter_dup(const void *val)$/;"	f	file:
+dict_depth_sub_counter_free	aw_depth.c	/^static void dict_depth_sub_counter_free(void *val)$/;"	f	file:
+dict_depth_val_dup	aw_depth.c	/^static void *dict_depth_val_dup(const void *val)$/;"	f	file:
+dict_depth_val_free	aw_depth.c	/^static void dict_depth_val_free(void *val)$/;"	f	file:
+dict_kline	aw_kline.c	/^static dict_t *dict_kline;$/;"	v	file:
+dict_kline_hash_func	aw_kline.c	/^static uint32_t dict_kline_hash_func(const void *key)$/;"	f	file:
+dict_kline_key_compare	aw_kline.c	/^static int dict_kline_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_kline_key_dup	aw_kline.c	/^static void *dict_kline_key_dup(const void *key)$/;"	f	file:
+dict_kline_key_free	aw_kline.c	/^static void dict_kline_key_free(void *key)$/;"	f	file:
+dict_kline_val_dup	aw_kline.c	/^static void *dict_kline_val_dup(const void *val)$/;"	f	file:
+dict_kline_val_free	aw_kline.c	/^static void dict_kline_val_free(void *val)$/;"	f	file:
+dict_market	aw_deals.c	/^static dict_t *dict_market;$/;"	v	file:
+dict_market	aw_state.c	/^static dict_t *dict_market;$/;"	v	file:
+dict_market_hash_func	aw_deals.c	/^static uint32_t dict_market_hash_func(const void *key)$/;"	f	file:
+dict_market_hash_func	aw_state.c	/^static uint32_t dict_market_hash_func(const void *key)$/;"	f	file:
+dict_market_key_compare	aw_deals.c	/^static int dict_market_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_market_key_compare	aw_state.c	/^static int dict_market_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_market_key_dup	aw_deals.c	/^static void *dict_market_key_dup(const void *key)$/;"	f	file:
+dict_market_key_dup	aw_state.c	/^static void *dict_market_key_dup(const void *key)$/;"	f	file:
+dict_market_key_free	aw_deals.c	/^static void dict_market_key_free(void *key)$/;"	f	file:
+dict_market_key_free	aw_state.c	/^static void dict_market_key_free(void *key)$/;"	f	file:
+dict_market_val_dup	aw_deals.c	/^static void *dict_market_val_dup(const void *val)$/;"	f	file:
+dict_market_val_dup	aw_state.c	/^static void *dict_market_val_dup(const void *key)$/;"	f	file:
+dict_market_val_free	aw_deals.c	/^static void dict_market_val_free(void *val)$/;"	f	file:
+dict_market_val_free	aw_state.c	/^static void dict_market_val_free(void *val)$/;"	f	file:
+dict_method_hash_func	aw_server.c	/^static uint32_t dict_method_hash_func(const void *key)$/;"	f	file:
+dict_method_key_compare	aw_server.c	/^static int dict_method_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_method_key_dup	aw_server.c	/^static void *dict_method_key_dup(const void *key)$/;"	f	file:
+dict_method_key_free	aw_server.c	/^static void dict_method_key_free(void *key)$/;"	f	file:
+dict_ses_compare	aw_common.c	/^int dict_ses_compare(const void *key1, const void *key2)$/;"	f
+dict_ses_hash_func	aw_asset_sub.c	/^static uint32_t dict_ses_hash_func(const void *key)$/;"	f	file:
+dict_ses_hash_func	aw_common.c	/^uint32_t dict_ses_hash_func(const void *key)$/;"	f
+dict_ses_hash_func	aw_deals.c	/^static uint32_t dict_ses_hash_func(const void *key)$/;"	f	file:
+dict_ses_hash_func	aw_depth.c	/^static uint32_t dict_ses_hash_func(const void *key)$/;"	f	file:
+dict_ses_hash_func	aw_kline.c	/^static uint32_t dict_ses_hash_func(const void *key)$/;"	f	file:
+dict_ses_hash_func	aw_state.c	/^static uint32_t dict_ses_hash_func(const void *key)$/;"	f	file:
+dict_ses_key_compare	aw_asset_sub.c	/^static int dict_ses_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_ses_key_compare	aw_deals.c	/^static int dict_ses_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_ses_key_compare	aw_depth.c	/^static int dict_ses_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_ses_key_compare	aw_kline.c	/^static int dict_ses_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_ses_key_compare	aw_state.c	/^static int dict_ses_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_ses_val_free	aw_state.c	/^static void dict_ses_val_free(void *val)$/;"	f	file:
+dict_session	aw_state.c	/^static dict_t *dict_session;$/;"	v	file:
+dict_str_compare	aw_common.c	/^int dict_str_compare(const void *value1, const void *value2)$/;"	f
+dict_str_dup	aw_common.c	/^void *dict_str_dup(const void *value)$/;"	f
+dict_str_free	aw_common.c	/^void dict_str_free(void *value)$/;"	f
+dict_str_hash_func	aw_common.c	/^uint32_t dict_str_hash_func(const void *key)$/;"	f
+dict_sub	aw_asset.c	/^static dict_t *dict_sub;$/;"	v	file:
+dict_sub	aw_asset_sub.c	/^static dict_t *dict_sub;$/;"	v	file:
+dict_sub	aw_order.c	/^static dict_t *dict_sub;$/;"	v	file:
+dict_sub_hash_func	aw_asset.c	/^static uint32_t dict_sub_hash_func(const void *key)$/;"	f	file:
+dict_sub_hash_func	aw_asset_sub.c	/^static uint32_t dict_sub_hash_func(const void *key)$/;"	f	file:
+dict_sub_hash_func	aw_order.c	/^static uint32_t dict_sub_hash_func(const void *key)$/;"	f	file:
+dict_sub_key_compare	aw_asset.c	/^static int dict_sub_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_sub_key_compare	aw_asset_sub.c	/^static int dict_sub_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_sub_key_compare	aw_order.c	/^static int dict_sub_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_sub_val_free	aw_asset.c	/^static void dict_sub_val_free(void *val)$/;"	f	file:
+dict_sub_val_free	aw_order.c	/^static void dict_sub_val_free(void *val)$/;"	f	file:
+dict_user	aw_asset_sub.c	/^static dict_t *dict_user;$/;"	v	file:
+dict_user	aw_deals.c	/^static dict_t *dict_user;$/;"	v	file:
+dict_user_hash_func	aw_deals.c	/^static uint32_t dict_user_hash_func(const void *key)$/;"	f	file:
+dict_user_hash_func	aw_sub_user.c	/^static uint32_t dict_user_hash_func(const void *key)$/;"	f	file:
+dict_user_id_compare	aw_sub_user.c	/^static int dict_user_id_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_user_id_hash_func	aw_sub_user.c	/^static uint32_t dict_user_id_hash_func(const void *key)$/;"	f	file:
+dict_user_key_compare	aw_deals.c	/^static int dict_user_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_user_key_compare	aw_sub_user.c	/^static int dict_user_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_user_key_dup	aw_deals.c	/^static void *dict_user_key_dup(const void *key)$/;"	f	file:
+dict_user_key_dup	aw_sub_user.c	/^static void *dict_user_key_dup(const void *key)$/;"	f	file:
+dict_user_key_free	aw_deals.c	/^static void dict_user_key_free(void *key)$/;"	f	file:
+dict_user_key_free	aw_sub_user.c	/^static void dict_user_key_free(void *key)$/;"	f	file:
+dict_user_val_dup	aw_deals.c	/^static void *dict_user_val_dup(const void *key)$/;"	f	file:
+dict_user_val_free	aw_asset_sub.c	/^static void dict_user_val_free(void *val)$/;"	f	file:
+dict_user_val_free	aw_deals.c	/^static void dict_user_val_free(void *val)$/;"	f	file:
+dict_user_val_free	aw_sub_user.c	/^static void dict_user_val_free(void *val)$/;"	f	file:
+dict_users	aw_sub_user.c	/^static dict_t *dict_users = NULL;$/;"	v	file:
+fini_asset	aw_asset.c	/^void fini_asset(void)$/;"	f
+fini_order	aw_order.c	/^void fini_order(void)$/;"	f
+generate_depth_data	aw_depth.c	/^static json_t *generate_depth_data(json_t *array, int limit) $/;"	f	file:
+get_depth_diff	aw_depth.c	/^static json_t *get_depth_diff(json_t *first, json_t *second, uint32_t limit)$/;"	f	file:
+get_list_diff	aw_depth.c	/^static json_t *get_list_diff(json_t *list1, json_t *list2, uint32_t limit, int side)$/;"	f	file:
+get_notify_full	aw_state.c	/^static json_t *get_notify_full(double last_notify)$/;"	f	file:
+get_notify_list	aw_state.c	/^static json_t *get_notify_list(list_t *list, double last_notify)$/;"	f	file:
+get_online_user_count	aw_server.c	/^static size_t get_online_user_count(void)$/;"	f	file:
+http_request	aw_http.c	/^static json_t *http_request(const char *method, json_t *params)$/;"	f	file:
+http_request	aw_http.c	/^struct http_request {$/;"	s	file:
+id	aw_state.c	/^    int     id;$/;"	m	struct:market_val	file:
+info	aw_auth.c	/^    struct clt_info *info;$/;"	m	struct:state_data	typeref:struct:state_data::clt_info	file:
+info	aw_auth_sub.c	/^    struct clt_info *info;$/;"	m	struct:state_data	typeref:struct:state_data::clt_info	file:
+info	aw_sign.c	/^    struct clt_info *info;$/;"	m	struct:state_data	typeref:struct:state_data::clt_info	file:
+init_asset	aw_asset.c	/^int init_asset(void)$/;"	f
+init_asset_sub	aw_asset_sub.c	/^int init_asset_sub(void)$/;"	f
+init_auth	aw_auth.c	/^int init_auth(void)$/;"	f
+init_auth_sub	aw_auth_sub.c	/^int init_auth_sub(void)$/;"	f
+init_backend	aw_server.c	/^static int init_backend(void)$/;"	f	file:
+init_config	aw_config.c	/^int init_config(const char *path)$/;"	f
+init_deals	aw_deals.c	/^int init_deals(void)$/;"	f
+init_depth	aw_depth.c	/^int init_depth(void)$/;"	f
+init_http	aw_http.c	/^int init_http(void)$/;"	f
+init_kline	aw_kline.c	/^int init_kline(void)$/;"	f
+init_listener	aw_listener.c	/^int init_listener(void)$/;"	f
+init_listener_clt	aw_server.c	/^static int init_listener_clt(void)$/;"	f	file:
+init_listener_svr	aw_listener.c	/^static int init_listener_svr(void)$/;"	f	file:
+init_log	aw_main.c	/^static int init_log(void)$/;"	f	file:
+init_message	aw_message.c	/^int init_message(void)$/;"	f
+init_order	aw_order.c	/^int init_order(void)$/;"	f
+init_process	aw_main.c	/^static int init_process(void)$/;"	f	file:
+init_server	aw_server.c	/^int init_server(void)$/;"	f
+init_sign	aw_sign.c	/^int init_sign(void)$/;"	f
+init_state	aw_state.c	/^int init_state(void)$/;"	f
+init_svr	aw_server.c	/^static int init_svr(void)$/;"	f	file:
+init_worker_svr	aw_listener.c	/^static int init_worker_svr(void)$/;"	f	file:
+interval	aw_depth.c	/^    char     interval[INTERVAL_MAX_LEN];$/;"	m	struct:depth_key	file:
+interval	aw_kline.c	/^    int interval;$/;"	m	struct:kline_key	file:
+is_empty_string	aw_common.c	/^bool is_empty_string(const char *str)$/;"	f
+is_good_interval	aw_common.c	/^bool is_good_interval(const char *interval)$/;"	f
+is_good_limit	aw_common.c	/^bool is_good_limit(int limit)$/;"	f
+is_good_market	aw_common.c	/^bool is_good_market(const char *market)$/;"	f
+job_context	aw_auth.c	/^static nw_job *job_context;$/;"	v	file:
+job_context	aw_auth_sub.c	/^static nw_job *job_context;$/;"	v	file:
+job_context	aw_http.c	/^static nw_job *job_context;$/;"	v	file:
+job_context	aw_sign.c	/^static nw_job *job_context;$/;"	v	file:
+kafka_balances	aw_message.c	/^static kafka_consumer_t *kafka_balances;$/;"	v	file:
+kafka_deals	aw_message.c	/^static kafka_consumer_t *kafka_deals;$/;"	v	file:
+kafka_orders	aw_message.c	/^static kafka_consumer_t *kafka_orders;$/;"	v	file:
+kafka_stops	aw_message.c	/^static kafka_consumer_t *kafka_stops;$/;"	v	file:
+kline_compare	aw_kline.c	/^static int kline_compare(json_t *first, json_t *second)$/;"	f	file:
+kline_interval	aw_config.h	/^    double              kline_interval;$/;"	m	struct:settings
+kline_key	aw_kline.c	/^struct kline_key {$/;"	s	file:
+kline_subscribe	aw_kline.c	/^int kline_subscribe(nw_ses *ses, const char *market, int interval)$/;"	f
+kline_subscribe_number	aw_kline.c	/^size_t kline_subscribe_number(void)$/;"	f
+kline_unsubscribe	aw_kline.c	/^int kline_unsubscribe(nw_ses *ses)$/;"	f
+kline_val	aw_kline.c	/^struct kline_val {$/;"	s	file:
+last	aw_depth.c	/^    json_t *last;$/;"	m	struct:depth_val	file:
+last	aw_kline.c	/^    json_t *last;$/;"	m	struct:kline_val	file:
+last	aw_state.c	/^    json_t *last;$/;"	m	struct:market_val	file:
+last_clean	aw_depth.c	/^    time_t  last_clean;$/;"	m	struct:depth_val	file:
+limit	aw_config.h	/^    int     *limit;$/;"	m	struct:depth_limit_cfg
+limit	aw_config.h	/^    mpd_t   **limit;$/;"	m	struct:depth_merge_cfg
+limit	aw_depth.c	/^    uint32_t limit;$/;"	m	struct:depth_key	file:
+list_free	aw_deals.c	/^static void list_free(void *value)$/;"	f	file:
+list_market_dup	aw_state.c	/^static void *list_market_dup(void *val)$/;"	f	file:
+list_market_free	aw_state.c	/^static void list_market_free(void *val)$/;"	f	file:
+list_node_compare	aw_asset.c	/^static int list_node_compare(const void *value1, const void *value2)$/;"	f	file:
+list_node_compare	aw_asset_sub.c	/^static int list_node_compare(const void *value1, const void *value2)$/;"	f	file:
+list_node_compare	aw_order.c	/^static int list_node_compare(const void *value1, const void *value2)$/;"	f	file:
+list_node_dup	aw_asset.c	/^static void *list_node_dup(void *value)$/;"	f	file:
+list_node_dup	aw_order.c	/^static void *list_node_dup(void *value)$/;"	f	file:
+list_node_free	aw_asset.c	/^static void list_node_free(void *value)$/;"	f	file:
+list_node_free	aw_order.c	/^static void list_node_free(void *value)$/;"	f	file:
+list_str_dup	aw_common.c	/^void *list_str_dup(void *value)$/;"	f
+listener	aw_server.c	/^static rpc_clt *listener;$/;"	v	file:
+listener_decode_pkg	aw_listener.c	/^static int listener_decode_pkg(nw_ses *ses, void *data, size_t max)$/;"	f	file:
+listener_on_accept	aw_listener.c	/^static int listener_on_accept(nw_ses *ses, int sockfd, nw_addr_t *peer_addr)$/;"	f	file:
+listener_on_error_msg	aw_listener.c	/^static void listener_on_error_msg(nw_ses *ses, const char *msg)$/;"	f	file:
+listener_on_recv_pkg	aw_listener.c	/^static void listener_on_recv_pkg(nw_ses *ses, void *data, size_t size)$/;"	f	file:
+listener_svr	aw_listener.c	/^static nw_svr *listener_svr;$/;"	v	file:
+log	aw_config.h	/^    log_cfg             log;$/;"	m	struct:settings
+longpoll	aw_config.h	/^    rpc_clt_cfg         longpoll;$/;"	m	struct:settings
+main	aw_main.c	/^int main(int argc, char *argv[])$/;"	f
+market	aw_deals.c	/^    char market[MARKET_NAME_MAX_LEN];$/;"	m	struct:state_data	file:
+market	aw_depth.c	/^    char     market[MARKET_NAME_MAX_LEN];$/;"	m	struct:depth_key	file:
+market	aw_kline.c	/^    char market[MARKET_NAME_MAX_LEN];$/;"	m	struct:kline_key	file:
+market	aw_order.c	/^    char market[MARKET_NAME_MAX_LEN];$/;"	m	struct:sub_unit	file:
+market	aw_state.c	/^    char market[MARKET_NAME_MAX_LEN];$/;"	m	struct:state_data	file:
+market_exists	aw_state.c	/^bool market_exists(const char *market)$/;"	f
+market_interval	aw_config.h	/^    double              market_interval;$/;"	m	struct:settings
+market_timer	aw_state.c	/^static nw_timer market_timer;$/;"	v	file:
+market_val	aw_deals.c	/^struct market_val {$/;"	s	file:
+market_val	aw_state.c	/^struct market_val {$/;"	s	file:
+marketprice	aw_config.h	/^    rpc_clt_cfg         marketprice;$/;"	m	struct:settings
+marketprice	aw_server.c	/^static rpc_clt *marketprice;$/;"	v	file:
+matchengine	aw_asset.c	/^static rpc_clt *matchengine;$/;"	v	file:
+matchengine	aw_asset_sub.c	/^static rpc_clt *matchengine;$/;"	v	file:
+matchengine	aw_config.h	/^    rpc_clt_cfg         matchengine;$/;"	m	struct:settings
+matchengine	aw_server.c	/^static rpc_clt *matchengine;$/;"	v	file:
+method	aw_http.c	/^    char *method;$/;"	m	struct:http_request	file:
+method_map	aw_server.c	/^static dict_t *method_map;$/;"	v	file:
+notify_depth	aw_depth.c	/^static int notify_depth(const char *market, const char *interval, uint32_t limit, json_t *result)$/;"	f	file:
+notify_timer	aw_state.c	/^static nw_timer notify_timer;$/;"	v	file:
+on_backend_connect	aw_asset.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	aw_asset_sub.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	aw_deals.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	aw_depth.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	aw_kline.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	aw_server.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	aw_state.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_recv_pkg	aw_asset.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	aw_asset_sub.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	aw_deals.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	aw_depth.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	aw_kline.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	aw_server.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	aw_state.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_balance_query_reply	aw_asset.c	/^static int on_balance_query_reply(struct state_data *state, json_t *result)$/;"	f	file:
+on_balance_query_reply	aw_asset_sub.c	/^static int on_balance_query_reply(struct state_data *state, json_t *result)$/;"	f	file:
+on_balances_message	aw_message.c	/^static void on_balances_message(sds message, int64_t offset)$/;"	f	file:
+on_cleanup	aw_auth.c	/^static void on_cleanup(nw_job_entry *entry)$/;"	f	file:
+on_cleanup	aw_auth_sub.c	/^static void on_cleanup(nw_job_entry *entry)$/;"	f	file:
+on_cleanup	aw_sign.c	/^static void on_cleanup(nw_job_entry *entry)$/;"	f	file:
+on_close	aw_server.c	/^static void on_close(nw_ses *ses, const char *remote)$/;"	f	file:
+on_cron_check	aw_main.c	/^static void on_cron_check(nw_timer *timer, void *data)$/;"	f	file:
+on_deals_message	aw_message.c	/^static void on_deals_message(sds message, int64_t offset)$/;"	f	file:
+on_finish	aw_auth.c	/^static void on_finish(nw_job_entry *entry)$/;"	f	file:
+on_finish	aw_auth_sub.c	/^static void on_finish(nw_job_entry *entry)$/;"	f	file:
+on_finish	aw_sign.c	/^static void on_finish(nw_job_entry *entry)$/;"	f	file:
+on_job	aw_auth.c	/^static void on_job(nw_job_entry *entry, void *privdata)$/;"	f	file:
+on_job	aw_auth_sub.c	/^static void on_job(nw_job_entry *entry, void *privdata)$/;"	f	file:
+on_job	aw_http.c	/^static void on_job(nw_job_entry *entry, void *privdata)$/;"	f	file:
+on_job	aw_sign.c	/^static void on_job(nw_job_entry *entry, void *privdata)$/;"	f	file:
+on_job_cleanup	aw_http.c	/^static void on_job_cleanup(nw_job_entry *entry)$/;"	f	file:
+on_job_finish	aw_http.c	/^static void on_job_finish(nw_job_entry *entry)$/;"	f	file:
+on_listener_connect	aw_server.c	/^static void on_listener_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_listener_recv_fd	aw_server.c	/^static void on_listener_recv_fd(nw_ses *ses, int fd)$/;"	f	file:
+on_listener_recv_pkg	aw_server.c	/^static void on_listener_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_market_kline_reply	aw_kline.c	/^static int on_market_kline_reply(const char *market, int interval, json_t *result)$/;"	f	file:
+on_market_list_callback	aw_state.c	/^static void on_market_list_callback(json_t *result)$/;"	f	file:
+on_market_status_reply	aw_state.c	/^static int on_market_status_reply(const char *market, json_t *result)$/;"	f	file:
+on_market_timer	aw_state.c	/^static void on_market_timer(nw_timer *timer, void *privdata)$/;"	f	file:
+on_message	aw_server.c	/^static int on_message(nw_ses *ses, const char *remote, const char *url, void *message, size_t size)$/;"	f	file:
+on_method_asset_query	aw_server.c	/^static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_asset_query_sub	aw_server.c	/^static int on_method_asset_query_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_asset_subscribe	aw_server.c	/^static int on_method_asset_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_asset_subscribe_sub	aw_server.c	/^static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_asset_unsubscribe	aw_server.c	/^static int on_method_asset_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_asset_unsubscribe_sub	aw_server.c	/^static int on_method_asset_unsubscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_deals_query	aw_server.c	/^static int on_method_deals_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_deals_query_user	aw_server.c	/^static int on_method_deals_query_user(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_deals_subscribe	aw_server.c	/^static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_deals_unsubscribe	aw_server.c	/^static int on_method_deals_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_depth_query	aw_server.c	/^static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_depth_subscribe	aw_server.c	/^static int on_method_depth_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_depth_subscribe_multi	aw_server.c	/^static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_depth_unsubscribe	aw_server.c	/^static int on_method_depth_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_depth_unsubscribe_multi	aw_server.c	/^static int on_method_depth_unsubscribe_multi(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_kline_query	aw_server.c	/^static int on_method_kline_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_kline_subscribe	aw_server.c	/^static int on_method_kline_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_kline_unsubscribe	aw_server.c	/^static int on_method_kline_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_order_query	aw_server.c	/^static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_order_query_stop	aw_server.c	/^static int on_method_order_query_stop(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_order_subscribe	aw_server.c	/^static int on_method_order_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_order_unsubscribe	aw_server.c	/^static int on_method_order_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_server_auth	aw_server.c	/^static int on_method_server_auth(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_server_auth_sub	aw_server.c	/^static int on_method_server_auth_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_server_ping	aw_server.c	/^static int on_method_server_ping(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_server_sign	aw_server.c	/^static int on_method_server_sign(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_server_time	aw_server.c	/^static int on_method_server_time(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_state_query	aw_server.c	/^static int on_method_state_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_state_subscribe	aw_server.c	/^static int on_method_state_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_method_state_unsubscribe	aw_server.c	/^static int on_method_state_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f	file:
+on_notify_timer	aw_state.c	/^static void on_notify_timer(nw_timer *timer, void *privdata)$/;"	f	file:
+on_order_deals_reply	aw_deals.c	/^static int on_order_deals_reply(const char *market, json_t *result)$/;"	f	file:
+on_order_depth_reply	aw_depth.c	/^static int on_order_depth_reply(json_t *result)$/;"	f	file:
+on_orders_message	aw_message.c	/^static void on_orders_message(sds message, int64_t offset)$/;"	f	file:
+on_privdata_alloc	aw_server.c	/^static void *on_privdata_alloc(void *svr)$/;"	f	file:
+on_privdata_free	aw_server.c	/^static void on_privdata_free(void *svr, void *privdata)$/;"	f	file:
+on_release	aw_server.c	/^static void on_release(nw_state_entry *entry)$/;"	f	file:
+on_request_method	aw_server.c	/^typedef int (*on_request_method)(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params);$/;"	t	file:
+on_result	aw_auth.c	/^static void on_result(struct state_data *state, sds token, json_t *result)$/;"	f	file:
+on_result	aw_auth_sub.c	/^static void on_result(struct state_data *state, request_data_t *data, json_t *result)$/;"	f	file:
+on_result	aw_sign.c	/^static void on_result(struct state_data *state, struct sign_request *request, json_t *result)$/;"	f	file:
+on_stops_message	aw_message.c	/^static void on_stops_message(sds message, int64_t offset)$/;"	f	file:
+on_timeout	aw_asset.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timeout	aw_asset_sub.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timeout	aw_auth.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timeout	aw_auth_sub.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timeout	aw_server.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timeout	aw_sign.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timer	aw_server.c	/^static void on_timer(nw_timer *timer, void *privdata)$/;"	f	file:
+on_upgrade	aw_server.c	/^static void on_upgrade(nw_ses *ses, const char *remote)$/;"	f	file:
+order_on_update	aw_order.c	/^int order_on_update(uint32_t user_id, int event, json_t *order)$/;"	f
+order_on_update_stop	aw_order.c	/^int order_on_update_stop(uint32_t user_id, int event, json_t *order)$/;"	f
+order_subscribe	aw_order.c	/^int order_subscribe(uint32_t user_id, nw_ses *ses, const char *market)$/;"	f
+order_subscribe_number	aw_order.c	/^size_t order_subscribe_number(void)$/;"	f
+order_unsubscribe	aw_order.c	/^int order_unsubscribe(uint32_t user_id, nw_ses *ses)$/;"	f
+orders	aw_config.h	/^    kafka_consumer_cfg  orders;$/;"	m	struct:settings
+pack_depth_result	aw_depth.c	/^json_t *pack_depth_result(json_t *result, uint32_t limit)$/;"	f
+params	aw_http.c	/^    json_t *params;$/;"	m	struct:http_request	file:
+pending_auth_request	aw_auth.c	/^size_t pending_auth_request(void)$/;"	f
+pending_auth_sub_request	aw_auth_sub.c	/^size_t pending_auth_sub_request(void)$/;"	f
+pending_sign_request	aw_sign.c	/^size_t pending_sign_request(void)$/;"	f
+post_write_callback	aw_auth.c	/^static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)$/;"	f	file:
+post_write_callback	aw_auth_sub.c	/^static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)$/;"	f	file:
+post_write_callback	aw_http.c	/^static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)$/;"	f	file:
+post_write_callback	aw_sign.c	/^static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)$/;"	f	file:
+price_interval	aw_config.h	/^    double              price_interval;$/;"	m	struct:settings
+privdata_cache	aw_server.c	/^static nw_cache *privdata_cache;$/;"	v	file:
+process	aw_config.h	/^    process_cfg         process;$/;"	m	struct:settings
+process_balances_message	aw_message.c	/^static int process_balances_message(json_t *msg)$/;"	f	file:
+process_deals_message	aw_message.c	/^static int process_deals_message(json_t *msg)$/;"	f	file:
+process_orders_message	aw_message.c	/^static int process_orders_message(json_t *msg)$/;"	f	file:
+process_stops_message	aw_message.c	/^static int process_stops_message(json_t *msg)$/;"	f	file:
+re_subscribe_deals	aw_deals.c	/^static void re_subscribe_deals(void)$/;"	f	file:
+re_subscribe_depth	aw_depth.c	/^static void re_subscribe_depth(void)$/;"	f	file:
+re_subscribe_kline	aw_kline.c	/^static void re_subscribe_kline(void)$/;"	f	file:
+re_subscribe_status	aw_state.c	/^static void re_subscribe_status(void)$/;"	f	file:
+read_config_from_json	aw_config.c	/^static int read_config_from_json(json_t *root)$/;"	f	file:
+read_depth_limit_cfg	aw_config.c	/^static int read_depth_limit_cfg(json_t *root, const char *key)$/;"	f	file:
+read_depth_merge_cfg	aw_config.c	/^static int read_depth_merge_cfg(json_t *root, const char *key)$/;"	f	file:
+readhistory	aw_config.h	/^    rpc_clt_cfg         readhistory;$/;"	m	struct:settings
+readhistory	aw_server.c	/^static rpc_clt *readhistory;$/;"	v	file:
+remote	aw_server.h	/^    char        *remote;$/;"	m	struct:clt_info
+remote_ip	aw_sign.c	/^    sds remote_ip;$/;"	m	struct:sign_request	file:
+remove_subscribe	aw_asset_sub.c	/^static int remove_subscribe(uint32_t user_id, nw_ses *ses)$/;"	f	file:
+request_data_free	aw_auth_sub.c	/^static void request_data_free(request_data_t *request)$/;"	f	file:
+request_data_t	aw_auth_sub.c	/^typedef struct request_data_t {$/;"	s	file:
+request_data_t	aw_auth_sub.c	/^}request_data_t;$/;"	t	typeref:struct:request_data_t	file:
+request_id	aw_auth.c	/^    uint64_t request_id;$/;"	m	struct:state_data	file:
+request_id	aw_auth_sub.c	/^    uint64_t request_id;$/;"	m	struct:state_data	file:
+request_id	aw_server.c	/^    uint64_t    request_id;$/;"	m	struct:state_data	file:
+request_id	aw_sign.c	/^    uint64_t request_id;$/;"	m	struct:state_data	file:
+result	aw_server.c	/^    json_t      *result;$/;"	m	struct:cache_val	file:
+result_callback	aw_http.h	/^typedef void (*result_callback)(json_t *result);$/;"	t
+send_auth_request	aw_auth.c	/^int send_auth_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f
+send_auth_sub_request	aw_auth_sub.c	/^int send_auth_sub_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f
+send_depth_subscribe	aw_depth.c	/^static void send_depth_subscribe(struct depth_key *key)$/;"	f	file:
+send_depth_unsubscribe	aw_depth.c	/^static void send_depth_unsubscribe(struct depth_key *key)$/;"	f	file:
+send_error	aw_server.c	/^int send_error(nw_ses *ses, uint64_t id, int code, const char *message)$/;"	f
+send_error_internal_error	aw_server.c	/^int send_error_internal_error(nw_ses *ses, uint64_t id)$/;"	f
+send_error_invalid_argument	aw_server.c	/^int send_error_invalid_argument(nw_ses *ses, uint64_t id)$/;"	f
+send_error_invalid_argument_depth	aw_server.c	/^int send_error_invalid_argument_depth(nw_ses *ses, uint64_t id, const char *market, int limit, const char *interval)$/;"	f
+send_error_method_notfound	aw_server.c	/^int send_error_method_notfound(nw_ses *ses, uint64_t id)$/;"	f
+send_error_require_auth	aw_server.c	/^int send_error_require_auth(nw_ses *ses, uint64_t id)$/;"	f
+send_error_require_auth_sub	aw_server.c	/^int send_error_require_auth_sub(nw_ses *ses, uint64_t id)$/;"	f
+send_error_service_timeout	aw_server.c	/^int send_error_service_timeout(nw_ses *ses, uint64_t id)$/;"	f
+send_error_service_unavailable	aw_server.c	/^int send_error_service_unavailable(nw_ses *ses, uint64_t id)$/;"	f
+send_error_subscribe_depth_failed	aw_server.c	/^int send_error_subscribe_depth_failed(nw_ses *ses, uint64_t id, const char *market, int limit, const char *interval)$/;"	f
+send_http_request	aw_http.c	/^int send_http_request(const char *method, json_t *params, result_callback callback)$/;"	f
+send_json	aw_server.c	/^static int send_json(nw_ses *ses, const json_t *json)$/;"	f	file:
+send_notify	aw_server.c	/^int send_notify(nw_ses *ses, const char *method, json_t *params)$/;"	f
+send_result	aw_server.c	/^int send_result(nw_ses *ses, uint64_t id, json_t *result)$/;"	f
+send_sign_request	aw_sign.c	/^int send_sign_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)$/;"	f
+send_success	aw_server.c	/^int send_success(nw_ses *ses, uint64_t id)$/;"	f
+ses	aw_asset.c	/^    void *ses;$/;"	m	struct:sub_unit	file:
+ses	aw_auth.c	/^    nw_ses *ses;$/;"	m	struct:state_data	file:
+ses	aw_auth_sub.c	/^    nw_ses *ses;$/;"	m	struct:state_data	file:
+ses	aw_order.c	/^    void *ses;$/;"	m	struct:sub_unit	file:
+ses	aw_server.c	/^    nw_ses      *ses;$/;"	m	struct:state_data	file:
+ses	aw_sign.c	/^    nw_ses *ses;$/;"	m	struct:state_data	file:
+ses	aw_sub_user.c	/^    nw_ses *ses;$/;"	m	struct:user_key	file:
+ses_id	aw_auth.c	/^    uint64_t ses_id;$/;"	m	struct:state_data	file:
+ses_id	aw_auth_sub.c	/^    uint64_t ses_id;$/;"	m	struct:state_data	file:
+ses_id	aw_server.c	/^    uint64_t    ses_id;$/;"	m	struct:state_data	file:
+ses_id	aw_sign.c	/^    uint64_t ses_id;$/;"	m	struct:state_data	file:
+sessions	aw_deals.c	/^    dict_t *sessions;$/;"	m	struct:market_val	file:
+sessions	aw_deals.c	/^    dict_t *sessions;$/;"	m	struct:user_val	file:
+sessions	aw_depth.c	/^    dict_t *sessions;$/;"	m	struct:depth_val	file:
+sessions	aw_kline.c	/^    dict_t *sessions;$/;"	m	struct:kline_val	file:
+set_sub_depth_cache	aw_server.c	/^void set_sub_depth_cache(json_t *depth_data, const char *market, const char *interval, int ttl)$/;"	f
+settings	aw_config.c	/^struct settings settings;$/;"	v	typeref:struct:settings
+settings	aw_config.h	/^struct settings {$/;"	s
+sign_request	aw_sign.c	/^struct sign_request {$/;"	s	file:
+sign_url	aw_config.h	/^    char                *sign_url;$/;"	m	struct:settings
+source	aw_server.h	/^    char        *source;$/;"	m	struct:clt_info
+state_context	aw_asset.c	/^static nw_state *state_context;$/;"	v	file:
+state_context	aw_asset_sub.c	/^static nw_state *state_context;$/;"	v	file:
+state_context	aw_auth.c	/^static nw_state *state_context;$/;"	v	file:
+state_context	aw_auth_sub.c	/^static nw_state *state_context;$/;"	v	file:
+state_context	aw_server.c	/^static nw_state *state_context;$/;"	v	file:
+state_context	aw_sign.c	/^static nw_state *state_context;$/;"	v	file:
+state_data	aw_asset.c	/^struct state_data {$/;"	s	file:
+state_data	aw_asset_sub.c	/^struct state_data {$/;"	s	file:
+state_data	aw_auth.c	/^struct state_data {$/;"	s	file:
+state_data	aw_auth_sub.c	/^struct state_data {$/;"	s	file:
+state_data	aw_deals.c	/^struct state_data {$/;"	s	file:
+state_data	aw_server.c	/^struct state_data {$/;"	s	file:
+state_data	aw_sign.c	/^struct state_data {$/;"	s	file:
+state_data	aw_state.c	/^struct state_data {$/;"	s	file:
+state_interval	aw_config.h	/^    double              state_interval;$/;"	m	struct:settings
+state_send_last	aw_state.c	/^int state_send_last(nw_ses *ses)$/;"	f
+state_subscribe	aw_state.c	/^int state_subscribe(nw_ses *ses, json_t *market_list)$/;"	f
+state_subscribe_number	aw_state.c	/^size_t state_subscribe_number(void)$/;"	f
+state_unsubscribe	aw_state.c	/^int state_unsubscribe(nw_ses *ses)$/;"	f
+stops	aw_config.h	/^    kafka_consumer_cfg  stops;$/;"	m	struct:settings
+sub_unit	aw_asset.c	/^struct sub_unit {$/;"	s	file:
+sub_unit	aw_order.c	/^struct sub_unit {$/;"	s	file:
+sub_user_add	aw_sub_user.c	/^int sub_user_add(uint32_t user_id, nw_ses *ses, json_t *params)$/;"	f
+sub_user_auth	aw_sub_user.c	/^bool sub_user_auth(uint32_t user_id, nw_ses *ses, json_t *params)$/;"	f
+sub_user_get_sub_uses	aw_sub_user.c	/^json_t* sub_user_get_sub_uses(uint32_t user_id, nw_ses *ses)$/;"	f
+sub_user_has	aw_sub_user.c	/^bool sub_user_has(uint32_t user_id, nw_ses *ses, uint32_t sub_user_id)$/;"	f
+sub_user_init	aw_sub_user.c	/^int sub_user_init(void)$/;"	f
+sub_user_remove	aw_sub_user.c	/^int sub_user_remove(uint32_t user_id, nw_ses *ses)$/;"	f
+sub_users	aw_auth_sub.c	/^    json_t *sub_users;$/;"	m	struct:request_data_t	file:
+subscribe_user	aw_deals.c	/^static int subscribe_user(nw_ses *ses, uint32_t user_id)$/;"	f	file:
+svr	aw_config.h	/^    ws_svr_cfg          svr;$/;"	m	struct:settings
+svr	aw_server.c	/^static ws_svr *svr;$/;"	v	file:
+time_exp	aw_server.c	/^    double      time_exp;$/;"	m	struct:cache_val	file:
+timer	aw_server.c	/^static nw_timer timer;$/;"	v	file:
+tonce	aw_sign.c	/^    uint64_t tonce;$/;"	m	struct:sign_request	file:
+unsubscribe_user	aw_deals.c	/^static int unsubscribe_user(nw_ses *ses, uint32_t user_id)$/;"	f	file:
+update_time	aw_state.c	/^    double  update_time;$/;"	m	struct:market_val	file:
+user_id	aw_asset.c	/^    uint32_t user_id;$/;"	m	struct:state_data	file:
+user_id	aw_asset_sub.c	/^    uint32_t user_id;$/;"	m	struct:state_data	file:
+user_id	aw_auth_sub.c	/^    uint32_t user_id;$/;"	m	struct:request_data_t	file:
+user_id	aw_deals.c	/^    uint32_t user_id;$/;"	m	struct:user_key	file:
+user_id	aw_server.h	/^    uint32_t    user_id;$/;"	m	struct:clt_info
+user_id	aw_sub_user.c	/^    uint32_t user_id;$/;"	m	struct:user_key	file:
+user_key	aw_deals.c	/^struct user_key {$/;"	s	file:
+user_key	aw_sub_user.c	/^typedef struct user_key {$/;"	s	file:
+user_key	aw_sub_user.c	/^}user_key;$/;"	t	typeref:struct:user_key	file:
+user_val	aw_deals.c	/^struct user_val {$/;"	s	file:
+worker_num	aw_config.h	/^    int                 worker_num;$/;"	m	struct:settings
+worker_on_connection_close	aw_listener.c	/^static void worker_on_connection_close(nw_ses *ses)$/;"	f	file:
+worker_on_new_connection	aw_listener.c	/^static void worker_on_new_connection(nw_ses *ses)$/;"	f	file:
+worker_on_recv_pkg	aw_listener.c	/^static void worker_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+worker_svr	aw_listener.c	/^static rpc_svr *worker_svr;$/;"	v	file:

@@ -12,7 +12,7 @@ int state_subscribe(nw_ses *ses, json_t *market_list);
 int state_unsubscribe(nw_ses *ses);
 int state_send_last(nw_ses *ses);
 size_t state_subscribe_number(void);
-void fini_state(void);
+bool market_exists(const char *market);
 
 # endif
 
