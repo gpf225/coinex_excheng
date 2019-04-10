@@ -213,9 +213,9 @@ mpd_t *balance_set(uint32_t user_id, uint32_t type, const char *asset, mpd_t *am
     if (at == NULL)
         return NULL;
 
-    if (type == BALANCE_TYPE_AVAILABLE && mpd_cmp(amount, at->min, &mpd_ctx) < 0) {
-        return mpd_zero;
-    }
+//    if (type == BALANCE_TYPE_AVAILABLE && mpd_cmp(amount, at->min, &mpd_ctx) < 0) {
+//        return mpd_zero;
+//    }
 
     int ret = mpd_cmp(amount, mpd_zero, &mpd_ctx);
     if (ret < 0) {
@@ -311,10 +311,10 @@ mpd_t *balance_reset(uint32_t user_id, const char *asset)
     if (result == NULL)
         return mpd_zero;
 
-    if (mpd_cmp(result, at->min, &mpd_ctx) < 0) {
-        balance_del(user_id, BALANCE_TYPE_AVAILABLE, asset);
-        return mpd_zero;
-    }
+//    if (mpd_cmp(result, at->min, &mpd_ctx) < 0) {
+//        balance_del(user_id, BALANCE_TYPE_AVAILABLE, asset);
+//        return mpd_zero;
+//    }
 
     return result;
 }
