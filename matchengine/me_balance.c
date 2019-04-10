@@ -213,10 +213,6 @@ mpd_t *balance_set(uint32_t user_id, uint32_t type, const char *asset, mpd_t *am
     if (at == NULL)
         return NULL;
 
-    if (type == BALANCE_TYPE_AVAILABLE && mpd_cmp(amount, at->min, &mpd_ctx) < 0) {
-        return mpd_zero;
-    }
-
     int ret = mpd_cmp(amount, mpd_zero, &mpd_ctx);
     if (ret < 0) {
         return NULL;
