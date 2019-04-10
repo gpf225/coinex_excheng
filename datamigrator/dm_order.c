@@ -33,9 +33,9 @@ static int insert_into_new_db(uint32_t user_id, MYSQL_RES *result, size_t num_ro
     log_trace("sql:%s", sql);
     int ret = mysql_real_query(new_conn, sql, sdslen(sql));
     if (ret != 0) {
-        log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(new_conn), mysql_error(new_conn));
+        log_fatal("exec sql: %s fail: %d %s, ret:%d", sql, mysql_errno(new_conn), mysql_error(new_conn), ret);
         sdsfree(sql);
-        return -__LINE__;
+        return -1;
     }
     sdsfree(sql);
     return 0;

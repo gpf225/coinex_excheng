@@ -12,6 +12,7 @@ static int insert_into_new_db(uint32_t user_id, MYSQL_RES *result, size_t num_ro
     const uint32_t hash = user_id % HISTORY_HASH_NUM;
     sds sql = sdsempty();
     MYSQL *new_conn = get_new_db_connection(user_id);
+    long last_id = 0;
 
     for (size_t i = 0; i < num_rows; ++i) {
         MYSQL_ROW row = mysql_fetch_row(result);
@@ -26,16 +27,17 @@ static int insert_into_new_db(uint32_t user_id, MYSQL_RES *result, size_t num_ro
         sql = sdscatprintf(sql, "('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
             row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15]);
         if (i == num_rows - 1) {
-            *last_order_id = to_long(row[0]);
+            last_id = to_long(row[0]);
         }
     }
 
     int ret = mysql_real_query(new_conn, sql, sdslen(sql));
     sdsfree(sql);
     if (ret != 0) {
-        log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(new_conn), mysql_error(new_conn));
-        return -__LINE__;
+        log_fatal("exec sql: %s fail: %d %s, ret:%d", sql, mysql_errno(new_conn), mysql_error(new_conn), ret);
+        return -1;
     }
+    *last_order_id = last_id;
     return 0;
 }
 
