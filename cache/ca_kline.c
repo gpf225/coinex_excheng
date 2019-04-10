@@ -1,12 +1,13 @@
 /*
  * Description: 
- *     History: ouxiangyang, 2019/03/27, create
+ *     History: ouxiangyang, 2019/04/1, create
  */
 
 # include "ca_config.h"
 # include "ca_kline.h"
 # include "ca_cache.h"
 # include "ca_server.h"
+# include "ca_market.h"
 
 static rpc_clt *marketprice;
 static nw_state *state_context;
@@ -25,6 +26,8 @@ struct dict_kline_sub_val {
 
 struct state_data {
     char     market[MARKET_NAME_MAX_LEN];
+    time_t   start;
+    time_t   end;
     int      interval;
     nw_ses   *ses;
     uint64_t ses_id;
@@ -91,11 +94,10 @@ static void on_timeout(nw_state_entry *entry)
     }
 }
 
-static bool process_cache(nw_ses *ses, rpc_pkg *pkg)
+static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, time_t start, time_t end, int interval)
 {
     sds key = sdsempty();
-    key = sdscatprintf(key, "%u", pkg->command);
-    key = sdscatlen(key, pkg->body, pkg->body_size);
+    key = sdscatprintf(key, "kline-%s-%zd-%zd-%d", market, start, end, interval);
 
     struct dict_cache_val *cache = get_cache(key, settings.cache_timeout);
     if (cache == NULL) {
@@ -120,7 +122,7 @@ static void kline_reply(nw_ses *ses, json_t *result)
 {
     json_t *new_result = json_object();
     json_object_set_new(new_result, "ttl", json_integer(settings.cache_timeout));
-    json_object_set(new_result, "cache_result", result);
+    json_object_set    (new_result, "cache_result", result);
 
     rpc_pkg reply_rpc;
     memset(&reply_rpc, 0, sizeof(reply_rpc));
@@ -169,13 +171,19 @@ static int kline_sub_reply(const char *market, int interval, json_t *result)
     if (array_size == 0)
         return 0;
 
+    json_t *params = json_array();
+    json_array_append_new(params, json_string(market));
+    json_array_append_new(params, json_integer(interval));
+    json_array_append(params, result);
+
     dict_iterator *iter = dict_get_iterator(obj->sessions);
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
-        notify_message(ses, CMD_CACHE_KLINE_UPDATE, result);
+        notify_message(ses, CMD_CACHE_KLINE_UPDATE, params);
     }
     dict_release_iterator(iter);
 
+    json_decref(params);
     return 0;
 }
 
@@ -185,7 +193,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     if (entry == NULL) {
         return;
     }
-    struct state_data *state = entry->data;
 
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
@@ -207,6 +214,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
+    struct state_data *state = entry->data;
+
     switch (pkg->command) {
     case CMD_MARKET_KLINE:
         if (state->ses) { // out request
@@ -214,8 +223,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 kline_reply(state->ses, result);
 
                 sds cache_key = sdsempty();
-                cache_key = sdscatprintf(cache_key, "%u", pkg->command);
-                cache_key = sdscatlen(cache_key, pkg->body, pkg->body_size);
+                cache_key = sdscatprintf(cache_key, "kline-%s-%zd-%zd-%d", state->market, state->start, state->end, state->interval);
+
                 add_cache(cache_key, result);
                 sdsfree(cache_key);
             } else {
@@ -239,12 +248,14 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
 int kline_request(nw_ses *ses, rpc_pkg *pkg, const char *market, time_t start, time_t end, int interval)
 {
-    if (ses != NULL && process_cache(ses, pkg))
+    if (ses != NULL && process_cache(ses, pkg, market, start, end, interval))
         return 0;
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
+    state->start = start;
+    state->end = end;
     state->interval = interval;
 
     state->ses = ses;
@@ -279,13 +290,12 @@ static void on_timer(nw_timer *timer, void *privdata)
     dict_iterator *iter = dict_get_iterator(dict_kline_sub);
 
     while ((entry = dict_next(iter)) != NULL) {
+        struct dict_kline_key *key = entry->key;
         struct dict_kline_sub_val *val = entry->val;
-        if (dict_size(val->sessions) == 0) {
+        if (dict_size(val->sessions) == 0 || !market_exist(key->market))
             continue;
-        }
 
         time_t now = time(NULL);
-        struct dict_kline_key *key = entry->key;
         kline_request(NULL, NULL, key->market, (now - (int)(settings.sub_kline_interval + 1)), now, key->interval);
     }
     dict_release_iterator(iter);
@@ -337,11 +347,11 @@ void kline_unsubscribe(nw_ses *ses, const char *market, int interval)
     return;
 }
 
-void unsubscribe_kline_all(nw_ses *ses)
+void kline_unsubscribe_all(nw_ses *ses)
 {
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_kline_sub);
-    while ( (entry = dict_next(iter)) != NULL ) {
+    while ((entry = dict_next(iter)) != NULL) {
         struct dict_kline_sub_val *val = entry->val;
         dict_delete(val->sessions, ses);
     }

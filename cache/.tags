@@ -1,0 +1,262 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+DEALS_QUERY_LIMIT	ca_deals.c	17;"	d	file:
+DEPTH_LIMIT_MAX_LEN	ca_config.h	41;"	d
+INCS	makefile	/^INCS = -I ..\/network -I ..\/utils$/;"	m
+INTERVAL_MAX_LEN	ca_config.h	40;"	d
+LIBS	makefile	/^LIBS = -L ..\/utils -lutils -L ..\/network -lnetwork -Wl,-Bstatic -lev -ljansson -lmpdec -lrdkafka -lhiredis -lcurl -lssl -lcrypto -lz -Wl,-Bdynamic -lm -lpthread -ldl$/;"	m
+MARKET_DEALS_MAX	ca_config.h	43;"	d
+MARKET_NAME_MAX_LEN	ca_config.h	39;"	d
+TARGET	makefile	/^TARGET  := cache.exe$/;"	m
+_CA_CACHE_H_	ca_cache.h	7;"	d
+_CA_CONFIG_H_	ca_config.h	7;"	d
+_CA_DEALS_REQUEST_H_	ca_deals.h	2;"	d
+_CA_DEPTH_H_	ca_depth.h	2;"	d
+_CA_KLINE_H_	ca_kline.h	2;"	d
+_CA_MARKET_H_	ca_market.h	7;"	d
+_CA_STATUS_REQUEST_H_	ca_status.h	2;"	d
+_RH_SERVER_H_	ca_server.h	7;"	d
+__process__	ca_main.c	/^const char *__process__ = "cache";$/;"	v
+__version__	ca_main.c	/^const char *__version__ = "0.1.0";$/;"	v
+add_cache	ca_cache.c	/^int add_cache(sds cache_key, json_t *result)$/;"	f
+add_subscribe_depth_all_ses	ca_depth.c	/^void add_subscribe_depth_all_ses(nw_ses *ses)$/;"	f
+alert	ca_config.h	/^    alert_cfg           alert;$/;"	m	struct:settings
+backend_timeout	ca_config.h	/^    double              backend_timeout;$/;"	m	struct:settings
+cache_timeout	ca_config.h	/^    int                 cache_timeout;$/;"	m	struct:settings
+cache_timer	ca_cache.c	/^static nw_timer cache_timer;$/;"	v	file:
+cron_timer	ca_main.c	/^nw_timer cron_timer;$/;"	v
+deal_default_limit	ca_config.h	/^    int                 deal_default_limit;$/;"	m	struct:settings
+deals_reply	ca_deals.c	/^static void deals_reply(nw_ses *ses, json_t *result)$/;"	f	file:
+deals_request	ca_deals.c	/^int deals_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint64_t last_id)$/;"	f
+deals_sub_reply	ca_deals.c	/^static int deals_sub_reply(const char *market, json_t *result)$/;"	f	file:
+deals_subscribe	ca_deals.c	/^int deals_subscribe(nw_ses *ses, const char *market)$/;"	f
+deals_unsubscribe	ca_deals.c	/^void deals_unsubscribe(nw_ses *ses, const char *market)$/;"	f
+deals_unsubscribe_all	ca_deals.c	/^void deals_unsubscribe_all(nw_ses *ses)$/;"	f
+debug	ca_config.h	/^    bool                debug;$/;"	m	struct:settings
+del_subscribe_depth_all_ses	ca_depth.c	/^void del_subscribe_depth_all_ses(nw_ses *ses)$/;"	f
+depth_limit_max	ca_config.h	/^    int                 depth_limit_max;$/;"	m	struct:settings
+depth_reply	ca_depth.c	/^static void depth_reply(nw_ses *ses, int limit, json_t *result)$/;"	f	file:
+depth_request	ca_depth.c	/^int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, const char *interval)$/;"	f
+depth_send_last	ca_depth.c	/^int depth_send_last(nw_ses *ses, const char *market, const char *interval)$/;"	f
+depth_set_key	ca_depth.c	/^static void depth_set_key(struct dict_depth_key *key, const char *market, const char *interval)$/;"	f	file:
+depth_sub_reply	ca_depth.c	/^static int depth_sub_reply(const char *market, const char *interval, json_t *result, int ttl)$/;"	f	file:
+depth_subscribe	ca_depth.c	/^int depth_subscribe(nw_ses *ses, const char *market, const char *interval)$/;"	f
+depth_unsubscribe	ca_depth.c	/^int depth_unsubscribe(nw_ses *ses, const char *market, const char *interval)$/;"	f
+dict_cache	ca_cache.c	/^static dict_t *dict_cache;$/;"	v	file:
+dict_cache_hash_function	ca_cache.c	/^static uint32_t dict_cache_hash_function(const void *key)$/;"	f	file:
+dict_cache_key_compare	ca_cache.c	/^static int dict_cache_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_cache_key_dup	ca_cache.c	/^static void *dict_cache_key_dup(const void *key)$/;"	f	file:
+dict_cache_key_free	ca_cache.c	/^static void dict_cache_key_free(void *key)$/;"	f	file:
+dict_cache_val	ca_cache.h	/^struct dict_cache_val {$/;"	s
+dict_cache_val_dup	ca_cache.c	/^static void *dict_cache_val_dup(const void *val)$/;"	f	file:
+dict_cache_val_free	ca_cache.c	/^static void dict_cache_val_free(void *val)$/;"	f	file:
+dict_create_deals_session	ca_deals.c	/^static dict_t* dict_create_deals_session(void)$/;"	f	file:
+dict_create_depth_session	ca_depth.c	/^static dict_t* dict_create_depth_session(void)$/;"	f	file:
+dict_create_kline_session	ca_kline.c	/^static dict_t* dict_create_kline_session(void)$/;"	f	file:
+dict_create_status_session	ca_status.c	/^static dict_t* dict_create_status_session(void)$/;"	f	file:
+dict_deals_key	ca_deals.c	/^struct dict_deals_key {$/;"	s	file:
+dict_deals_sub	ca_deals.c	/^static dict_t *dict_deals_sub;$/;"	v	file:
+dict_deals_sub_hash_function	ca_deals.c	/^static uint32_t dict_deals_sub_hash_function(const void *key)$/;"	f	file:
+dict_deals_sub_key_compare	ca_deals.c	/^static int dict_deals_sub_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_deals_sub_key_dup	ca_deals.c	/^static void *dict_deals_sub_key_dup(const void *key)$/;"	f	file:
+dict_deals_sub_key_free	ca_deals.c	/^static void dict_deals_sub_key_free(void *key)$/;"	f	file:
+dict_deals_sub_val	ca_deals.c	/^struct dict_deals_sub_val {$/;"	s	file:
+dict_deals_sub_val_dup	ca_deals.c	/^static void *dict_deals_sub_val_dup(const void *val)$/;"	f	file:
+dict_deals_sub_val_free	ca_deals.c	/^static void dict_deals_sub_val_free(void *key)$/;"	f	file:
+dict_depth_key	ca_depth.c	/^struct dict_depth_key {$/;"	s	file:
+dict_depth_sub	ca_depth.c	/^static dict_t *dict_depth_sub;$/;"	v	file:
+dict_depth_sub_all	ca_depth.c	/^static dict_t *dict_depth_sub_all;$/;"	v	file:
+dict_depth_sub_hash_func	ca_depth.c	/^uint32_t dict_depth_sub_hash_func(const void *key)$/;"	f
+dict_depth_sub_key_compare	ca_depth.c	/^int dict_depth_sub_key_compare(const void *key1, const void *key2)$/;"	f
+dict_depth_sub_key_dup	ca_depth.c	/^void *dict_depth_sub_key_dup(const void *key)$/;"	f
+dict_depth_sub_key_free	ca_depth.c	/^void dict_depth_sub_key_free(void *key)$/;"	f
+dict_depth_sub_val	ca_depth.c	/^struct dict_depth_sub_val {$/;"	s	file:
+dict_depth_sub_val_dup	ca_depth.c	/^static void *dict_depth_sub_val_dup(const void *val)$/;"	f	file:
+dict_depth_sub_val_free	ca_depth.c	/^static void dict_depth_sub_val_free(void *key)$/;"	f	file:
+dict_kline_key	ca_kline.c	/^struct dict_kline_key {$/;"	s	file:
+dict_kline_sub	ca_kline.c	/^static dict_t *dict_kline_sub;$/;"	v	file:
+dict_kline_sub_hash_function	ca_kline.c	/^static uint32_t dict_kline_sub_hash_function(const void *key)$/;"	f	file:
+dict_kline_sub_key_compare	ca_kline.c	/^static int dict_kline_sub_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_kline_sub_key_dup	ca_kline.c	/^static void *dict_kline_sub_key_dup(const void *key)$/;"	f	file:
+dict_kline_sub_key_free	ca_kline.c	/^static void dict_kline_sub_key_free(void *key)$/;"	f	file:
+dict_kline_sub_val	ca_kline.c	/^struct dict_kline_sub_val {$/;"	s	file:
+dict_kline_sub_val_dup	ca_kline.c	/^static void *dict_kline_sub_val_dup(const void *val)$/;"	f	file:
+dict_kline_sub_val_free	ca_kline.c	/^static void dict_kline_sub_val_free(void *key)$/;"	f	file:
+dict_market	ca_market.c	/^static dict_t *dict_market = NULL;$/;"	v	file:
+dict_market_val_dup	ca_market.c	/^static void *dict_market_val_dup(const void *key)$/;"	f	file:
+dict_market_val_free	ca_market.c	/^static void dict_market_val_free(void *val)$/;"	f	file:
+dict_ses_hash_compare	ca_config.c	/^int dict_ses_hash_compare(const void *key1, const void *key2)$/;"	f
+dict_ses_hash_func	ca_config.c	/^uint32_t dict_ses_hash_func(const void *key)$/;"	f
+dict_status_key	ca_status.c	/^struct dict_status_key {$/;"	s	file:
+dict_status_sub	ca_status.c	/^static dict_t *dict_status_sub;$/;"	v	file:
+dict_status_sub_hash_function	ca_status.c	/^static uint32_t dict_status_sub_hash_function(const void *key)$/;"	f	file:
+dict_status_sub_key_compare	ca_status.c	/^static int dict_status_sub_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_status_sub_key_dup	ca_status.c	/^static void *dict_status_sub_key_dup(const void *key)$/;"	f	file:
+dict_status_sub_key_free	ca_status.c	/^static void dict_status_sub_key_free(void *key)$/;"	f	file:
+dict_status_sub_val	ca_status.c	/^struct dict_status_sub_val {$/;"	s	file:
+dict_status_sub_val_dup	ca_status.c	/^static void *dict_status_sub_val_dup(const void *val)$/;"	f	file:
+dict_status_sub_val_free	ca_status.c	/^static void dict_status_sub_val_free(void *key)$/;"	f	file:
+dict_str_compare	ca_market.c	/^static int dict_str_compare(const void *value1, const void *value2)$/;"	f	file:
+dict_str_dup	ca_market.c	/^static void *dict_str_dup(const void *value)$/;"	f	file:
+dict_str_free	ca_market.c	/^static void dict_str_free(void *value)$/;"	f	file:
+dict_str_hash_func	ca_market.c	/^static uint32_t dict_str_hash_func(const void *key)$/;"	f	file:
+generate_depth_data	ca_depth.c	/^static json_t *generate_depth_data(json_t *array, int limit) $/;"	f	file:
+get_cache	ca_cache.c	/^struct dict_cache_val *get_cache(sds key, int cache_time)$/;"	f
+get_market	ca_market.c	/^dict_t *get_market(void)$/;"	f
+id	ca_market.c	/^    int     id;$/;"	m	struct:market_val	file:
+init_cache	ca_cache.c	/^int init_cache(void)$/;"	f
+init_config	ca_config.c	/^int init_config(const char *path)$/;"	f
+init_deals	ca_deals.c	/^int init_deals(void)$/;"	f
+init_depth	ca_depth.c	/^int init_depth(void)$/;"	f
+init_kline	ca_kline.c	/^int init_kline(void)$/;"	f
+init_log	ca_main.c	/^static int init_log(void)$/;"	f	file:
+init_market	ca_market.c	/^int init_market(void)$/;"	f
+init_process	ca_main.c	/^static int init_process(void)$/;"	f	file:
+init_server	ca_server.c	/^int init_server(void)$/;"	f
+init_status	ca_status.c	/^int init_status(void)$/;"	f
+interval	ca_depth.c	/^    char      interval[INTERVAL_MAX_LEN];$/;"	m	struct:dict_depth_key	file:
+interval	ca_depth.c	/^    char      interval[INTERVAL_MAX_LEN];$/;"	m	struct:state_data	file:
+interval	ca_kline.c	/^    int      interval;$/;"	m	struct:state_data	file:
+interval	ca_kline.c	/^    int interval;$/;"	m	struct:dict_kline_key	file:
+is_depth_equal	ca_depth.c	/^static bool is_depth_equal(json_t *last, json_t *now)$/;"	f	file:
+is_json_equal	ca_depth.c	/^static bool is_json_equal(json_t *l, json_t *r)$/;"	f	file:
+kline_max	ca_config.h	/^    int                 kline_max;$/;"	m	struct:settings
+kline_reply	ca_kline.c	/^static void kline_reply(nw_ses *ses, json_t *result)$/;"	f	file:
+kline_request	ca_kline.c	/^int kline_request(nw_ses *ses, rpc_pkg *pkg, const char *market, time_t start, time_t end, int interval)$/;"	f
+kline_sub_reply	ca_kline.c	/^static int kline_sub_reply(const char *market, int interval, json_t *result)$/;"	f	file:
+kline_subscribe	ca_kline.c	/^int kline_subscribe(nw_ses *ses, const char *market, int interval)$/;"	f
+kline_unsubscribe	ca_kline.c	/^void kline_unsubscribe(nw_ses *ses, const char *market, int interval)$/;"	f
+last	ca_depth.c	/^    json_t   *last;$/;"	m	struct:dict_depth_sub_val	file:
+last_id	ca_deals.c	/^    uint64_t last_id;$/;"	m	struct:dict_deals_sub_val	file:
+limit	ca_depth.c	/^    int       limit;$/;"	m	struct:state_data	file:
+log	ca_config.h	/^    log_cfg             log;$/;"	m	struct:settings
+main	ca_main.c	/^int main(int argc, char *argv[])$/;"	f
+market	ca_deals.c	/^    char     market[MARKET_NAME_MAX_LEN];$/;"	m	struct:state_data	file:
+market	ca_deals.c	/^    char market[MARKET_NAME_MAX_LEN];$/;"	m	struct:dict_deals_key	file:
+market	ca_depth.c	/^    char      market[MARKET_NAME_MAX_LEN];$/;"	m	struct:dict_depth_key	file:
+market	ca_depth.c	/^    char      market[MARKET_NAME_MAX_LEN];$/;"	m	struct:state_data	file:
+market	ca_kline.c	/^    char     market[MARKET_NAME_MAX_LEN];$/;"	m	struct:state_data	file:
+market	ca_kline.c	/^    char market[MARKET_NAME_MAX_LEN];$/;"	m	struct:dict_kline_key	file:
+market	ca_status.c	/^    char        market[MARKET_NAME_MAX_LEN];$/;"	m	struct:dict_status_key	file:
+market	ca_status.c	/^    char        market[MARKET_NAME_MAX_LEN];$/;"	m	struct:state_data	file:
+market_exist	ca_market.c	/^bool market_exist(const char *market)$/;"	f
+market_interval	ca_config.h	/^    double              market_interval;$/;"	m	struct:settings
+market_timer	ca_market.c	/^static nw_timer market_timer;$/;"	v	file:
+market_val	ca_market.c	/^struct market_val {$/;"	s	file:
+marketprice	ca_config.h	/^    rpc_clt_cfg         marketprice;$/;"	m	struct:settings
+marketprice	ca_deals.c	/^static rpc_clt *marketprice;$/;"	v	file:
+marketprice	ca_kline.c	/^static rpc_clt *marketprice;$/;"	v	file:
+marketprice	ca_status.c	/^static rpc_clt *marketprice;$/;"	v	file:
+matchengine	ca_config.h	/^    rpc_clt_cfg         matchengine;$/;"	m	struct:settings
+matchengine	ca_depth.c	/^static rpc_clt *matchengine;$/;"	v	file:
+matchengine	ca_market.c	/^static rpc_clt *matchengine = NULL;$/;"	v	file:
+notify_message	ca_deals.c	/^static int notify_message(nw_ses *ses, int command, json_t *message)$/;"	f	file:
+notify_message	ca_depth.c	/^static int notify_message(nw_ses *ses, int command, json_t *message)$/;"	f	file:
+notify_message	ca_kline.c	/^static int notify_message(nw_ses *ses, int command, json_t *message)$/;"	f	file:
+notify_message	ca_status.c	/^static int notify_message(nw_ses *ses, int command, json_t *message)$/;"	f	file:
+on_backend_connect	ca_deals.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	ca_depth.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	ca_kline.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	ca_market.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_connect	ca_status.c	/^static void on_backend_connect(nw_ses *ses, bool result)$/;"	f	file:
+on_backend_recv_pkg	ca_deals.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	ca_depth.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	ca_kline.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	ca_market.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_backend_recv_pkg	ca_status.c	/^static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+on_cache_clear_timer	ca_cache.c	/^static void on_cache_clear_timer(nw_timer *timer, void *privdata)$/;"	f	file:
+on_cmd_market_deals	ca_server.c	/^static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_cmd_market_state	ca_server.c	/^static int on_cmd_market_state(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_cron_check	ca_main.c	/^static void on_cron_check(nw_timer *timer, void *data)$/;"	f	file:
+on_market_list_reply	ca_market.c	/^static int on_market_list_reply(json_t *result)$/;"	f	file:
+on_market_timer	ca_market.c	/^static void on_market_timer(nw_timer *timer, void *privdata)$/;"	f	file:
+on_method_deals_subscribe	ca_server.c	/^static int on_method_deals_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_method_deals_unsubscribe	ca_server.c	/^static int on_method_deals_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_method_depth_subscribe	ca_server.c	/^static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_method_depth_subscribe_all	ca_server.c	/^static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_method_depth_unsubscribe	ca_server.c	/^static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_method_kline	ca_server.c	/^static int on_method_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_method_kline_subscribe	ca_server.c	/^static int on_method_kline_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_method_kline_unsubscribe	ca_server.c	/^static int on_method_kline_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_method_order_depth	ca_server.c	/^static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_method_status_subscribe	ca_server.c	/^static int on_method_status_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_method_status_unsubscribe	ca_server.c	/^static int on_method_status_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_sub_timer	ca_status.c	/^static void on_sub_timer(nw_timer *timer, void *privdata) $/;"	f	file:
+on_timeout	ca_deals.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timeout	ca_depth.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timeout	ca_kline.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timeout	ca_market.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timeout	ca_status.c	/^static void on_timeout(nw_state_entry *entry)$/;"	f	file:
+on_timer	ca_deals.c	/^static void on_timer(nw_timer *timer, void *privdata) $/;"	f	file:
+on_timer	ca_depth.c	/^static void on_timer(nw_timer *timer, void *privdata) $/;"	f	file:
+on_timer	ca_kline.c	/^static void on_timer(nw_timer *timer, void *privdata) $/;"	f	file:
+pack_depth_result	ca_depth.c	/^static json_t *pack_depth_result(json_t *result, uint32_t limit)$/;"	f	file:
+period	ca_status.c	/^    int         period;$/;"	m	struct:dict_status_key	file:
+period	ca_status.c	/^    int         period;$/;"	m	struct:state_data	file:
+process	ca_config.h	/^    process_cfg         process;$/;"	m	struct:settings
+process_cache	ca_deals.c	/^static bool process_cache(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+process_cache	ca_depth.c	/^static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval)$/;"	f	file:
+process_cache	ca_kline.c	/^static bool process_cache(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+process_cache	ca_status.c	/^static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, int period)$/;"	f	file:
+query_market_list	ca_market.c	/^static int query_market_list(void)$/;"	f	file:
+re_subscribe_depth_all	ca_depth.c	/^void re_subscribe_depth_all(void)$/;"	f
+read_config_from_json	ca_config.c	/^static int read_config_from_json(json_t *root)$/;"	f	file:
+reply_error	ca_server.c	/^int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)$/;"	f
+reply_error_internal_error	ca_server.c	/^int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)$/;"	f
+reply_error_invalid_argument	ca_server.c	/^int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)$/;"	f
+reply_json	ca_server.c	/^static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)$/;"	f	file:
+reply_result	ca_server.c	/^int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)$/;"	f
+reply_success	ca_server.c	/^static int reply_success(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+reply_time_out	ca_server.c	/^int reply_time_out(nw_ses *ses, rpc_pkg *pkg)$/;"	f
+result	ca_cache.h	/^    json_t      *result;$/;"	m	struct:dict_cache_val
+ses	ca_deals.c	/^    nw_ses   *ses;$/;"	m	struct:state_data	file:
+ses	ca_depth.c	/^    nw_ses    *ses;$/;"	m	struct:state_data	file:
+ses	ca_kline.c	/^    nw_ses   *ses;$/;"	m	struct:state_data	file:
+ses	ca_status.c	/^    nw_ses      *ses;$/;"	m	struct:state_data	file:
+ses_id	ca_deals.c	/^    uint64_t ses_id;$/;"	m	struct:state_data	file:
+ses_id	ca_depth.c	/^    uint64_t  ses_id;$/;"	m	struct:state_data	file:
+ses_id	ca_kline.c	/^    uint64_t ses_id;$/;"	m	struct:state_data	file:
+ses_id	ca_status.c	/^    uint64_t    ses_id;$/;"	m	struct:state_data	file:
+sessions	ca_deals.c	/^    dict_t *sessions; $/;"	m	struct:dict_deals_sub_val	file:
+sessions	ca_depth.c	/^    dict_t   *sessions; $/;"	m	struct:dict_depth_sub_val	file:
+sessions	ca_kline.c	/^    dict_t *sessions; $/;"	m	struct:dict_kline_sub_val	file:
+sessions	ca_status.c	/^    dict_t      *sessions; $/;"	m	struct:dict_status_sub_val	file:
+settings	ca_config.c	/^struct settings settings;$/;"	v	typeref:struct:settings
+settings	ca_config.h	/^struct settings {$/;"	s
+state_context	ca_deals.c	/^static nw_state *state_context;$/;"	v	file:
+state_context	ca_depth.c	/^static nw_state *state_context;$/;"	v	file:
+state_context	ca_kline.c	/^static nw_state *state_context;$/;"	v	file:
+state_context	ca_market.c	/^static nw_state *state_context;$/;"	v	file:
+state_context	ca_status.c	/^static nw_state *state_context;$/;"	v	file:
+state_data	ca_deals.c	/^struct state_data {$/;"	s	file:
+state_data	ca_depth.c	/^struct state_data {$/;"	s	file:
+state_data	ca_kline.c	/^struct state_data {$/;"	s	file:
+state_data	ca_status.c	/^struct state_data {$/;"	s	file:
+status_reply	ca_status.c	/^static void status_reply(nw_ses *ses, json_t *result)$/;"	f	file:
+status_request	ca_status.c	/^int status_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int period)$/;"	f
+status_sub_reply	ca_status.c	/^static int status_sub_reply(const char *market, int period, json_t *result)$/;"	f	file:
+status_subscribe	ca_status.c	/^int status_subscribe(nw_ses *ses, const char *market, int period)$/;"	f
+status_unsubscribe	ca_status.c	/^void status_unsubscribe(nw_ses *ses, const char *market, int period)$/;"	f
+status_unsubscribe_all	ca_status.c	/^void status_unsubscribe_all(nw_ses *ses)$/;"	f
+sub_deals_interval	ca_config.h	/^    double              sub_deals_interval;$/;"	m	struct:settings
+sub_depth_interval	ca_config.h	/^    double              sub_depth_interval;$/;"	m	struct:settings
+sub_kline_interval	ca_config.h	/^    double              sub_kline_interval;$/;"	m	struct:settings
+sub_last	ca_status.c	/^    json_t      *sub_last;$/;"	m	struct:dict_status_sub_val	file:
+sub_status_interval	ca_config.h	/^    double              sub_status_interval;$/;"	m	struct:settings
+svr	ca_config.h	/^    rpc_svr_cfg         svr;$/;"	m	struct:settings
+svr	ca_server.c	/^static rpc_svr *svr;$/;"	v	file:
+svr_on_connection_close	ca_server.c	/^static void svr_on_connection_close(nw_ses *ses)$/;"	f	file:
+svr_on_new_connection	ca_server.c	/^static void svr_on_new_connection(nw_ses *ses)$/;"	f	file:
+svr_on_recv_pkg	ca_server.c	/^static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+time	ca_cache.h	/^    double      time;$/;"	m	struct:dict_cache_val
+time	ca_depth.c	/^    double   time;$/;"	m	struct:dict_depth_sub_val	file:
+timer	ca_deals.c	/^static nw_timer timer;$/;"	v	file:
+timer	ca_depth.c	/^static nw_timer timer;$/;"	v	file:
+timer	ca_kline.c	/^static nw_timer timer;$/;"	v	file:
+timer	ca_status.c	/^static nw_timer timer;$/;"	v	file:
+depth_unsubscribe_all	ca_depth.c	/^int depth_unsubscribe_all(nw_ses *ses)$/;"	f
+kline_unsubscribe_all	ca_kline.c	/^void kline_unsubscribe_all(nw_ses *ses)$/;"	f

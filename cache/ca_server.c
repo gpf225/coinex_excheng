@@ -1,6 +1,6 @@
 /*
  * Description: 
- *     History: zhoumugui@viabtc.com, 2019/01/22, create
+ *     History: ouxiangyang, 2019/04/1, create
  */
 
 # include "ca_config.h"
@@ -85,32 +85,22 @@ int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     return ret;
 }
 
-static int reply_success(nw_ses *ses, rpc_pkg *pkg)
-{
-    json_t *result = json_object();
-    json_object_set_new(result, "status", json_string("success"));
-
-    int ret = reply_result(ses, pkg, result);
-    json_decref(result);
-
-    return ret;
-}
-
 static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 2) {
+    if (json_array_size(params) != 3)
         return reply_error_internal_error(ses, pkg);
-    }
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (market == NULL) {
-        return reply_error_invalid_argument(ses, pkg);
-    }
-    const char *interval = json_string_value(json_array_get(params, 1));
-    if (interval == NULL) {
-        return reply_error_invalid_argument(ses, pkg);
-    }
 
-    depth_request(ses, pkg, market, interval);
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (market == NULL)
+        return reply_error_invalid_argument(ses, pkg);
+
+    uint32_t limit = json_integer_value(json_array_get(params, 1));
+
+    const char *interval = json_string_value(json_array_get(params, 2));
+    if (interval == NULL)
+        return reply_error_invalid_argument(ses, pkg);
+
+    depth_request(ses, pkg, market, limit, interval);
     return 0;
 }
 
@@ -137,7 +127,6 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return ret;
     }
 
-    reply_success(ses, pkg);
     depth_send_last(ses, market, interval);
 
     return 0;
@@ -158,6 +147,7 @@ static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *para
 
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
+        depth_unsubscribe(ses, market, interval);
         int ret = depth_subscribe(ses, market, interval);
         if (ret != 0) {
             log_error("depth_subscribe fail, market: %s, interval: %s", market, interval);
@@ -168,7 +158,7 @@ static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *para
     dict_release_iterator(iter);
     
     add_subscribe_depth_all_ses(ses);
-    return reply_success(ses, pkg);
+    return 0;
 }
 
 static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -182,7 +172,7 @@ static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params
     }
 
     depth_unsubscribe(ses, market, interval);
-    return reply_success(ses, pkg);
+    return 0;
 }
 
 static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -190,8 +180,10 @@ static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     const char *market = json_string_value(json_array_get(params, 0));
     if (!market)
         return reply_error_invalid_argument(ses, pkg);
-    if (!market_exist(market))
+    if (!market_exist(market)) {
+        log_error("market not exist, market: %s", market);
         return reply_error_invalid_argument(ses, pkg);
+    }
 
     int limit = json_integer_value(json_array_get(params, 1));
     if (limit <= 0 || limit > MARKET_DEALS_MAX)
@@ -227,7 +219,6 @@ static int on_method_deals_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return ret;
     }
 
-    reply_success(ses, pkg);
     return 0;
 }
 
@@ -241,8 +232,36 @@ static int on_method_deals_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params
     }
 
     deals_unsubscribe(ses, market);
-    reply_success(ses, pkg);
+    return 0;
+}
 
+static int on_method_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 4)
+        return reply_error_invalid_argument(ses, pkg);
+
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (!market)
+        return reply_error_invalid_argument(ses, pkg);
+    if (!market_exist(market))
+        return reply_error_invalid_argument(ses, pkg);
+
+    time_t start = json_integer_value(json_array_get(params, 1));
+    if (start <= 0)
+        return reply_error_invalid_argument(ses, pkg);
+
+    time_t end = json_integer_value(json_array_get(params, 2));
+    time_t now = time(NULL);
+    if (end > now)
+        end = now;
+    if (end <= 0 || start > end)
+        return reply_error_invalid_argument(ses, pkg);
+
+    int interval = json_integer_value(json_array_get(params, 3));
+    if (interval <= 0)
+        return reply_error_invalid_argument(ses, pkg);
+
+    kline_request(ses, pkg, market, start, end, interval);
     return 0;
 }
 
@@ -269,7 +288,6 @@ static int on_method_kline_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return ret;
     }
 
-    reply_success(ses, pkg);
     return 0;
 }
 
@@ -284,8 +302,20 @@ static int on_method_kline_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params
     }
 
     kline_unsubscribe(ses, market, interval);
-    reply_success(ses, pkg);
+    return 0;
+}
 
+static int on_cmd_market_state(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (!market)
+        return reply_error_invalid_argument(ses, pkg);
+    if (!market_exist(market))
+        return reply_error_invalid_argument(ses, pkg);
+
+    int period = json_integer_value(json_array_get(params, 1));
+
+    status_request(ses, pkg, market, period);
     return 0;
 }
 
@@ -310,7 +340,6 @@ static int on_method_status_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return ret;
     }
 
-    reply_success(ses, pkg);
     return 0;
 }
 
@@ -323,8 +352,6 @@ static int on_method_status_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *param
     }
 
     status_unsubscribe(ses, market, 86400);
-    reply_success(ses, pkg);
-
     return 0;
 }
 
@@ -389,6 +416,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             log_error("on_method_deals_unsubscribe fail: %d", ret);
         }
         break;
+    case CMD_CACHE_KLINE:
+        profile_inc("cmd_cache_kline", 1);
+        ret = on_method_kline(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_method_kline fail: %d", ret);
+        }
+        break;
     case CMD_CACHE_KLINE_SUBSCRIBE:
         profile_inc("cmd_cache_kline_sub", 1);
         ret = on_method_kline_subscribe(ses, pkg, params);
@@ -401,6 +435,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_method_kline_unsubscribe(ses, pkg, params);
         if (ret < 0) {
             log_error("on_method_kline_unsubscribe fail: %d", ret);
+        }
+        break;
+    case CMD_CACHE_STATUS:
+        profile_inc("cmd_cache_status", 1);
+        ret = on_cmd_market_state(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_market_state fail: %d", ret);
         }
         break;
     case CMD_CACHE_STATUS_SUBSCRIBE:
@@ -441,8 +482,8 @@ static void svr_on_connection_close(nw_ses *ses)
 {
     log_info("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
 
-    unsubscribe_kline_all(ses);
-    unsubscribe_depth_all(ses);
+    kline_unsubscribe_all(ses);
+    depth_unsubscribe_all(ses);
     deals_unsubscribe_all(ses);
     status_unsubscribe_all(ses);
     del_subscribe_depth_all_ses(ses);
@@ -457,12 +498,10 @@ int init_server(void)
     type.on_connection_close = svr_on_connection_close;
 
     svr = rpc_svr_create(&settings.svr, &type);
-    if (svr == NULL) {
+    if (svr == NULL)
         return -__LINE__;
-    }
-    if (rpc_svr_start(svr) < 0) {
+    if (rpc_svr_start(svr) < 0)
         return -__LINE__;
-    }
 
     return 0;
 }

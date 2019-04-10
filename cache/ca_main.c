@@ -1,6 +1,6 @@
 /*
  * Description: 
- *     History: zhoumugui@viabtc.com, 2019/01/22, create
+ *     History: ouxiangyang, 2019/04/1, create
  */
 
 # include "ca_config.h"
@@ -8,7 +8,9 @@
 # include "ca_server.h"
 # include "ca_market.h"
 # include "ca_cache.h"
-
+# include "ca_deals.h"
+# include "ca_kline.h"
+# include "ca_status.h"
 # include "ut_title.h"
 
 const char *__process__ = "cache";
@@ -89,6 +91,10 @@ int main(int argc, char *argv[])
     daemon(1, 1);
     process_keepalive1(settings.debug);
 
+    ret = init_server();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init server fail: %d", ret);
+    }
     ret = init_cache();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
@@ -97,13 +103,21 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init depth fail: %d", ret);
     }
+    ret = init_deals();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init deals fail: %d", ret);
+    }
+    ret = init_kline();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init kline fail: %d", ret);
+    }
+    ret = init_status();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init state fail: %d", ret);
+    }
     ret = init_market();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init market fail: %d", ret);
-    }
-    ret = init_server();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init server fail: %d", ret);
     }
 
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);

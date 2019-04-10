@@ -7,6 +7,7 @@
 # include "ca_deals.h"
 # include "ca_cache.h"
 # include "ca_server.h"
+# include "ca_market.h"
 
 static rpc_clt *marketprice;
 static nw_state *state_context;
@@ -21,12 +22,14 @@ struct dict_deals_key {
 };
 
 struct dict_deals_sub_val {
-    dict_t *sessions; 
+    dict_t   *sessions; 
     uint64_t last_id;
 };
 
 struct state_data {
     char     market[MARKET_NAME_MAX_LEN];
+    int      limit;
+    uint64_t last_id;
     nw_ses   *ses;
     uint64_t ses_id;
 };
@@ -100,11 +103,10 @@ static void on_timeout(nw_state_entry *entry)
     }
 }
 
-static bool process_cache(nw_ses *ses, rpc_pkg *pkg)
+static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint64_t last_id)
 {
     sds key = sdsempty();
-    key = sdscatprintf(key, "%u", pkg->command);
-    key = sdscatlen(key, pkg->body, pkg->body_size);
+    key = sdscatprintf(key, "deals-%s-%d-%ld", market, limit, last_id);
 
     struct dict_cache_val *cache = get_cache(key, settings.cache_timeout);
     if (cache == NULL) {
@@ -114,6 +116,7 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg)
 
     double now = current_timestamp();
     int ttl = now - cache->time;
+
     json_t *new_result = json_object();
     json_object_set_new(new_result, "ttl", json_integer(ttl));
     json_object_set(new_result, "cache_result", cache->result);
@@ -204,7 +207,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     if (entry == NULL) {
         return;
     }
-    struct state_data *state = entry->data;
 
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
@@ -226,15 +228,16 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
+    struct state_data *state = entry->data;
+
     switch (pkg->command) {
-    case CMD_MARKET_KLINE:
+    case CMD_MARKET_DEALS:
         if (state->ses) { // out request
             if (state->ses->id == state->ses_id) {
                 deals_reply(state->ses, result);
 
                 sds cache_key = sdsempty();
-                cache_key = sdscatprintf(cache_key, "%u", pkg->command);
-                cache_key = sdscatlen(cache_key, pkg->body, pkg->body_size);
+                cache_key = sdscatprintf(cache_key, "deals-%s-%d-%ld", state->market, state->limit, state->last_id);
                 add_cache(cache_key, result);
                 sdsfree(cache_key);
             } else {
@@ -255,12 +258,14 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
 int deals_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint64_t last_id)
 {
-    if (ses != NULL && process_cache(ses, pkg))
+    if (ses != NULL && process_cache(ses, pkg, market, limit, last_id))
         return 0;
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
+    state->limit = limit;
+    state->last_id = last_id;
 
     state->ses = ses;
     state->ses_id = ses->id;
@@ -293,12 +298,11 @@ static void on_timer(nw_timer *timer, void *privdata)
     dict_iterator *iter = dict_get_iterator(dict_deals_sub);
 
     while ((entry = dict_next(iter)) != NULL) {
-        struct dict_deals_sub_val *val = entry->val;
-        if (dict_size(val->sessions) == 0) {
-            continue;
-        }
-
         struct dict_deals_key *key = entry->key;
+        struct dict_deals_sub_val *val = entry->val;
+        if (dict_size(val->sessions) == 0 || !market_exist(key->market))
+            continue;
+
         deals_request(NULL, NULL, key->market, DEALS_QUERY_LIMIT, val->last_id);
     }
     dict_release_iterator(iter);
@@ -352,7 +356,7 @@ void deals_unsubscribe_all(nw_ses *ses)
 {
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_deals_sub);
-    while ( (entry = dict_next(iter)) != NULL ) {
+    while ((entry = dict_next(iter)) != NULL) {
         struct dict_deals_sub_val *val = entry->val;
         dict_delete(val->sessions, ses);
     }

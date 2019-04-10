@@ -5,6 +5,7 @@ int init_status(void);
 void status_unsubscribe(nw_ses *ses, const char *market, int period);
 void status_unsubscribe_all(nw_ses *ses);
 int status_subscribe(nw_ses *ses, const char *market, int period);
+int status_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int period);
 
 # endif
 

@@ -1,8 +1,3 @@
-/*
- * Description: 
- *     History: zhoumugui@viabtc.com, 2019/02/15, create
- */
-
 # ifndef _CA_CACHE_H_
 # define _CA_CACHE_H_
 

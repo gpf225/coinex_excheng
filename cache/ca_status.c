@@ -4,9 +4,10 @@
  */
 
 # include "ca_config.h"
-# include "ca_deals.h"
+# include "ca_status.h"
 # include "ca_cache.h"
 # include "ca_server.h"
+# include "ca_market.h"
 
 static rpc_clt *marketprice;
 static nw_state *state_context;
@@ -174,15 +175,22 @@ static int status_sub_reply(const char *market, int period, json_t *result)
         obj->sub_last = result;
         json_incref(result);
 
+        json_t *params = json_array();
+        json_array_append_new(params, json_string(market));
+        json_array_append(params, result);
+
         dict_iterator *iter = dict_get_iterator(obj->sessions);
         while ((entry = dict_next(iter)) != NULL) {
             nw_ses *ses = entry->key;
-            notify_message(ses, CMD_CACHE_STATUS_UPDATE, result);
+            notify_message(ses, CMD_CACHE_STATUS_UPDATE, params);
         }
         dict_release_iterator(iter);
+
+        json_decref(params);
     }
 
-    free(last_str);
+    if (last_str != NULL)
+        free(last_str);
     free(curr_str);
 
     return 0;
@@ -191,11 +199,9 @@ static int status_sub_reply(const char *market, int period, json_t *result)
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry == NULL) {
+    if (entry == NULL)
         return;
-    }
-    struct state_data *state = entry->data;
-
+    
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
         sds hex = hexdump(pkg->body, pkg->body_size);
@@ -215,6 +221,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         nw_state_del(state_context, pkg->sequence);
         return;
     }
+
+    struct state_data *state = entry->data;
 
     switch (pkg->command) {
     case CMD_MARKET_STATUS:
@@ -282,12 +290,11 @@ static void on_sub_timer(nw_timer *timer, void *privdata)
     dict_iterator *iter = dict_get_iterator(dict_status_sub);
 
     while ((entry = dict_next(iter)) != NULL) {
-        struct dict_status_sub_val *val = entry->val;
-        if (dict_size(val->sessions) == 0) {
-            continue;
-        }
-
         struct dict_status_key *key = entry->key;
+        struct dict_status_sub_val *val = entry->val;
+        if (dict_size(val->sessions) == 0 || !market_exist(key->market))
+            continue;
+
         status_request(NULL, NULL, key->market, key->period);
     }
     dict_release_iterator(iter);
@@ -388,7 +395,7 @@ int init_status(void)
     dt.val_dup         = dict_status_sub_val_dup;
     dt.val_destructor  = dict_status_sub_val_free;
 
-    dict_status_sub = dict_create(&dt, 512);
+    dict_status_sub = dict_create(&dt, 256);
     if (dict_status_sub == NULL) {
         log_stderr("dict_create failed");
         return -__LINE__;

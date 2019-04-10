@@ -6,6 +6,7 @@
 # include "ut_title.h"
 # include "ah_config.h"
 # include "ah_server.h"
+# include "ah_cache.h"
 # include "ah_listener.h"
 
 const char *__process__ = "accesshttp";
@@ -97,6 +98,10 @@ int main(int argc, char *argv[])
                 error(EXIT_FAILURE, errno, "init server fail: %d", ret);
             }
 
+            ret = init_cache();
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
+            }
             goto run;
         }
     }

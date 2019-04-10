@@ -73,9 +73,8 @@ int add_cache(sds cache_key, json_t *result)
 struct dict_cache_val *get_cache(sds key, int cache_time)
 {
     dict_entry *entry = dict_find(dict_cache, key);
-    if (entry == NULL) {
+    if (entry == NULL)
         return NULL;
-    }
 
     struct dict_cache_val *cache = entry->val;
     double now = current_timestamp();
@@ -99,7 +98,7 @@ int init_cache(void)
     dt.val_dup        = dict_cache_val_dup;
     dt.val_destructor = dict_cache_val_free;
 
-    dict_cache = dict_create(&dt, 64);
+    dict_cache = dict_create(&dt, 512);
     if (dict_cache == NULL)
         return -__LINE__;
 
@@ -108,5 +107,4 @@ int init_cache(void)
 
     return 0;
 }
-
 

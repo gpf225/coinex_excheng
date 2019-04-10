@@ -181,7 +181,8 @@ static int load_markets(json_t *market_infos)
     return 0;
 }
 
-static json_t* fetch_market_info() {
+static json_t* fetch_market_info() 
+{
     sds response = http_get(settings.market_url);
     if (sdslen(response) == 0) {
         log_error("fetch keys returns empty");
@@ -323,7 +324,6 @@ dict_t *get_market(void)
     return dict_market;
 }
 
-/*ouxy
 json_t *get_market_list(void)
 {
     json_t *data = json_array();
@@ -336,13 +336,6 @@ json_t *get_market_list(void)
     dict_release_iterator(iter);
 
     return data;
-}
-
-*/
-
-void fini_market(void)
-{
-    dict_release(dict_market);
 }
 
 bool market_exist(const char *market)

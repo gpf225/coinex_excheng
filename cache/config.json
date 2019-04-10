@@ -28,6 +28,7 @@
     "sub_depth_interval": 0.5,
     "sub_kline_interval": 0.5,
     "sub_status_interval": 0.5,
+    "sub_deals_interval": 0.5,
     "cache_timeout": 1000,
     "depth_limit_max": 50,
     "deal_default_limit": 1000

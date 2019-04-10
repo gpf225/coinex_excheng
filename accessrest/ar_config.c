@@ -77,6 +77,11 @@ static int read_config_from_json(json_t *root)
         printf("load marketprice clt config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_rpc_clt(root, "cache", &settings.cache);
+    if (ret < 0) {
+        printf("load cache clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
 
     ERR_RET(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));
     ERR_RET(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
