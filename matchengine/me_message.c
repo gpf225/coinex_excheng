@@ -14,11 +14,19 @@ static rd_kafka_topic_t *rkt_deals;
 static rd_kafka_topic_t *rkt_stops;
 static rd_kafka_topic_t *rkt_orders;
 static rd_kafka_topic_t *rkt_balances;
+static rd_kafka_topic_t *rkt_his_deals;
+static rd_kafka_topic_t *rkt_his_stops;
+static rd_kafka_topic_t *rkt_his_orders;
+static rd_kafka_topic_t *rkt_his_balances;
 
 static list_t *list_deals;
 static list_t *list_stops;
 static list_t *list_orders;
 static list_t *list_balances;
+static list_t *list_his_deals;
+static list_t *list_his_stops;
+static list_t *list_his_orders;
+static list_t *list_his_balances;
 
 static nw_timer timer;
 
@@ -120,6 +128,26 @@ int init_message(void)
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
+    rkt_his_balances = rd_kafka_topic_new(rk, "his_balances", NULL);
+    if (rkt_his_balances == NULL) {
+        log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
+        return -__LINE__;
+    }
+    rkt_his_orders = rd_kafka_topic_new(rk, "his_orders", NULL);
+    if (rkt_his_orders == NULL) {
+        log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
+        return -__LINE__;
+    }
+    rkt_his_deals = rd_kafka_topic_new(rk, "his_deals", NULL);
+    if (rkt_his_deals == NULL) {
+        log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
+        return -__LINE__;
+    }
+    rkt_his_stops = rd_kafka_topic_new(rk, "his_stops", NULL);
+    if (rkt_his_stops == NULL) {
+        log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
+        return -__LINE__;
+    }
 
     list_type lt;
     memset(&lt, 0, sizeof(lt));
@@ -136,6 +164,18 @@ int init_message(void)
         return -__LINE__;
     list_balances = list_create(&lt);
     if (list_balances == NULL)
+        return -__LINE__;
+    list_his_deals = list_create(&lt);
+    if (list_his_deals == NULL)
+        return -__LINE__;
+    list_his_stops = list_create(&lt);
+    if (list_his_stops == NULL)
+        return -__LINE__;
+    list_his_orders = list_create(&lt);
+    if (list_his_orders == NULL)
+        return -__LINE__;
+    list_his_balances = list_create(&lt);
+    if (list_his_balances == NULL)
         return -__LINE__;
 
     nw_timer_set(&timer, 0.1, true, on_timer, NULL);
@@ -261,6 +301,34 @@ int push_deal_message(double t, uint64_t id, market_t *market, int side, order_t
     return 0;
 }
 
+int push_his_balance_message(json_t *msg)
+{
+    push_message(json_dumps(msg, 0), rkt_his_balances, list_his_balances);
+    profile_inc("message_his_balance", 1);
+    return 0;
+}
+
+int push_his_order_message(json_t *msg)
+{
+    push_message(json_dumps(msg, 0), rkt_his_orders, list_his_orders);
+    profile_inc("message_his_order", 1);
+    return 0;
+}
+
+int push_his_stop_message(json_t *msg)
+{
+    push_message(json_dumps(msg, 0), rkt_his_stops, list_his_stops);
+    profile_inc("message_his_stop", 1);
+    return 0;
+}
+
+int push_his_deal_message(json_t *msg)
+{
+    push_message(json_dumps(msg, 0), rkt_his_deals, list_his_deals);
+    profile_inc("message_his_deal", 1);
+    return 0;
+}
+
 bool is_message_block(void)
 {
     if (list_deals->len >= MAX_PENDING_MESSAGE)
@@ -270,6 +338,14 @@ bool is_message_block(void)
     if (list_orders->len >= MAX_PENDING_MESSAGE)
         return true;
     if (list_balances->len >= MAX_PENDING_MESSAGE)
+        return true;
+    if (list_his_deals->len >= MAX_PENDING_MESSAGE)
+        return true;
+    if (list_his_stops->len >= MAX_PENDING_MESSAGE)
+        return true;
+    if (list_his_orders->len >= MAX_PENDING_MESSAGE)
+        return true;
+    if (list_his_balances->len >= MAX_PENDING_MESSAGE)
         return true;
 
     return false;

@@ -17,6 +17,7 @@ struct job_request {
     rpc_pkg  pkg;
     uint64_t ses_id;
     uint32_t command;
+    uint32_t user_id;
     json_t   *params;
 };
 
@@ -25,6 +26,54 @@ struct job_reply {
     sds     message;
     json_t  *result;
 };
+
+typedef struct mysql_connection {
+    MYSQL **connections;
+    int size;
+}mysql_connection;
+
+static mysql_connection* mysql_connection_create(void)
+{
+    mysql_connection *val = malloc(sizeof(struct mysql_connection));
+    if (val == NULL) {
+        return NULL;
+    }
+    val->size = settings.db_histories.count;
+    val->connections = malloc(sizeof(MYSQL *) * val->size);
+    if (val->connections == NULL) {
+        free(val);
+        return NULL;
+    }
+
+    for (int i = 0; i < val->size; ++i) {
+        MYSQL *conn = mysql_connect(&settings.db_histories.configs[i]);
+        if (conn == NULL) {
+            for (int j = 0; j < i; ++j) {
+                mysql_close(val->connections[j]);
+            }
+            free(val->connections);
+            free(val);
+            return NULL;
+        }
+        val->connections[i] = conn;
+    }
+    return val;
+}
+
+static void mysql_connection_release(mysql_connection *val)
+{
+    for (int i = 0; i < val->size; ++i) {
+        mysql_close(val->connections[i]);
+    }
+    free(val->connections);
+    free(val);
+}
+
+static MYSQL* mysql_connection_get(mysql_connection *val, uint32_t user_id)
+{
+    uint32_t no = (user_id % (val->size * HISTORY_HASH_NUM)) / HISTORY_HASH_NUM;
+    return val->connections[no];
+}
 
 static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
@@ -66,6 +115,11 @@ static int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
     return ret;
 }
 
+static int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
+{
+    return reply_error(ses, pkg, 1, "invalid argument");
+}
+
 static int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)
 {
     return reply_error(ses, pkg, 2, "internal error");
@@ -91,7 +145,7 @@ static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
 
 static void *on_job_init(void)
 {
-    return mysql_connect(&settings.db_history);
+    return mysql_connection_create();
 }
 
 static int on_cmd_balance_history(MYSQL *conn, json_t *params, struct job_reply *rsp)
@@ -228,17 +282,20 @@ invalid_argument:
 
 static int on_cmd_order_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) != 4)
         goto invalid_argument;
-    uint64_t order_id = json_integer_value(json_array_get(params, 0));
+    uint64_t user_id = json_integer_value(json_array_get(params, 0));
+    if (user_id == 0)
+        goto invalid_argument;
+    uint64_t order_id = json_integer_value(json_array_get(params, 1));
     if (order_id == 0)
         goto invalid_argument;
-    size_t offset = json_integer_value(json_array_get(params, 1));
-    size_t limit  = json_integer_value(json_array_get(params, 2));
+    size_t offset = json_integer_value(json_array_get(params, 2));
+    size_t limit  = json_integer_value(json_array_get(params, 3));
     if (limit == 0 || limit > QUERY_LIMIT)
         goto invalid_argument;
 
-    json_t *records = get_order_deals(conn, order_id, offset, limit);
+    json_t *records = get_order_deals(conn, user_id, order_id, offset, limit);
     if (records == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
@@ -261,13 +318,16 @@ invalid_argument:
 
 static int on_cmd_order_detail(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 1)
+    if (json_array_size(params) != 2)
         goto invalid_argument;
-    uint64_t order_id = json_integer_value(json_array_get(params, 0));
+    uint64_t user_id = json_integer_value(json_array_get(params, 0));
+    if (user_id == 0)
+        goto invalid_argument;
+    uint64_t order_id = json_integer_value(json_array_get(params, 1));
     if (order_id == 0)
         goto invalid_argument;
 
-    rsp->result = get_order_detail(conn, order_id);
+    rsp->result = get_order_detail(conn, user_id, order_id);
     if (rsp->result == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
@@ -328,8 +388,9 @@ invalid_argument:
 
 static void on_job(nw_job_entry *entry, void *privdata)
 {
-    MYSQL *conn = privdata;
     struct job_request *req = entry->request;
+    mysql_connection *val = privdata;
+    MYSQL *conn = mysql_connection_get(val, req->user_id);
     struct job_reply *rsp = malloc(sizeof(struct job_reply));
     entry->reply = rsp;
     if (rsp == NULL) {
@@ -419,7 +480,7 @@ static void on_job_cleanup(nw_job_entry *entry)
 
 static void on_job_release(void *privdata)
 {
-    mysql_close(privdata);
+    mysql_connection_release(privdata);
 }
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
@@ -445,12 +506,21 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+    if (user_id == 0) {
+        log_error("request does not have user_id field");
+        reply_error_invalid_argument(ses, pkg);
+        json_decref(params);
+        return ;
+    }
+
     struct job_request *req = malloc(sizeof(struct job_request));
     memset(req, 0, sizeof(struct job_request));
     memcpy(&req->pkg, pkg, sizeof(rpc_pkg));
     req->ses = ses;
     req->ses_id = ses->id;
     req->command = pkg->command;
+    req->user_id = user_id;
     req->params = params;
     nw_job_add(job, 0, req);
 
