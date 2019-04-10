@@ -311,6 +311,10 @@ mpd_t *balance_reset(uint32_t user_id, const char *asset)
     if (result == NULL)
         return mpd_zero;
 
+    mpd_t *frozen = balance_get(user_id, BALANCE_TYPE_FROZEN, asset);
+    if (frozen != NULL && mpd_cmp(frozen, mpd_zero, &mpd_ctx) != 0)
+        return result;
+
     if (mpd_cmp(result, at->min, &mpd_ctx) < 0) {
         balance_del(user_id, BALANCE_TYPE_AVAILABLE, asset);
         return mpd_zero;
