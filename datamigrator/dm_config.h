@@ -40,6 +40,7 @@ struct settings {
     int                 least_day_per_user;
     int                 max_order_per_user;
     int                 migrate_mode;  // 为1表示全量迁移，2表示增量迁移，全量迁移会采用数据过滤规则，增量迁移会迁移指定时间段内的所有数据
+    uint32_t            start_user_id;
     uint32_t            last_user_id;
     double              migirate_start_time;
     double              migirate_end_time;
