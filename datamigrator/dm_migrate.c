@@ -11,7 +11,7 @@
 # include "dm_balance.h"
 # include "dm_dbpool.h"
 
-static bool is_stop_migrate = false;
+static int is_migrate_flag = 0;
 static uint32_t has_migrated = 0;
 static uint32_t last_user_id = 0;
 
@@ -198,7 +198,7 @@ static void *thread_routine(void *data)
             break; 
         }
        
-        if (is_stop_migrate) {
+        if (__sync_add_and_fetch(&is_migrate_flag, 0) != 0) {
             log_info("want to stop migration, last completed user_id:%u", last_user_id);
             error = false;
             break;
@@ -206,6 +206,7 @@ static void *thread_routine(void *data)
     }
     
     log_info("stop migration thread, has_migrated:%u last_user_id:%d error: %s", has_migrated, last_user_id, error ? "error" : "none");
+    signal_exit = true;
     return NULL;
 }
 
@@ -231,7 +232,7 @@ int start_migrate(void)
 
 void migrate_cancel(void)
 {
-    is_stop_migrate = true;
+    __sync_fetch_and_add(&is_migrate_flag, 1);
 }
 
 sds migrate_status(sds reply)
