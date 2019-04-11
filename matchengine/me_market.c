@@ -1106,23 +1106,16 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         mpd_t *require = mpd_new(&mpd_ctx);
         mpd_mul(require, amount, price, &mpd_ctx);
         if (!balance || mpd_cmp(balance, require, &mpd_ctx) < 0) {
-            char *balance_str = mpd_to_sci(balance, 0);
-            char *require_str = mpd_to_sci(require, 0);
-            log_error("balance_str:%s require_str:%s", balance_str, require_str);
-            log_stderr("balance_str:%s require_str:%s", balance_str, require_str);
-            free(balance_str);
-            free(require_str);
-
             mpd_del(require);
             return -1;
         }
-        
+
         if ((fee_asset != NULL) && (strcmp(m->money, fee_asset) == 0) ) {
             if (!check_fee_asset(require, balance, taker_fee, fee_asset, fee_discount)) {
                 fee_asset = NULL;
             }
         }
-        
+
         mpd_del(require);
     }
 

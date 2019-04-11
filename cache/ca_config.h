@@ -39,7 +39,8 @@
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
 # define DEPTH_LIMIT_MAX_LEN    101
-# define DEPTH_LIMIT_MAX_SIZE   32
+
+#define MARKET_DEALS_MAX  1000
 
 struct settings {
     bool                debug;
@@ -48,16 +49,26 @@ struct settings {
     alert_cfg           alert;
     rpc_svr_cfg         svr;
     rpc_clt_cfg         matchengine;
+    rpc_clt_cfg         marketprice;
     
     double              backend_timeout;
-    double              poll_depth_interval;
+    double              sub_depth_interval;
+    double              sub_deals_interval;
+    double              sub_kline_interval;
+    double              sub_status_interval;
     double              market_interval;
+
     int                 cache_timeout;
     int                 depth_limit_max;
+    int                 deal_default_limit;
+    int                 kline_max;
 };
 
 extern struct settings settings;
 int init_config(const char *path);
+
+uint32_t dict_ses_hash_func(const void *key);
+int dict_ses_hash_compare(const void *key1, const void *key2);
 
 # endif
 

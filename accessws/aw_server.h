@@ -26,6 +26,7 @@ int send_error_service_timeout(nw_ses *ses, uint64_t id);
 int send_result(nw_ses *ses, uint64_t id, json_t *result);
 int send_success(nw_ses *ses, uint64_t id);
 int send_notify(nw_ses *ses, const char *method, json_t *params);
+void set_sub_depth_cache(json_t *depth_data, const char *market, const char *interval, int ttl);
 
 # endif
 

@@ -7,6 +7,16 @@
 
 struct settings settings;
 
+uint32_t dict_ses_hash_func(const void *key)
+{
+    return (uintptr_t)key;
+}
+
+int dict_ses_hash_compare(const void *key1, const void *key2)
+{
+    return (uintptr_t)key1 == (uintptr_t)key2 ? 0 : 1;
+}
+
 static int read_config_from_json(json_t *root)
 {
     int ret;
@@ -40,12 +50,22 @@ static int read_config_from_json(json_t *root)
         printf("load matchengine clt config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_rpc_clt(root, "marketprice", &settings.marketprice);
+    if (ret < 0) {
+        printf("load marketprice clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
     
     ERR_RET_LN(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
-    ERR_RET_LN(read_cfg_real(root, "poll_depth_interval", &settings.poll_depth_interval, false, 0.5));
+    ERR_RET_LN(read_cfg_real(root, "sub_depth_interval", &settings.sub_depth_interval, false, 0.5));
+    ERR_RET_LN(read_cfg_real(root, "sub_deals_interval", &settings.sub_deals_interval, false, 0.5));
+    ERR_RET_LN(read_cfg_real(root, "sub_kline_interval", &settings.sub_kline_interval, false, 0.5));
+    ERR_RET_LN(read_cfg_real(root, "sub_status_interval", &settings.sub_status_interval, false, 0.5));
     ERR_RET_LN(read_cfg_real(root, "market_interval", &settings.market_interval, false, 60));
     ERR_RET_LN(read_cfg_int(root, "cache_timeout", &settings.cache_timeout, false, 1000));
     ERR_RET_LN(read_cfg_int(root, "depth_limit_max", &settings.depth_limit_max, false, 50));
+    ERR_RET_LN(read_cfg_int(root, "deal_default_limit", &settings.deal_default_limit, false, 1000));
+    ERR_RET_LN(read_cfg_int(root, "kline_max", &settings.kline_max, false, 1000));
 
     return 0;
 }

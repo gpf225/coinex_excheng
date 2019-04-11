@@ -1,10 +1,10 @@
 /*
  * Description: 
- *     History: zhoumugui@viabtc.com, 2019/03/10, create
+ *     History: ouxiangyang, 2019/04/1, create
  */
 
 # include "ca_market.h"
-# include "ca_common.h"
+# include "ca_depth.h"
 
 static dict_t *dict_market = NULL;
 static rpc_clt *matchengine = NULL;
@@ -52,12 +52,14 @@ static int on_market_list_reply(json_t *result)
 {
     static uint32_t update_id = 0;
     update_id += 1;
+    bool is_change = false;
 
     for (size_t i = 0; i < json_array_size(result); ++i) {
         json_t *item = json_array_get(result, i);
         const char *name = json_string_value(json_object_get(item, "name"));
         dict_entry *entry = dict_find(dict_market, name);
         if (entry == NULL) {
+            is_change = true;
             struct market_val val;
             memset(&val, 0, sizeof(val));
             val.id = update_id;
@@ -74,11 +76,15 @@ static int on_market_list_reply(json_t *result)
     while ((entry = dict_next(iter)) != NULL) {
         struct market_val *info = entry->val;
         if (info->id != update_id) {
+            is_change = true;
             dict_delete(dict_market, entry->key);
             log_info("del market: %s", (char *)entry->key);
         }
     }
     dict_release_iterator(iter);
+
+    if (is_change)
+        re_subscribe_depth_all();
 
     return 0;
 }
@@ -218,3 +224,7 @@ dict_t *get_market(void)
     return dict_market;
 }
 
+bool market_exist(const char *market)
+{
+    return dict_find(dict_market, market) != NULL;
+}

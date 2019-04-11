@@ -1,0 +1,237 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+INCS	makefile	/^INCS = -I ..\/network -I ..\/utils$/;"	m
+LIBS	makefile	/^LIBS = -L ..\/utils -lutils -L ..\/network -lnetwork -Wl,-Bstatic -lev -ljansson -lmpdec -lmysqlclient -lz -lrdkafka -lhiredis -lcurl -lssl -lcrypto -lz -Wl,-Bdynamic -lm -lpthread -ldl -lstdc++$/;"	m
+MARKET_NAME_MAX_LEN	dr_config.h	39;"	d
+MAX_GEAR	dr_fee_rate.h	4;"	d
+MAX_SQL_LEN	dr_operlog.c	19;"	d	file:
+OFFSET_FILE	dr_message.c	16;"	d	file:
+SQL_KEY	dr_operlog.c	16;"	d	file:
+SQL_TYPE_DELETE	dr_operlog.c	18;"	d	file:
+SQL_TYPE_INSERT	dr_operlog.c	17;"	d	file:
+STOCK_NAME_MAX_LEN	dr_config.h	40;"	d
+TARGET	makefile	/^TARGET  := dealrank.exe$/;"	m
+TYPE_ASK_DEAL	dr_deal.c	13;"	d	file:
+TYPE_ASK_VOLUME	dr_deal.c	11;"	d	file:
+TYPE_BID_DEAL	dr_deal.c	12;"	d	file:
+TYPE_BID_VOLUME	dr_deal.c	10;"	d	file:
+TYPE_TAKER_ASK_TRADE_NUM	dr_deal.c	17;"	d	file:
+TYPE_TAKER_ASK_VOLUME	dr_deal.c	15;"	d	file:
+TYPE_TAKER_BID_TRADE_NUM	dr_deal.c	16;"	d	file:
+TYPE_TAKER_BID_VOLUME	dr_deal.c	14;"	d	file:
+TYPE_TAKER_TOTAL_TRADE_NUM	dr_deal.c	18;"	d	file:
+_DR_DEAL_H_	dr_deal.h	2;"	d
+_DR_FEE_RATE_H_	dr_fee_rate.h	2;"	d
+_DR_HISTORY_H_	dr_history.h	2;"	d
+_DR_MESSAGE_H_	dr_message.h	2;"	d
+_DR_OPERLOG_H_	dr_operlog.h	2;"	d
+_DR_SERVER_H_	dr_server.h	2;"	d
+_MP_CONFIG_H_	dr_config.h	2;"	d
+_MP_LOAD_H_	dr_load.h	2;"	d
+__process__	dr_main.c	/^const char *__process__ = "dealrank";$/;"	v
+__version__	dr_main.c	/^const char *__version__ = "0.1.0";$/;"	v
+add_fee	dr_deal.c	/^static void add_fee(const char *fee_asset, mpd_t *fee, const char *fee_str)$/;"	f	file:
+alert	dr_config.h	/^    alert_cfg           alert;$/;"	m	struct:settings
+append_deal_msg_operlog	dr_message.c	/^static void append_deal_msg_operlog(uint32_t ask_user_id, uint32_t bid_user_id, uint32_t taker_user_id, double timestamp, const char *market, const char *stock, $/;"	f	file:
+append_deal_operlog	dr_operlog.c	/^int append_deal_operlog(bool del_operlog, uint32_t ask_user_id, uint32_t bid_user_id, uint32_t taker_user_id, double timestamp, const char *market, const char *stock, const char *amount, $/;"	f
+cealr_creat_dict	dr_deal.c	/^cealr_creat_dict() $/;"	f
+clean_expired_data	dr_deal.c	/^static void clean_expired_data(skiplist_t *minute_list, dict_t *dict_minute, time_t minute, const char *market)$/;"	f	file:
+clear_fee_dict	dr_deal.c	/^void clear_fee_dict(void)$/;"	f
+cli	dr_config.h	/^    cli_svr_cfg         cli;$/;"	m	struct:settings
+count_dict_user_data	dr_deal.c	/^static int count_dict_user_data(dict_t *input_dict_user, dict_t *save_dict_user, int data_type)$/;"	f	file:
+count_user_val	dr_deal.c	/^static int count_user_val(dict_t *save_dict_user, uint32_t user_id, struct dict_user_val *in_user_val, int data_type)$/;"	f	file:
+create_deal_table	dr_history.c	/^static int create_deal_table(const char *table, MYSQL *conn)$/;"	f	file:
+create_fee_dict	dr_deal.c	/^static dict_t *create_fee_dict(void)$/;"	f	file:
+create_fee_rate_table	dr_history.c	/^static int create_fee_rate_table(const char *table, MYSQL *conn)$/;"	f	file:
+create_fee_table	dr_history.c	/^static int create_fee_table(const char *table, MYSQL *conn)$/;"	f	file:
+create_minute_dict	dr_deal.c	/^static dict_t *create_minute_dict(void)$/;"	f	file:
+create_minute_skiplist	dr_deal.c	/^static skiplist_t *create_minute_skiplist()$/;"	f	file:
+create_sort_integer_list	dr_deal.c	/^static skiplist_t *create_sort_integer_list()$/;"	f	file:
+create_sort_mpd_list	dr_deal.c	/^static skiplist_t *create_sort_mpd_list()$/;"	f	file:
+create_user_dict	dr_deal.c	/^static dict_t *create_user_dict(void)$/;"	f	file:
+cron_timer	dr_main.c	/^nw_timer cron_timer;$/;"	v
+db_history	dr_config.h	/^    mysql_cfg           db_history;$/;"	m	struct:settings
+deal_ask	dr_deal.c	/^    char        *deal_ask;$/;"	m	struct:dict_user_val	file:
+deal_ask	dr_history.h	/^    char        *deal_ask;$/;"	m	struct:deals_info
+deal_bid	dr_deal.c	/^    char        *deal_bid;$/;"	m	struct:dict_user_val	file:
+deal_bid	dr_history.h	/^    char        *deal_bid;$/;"	m	struct:deals_info
+deal_top_data	dr_deal.c	/^int deal_top_data(json_t **result, time_t start, time_t end, const char *market, int data_type, int top_num)$/;"	f
+deals	dr_config.h	/^    kafka_consumer_cfg  deals;$/;"	m	struct:settings
+deals_info	dr_history.h	/^struct deals_info {$/;"	s
+deals_process	dr_deal.c	/^int deals_process(bool is_taker, uint32_t user_id, time_t timestamp, int side, const char *market, const char *stock, $/;"	f
+debug	dr_config.h	/^    bool                debug;$/;"	m	struct:settings
+delete_flag	dr_operlog.c	/^static bool delete_flag = false;$/;"	v	file:
+delete_operlog	dr_operlog.c	/^void delete_operlog(void)$/;"	f
+delete_operlog_table	dr_operlog.c	/^static void delete_operlog_table(MYSQL *conn)$/;"	f	file:
+dict_fee	dr_deal.c	/^static dict_t *dict_fee;$/;"	v	file:
+dict_fee	dr_history.h	/^    dict_t      *dict_fee;$/;"	m	struct:deals_info
+dict_fee_hash_function	dr_deal.c	/^static uint32_t dict_fee_hash_function(const void *key)$/;"	f	file:
+dict_fee_key_compare	dr_deal.c	/^static int dict_fee_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_fee_key_dup	dr_deal.c	/^static void *dict_fee_key_dup(const void *key)$/;"	f	file:
+dict_fee_key_free	dr_deal.c	/^static void dict_fee_key_free(void *key)$/;"	f	file:
+dict_fee_rate	dr_fee_rate.c	/^static dict_t *dict_fee_rate;$/;"	v	file:
+dict_fee_rate_hash_function	dr_fee_rate.c	/^static uint32_t dict_fee_rate_hash_function(const void *key)$/;"	f	file:
+dict_fee_rate_key	dr_fee_rate.h	/^struct dict_fee_rate_key {$/;"	s
+dict_fee_rate_key_compare	dr_fee_rate.c	/^static int dict_fee_rate_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_fee_rate_key_dup	dr_fee_rate.c	/^static void *dict_fee_rate_key_dup(const void *key)$/;"	f	file:
+dict_fee_rate_key_free	dr_fee_rate.c	/^static void dict_fee_rate_key_free(void *key)$/;"	f	file:
+dict_fee_rate_val	dr_fee_rate.h	/^struct dict_fee_rate_val {$/;"	s
+dict_fee_rate_val_free	dr_fee_rate.c	/^static void dict_fee_rate_val_free(void *val)$/;"	f	file:
+dict_fee_val	dr_deal.c	/^struct dict_fee_val {$/;"	s	file:
+dict_fee_val_dup	dr_deal.c	/^static void *dict_fee_val_dup(const void *val)$/;"	f	file:
+dict_fee_val_free	dr_deal.c	/^static void dict_fee_val_free(void *val)$/;"	f	file:
+dict_market	dr_deal.c	/^static dict_t *dict_market;$/;"	v	file:
+dict_market_hash_function	dr_deal.c	/^static uint32_t dict_market_hash_function(const void *key)$/;"	f	file:
+dict_market_key	dr_deal.c	/^struct dict_market_key {$/;"	s	file:
+dict_market_key_compare	dr_deal.c	/^static int dict_market_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_market_key_dup	dr_deal.c	/^static void *dict_market_key_dup(const void *key)$/;"	f	file:
+dict_market_key_free	dr_deal.c	/^static void dict_market_key_free(void *key)$/;"	f	file:
+dict_market_val	dr_deal.c	/^struct dict_market_val {$/;"	s	file:
+dict_market_val_dup	dr_deal.c	/^static void *dict_market_val_dup(const void *val)$/;"	f	file:
+dict_market_val_free	dr_deal.c	/^static void dict_market_val_free(void *val)$/;"	f	file:
+dict_minute	dr_deal.c	/^    dict_t     *dict_minute;$/;"	m	struct:dict_market_val	file:
+dict_minute_hash_function	dr_deal.c	/^static uint32_t dict_minute_hash_function(const void *key)$/;"	f	file:
+dict_minute_key_compare	dr_deal.c	/^static int dict_minute_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_minute_key_dup	dr_deal.c	/^static void *dict_minute_key_dup(const void *key)$/;"	f	file:
+dict_minute_key_free	dr_deal.c	/^static void dict_minute_key_free(void *key)$/;"	f	file:
+dict_minute_val	dr_deal.c	/^struct dict_minute_val {$/;"	s	file:
+dict_minute_val_dup	dr_deal.c	/^static void *dict_minute_val_dup(const void *val)$/;"	f	file:
+dict_minute_val_free	dr_deal.c	/^static void dict_minute_val_free(void *val)$/;"	f	file:
+dict_sql	dr_operlog.c	/^static dict_t *dict_sql;$/;"	v	file:
+dict_sql_hash_function	dr_operlog.c	/^static uint32_t dict_sql_hash_function(const void *key)$/;"	f	file:
+dict_sql_key	dr_operlog.c	/^struct dict_sql_key {$/;"	s	file:
+dict_sql_key_compare	dr_operlog.c	/^static int dict_sql_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_sql_key_dup	dr_operlog.c	/^static void *dict_sql_key_dup(const void *key)$/;"	f	file:
+dict_sql_key_free	dr_operlog.c	/^static void dict_sql_key_free(void *key)$/;"	f	file:
+dict_sql_val	dr_operlog.c	/^struct dict_sql_val {$/;"	s	file:
+dict_sql_val_free	dr_operlog.c	/^static void dict_sql_val_free(struct dict_sql_val *val)$/;"	f	file:
+dict_user	dr_deal.c	/^    dict_t     *dict_user;$/;"	m	struct:dict_minute_val	file:
+dict_user_hash_function	dr_deal.c	/^static uint32_t dict_user_hash_function(const void *key)$/;"	f	file:
+dict_user_key	dr_deal.c	/^struct dict_user_key {$/;"	s	file:
+dict_user_key_compare	dr_deal.c	/^static int dict_user_key_compare(const void *key1, const void *key2)$/;"	f	file:
+dict_user_key_dup	dr_deal.c	/^static void *dict_user_key_dup(const void *key)$/;"	f	file:
+dict_user_key_free	dr_deal.c	/^static void dict_user_key_free(void *key)$/;"	f	file:
+dict_user_val	dr_deal.c	/^struct dict_user_val {$/;"	s	file:
+dict_user_val_dup	dr_deal.c	/^static void *dict_user_val_dup(const void *val)$/;"	f	file:
+dict_user_val_free	dr_deal.c	/^static void dict_user_val_free(void *val)$/;"	f	file:
+dump_deal_and_fee	dr_deal.c	/^int dump_deal_and_fee(time_t start)$/;"	f
+dump_deals_to_db	dr_history.c	/^void dump_deals_to_db(list_t *list_deals, const char *market, const char *stock, time_t start)$/;"	f
+dump_fee_rate_to_db	dr_history.c	/^static void dump_fee_rate_to_db(dict_t *dict_fee_rate, time_t start)$/;"	f	file:
+dump_fee_to_db	dr_history.c	/^void dump_fee_to_db(dict_t *dict_fee, time_t start)$/;"	f
+dump_to_db_day	dr_deal.c	/^static int dump_to_db_day(const char *market, const char *stock, time_t start)$/;"	f	file:
+dump_to_history	dr_history.c	/^ int dump_to_history(time_t start)$/;"	f
+fee	dr_deal.c	/^    char        *fee;$/;"	m	struct:dict_fee_val	file:
+fee_rate_process	dr_fee_rate.c	/^int fee_rate_process(const char *market, const char *stock, mpd_t *fee_rate, mpd_t *volume)$/;"	f
+fini_history	dr_history.c	/^int fini_history(void)$/;"	f
+fini_operlog	dr_operlog.c	/^int fini_operlog(void)$/;"	f
+flush_operlog_to_db	dr_operlog.c	/^static void flush_operlog_to_db(void)$/;"	f	file:
+free_user_val	dr_deal.c	/^static void free_user_val(struct dict_user_val *obj)$/;"	f	file:
+get_deal_table_name	dr_history.c	/^static char *get_deal_table_name(time_t time)$/;"	f	file:
+get_fee_rate_dict	dr_fee_rate.c	/^dict_t *get_fee_rate_dict(void)$/;"	f
+get_fee_rate_table_name	dr_history.c	/^static char *get_fee_rate_table_name(time_t time)$/;"	f	file:
+get_fee_table_name	dr_history.c	/^static char *get_fee_table_name(time_t time)$/;"	f	file:
+get_gear	dr_fee_rate.c	/^static uint32_t get_gear(mpd_t *fee_rate)$/;"	f	file:
+get_sql	dr_operlog.c	/^static struct dict_sql_val *get_sql(struct dict_sql_key *key, int type)$/;"	f	file:
+get_user_data	dr_deal.c	/^static int get_user_data(dict_t *save_dict_user, time_t start, time_t end, const char *market, int data_type)$/;"	f	file:
+history_status	dr_operlog.c	/^sds history_status(sds reply)$/;"	f
+init_config	dr_config.c	/^int init_config(const char *path)$/;"	f
+init_deal	dr_deal.c	/^int init_deal(void)$/;"	f
+init_fee_rate	dr_fee_rate.c	/^int init_fee_rate(void)$/;"	f
+init_history	dr_history.c	/^int init_history(void)$/;"	f
+init_load_db	dr_load.c	/^int init_load_db(void)$/;"	f
+init_log	dr_main.c	/^static int init_log(void)$/;"	f	file:
+init_message	dr_message.c	/^int init_message(void)$/;"	f
+init_operlog	dr_operlog.c	/^int init_operlog(void)$/;"	f
+init_process	dr_main.c	/^static int init_process(void)$/;"	f	file:
+init_server	dr_server.c	/^int init_server(void)$/;"	f
+interval_minute	dr_config.h	/^    int                 interval_minute;$/;"	m	struct:settings
+job	dr_operlog.c	/^static nw_job *job;$/;"	v	file:
+kafka_deals	dr_message.c	/^static kafka_consumer_t *kafka_deals;$/;"	v	file:
+keep_day	dr_config.h	/^    int                 keep_day;$/;"	m	struct:settings
+key	dr_operlog.c	/^    uint32_t key;$/;"	m	struct:dict_sql_key	file:
+last_dump_time	dr_history.c	/^static time_t   last_dump_time;$/;"	v	file:
+list_sort_integer_val	dr_deal.c	/^struct list_sort_integer_val {$/;"	s	file:
+list_sort_mpd_val	dr_deal.c	/^struct list_sort_mpd_val {$/;"	s	file:
+load_operlog	dr_load.c	/^int load_operlog(MYSQL *conn)$/;"	f
+log	dr_config.h	/^    log_cfg             log;$/;"	m	struct:settings
+main	dr_main.c	/^int main(int argc, char *argv[])$/;"	f
+market	dr_deal.c	/^    char        market[MARKET_NAME_MAX_LEN];$/;"	m	struct:dict_market_key	file:
+market	dr_fee_rate.h	/^    char        market[MARKET_NAME_MAX_LEN];$/;"	m	struct:dict_fee_rate_key
+minute_list	dr_deal.c	/^    skiplist_t *minute_list;$/;"	m	struct:dict_market_val	file:
+minute_skiplist_compare	dr_deal.c	/^static int minute_skiplist_compare(const void *value1, const void *value2)$/;"	f	file:
+minute_skiplist_dup	dr_deal.c	/^static void *minute_skiplist_dup(void *val)$/;"	f	file:
+minute_skiplist_free	dr_deal.c	/^static void minute_skiplist_free(void *val)$/;"	f	file:
+mpd_interval	dr_fee_rate.c	/^mpd_t *mpd_interval;$/;"	v
+mpd_two	dr_message.c	/^mpd_t *mpd_two;$/;"	v
+mysql_conn	dr_history.c	/^static MYSQL    *mysql_conn;$/;"	v	file:
+mysql_conn	dr_operlog.c	/^static MYSQL *mysql_conn;$/;"	v	file:
+num	dr_deal.c	/^    mpd_t     *num;$/;"	m	struct:list_sort_mpd_val	file:
+num	dr_deal.c	/^    uint64_t   num;$/;"	m	struct:list_sort_integer_val	file:
+on_cmd_deal_rank	dr_server.c	/^static int on_cmd_deal_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)$/;"	f	file:
+on_cron_check	dr_main.c	/^static void on_cron_check(nw_timer *timer, void *data)$/;"	f	file:
+on_deals_message	dr_message.c	/^static void on_deals_message(sds message, int64_t offset)$/;"	f	file:
+on_job	dr_operlog.c	/^static void on_job(nw_job_entry *entry, void *privdata)$/;"	f	file:
+on_job_cleanup	dr_operlog.c	/^static void on_job_cleanup(nw_job_entry *entry)$/;"	f	file:
+on_job_init	dr_operlog.c	/^static void *on_job_init(void)$/;"	f	file:
+on_job_release	dr_operlog.c	/^static void on_job_release(void *privdata)$/;"	f	file:
+on_list_free	dr_deal.c	/^static void on_list_free(void *val)$/;"	f	file:
+on_timer	dr_history.c	/^static void on_timer(nw_timer *t, void *privdata)$/;"	f	file:
+on_timer	dr_operlog.c	/^static void on_timer(nw_timer *t, void *privdata)$/;"	f	file:
+prec	dr_config.h	/^    int                 prec;$/;"	m	struct:settings
+process	dr_config.h	/^    process_cfg         process;$/;"	m	struct:settings
+process_deals_message	dr_message.c	/^ void process_deals_message(json_t *msg) \/\/oux$/;"	f
+process_new_market	dr_deal.c	/^static int process_new_market(bool is_taker, struct dict_market_key *p_market_key, time_t minute, uint32_t user_id, int type, $/;"	f	file:
+process_new_minute	dr_deal.c	/^static int process_new_minute(bool is_taker, dict_t *dict_minute, time_t minute, uint32_t user_id, int side, $/;"	f	file:
+read_config_from_json	dr_config.c	/^static int read_config_from_json(json_t *root)$/;"	f	file:
+read_offset_file	dr_message.c	/^static int read_offset_file(void)$/;"	f	file:
+reply_error	dr_server.c	/^static int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)$/;"	f	file:
+reply_error_internal_error	dr_server.c	/^static int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+reply_error_invalid_argument	dr_server.c	/^static int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+reply_json	dr_server.c	/^static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)$/;"	f	file:
+reply_result	dr_server.c	/^static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)$/;"	f	file:
+settings	dr_config.c	/^struct settings settings;$/;"	v	typeref:struct:settings
+settings	dr_config.h	/^struct settings {$/;"	s
+sort_integer_list_compare	dr_deal.c	/^static int sort_integer_list_compare(const void *value1, const void *value2)$/;"	f	file:
+sort_integer_list_free	dr_deal.c	/^static void sort_integer_list_free(void *obj)$/;"	f	file:
+sort_mpd_list_compare	dr_deal.c	/^static int sort_mpd_list_compare(const void *value1, const void *value2)$/;"	f	file:
+sort_mpd_list_free	dr_deal.c	/^static void sort_mpd_list_free(void *value)$/;"	f	file:
+sql	dr_operlog.c	/^    sds      sql;$/;"	m	struct:dict_sql_val	file:
+sql_append_mpd	dr_history.c	/^static sds sql_append_mpd(sds sql, int count, ...)$/;"	f	file:
+stock	dr_deal.c	/^    char        stock[STOCK_NAME_MAX_LEN];$/;"	m	struct:dict_market_key	file:
+stock	dr_fee_rate.h	/^    char        stock[STOCK_NAME_MAX_LEN];$/;"	m	struct:dict_fee_rate_key
+store_message	dr_message.c	/^void store_message(uint32_t ask_user_id, uint32_t bid_user_id, uint32_t taker_user_id, double timestamp, const char *market, const char *stock, $/;"	f
+store_to_top_skiplist	dr_deal.c	/^static int store_to_top_skiplist(dict_t *save_dict_user, const char *market, skiplist_t *top_list, int data_type)$/;"	f	file:
+svr	dr_config.h	/^    rpc_svr_cfg         svr;$/;"	m	struct:settings
+svr	dr_server.c	/^static rpc_svr *svr;$/;"	v	file:
+svr_on_connection_close	dr_server.c	/^static void svr_on_connection_close(nw_ses *ses)$/;"	f	file:
+svr_on_new_connection	dr_server.c	/^static void svr_on_new_connection(nw_ses *ses)$/;"	f	file:
+svr_on_recv_pkg	dr_server.c	/^static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)$/;"	f	file:
+test	dr_main.c	/^void test()$/;"	f
+timer	dr_history.c	/^static nw_timer timer;$/;"	v	file:
+timer	dr_operlog.c	/^static nw_timer timer;$/;"	v	file:
+trade_num_taker_ask	dr_deal.c	/^    uint32_t    trade_num_taker_ask;$/;"	m	struct:dict_user_val	file:
+trade_num_taker_ask	dr_history.h	/^    uint32_t    trade_num_taker_ask;$/;"	m	struct:deals_info
+trade_num_taker_bid	dr_deal.c	/^    uint32_t    trade_num_taker_bid;$/;"	m	struct:dict_user_val	file:
+trade_num_taker_bid	dr_history.h	/^    uint32_t    trade_num_taker_bid;$/;"	m	struct:deals_info
+trade_num_total	dr_deal.c	/^    uint32_t    trade_num_total; $/;"	m	struct:dict_user_val	file:
+trade_num_total	dr_history.h	/^    uint32_t    trade_num_total;$/;"	m	struct:deals_info
+type	dr_operlog.c	/^    char     type; $/;"	m	struct:dict_sql_val	file:
+update_user_val	dr_deal.c	/^static int update_user_val(bool is_taker, dict_t *dict_user, uint32_t user_id, int side, const char *fee_asset, $/;"	f	file:
+user_id	dr_deal.c	/^    uint32_t   user_id;$/;"	m	struct:list_sort_integer_val	file:
+user_id	dr_deal.c	/^    uint32_t  user_id;$/;"	m	struct:list_sort_mpd_val	file:
+user_id	dr_deal.c	/^    uint32_t user_id;$/;"	m	struct:dict_user_key	file:
+user_id	dr_history.h	/^    uint32_t 	user_id;$/;"	m	struct:deals_info
+volume_ask	dr_deal.c	/^    char        *volume_ask;$/;"	m	struct:dict_user_val	file:
+volume_ask	dr_history.h	/^    char        *volume_ask;$/;"	m	struct:deals_info
+volume_bid	dr_deal.c	/^    char        *volume_bid;$/;"	m	struct:dict_user_val	file:
+volume_bid	dr_history.h	/^    char        *volume_bid;$/;"	m	struct:deals_info
+volume_gear	dr_fee_rate.h	/^    mpd_t *volume_gear[MAX_GEAR];$/;"	m	struct:dict_fee_rate_val
+volume_taker_ask	dr_deal.c	/^    char        *volume_taker_ask;$/;"	m	struct:dict_user_val	file:
+volume_taker_ask	dr_history.h	/^    char        *volume_taker_ask;$/;"	m	struct:deals_info
+volume_taker_bid	dr_deal.c	/^    char        *volume_taker_bid;$/;"	m	struct:dict_user_val	file:
+volume_taker_bid	dr_history.h	/^    char        *volume_taker_bid;$/;"	m	struct:deals_info
+write_offset_file	dr_message.c	/^static void write_offset_file(int64_t offset)$/;"	f	file:

@@ -16,7 +16,6 @@
 # include "aw_deals.h"
 # include "aw_order.h"
 # include "aw_asset.h"
-# include "aw_market.h"
 # include "aw_asset_sub.h"
 # include "aw_message.h"
 # include "aw_listener.h"
@@ -160,10 +159,6 @@ server:
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init sing fail: %d", ret);
     }
-    ret = init_market();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
-    }
     ret = init_kline();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init kline fail: %d", ret);
@@ -214,13 +209,8 @@ server:
     log_vip("server stop");
 
     fini_asset();
-    fini_deals();
-    fini_depth();
-    fini_kline();
-    fini_market();
     fini_order();
-    fini_state();
-    
+
 end:
     return 0;
 }
