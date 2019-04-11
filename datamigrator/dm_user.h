@@ -16,7 +16,7 @@ typedef struct user_list_t {
 }user_list_t;
 
 
-int init_user(uint32_t user_id);
+int init_user(uint32_t start_uid, uint32_t last_uid);
 user_list_t *get_next_user_list(void);
 void user_list_free(user_list_t *obj);
 bool user_has_more(void);
