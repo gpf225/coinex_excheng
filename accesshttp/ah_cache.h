@@ -7,7 +7,7 @@ struct cache_val {
 };
 
 int init_cache(void);
-int check_cache(nw_ses *ses, uint64_t id, sds key, uint32_t cmd, json_t *params);
+int check_cache(nw_ses *ses, uint64_t id, sds key);
 void dict_replace_cache(sds cache_key, struct cache_val *val);
 
 #endif

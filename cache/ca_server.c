@@ -132,35 +132,6 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return 0;
 }
 
-static int on_method_depth_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    dict_t *dict_market = get_market();
-    if (dict_size(dict_market) == 0) {
-        log_error("dict_market is null");
-        reply_error_internal_error(ses, pkg);
-        return 0;
-    }
-
-    const char *interval = "0";
-    dict_entry *entry = NULL;
-    dict_iterator *iter = dict_get_iterator(dict_market);
-
-    while ((entry = dict_next(iter)) != NULL) {
-        const char *market = entry->key;
-        depth_unsubscribe(ses, market, interval);
-        int ret = depth_subscribe(ses, market, interval);
-        if (ret != 0) {
-            log_error("depth_subscribe fail, market: %s, interval: %s", market, interval);
-            continue;
-        }
-        depth_send_last(ses, market, interval);
-    }
-    dict_release_iterator(iter);
-    
-    add_subscribe_depth_all_ses(ses);
-    return 0;
-}
-
 static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     const char *market = json_string_value(json_array_get(params, 0));
@@ -381,13 +352,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             log_error("on_method_depth_subscribe fail: %d", ret);
         }
         break;
-    case CMD_CACHE_DEPTH_SUBSCRIBE_ALL:
-        profile_inc("cmd_cache_depth_sub_all", 1);
-        ret = on_method_depth_subscribe_all(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_depth_subscribe_all fail: %d", ret);
-        }
-        break;
     case CMD_CACHE_DEPTH_UNSUBSCRIBE:
         profile_inc("cmd_cache_depth_unsub", 1);
         ret = on_method_depth_unsubscribe(ses, pkg, params);
@@ -486,7 +450,6 @@ static void svr_on_connection_close(nw_ses *ses)
     depth_unsubscribe_all(ses);
     deals_unsubscribe_all(ses);
     status_unsubscribe_all(ses);
-    del_subscribe_depth_all_ses(ses);
 }
 
 int init_server(void)

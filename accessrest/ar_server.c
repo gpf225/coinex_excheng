@@ -673,10 +673,15 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                     return;
                 }
 
-                char *data_str = json_dumps(data, 0);
-                send_http_response_simple(info->ses, 200, data_str, strlen(data_str));
-                free(data_str);
-                json_decref(data);
+                json_t *reply = json_object();
+                json_object_set_new(reply, "code", json_integer(0));
+                json_object_set    (reply, "data", data);
+                json_object_set_new(reply, "message", json_string("OK"));
+
+                char *reply_str = json_dumps(reply, 0);
+                send_http_response_simple(info->ses, 200, reply_str, strlen(reply_str));
+                free(reply_str);
+                json_decref(reply);
                 profile_inc("reply_normal", 1);
 
                 if (info->cache_key) {

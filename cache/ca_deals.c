@@ -128,7 +128,7 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, int lim
     json_object_set_new(reply, "error", json_null());
     json_object_set    (reply, "result", cache->result);
     json_object_set_new(reply, "id", json_integer(pkg->req_id));
-    json_object_set    (new_result, "cache_result", reply);
+    json_object_set_new(new_result, "cache_result", reply);
 
     reply_json(ses, pkg, new_result);
     sdsfree(key);
@@ -302,8 +302,6 @@ int deals_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint
     req_pkg.body_size = strlen(req_pkg.body);
 
     rpc_clt_send(marketprice, &req_pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), req_pkg.command, req_pkg.sequence, (char *)req_pkg.body);
     free(req_pkg.body);
     json_decref(params);
 
@@ -328,6 +326,7 @@ static void on_timer(nw_timer *timer, void *privdata)
 
 int deals_subscribe(nw_ses *ses, const char *market)
 {
+    log_info("deals subscribe, market: %s", market);
     struct dict_deals_key key;
     memset(&key, 0, sizeof(key));
     strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);

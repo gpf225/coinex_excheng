@@ -124,7 +124,7 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             free(params_str);
 
             int ret;
-            ret = check_cache(ses, json_integer_value(id), key, req->cmd, params);
+            ret = check_cache(ses, json_integer_value(id), key);
             if (ret > 0) {
                 sdsfree(key);
                 json_decref(body);
@@ -141,6 +141,8 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         if (req->cmd == CMD_CACHE_KLINE || req->cmd == CMD_CACHE_DEALS ||
                 req->cmd == CMD_CACHE_STATUS || req->cmd == CMD_CACHE_DEPTH) {
             info->cache_key = key;
+        } else {
+            sdsfree(key);
         }
 
         rpc_pkg pkg;
@@ -254,7 +256,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                     json_t *error = json_object_get(cache_result, "error");
                     json_t *result = json_object_get(cache_result, "result");
 
-                    if (error && json_is_null(error) && result && !json_is_null(result)) {
+                    if (error && json_is_null(error) && result) {
                         int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
                         struct cache_val val;
                         val.time_exp = current_millis() + ttl;

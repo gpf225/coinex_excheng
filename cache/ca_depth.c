@@ -13,7 +13,6 @@ static rpc_clt *matchengine;
 static nw_state *state_context;
 
 static dict_t *dict_depth_sub;
-static dict_t *dict_depth_sub_all;
 static nw_timer timer;
 
 struct dict_depth_key {
@@ -124,7 +123,7 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const c
     json_object_set_new(reply, "error", json_null());
     json_object_set    (reply, "result", cache->result);
     json_object_set_new(reply, "id", json_integer(pkg->req_id));
-    json_object_set    (new_result, "cache_result", reply);
+    json_object_set_new(new_result, "cache_result", reply);
 
     reply_json(ses, pkg, new_result);
     json_decref(new_result);
@@ -173,9 +172,9 @@ static void depth_reply(nw_ses *ses, int limit, json_t *result, bool is_error, u
         json_t *reply = json_object();
         json_object_set_new(reply, "error", json_null());
         json_t *result_inside = json_object_get(result, "result");
-        json_object_set    (reply, "result", pack_depth_result(result_inside, limit));
-        json_object_set_new(reply, "id", json_object_get(result, "id"));
-        json_object_set(new_result, "cache_result", reply);
+        json_object_set_new(reply, "result", pack_depth_result(result_inside, limit));
+        json_object_set    (reply, "id", json_object_get(result, "id"));
+        json_object_set_new(new_result, "cache_result", reply);
     }
 
     rpc_pkg reply_rpc;
@@ -432,8 +431,6 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, cons
     req_pkg.body_size = strlen(req_pkg.body);
 
     rpc_clt_send(matchengine, &req_pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), req_pkg.command, req_pkg.sequence, (char *)req_pkg.body);
     free(req_pkg.body);
     json_decref(params);
 
@@ -442,6 +439,7 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, cons
 
 int depth_subscribe(nw_ses *ses, const char *market, const char *interval)
 {
+    log_info("depth subscribe, market: %s, interval: %s", market, interval);
     struct dict_depth_key key;
     depth_set_key(&key, market, interval);  
 
@@ -495,44 +493,6 @@ int depth_unsubscribe_all(nw_ses *ses)
     return 0;
 }
 
-void re_subscribe_depth_all(void)
-{
-    dict_t *dict_market = get_market();
-    const char *interval = "0";
-    dict_entry *entry_all_subscribe = NULL;
-    dict_iterator *iter_all_subscribe = dict_get_iterator(dict_depth_sub_all);
-
-    while ((entry_all_subscribe = dict_next(iter_all_subscribe)) != NULL) {
-        nw_ses *ses = entry_all_subscribe->key;
-        dict_iterator *iter = dict_get_iterator(dict_market);
-
-        dict_entry *entry = NULL;
-        while ((entry = dict_next(iter)) != NULL) {
-            const char *market = entry->key;
-            depth_unsubscribe_all(ses);
-            int ret = depth_subscribe(ses, market, interval);
-            if (ret != 0) {
-                log_error("depth_subscribe fail, market: %s, interval: %s", market, interval);
-                continue;
-            }
-        }
-        dict_release_iterator(iter);
-    }
-    dict_release_iterator(iter_all_subscribe);
-
-    return;
-}
-
-void add_subscribe_depth_all_ses(nw_ses *ses)
-{
-    dict_add(dict_depth_sub_all, ses, NULL);
-}
-
-void del_subscribe_depth_all_ses(nw_ses *ses)
-{
-    dict_delete(dict_depth_sub_all, ses);
-}
-
 int init_depth(void)
 {
     rpc_clt_type ct;
@@ -574,10 +534,6 @@ int init_depth(void)
         log_stderr("dict_create failed");
         return -__LINE__;
     }
-
-    dict_depth_sub_all = dict_create_depth_session();
-    if (dict_depth_sub_all == NULL)
-        return -__LINE__;
 
     nw_timer_set(&timer, settings.sub_depth_interval, true, on_timer, NULL);
     nw_timer_start(&timer);

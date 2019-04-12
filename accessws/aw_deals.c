@@ -356,6 +356,9 @@ int deals_subscribe(nw_ses *ses, const char *market, uint32_t user_id)
     struct market_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
 
+    if (dict_size(obj->sessions) == 1)
+        cache_send_request(market, CMD_CACHE_DEALS_SUBSCRIBE);
+
     if (user_id) {
         int ret = subscribe_user(ses, user_id);
         if (ret < 0)

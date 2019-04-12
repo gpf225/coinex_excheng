@@ -7,6 +7,7 @@
 # include "ar_ticker.h"
 # include "ar_market.h"
 
+static dict_t *dict_state;
 static nw_timer update_timer;
 static rpc_clt *cache;
 static nw_state *state_context;
@@ -16,10 +17,45 @@ struct state_data {
     char market[MARKET_NAME_MAX_LEN];
 };
 
-struct market_val {
-    int     id;
+struct state_val {
     json_t  *last;
 };
+
+static uint32_t dict_market_hash_func(const void *key)
+{
+    return dict_generic_hash_function(key, strlen(key));
+}
+
+static int dict_market_compare(const void *value1, const void *value2)
+{
+    return strcmp(value1, value2);
+}
+
+static void *dict_market_dup(const void *value)
+{
+    return strdup(value);
+}
+
+static void dict_market_free(void *value)
+{
+    free(value);
+}
+
+static void *dict_state_val_dup(const void *key)
+{
+    struct state_val *obj = malloc(sizeof(struct state_val));
+    memcpy(obj, key, sizeof(struct state_val));
+    return obj;
+}
+
+static void dict_state_val_free(void *val)
+{
+    struct state_val *obj = val;
+    if (obj->last) {
+        json_decref(obj->last);
+    }
+    free(obj);
+}
 
 static void on_backend_connect(nw_ses *ses, bool result)
 {
@@ -33,11 +69,10 @@ static void on_backend_connect(nw_ses *ses, bool result)
 
 static int on_market_status_reply(struct state_data *state, json_t *result)
 {
-    dict_t *dict_market = get_market();
-    dict_entry *entry = dict_find(dict_market, state->market);
+    dict_entry *entry = dict_find(dict_state, state->market);
     if (entry == NULL)
         return -__LINE__;
-    struct market_val *info = entry->val;
+    struct state_val *info = entry->val;
 
     if (info->last != NULL)
         json_decref(info->last);
@@ -54,11 +89,10 @@ static int on_market_status_reply(struct state_data *state, json_t *result)
 
 static int on_order_depth_reply(struct state_data *state, json_t *result)
 {
-    dict_t *dict_market = get_market();
-    dict_entry *entry = dict_find(dict_market, state->market);
+    dict_entry *entry = dict_find(dict_state, state->market);
     if (entry == NULL)
         return -__LINE__;
-    struct market_val *info = entry->val;
+    struct state_val *info = entry->val;
 
     if (info->last == NULL) {
         info->last = json_object();
@@ -224,6 +258,21 @@ static void on_update_timer(nw_timer *timer, void *privdata)
 
 int init_ticker(void)
 {
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function  = dict_market_hash_func;
+    dt.key_dup        = dict_market_dup;
+    dt.key_destructor = dict_market_free;
+    dt.key_compare    = dict_market_compare;
+    dt.val_dup        = dict_state_val_dup;
+    dt.val_destructor = dict_state_val_free;
+
+    dict_state = dict_create(&dt, 64);
+    if (dict_state == NULL) {
+        log_stderr("dict_create failed");
+        return -__LINE__;
+    }
+
     rpc_clt_type ct;
     memset(&ct, 0, sizeof(ct));
     ct.on_connect = on_backend_connect;
@@ -251,12 +300,11 @@ int init_ticker(void)
 
 json_t *get_market_ticker(const void *market)
 {
-    dict_t *dict_market = get_market();
-    dict_entry *entry = dict_find(dict_market, market);
-    if (entry == NULL) {
+    dict_entry *entry = dict_find(dict_state, market);
+    if (entry == NULL)
         return NULL;
-    }
-    struct market_val *info = entry->val;
+
+    struct state_val *info = entry->val;
     if (info->last == NULL) {
         return NULL;
     }
@@ -270,14 +318,13 @@ json_t *get_market_ticker(const void *market)
 
 json_t *get_market_ticker_all(void)
 {
-    dict_t *dict_market = get_market();
     json_t *ticker = json_object();
 
     dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(dict_market);
+    dict_iterator *iter = dict_get_iterator(dict_state);
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
-        struct market_val *info = entry->val;
+        struct state_val *info = entry->val;
         json_object_set(ticker, market, info->last);
     }
     dict_release_iterator(iter);

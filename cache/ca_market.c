@@ -52,14 +52,12 @@ static int on_market_list_reply(json_t *result)
 {
     static uint32_t update_id = 0;
     update_id += 1;
-    bool is_change = false;
 
     for (size_t i = 0; i < json_array_size(result); ++i) {
         json_t *item = json_array_get(result, i);
         const char *name = json_string_value(json_object_get(item, "name"));
         dict_entry *entry = dict_find(dict_market, name);
         if (entry == NULL) {
-            is_change = true;
             struct market_val val;
             memset(&val, 0, sizeof(val));
             val.id = update_id;
@@ -76,15 +74,11 @@ static int on_market_list_reply(json_t *result)
     while ((entry = dict_next(iter)) != NULL) {
         struct market_val *info = entry->val;
         if (info->id != update_id) {
-            is_change = true;
             dict_delete(dict_market, entry->key);
             log_info("del market: %s", (char *)entry->key);
         }
     }
     dict_release_iterator(iter);
-
-    if (is_change)
-        re_subscribe_depth_all();
 
     return 0;
 }
@@ -174,7 +168,7 @@ static void on_backend_connect(nw_ses *ses, bool result)
         query_market_list();
         log_info("connect %s:%s success", clt->name, nw_sock_human_addr(&ses->peer_addr));
     } else {
-        log_info("connect %s:%s fail", clt->name, nw_sock_human_addr(&ses->peer_addr));
+        log_error("connect %s:%s fail", clt->name, nw_sock_human_addr(&ses->peer_addr));
     }
 }
 

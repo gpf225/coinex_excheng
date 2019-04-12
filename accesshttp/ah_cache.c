@@ -49,7 +49,7 @@ void dict_replace_cache(sds cache_key, struct cache_val *val)
     dict_replace(backend_cache, cache_key, val);
 }
 
-int check_cache(nw_ses *ses, uint64_t id, sds key, uint32_t cmd, json_t *params)
+int check_cache(nw_ses *ses, uint64_t id, sds key)
 {
     dict_entry *entry = dict_find(backend_cache, key);
     if (entry == NULL)

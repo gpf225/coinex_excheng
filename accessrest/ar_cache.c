@@ -104,10 +104,15 @@ int check_cache(nw_ses *ses, sds key, uint32_t cmd, json_t *params)
         json_object_set_new(reply, "id", json_integer(0));   
     }
 
-    char *reply_str = json_dumps(reply, 0);
-    send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
-    json_decref(reply);
-    free(reply_str);
+    json_t *result = json_object();
+    json_object_set_new(result, "code", json_integer(0));
+    json_object_set_new(result, "data", reply);
+    json_object_set_new(result, "message", json_string("OK"));
+
+    char *result_str = json_dumps(result, 0);
+    send_http_response_simple(ses, 200, result_str, strlen(result_str));
+    json_decref(result);
+    free(result_str);
     profile_inc("hit_cache", 1);
 
     return 1;
