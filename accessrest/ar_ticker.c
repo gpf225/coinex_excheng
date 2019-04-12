@@ -119,13 +119,13 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     int ret;
     switch (pkg->command) {
-    case CMD_MARKET_STATUS:
+    case CMD_CACHE_STATUS:
         ret = on_market_status_reply(state, result);
         if (ret < 0) {
             log_error("on_market_status_reply: %d, reply: %s", ret, reply_str);
         }
         break;
-    case CMD_ORDER_DEPTH:
+    case CMD_CACHE_DEPTH:
         ret = on_order_depth_reply(state, result);
         if (ret < 0) {
             log_error("on_order_depth_reply: %d, reply: %s", ret, reply_str);

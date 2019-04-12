@@ -1132,8 +1132,10 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     log_trace("recv pkg from: %s, cmd: %u, sequence: %u",
             nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence);
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry == NULL)
+    if (entry == NULL) {
+        log_fatal("state_context sequence is not equal");
         return;
+    }
 
     bool is_from_cache = false;
     json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);

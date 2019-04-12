@@ -58,8 +58,6 @@ static int read_config_from_json(json_t *root)
 
     ERR_RET(read_cfg_real(root, "timeout", &settings.timeout, false, 5.0));
     ERR_RET(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));
-    ERR_RET(read_cfg_int(root, "cache_worker_num", &settings.cache_worker_num, false, 4));
-
     return 0;
 }
 

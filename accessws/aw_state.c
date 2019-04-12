@@ -117,6 +117,7 @@ static void re_subscribe_status(void)
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
         cache_send_request((char *)entry->key, CMD_CACHE_STATUS_UNSUBSCRIBE);
+        cache_send_request((char *)entry->key, CMD_CACHE_STATUS_SUBSCRIBE);
     }
     dict_release_iterator(iter);
 }
@@ -294,7 +295,7 @@ static void on_market_list_callback(json_t *result)
             memset(&val, 0, sizeof(val));
             val.id = update_id;
             dict_add(dict_market, (char *)name, &val);
-            cache_send_request((char *)name, CMD_CACHE_DEALS_SUBSCRIBE);
+            cache_send_request((char *)name, CMD_CACHE_STATUS_SUBSCRIBE);
             log_info("add market: %s", name);
         } else {
             struct market_val *info = entry->val;
@@ -308,7 +309,7 @@ static void on_market_list_callback(json_t *result)
         struct market_val *info = entry->val;
         if (info->id != update_id) {
             dict_delete(dict_market, entry->key);
-            cache_send_request((char *)entry->key, CMD_CACHE_DEALS_UNSUBSCRIBE);
+            cache_send_request((char *)entry->key, CMD_CACHE_STATUS_UNSUBSCRIBE);
             log_info("del market: %s", (char *)entry->key);
         }
     }

@@ -2,7 +2,7 @@
 # define _AH_CACHE_H_
 
 struct cache_val {
-    double      time_exp;
+    uint64_t    time_exp;
     json_t      *result;
 };
 

@@ -14,7 +14,7 @@
 
 static rpc_svr *svr;
 
-static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
+int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
     char *message_data;
     if (settings.debug) {

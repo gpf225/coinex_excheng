@@ -14,7 +14,6 @@ static nw_state *state_context;
 static dict_t *method_map;
 
 static rpc_clt *matchengine;
-static rpc_clt *marketprice;
 static rpc_clt *cache;
 
 struct state_data {
@@ -711,12 +710,6 @@ static int init_backend(void)
     if (matchengine == NULL)
         return -__LINE__;
     if (rpc_clt_start(matchengine) < 0)
-        return -__LINE__;
-
-    marketprice = rpc_clt_create(&settings.marketprice, &ct);
-    if (marketprice == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(marketprice) < 0)
         return -__LINE__;
 
     cache = rpc_clt_create(&settings.cache, &ct);

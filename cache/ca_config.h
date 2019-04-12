@@ -60,7 +60,6 @@ struct settings {
 
     int                 cache_timeout;
     int                 depth_limit_max;
-    int                 deal_default_limit;
     int                 kline_max;
 };
 

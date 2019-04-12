@@ -122,11 +122,12 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             char *params_str = json_dumps(params, 0);
             key = sdscatprintf(key, "%u-%s", req->cmd, params_str);
             free(params_str);
-            
+
             int ret;
             ret = check_cache(ses, json_integer_value(id), key, req->cmd, params);
             if (ret > 0) {
                 sdsfree(key);
+                json_decref(body);
                 return 0;
             }
         }
@@ -141,7 +142,6 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
                 req->cmd == CMD_CACHE_STATUS || req->cmd == CMD_CACHE_DEPTH) {
             info->cache_key = key;
         }
-        sdsfree(key);
 
         rpc_pkg pkg;
         memset(&pkg, 0, sizeof(pkg));
@@ -251,11 +251,13 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 free(reply_str);
 
                 if (info->cache_key) {
+                    json_t *error = json_object_get(cache_result, "error");
                     json_t *result = json_object_get(cache_result, "result");
-                    if (result && !json_is_null(result)) {
+
+                    if (error && json_is_null(error) && result && !json_is_null(result)) {
                         int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
                         struct cache_val val;
-                        val.time_exp = current_timestamp() + ttl;
+                        val.time_exp = current_millis() + ttl;
                         val.result = result;
                         json_incref(result);
                         dict_replace_cache(info->cache_key, &val);

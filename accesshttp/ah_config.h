@@ -52,7 +52,6 @@ struct settings {
     rpc_clt_cfg         cache;
     double              timeout;
     int                 worker_num;
-    int                 cache_worker_num;
 };
 
 extern struct settings settings;

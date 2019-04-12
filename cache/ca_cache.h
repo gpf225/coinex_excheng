@@ -2,7 +2,7 @@
 # define _CA_CACHE_H_
 
 struct dict_cache_val {
-    double      time;
+    uint64_t     time;
     json_t      *result;
 };
 

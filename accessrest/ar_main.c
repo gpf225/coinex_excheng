@@ -7,6 +7,8 @@
 # include "ar_config.h"
 # include "ar_ticker.h"
 # include "ar_server.h"
+# include "ar_market.h"
+# include "ar_cache.h"
 # include "ar_listener.h"
 
 const char *__process__ = "accessrest";
@@ -114,9 +116,17 @@ server:
     daemon(1, 1);
     process_keepalive();
 
+    ret = init_cache();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
+    }
     ret = init_ticker();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init ticker fail: %d", ret);
+    }
+    ret = init_market();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
     }
     ret = init_server();
     if (ret < 0) {
