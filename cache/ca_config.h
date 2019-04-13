@@ -38,9 +38,7 @@
 
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
-# define DEPTH_LIMIT_MAX_LEN    101
-
-#define MARKET_DEALS_MAX  1000
+#define MARKET_DEALS_MAX        1000
 
 struct settings {
     bool                debug;

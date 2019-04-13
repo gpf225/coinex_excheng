@@ -91,22 +91,16 @@ int check_cache(nw_ses *ses, sds key, uint32_t cmd, json_t *params)
         return 0;
     }
 
-    json_t *reply = json_object();
+    json_t *result = json_object();
+    json_object_set_new(result, "code", json_integer(0));
+    
     if (cmd == CMD_ORDER_DEPTH) {
         int limit = json_integer_value(json_array_get(params, 1));
         json_t *result_depth = pack_depth_result(cache->result, limit);
-        json_object_set_new(reply, "error", json_null());
-        json_object_set_new(reply, "result", result_depth);
-        json_object_set_new(reply, "id", json_integer(0));
+        json_object_set_new(result, "data", result_depth);
     } else {
-        json_object_set_new(reply, "error", json_null());
-        json_object_set    (reply, "result", cache->result);
-        json_object_set_new(reply, "id", json_integer(0));   
+        json_object_set(result, "data", cache->result);
     }
-
-    json_t *result = json_object();
-    json_object_set_new(result, "code", json_integer(0));
-    json_object_set_new(result, "data", reply);
     json_object_set_new(result, "message", json_string("OK"));
 
     char *result_str = json_dumps(result, 0);

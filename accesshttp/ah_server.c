@@ -238,12 +238,21 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
                 json_t *cache_result = json_object_get(reply_json, "cache_result");
 
-                if (reply_json == NULL || cache_result == NULL) {
-                    log_error("cache_result null");
+                if (reply_json == NULL) {
+                    sds hex = hexdump(pkg->body, pkg->body_size);
+                    log_error("invalid reply from: %s, cmd: %u, reply: \n%s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
+                    sdsfree(hex);
+
                     reply_internal_error(ses);
                     nw_state_del(state, pkg->sequence);
-                    if (reply_json)
-                        json_decref(reply_json);
+                    return;
+                }
+
+                // error, no cache_result
+                if (cache_result == NULL) {
+                    send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
+                    profile_inc("success", 1);
+                    nw_state_del(state, pkg->sequence);
                     return;
                 }
 

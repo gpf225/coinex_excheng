@@ -87,36 +87,61 @@ int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
 
 static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 3)
-        return reply_error_internal_error(ses, pkg);
+    sds recv_str = NULL;
+    if (json_array_size(params) != 3) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        goto error;
+    }
 
     const char *market = json_string_value(json_array_get(params, 0));
-    if (market == NULL)
-        return reply_error_invalid_argument(ses, pkg);
-
-    uint32_t limit = json_integer_value(json_array_get(params, 1));
-
-    const char *interval = json_string_value(json_array_get(params, 2));
-    if (interval == NULL)
-        return reply_error_invalid_argument(ses, pkg);
-
-    depth_request(ses, pkg, market, limit, interval);
-    return 0;
-}
-
-static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    const char *market = json_string_value(json_array_get(params, 0));
-    const char *interval = json_string_value(json_array_get(params, 1));
-
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-        log_error("parameter error");
-        return reply_error_invalid_argument(ses, pkg);
+    if (market == NULL) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        goto error;
     }
 
     if (!market_exist(market)) {
         log_error("market not exist, market: %s", market);
-        return reply_error_invalid_argument(ses, pkg);
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        goto error;
+    }
+
+    uint32_t limit = json_integer_value(json_array_get(params, 1));
+
+    const char *interval = json_string_value(json_array_get(params, 2));
+    if (interval == NULL) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        goto error;
+    }
+
+    depth_request(ses, pkg, market, limit, interval);
+    return 0;
+
+error:
+    log_error("parameter error, recv_str: %s", recv_str);
+    sdsfree(recv_str);
+    return reply_error_invalid_argument(ses, pkg);
+}
+
+static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    sds recv_str = NULL;
+    if (json_array_size(params) != 2) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        goto error;
+    }
+
+    const char *market = json_string_value(json_array_get(params, 0));
+    const char *interval = json_string_value(json_array_get(params, 1));
+
+    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        goto error;
+    }
+
+    if (!market_exist(market)) {
+        log_error("market not exist, market: %s", market);
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        goto error;
     }
 
     depth_unsubscribe(ses, market, interval);
@@ -128,44 +153,85 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
 
     depth_send_last(ses, market, interval);
-
     return 0;
+
+error:
+    log_error("parameter error, recv_str: %s", recv_str);
+    sdsfree(recv_str);
+    return reply_error_invalid_argument(ses, pkg);
 }
 
 static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
+    sds recv_str = NULL;
+    if (json_array_size(params) != 2) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        goto error;
+    }
+
     const char *market = json_string_value(json_array_get(params, 0));
     const char *interval = json_string_value(json_array_get(params, 1));
 
     if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-        log_error("parameter error");
-        return reply_error_invalid_argument(ses, pkg);
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        goto error;
     }
 
     depth_unsubscribe(ses, market, interval);
     return 0;
+
+error:
+    log_error("parameter error, recv_str: %s", recv_str);
+    sdsfree(recv_str);
+    return reply_error_invalid_argument(ses, pkg);
 }
 
 static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
+    int error_num;
+    sds recv_str = NULL;
+    if (json_array_size(params) != 3) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        error_num = -__LINE__;
+        goto error;
+    }
+
     const char *market = json_string_value(json_array_get(params, 0));
-    if (!market)
-        return reply_error_invalid_argument(ses, pkg);
+    if (!market) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        error_num = -__LINE__;
+        goto error;
+    }
+
     if (!market_exist(market)) {
         log_error("market not exist, market: %s", market);
-        return reply_error_invalid_argument(ses, pkg);
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        error_num = -__LINE__;
+        goto error;
     }
 
     int limit = json_integer_value(json_array_get(params, 1));
-    if (limit <= 0 || limit > MARKET_DEALS_MAX)
-        return reply_error_invalid_argument(ses, pkg);
+    if (limit <= 0 || limit > MARKET_DEALS_MAX) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        error_num = -__LINE__;
+        goto error;
+    }
 
-    if (!json_is_integer(json_array_get(params, 2)))
-        return reply_error_invalid_argument(ses, pkg);
+    if (!json_is_integer(json_array_get(params, 2))) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        error_num = -__LINE__;
+        goto error;
+    }
     uint64_t last_id = json_integer_value(json_array_get(params, 2));
 
     deals_request(ses, pkg, market, limit, last_id);
     return 0;
+
+
+error:
+    log_error("parameter error, error_num: %d, recv_str: %s", error_num, recv_str);
+    sdsfree(recv_str);
+    return reply_error_invalid_argument(ses, pkg);
 }
 
 static int on_method_deals_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -173,7 +239,9 @@ static int on_method_deals_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     const char *market = json_string_value(json_array_get(params, 0));
 
     if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
-        log_error("parameter error");
+        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        log_error("parameter error, recv_str: %s", recv_str);
+        sdsfree(recv_str);
         return reply_error_invalid_argument(ses, pkg);
     }
 
@@ -198,7 +266,9 @@ static int on_method_deals_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params
     const char *market = json_string_value(json_array_get(params, 0));
 
     if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
-        log_error("parameter error");
+        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        log_error("parameter error, recv_str: %s", recv_str);
+        sdsfree(recv_str);
         return reply_error_invalid_argument(ses, pkg);
     }
 
@@ -208,32 +278,52 @@ static int on_method_deals_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params
 
 static int on_method_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 4)
-        return reply_error_invalid_argument(ses, pkg);
+    int error_num;
+    sds recv_str = NULL;
+    if (json_array_size(params) != 4) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        error_num = -__LINE__;
+        goto error;
+    }
 
     const char *market = json_string_value(json_array_get(params, 0));
-    if (!market)
-        return reply_error_invalid_argument(ses, pkg);
-    if (!market_exist(market))
-        return reply_error_invalid_argument(ses, pkg);
+    if (!market || !market_exist(market)) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        error_num = -__LINE__;
+        goto error;
+    }
 
     time_t start = json_integer_value(json_array_get(params, 1));
-    if (start <= 0)
-        return reply_error_invalid_argument(ses, pkg);
+    if (start <= 0) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        error_num = -__LINE__;
+        goto error;
+    }
 
     time_t end = json_integer_value(json_array_get(params, 2));
     time_t now = time(NULL);
     if (end > now)
         end = now;
-    if (end <= 0 || start > end)
-        return reply_error_invalid_argument(ses, pkg);
+    if (end <= 0 || start > end) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        error_num = -__LINE__;
+        goto error;
+    }
 
     int interval = json_integer_value(json_array_get(params, 3));
-    if (interval <= 0)
-        return reply_error_invalid_argument(ses, pkg);
+    if (interval <= 0) {
+        recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        error_num = -__LINE__;
+        goto error;
+    }
 
     kline_request(ses, pkg, market, start, end, interval);
     return 0;
+
+error:
+    log_error("parameter error, error_num: %d, recv_str: %s", error_num, recv_str);
+    sdsfree(recv_str);
+    return reply_error_invalid_argument(ses, pkg);
 }
 
 static int on_method_kline_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -242,12 +332,16 @@ static int on_method_kline_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     int interval = json_integer_value(json_array_get(params, 1));
 
     if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval < 0) {
-        log_error("parameter error");
+        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        log_error("parameter error, recv_str: %s", recv_str);
+        sdsfree(recv_str);
         return reply_error_invalid_argument(ses, pkg);
     }
 
     if (!market_exist(market)) {
-        log_error("market not exist, market: %s", market);
+        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        log_error("market not exist, recv_str: %s", recv_str);
+        sdsfree(recv_str);
         return reply_error_invalid_argument(ses, pkg);
     }
 
@@ -268,7 +362,9 @@ static int on_method_kline_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params
     int interval = json_integer_value(json_array_get(params, 1));
 
     if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval < 0) {
-        log_error("parameter error");
+        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        log_error("parameter error, recv_str: %s", recv_str);
+        sdsfree(recv_str);
         return reply_error_invalid_argument(ses, pkg);
     }
 
@@ -279,13 +375,14 @@ static int on_method_kline_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params
 static int on_cmd_market_state(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     const char *market = json_string_value(json_array_get(params, 0));
-    if (!market)
+    if (!market || !market_exist(market)) {
+        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        log_error("parameter error, recv_str: %s", recv_str);
+        sdsfree(recv_str);
         return reply_error_invalid_argument(ses, pkg);
-    if (!market_exist(market))
-        return reply_error_invalid_argument(ses, pkg);
+    }
 
     int period = json_integer_value(json_array_get(params, 1));
-
     status_request(ses, pkg, market, period);
     return 0;
 }
@@ -294,7 +391,9 @@ static int on_method_status_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     const char *market = json_string_value(json_array_get(params, 0));
     if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
-        log_error("parameter error");
+        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        log_error("parameter error, recv_str: %s", recv_str);
+        sdsfree(recv_str);
         return reply_error_invalid_argument(ses, pkg);
     }
 
@@ -318,7 +417,9 @@ static int on_method_status_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *param
 {
     const char *market = json_string_value(json_array_get(params, 0));
     if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
-        log_error("parameter error");
+        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
+        log_error("parameter error, recv_str: %s", recv_str);
+        sdsfree(recv_str);
         return reply_error_invalid_argument(ses, pkg);
     }
 
