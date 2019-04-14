@@ -244,24 +244,24 @@ static int check_depth_cache(nw_ses *ses, uint64_t id, const char *market, const
             sdsfree(key);
             return 1;
         }
-    } else {
-        sdsclear(key);
-        key = sdscatprintf(key, "%u-%s-%s", CMD_CACHE_DEPTH, market, interval);
+    } 
 
-        entry = dict_find(backend_cache, key);
-        if (entry != NULL) {
-            struct cache_val *cache = entry->val;
-            double now = current_timestamp();
-            if (now >= cache->time_exp) {
-                dict_delete(backend_cache, key);
-            } else {
-                json_t *result = pack_depth_result(cache->result, limit);
-                send_result(ses, id, result);
-                json_decref(result);
-                profile_inc("hit_cache", 1);
-                sdsfree(key);
-                return 1;
-            }
+    sdsclear(key);
+    key = sdscatprintf(key, "%u-%s-%s", CMD_CACHE_DEPTH, market, interval);
+
+    entry = dict_find(backend_cache, key);
+    if (entry != NULL) {
+        struct cache_val *cache = entry->val;
+        double now = current_timestamp();
+        if (now >= cache->time_exp) {
+            dict_delete(backend_cache, key);
+        } else {
+            json_t *result = pack_depth_result(cache->result, limit);
+            send_result(ses, id, result);
+            json_decref(result);
+            profile_inc("hit_cache", 1);
+            sdsfree(key);
+            return 1;
         }
     }
 
@@ -348,6 +348,9 @@ static int on_method_kline_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
 
 static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
+    if (!rpc_clt_connected(cache))
+        return send_error_internal_error(ses, id);
+
     if (json_array_size(params) != 3) {
         return send_error_invalid_argument(ses, id);
     }
@@ -364,10 +367,6 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
     if (interval == NULL || !is_good_interval(interval)) {
         return send_error_invalid_argument(ses, id);
     }
-
-    if (!rpc_clt_connected(cache))
-        return send_error_internal_error(ses, id);
-
 
     int ret = check_depth_cache(ses, id, market, interval, limit);
     if (ret > 0)
@@ -1158,19 +1157,25 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         profile_inc("success", 1);
     }
-    if (state->cache_key) {
-        if (reply_json && json_is_object(reply_json)) {
-            json_t *result = json_object_get(cache_result, "result");
-            if (result && !json_is_null(result)) {
-                int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
-                struct cache_val val;
-                val.time_exp = current_timestamp() + ttl;
-                val.result = result;
-                json_incref(result);
-                dict_replace(backend_cache, state->cache_key, &val);
-            }
+
+    if (state->cache_key && reply_json && json_is_object(reply_json)) {
+        json_t *result = NULL;
+        if (is_from_cache) {
+            result = json_object_get(cache_result, "result");
+        } else {
+            result = json_object_get(reply_json, "result");
+        }
+
+        if (result && !json_is_null(result)) {
+            int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
+            struct cache_val val;
+            val.time_exp = current_timestamp() + ttl;
+            val.result = result;
+            json_incref(result);
+            dict_replace(backend_cache, state->cache_key, &val);
         }
     }
+
     nw_state_del(state_context, pkg->sequence);
     json_decref(reply_json);
 }
@@ -1236,7 +1241,7 @@ static void on_timer(nw_timer *timer, void *privdata)
         struct cache_val *val = entry->val;
         double now = current_timestamp();
 
-        if (now > val->time_exp)
+        if (now >= val->time_exp)
             dict_delete(backend_cache, entry->key);
     }
     dict_release_iterator(iter);

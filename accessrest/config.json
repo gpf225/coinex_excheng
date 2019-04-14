@@ -50,4 +50,7 @@
     "depth_limit": [5, 10, 20, 50],
     "depth_merge": ["0", "0.00000001", "0.0000001", "0.000001", "0.00001", "0.0001", "0.001", "0.01", "0.1", "1", "10", "100"],
     "market_url": "http://120.78.203.98:8000/internal/exchange/market/list",
+    "deal_max": 1000,
+    "kline_max": 1000,
+    "kline_default": 100,
 }

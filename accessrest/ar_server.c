@@ -289,12 +289,23 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
         }
     }
 
+    int limit = settings.deal_default;
+    entry = dict_find(params, "limit");
+    if (entry) {
+        limit = atoi(entry->val);
+        if (limit <= 0) {
+            limit = settings.deal_default;
+        } else if (limit > settings.deal_max) {
+            limit = settings.deal_default;
+        }
+    }
+
     sds cache_key = sdsempty();
-    cache_key = sdscatprintf(cache_key, "deals_%s_%d", market, last_id);
+    cache_key = sdscatprintf(cache_key, "deals_%s_%d_%d", market, last_id, limit);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_string(market));
-    json_array_append_new(query_params, json_integer(1000));
+    json_array_append_new(query_params, json_integer(limit));
     json_array_append_new(query_params, json_integer(last_id));
 
     int ret = check_cache(ses, cache_key, CMD_CACHE_DEALS, query_params);
@@ -376,12 +387,14 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     char *market = entry->val;
     strtoupper(market);
 
-    int limit = 1000;
+    int limit = settings.kline_default;
     entry = dict_find(params, "limit");
     if (entry) {
         limit = atoi(entry->val);
         if (limit <= 0) {
-            limit = 1000;
+            limit = settings.kline_default;
+        } else if (limit > settings.kline_max) {
+            limit = settings.kline_default;
         }
     }
 
@@ -617,19 +630,45 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     if (entry) {
         struct state_data *info = entry->data;
         if (info->ses->id == info->ses_id) {
+            profile_inc("success", 1);
             if (pkg->command == CMD_CACHE_KLINE || pkg->command == CMD_CACHE_DEALS || pkg->command == CMD_CACHE_DEPTH) {
                 json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
                 json_t *cache_result = json_object_get(reply_json, "cache_result");
 
-                if (reply_json == NULL || cache_result == NULL) {
-                    log_error("cache_result null");
+                if (reply_json == NULL) {
+                    sds hex = hexdump(pkg->body, pkg->body_size);
+                    log_error("invalid reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
+                    sdsfree(hex);
+
                     reply_internal_error(ses);
                     nw_state_del(state_context, pkg->sequence);
-                    if (reply_json)
-                        json_decref(reply_json);
                     return;
                 }
 
+                // error, no cache_result
+                if (cache_result == NULL) {
+                    json_t *error = json_object_get(reply_json, "error");
+                    if (!error) {
+                        reply_internal_error(info->ses);
+                        nw_state_del(state_context, pkg->sequence);
+                        json_decref(reply_json);
+                        return;
+                    }
+
+                    if (!json_is_null(error)) {
+                        const char *message = json_string_value(json_object_get(error, "message"));
+                        if (message) {
+                            reply_error(info->ses, 1, message, 200);
+                        } else {
+                            reply_internal_error(info->ses);
+                        }
+                        nw_state_del(state_context, pkg->sequence);
+                        json_decref(reply_json);
+                        return;
+                    }
+                }
+
+                // cache_result
                 json_t *error = json_object_get(cache_result, "error");
                 if (!error) {
                     reply_internal_error(info->ses);
@@ -682,7 +721,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 send_http_response_simple(info->ses, 200, reply_str, strlen(reply_str));
                 free(reply_str);
                 json_decref(reply);
-                profile_inc("reply_normal", 1);
+                json_decref(data);
 
                 if (info->cache_key) {
                     int ttl = json_integer_value(json_object_get(reply_json, "ttl"));

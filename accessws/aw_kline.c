@@ -62,7 +62,8 @@ static void *dict_kline_val_dup(const void *val)
 static void dict_kline_val_free(void *val)
 {
     struct kline_val *obj = val;
-    dict_release(obj->sessions);
+    if (obj->sessions)
+        dict_release(obj->sessions);
     if (obj->last)
         json_decref(obj->last);
     free(obj);

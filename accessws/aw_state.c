@@ -21,7 +21,7 @@ struct state_data {
 
 struct market_val {
     int     id;
-    json_t *last;
+    json_t  *last;
     double  update_time;
 };
 
@@ -116,7 +116,6 @@ static void re_subscribe_status(void)
     dict_iterator *iter = dict_get_iterator(dict_market);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
-        cache_send_request((char *)entry->key, CMD_CACHE_STATUS_UNSUBSCRIBE);
         cache_send_request((char *)entry->key, CMD_CACHE_STATUS_SUBSCRIBE);
     }
     dict_release_iterator(iter);
@@ -308,8 +307,8 @@ static void on_market_list_callback(json_t *result)
     while ((entry = dict_next(iter)) != NULL) {
         struct market_val *info = entry->val;
         if (info->id != update_id) {
-            dict_delete(dict_market, entry->key);
             cache_send_request((char *)entry->key, CMD_CACHE_STATUS_UNSUBSCRIBE);
+            dict_delete(dict_market, entry->key);
             log_info("del market: %s", (char *)entry->key);
         }
     }

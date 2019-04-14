@@ -268,9 +268,8 @@ int init_market(void)
     dt.val_destructor = dict_market_val_free;
 
     dict_market = dict_create(&dt, 64);
-    if (dict_market == NULL) {
+    if (dict_market == NULL)
         return -__LINE__;
-    }
 
     nw_job_type jt;
     memset(&jt, 0, sizeof(jt));
@@ -279,14 +278,12 @@ int init_market(void)
     jt.on_cleanup = on_job_cleanup;
 
     job = nw_job_create(&jt, 1);
-    if (job == NULL) {
+    if (job == NULL)
         return -__LINE__;
-    }
 
     json_t *result = fetch_market_info();
-    if (result == NULL) {
+    if (result == NULL)
         return -__LINE__;
-    }
 
     if (load_markets(result) != 0) {
         char *result_str = json_dumps(result, 0);

@@ -240,7 +240,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
                 if (reply_json == NULL) {
                     sds hex = hexdump(pkg->body, pkg->body_size);
-                    log_error("invalid reply from: %s, cmd: %u, reply: \n%s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
+                    log_error("invalid reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
                     sdsfree(hex);
 
                     reply_internal_error(ses);
@@ -252,6 +252,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 if (cache_result == NULL) {
                     send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
                     profile_inc("success", 1);
+                    json_decref(reply_json);
                     nw_state_del(state, pkg->sequence);
                     return;
                 }

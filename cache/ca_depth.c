@@ -170,8 +170,8 @@ static void depth_reply(nw_ses *ses, int limit, json_t *result, bool is_error, u
         json_object_set(new_result, "cache_result", result);
     } else {
         json_t *reply = json_object();
-        json_object_set_new(reply, "error", json_null());
         json_t *result_inside = json_object_get(result, "result");
+        json_object_set_new(reply, "error", json_null());
         json_object_set_new(reply, "result", pack_depth_result(result_inside, limit));
         json_object_set    (reply, "id", json_object_get(result, "id"));
         json_object_set_new(new_result, "cache_result", reply);
