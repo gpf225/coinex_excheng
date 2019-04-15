@@ -191,6 +191,9 @@ static int deals_sub_reply(const char *market, json_t *result)
         return 0;
 
     json_t *first = json_array_get(result, 0);
+    if (first == NULL || !json_is_integer(json_object_get(first, "id")))
+        return -__LINE__;
+
     uint64_t id = json_integer_value(json_object_get(first, "id"));
     if (id == 0)
         return -__LINE__;

@@ -215,7 +215,7 @@ static int check_cache(nw_ses *ses, uint64_t id, sds key)
         return 0;
 
     struct cache_val *cache = entry->val;
-    double now = current_timestamp();
+    double now = current_millis();
     if (now >= cache->time_exp) {
         dict_delete(backend_cache, key);
         return 0;
@@ -235,7 +235,7 @@ static int check_depth_cache(nw_ses *ses, uint64_t id, const char *market, const
     dict_entry *entry = dict_find(backend_cache, key);
     if (entry != NULL) {
         struct cache_val *cache = entry->val;
-        double now = current_timestamp();
+        double now = current_millis();
         if (now >= cache->time_exp) {
             dict_delete(backend_cache, key);
         } else {
@@ -252,7 +252,7 @@ static int check_depth_cache(nw_ses *ses, uint64_t id, const char *market, const
     entry = dict_find(backend_cache, key);
     if (entry != NULL) {
         struct cache_val *cache = entry->val;
-        double now = current_timestamp();
+        double now = current_millis();
         if (now >= cache->time_exp) {
             dict_delete(backend_cache, key);
         } else {
@@ -275,7 +275,7 @@ void set_sub_depth_cache(json_t *depth_data, const char *market, const char *int
     key = sdscatprintf(key, "%u-%s-%s", CMD_CACHE_DEPTH, market, interval);
 
     struct cache_val val;
-    val.time_exp = current_timestamp() + ttl;
+    val.time_exp = current_millis() + ttl;
     val.result = depth_data;
     json_incref(depth_data);
     dict_replace(backend_cache, key, &val);
@@ -1158,18 +1158,12 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         profile_inc("success", 1);
     }
 
-    if (state->cache_key && reply_json && json_is_object(reply_json)) {
-        json_t *result = NULL;
-        if (is_from_cache) {
-            result = json_object_get(cache_result, "result");
-        } else {
-            result = json_object_get(reply_json, "result");
-        }
-
+    if (is_from_cache && state->cache_key && reply_json && json_is_object(reply_json)) {
+        json_t *result = json_object_get(cache_result, "result");
         if (result && !json_is_null(result)) {
             int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
             struct cache_val val;
-            val.time_exp = current_timestamp() + ttl;
+            val.time_exp = current_millis() + ttl;
             val.result = result;
             json_incref(result);
             dict_replace(backend_cache, state->cache_key, &val);
@@ -1239,7 +1233,7 @@ static void on_timer(nw_timer *timer, void *privdata)
 
     while ((entry = dict_next(iter)) != NULL) {
         struct cache_val *val = entry->val;
-        double now = current_timestamp();
+        double now = current_millis();
 
         if (now >= val->time_exp)
             dict_delete(backend_cache, entry->key);

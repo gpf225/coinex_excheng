@@ -77,7 +77,7 @@ static int reply_json(nw_ses *ses, json_t *data, sds cache_key)
     if (cache_key) {
         int ttl = settings.cache_timeout * 1000;
         struct cache_val val;
-        val.time_exp = current_timestamp() + ttl;
+        val.time_exp = current_millis() + ttl;
         val.result = data;
         json_incref(data);
         dict_replace_cache(cache_key, &val);
@@ -726,7 +726,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 if (info->cache_key) {
                     int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
                     struct cache_val val;
-                    val.time_exp = current_timestamp() + ttl;
+                    val.time_exp = current_millis() + ttl;
                     val.result = result;
                     json_incref(result);
                     dict_replace_cache(info->cache_key, &val);

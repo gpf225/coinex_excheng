@@ -85,7 +85,7 @@ int check_cache(nw_ses *ses, sds key, uint32_t cmd, json_t *params)
         return 0;
 
     struct cache_val *cache = entry->val;
-    double now = current_timestamp();
+    double now = current_millis();
     if (now >= cache->time_exp) {
         dict_delete(backend_cache, key);
         return 0;
@@ -119,7 +119,7 @@ static void on_cache_clear_timer(nw_timer *timer, void *privdata)
 
     while ((entry = dict_next(iter)) != NULL) {
         struct cache_val *val = entry->val;
-        double now = current_timestamp();
+        double now = current_millis();
 
         if (now > val->time_exp)
             dict_delete(backend_cache, entry->key);
