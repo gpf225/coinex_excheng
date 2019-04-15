@@ -380,7 +380,8 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("market.deals", cache, CMD_CACHE_DEALS));
     ERR_RET_LN(add_handler("market.deals_ext", marketprice, CMD_MARKET_DEALS_EXT));
     ERR_RET_LN(add_handler("market.user_deals", readhistory, CMD_MARKET_USER_DEALS));
-
+    ERR_RET_LN(add_handler("market.self_deal", matchengine, CMD_MARKET_SELF_DEAL));
+    
     ERR_RET_LN(add_handler("monitor.inc", monitorcenter, CMD_MONITOR_INC));
     ERR_RET_LN(add_handler("monitor.set", monitorcenter, CMD_MONITOR_SET));
     ERR_RET_LN(add_handler("monitor.list_scope", monitorcenter, CMD_MONITOR_LIST_SCOPE));

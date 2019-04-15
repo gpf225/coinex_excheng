@@ -548,14 +548,10 @@ static void on_deals_message(sds message, int64_t offset)
     if (side != MARKET_TRADE_SIDE_SELL && side != MARKET_TRADE_SIDE_BUY) {
         goto cleanup;
     }
+
     uint32_t ask_user_id = json_integer_value(json_object_get(obj, "ask_user_id"));
-    if (ask_user_id == 0) {
-        goto cleanup;
-    }
     uint32_t bid_user_id = json_integer_value(json_object_get(obj, "bid_user_id"));
-    if (ask_user_id == 0) {
-        goto cleanup;
-    }
+    
     const char *price_str = json_string_value(json_object_get(obj, "price"));
     if (!price_str || (price = decimal(price_str, 0)) == NULL) {
         goto cleanup;

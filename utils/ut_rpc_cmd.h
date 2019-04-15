@@ -54,6 +54,7 @@
 # define CMD_MARKET_DEALS           307
 # define CMD_MARKET_DEALS_EXT       308
 # define CMD_MARKET_USER_DEALS      309
+# define CMD_MARKET_SELF_DEAL       310
 
 // config
 # define CMD_CONFIG_UPDATE_ASSET    401
