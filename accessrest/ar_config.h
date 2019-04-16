@@ -62,6 +62,11 @@ struct settings {
     rpc_clt_cfg         cache;
 
     int                 worker_num;
+    int                 deal_max;
+    int                 deal_default;
+    int                 kline_max;
+    int                 kline_default;
+
     double              backend_timeout;
     double              cache_timeout;
     double              state_interval;

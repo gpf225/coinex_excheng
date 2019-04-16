@@ -122,11 +122,12 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             char *params_str = json_dumps(params, 0);
             key = sdscatprintf(key, "%u-%s", req->cmd, params_str);
             free(params_str);
-            
+
             int ret;
-            ret = check_cache(ses, json_integer_value(id), key, req->cmd, params);
+            ret = check_cache(ses, json_integer_value(id), key);
             if (ret > 0) {
                 sdsfree(key);
+                json_decref(body);
                 return 0;
             }
         }
@@ -140,8 +141,9 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         if (req->cmd == CMD_CACHE_KLINE || req->cmd == CMD_CACHE_DEALS ||
                 req->cmd == CMD_CACHE_STATUS || req->cmd == CMD_CACHE_DEPTH) {
             info->cache_key = key;
+        } else {
+            sdsfree(key);
         }
-        sdsfree(key);
 
         rpc_pkg pkg;
         memset(&pkg, 0, sizeof(pkg));
@@ -236,12 +238,22 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
                 json_t *cache_result = json_object_get(reply_json, "cache_result");
 
-                if (reply_json == NULL || cache_result == NULL) {
-                    log_error("cache_result null");
+                if (reply_json == NULL) {
+                    sds hex = hexdump(pkg->body, pkg->body_size);
+                    log_error("invalid reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
+                    sdsfree(hex);
+
                     reply_internal_error(ses);
                     nw_state_del(state, pkg->sequence);
-                    if (reply_json)
-                        json_decref(reply_json);
+                    return;
+                }
+
+                // error, no cache_result
+                if (cache_result == NULL) {
+                    send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
+                    profile_inc("success", 1);
+                    json_decref(reply_json);
+                    nw_state_del(state, pkg->sequence);
                     return;
                 }
 
@@ -251,11 +263,13 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 free(reply_str);
 
                 if (info->cache_key) {
+                    json_t *error = json_object_get(cache_result, "error");
                     json_t *result = json_object_get(cache_result, "result");
-                    if (result && !json_is_null(result)) {
+
+                    if (error && json_is_null(error) && result) {
                         int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
                         struct cache_val val;
-                        val.time_exp = current_timestamp() + ttl;
+                        val.time_exp = current_millis() + ttl;
                         val.result = result;
                         json_incref(result);
                         dict_replace_cache(info->cache_key, &val);
@@ -366,7 +380,8 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("market.deals", cache, CMD_CACHE_DEALS));
     ERR_RET_LN(add_handler("market.deals_ext", marketprice, CMD_MARKET_DEALS_EXT));
     ERR_RET_LN(add_handler("market.user_deals", readhistory, CMD_MARKET_USER_DEALS));
-
+    ERR_RET_LN(add_handler("market.self_deal", matchengine, CMD_MARKET_SELF_DEAL));
+    
     ERR_RET_LN(add_handler("monitor.inc", monitorcenter, CMD_MONITOR_INC));
     ERR_RET_LN(add_handler("monitor.set", monitorcenter, CMD_MONITOR_SET));
     ERR_RET_LN(add_handler("monitor.list_scope", monitorcenter, CMD_MONITOR_LIST_SCOPE));

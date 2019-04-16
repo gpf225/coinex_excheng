@@ -85,29 +85,28 @@ int check_cache(nw_ses *ses, sds key, uint32_t cmd, json_t *params)
         return 0;
 
     struct cache_val *cache = entry->val;
-    double now = current_timestamp();
+    double now = current_millis();
     if (now >= cache->time_exp) {
         dict_delete(backend_cache, key);
         return 0;
     }
 
-    json_t *reply = json_object();
+    json_t *result = json_object();
+    json_object_set_new(result, "code", json_integer(0));
+    
     if (cmd == CMD_ORDER_DEPTH) {
         int limit = json_integer_value(json_array_get(params, 1));
         json_t *result_depth = pack_depth_result(cache->result, limit);
-        json_object_set_new(reply, "error", json_null());
-        json_object_set_new(reply, "result", result_depth);
-        json_object_set_new(reply, "id", json_integer(0));
+        json_object_set_new(result, "data", result_depth);
     } else {
-        json_object_set_new(reply, "error", json_null());
-        json_object_set    (reply, "result", cache->result);
-        json_object_set_new(reply, "id", json_integer(0));   
+        json_object_set(result, "data", cache->result);
     }
+    json_object_set_new(result, "message", json_string("OK"));
 
-    char *reply_str = json_dumps(reply, 0);
-    send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
-    json_decref(reply);
-    free(reply_str);
+    char *result_str = json_dumps(result, 0);
+    send_http_response_simple(ses, 200, result_str, strlen(result_str));
+    json_decref(result);
+    free(result_str);
     profile_inc("hit_cache", 1);
 
     return 1;
@@ -120,7 +119,7 @@ static void on_cache_clear_timer(nw_timer *timer, void *privdata)
 
     while ((entry = dict_next(iter)) != NULL) {
         struct cache_val *val = entry->val;
-        double now = current_timestamp();
+        double now = current_millis();
 
         if (now > val->time_exp)
             dict_delete(backend_cache, entry->key);

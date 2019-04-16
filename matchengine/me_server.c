@@ -1601,6 +1601,152 @@ static int on_cmd_update_market_config(nw_ses *ses, rpc_pkg *pkg, json_t *params
     return reply_success(ses, pkg);
 }
 
+static int self_market_deal(market_t *market, mpd_t *amount, mpd_t *price, uint32_t side)
+{
+    // get ask_price_1
+    mpd_t *ask_price_1 = NULL;
+    skiplist_iter *iter = skiplist_get_iterator(market->asks);
+    if (iter != NULL) {
+        skiplist_node *node = skiplist_next(iter);
+        if (node != NULL) {
+            order_t *order = node->value;
+            ask_price_1 = mpd_new(&mpd_ctx);
+            mpd_copy(ask_price_1, order->price, &mpd_ctx);
+        }
+        skiplist_release_iterator(iter);
+    } else {
+        return -__LINE__;
+    }
+
+    // get bid_price_1
+    mpd_t *bid_price_1 = NULL;
+    iter = skiplist_get_iterator(market->bids);
+    if (iter != NULL) {
+        skiplist_node *node = skiplist_next(iter);
+        if (node != NULL) {
+            order_t *order = node->value;
+            bid_price_1 = mpd_new(&mpd_ctx);
+            mpd_copy(bid_price_1, order->price, &mpd_ctx);
+        }
+        skiplist_release_iterator(iter);
+    } else {
+        if (ask_price_1 != NULL)
+            mpd_del(ask_price_1);
+        return -__LINE__;
+    }
+
+    mpd_t *deal_min_gear = mpd_new(&mpd_ctx);
+    mpd_set_i32(deal_min_gear, -market->money_prec, &mpd_ctx);
+    mpd_pow(deal_min_gear, mpd_ten, deal_min_gear, &mpd_ctx);
+
+    if (ask_price_1 != NULL && bid_price_1 != NULL) {
+        mpd_t *ask_bid_sub = mpd_new(&mpd_ctx);
+        mpd_sub(ask_bid_sub, ask_price_1, bid_price_1, &mpd_ctx);
+        if (mpd_cmp(deal_min_gear, ask_bid_sub, &mpd_ctx) == 0) {
+            mpd_del(ask_bid_sub);
+            mpd_del(deal_min_gear);
+
+            if (ask_price_1 != NULL)
+                mpd_del(ask_price_1);
+            if (bid_price_1 != NULL)
+                mpd_del(bid_price_1);
+            return -1;
+        }
+        mpd_del(ask_bid_sub);
+    }
+
+    mpd_t *real_price = mpd_qncopy(price);
+    if (ask_price_1 != NULL && mpd_cmp(price, ask_price_1, &mpd_ctx) >= 0) {
+        mpd_sub(real_price, ask_price_1, deal_min_gear, &mpd_ctx);
+    } else if (bid_price_1 != NULL && mpd_cmp(price, bid_price_1, &mpd_ctx) <= 0){
+        mpd_add(real_price, bid_price_1, deal_min_gear, &mpd_ctx);
+    }
+
+    mpd_t *deal = mpd_new(&mpd_ctx);
+    mpd_mul(deal, real_price, amount, &mpd_ctx);
+
+    uint64_t deal_id = ++deals_id_start;
+    double update_time = current_timestamp();
+
+    order_t *order = malloc(sizeof(order_t));
+    order->id        = 0;
+    order->user_id   = 0;
+
+    push_deal_message(update_time, deal_id, market, side, order, order, real_price, amount, deal, market->money, mpd_zero, market->stock, mpd_zero);
+
+    free(order);
+    mpd_del(deal);
+    mpd_del(real_price);
+    mpd_del(deal_min_gear);
+    if (bid_price_1 != NULL)
+        mpd_del(bid_price_1);
+    if (ask_price_1 != NULL)
+        mpd_del(ask_price_1);
+
+    return 0;
+}
+
+static int on_cmd_self_market_deal(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 4)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // market
+    if (!json_is_string(json_array_get(params, 0)))
+        return reply_error_invalid_argument(ses, pkg);
+    const char *market_name = json_string_value(json_array_get(params, 0));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return reply_error_invalid_argument(ses, pkg);
+
+    mpd_t *amount  = NULL;
+    mpd_t *price   = NULL;
+
+    // amount
+    if (!json_is_string(json_array_get(params, 1)))
+        goto invalid_argument;
+    amount = decimal(json_string_value(json_array_get(params, 1)), market->stock_prec);
+    if (amount == NULL || mpd_cmp(amount, mpd_zero, &mpd_ctx) <= 0)
+        goto invalid_argument;
+
+    // price 
+    if (!json_is_string(json_array_get(params, 2)))
+        goto invalid_argument;
+    price = decimal(json_string_value(json_array_get(params, 2)), market->money_prec);
+    if (price == NULL || mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0)
+        goto invalid_argument;
+
+    // side
+    if (!json_is_integer(json_array_get(params, 3)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint32_t side = json_integer_value(json_array_get(params, 3));
+    if (side != MARKET_TRADE_SIDE_SELL && side != MARKET_TRADE_SIDE_BUY)
+        return reply_error_invalid_argument(ses, pkg);
+
+    int ret = self_market_deal(market, amount, price, side);
+
+    mpd_del(amount);
+    mpd_del(price);
+
+    if (ret == -1) {
+        return reply_error(ses, pkg, 10, "no reasonable price");
+    } else if (ret < 0) {
+        log_fatal("self_market_deal fail: %d", ret);
+        return reply_error_internal_error(ses, pkg);
+    }
+
+    ret = reply_success(ses, pkg);
+    return ret;
+
+invalid_argument:
+    if (amount)
+        mpd_del(amount);
+    if (price)
+        mpd_del(price);
+
+    return reply_error_invalid_argument(ses, pkg);
+}
+
 static bool is_service_availablce(void)
 {
     if (is_operlog_block() || is_history_block() || is_message_block()) {
@@ -1813,6 +1959,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_update_market_config(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_update_market_config fail: %d", ret);
+        }
+        break;
+    case CMD_MARKET_SELF_DEAL:
+        profile_inc("cmd_market_self_deal", 1);
+        ret = on_cmd_self_market_deal(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_self_market_deal fail: %d", ret);
         }
         break;
     default:

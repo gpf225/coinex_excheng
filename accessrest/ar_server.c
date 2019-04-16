@@ -14,7 +14,6 @@ static nw_state *state_context;
 static dict_t *method_map;
 
 static rpc_clt *matchengine;
-static rpc_clt *marketprice;
 static rpc_clt *cache;
 
 struct state_data {
@@ -78,7 +77,7 @@ static int reply_json(nw_ses *ses, json_t *data, sds cache_key)
     if (cache_key) {
         int ttl = settings.cache_timeout * 1000;
         struct cache_val val;
-        val.time_exp = current_timestamp() + ttl;
+        val.time_exp = current_millis() + ttl;
         val.result = data;
         json_incref(data);
         dict_replace_cache(cache_key, &val);
@@ -290,12 +289,23 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
         }
     }
 
+    int limit = settings.deal_default;
+    entry = dict_find(params, "limit");
+    if (entry) {
+        limit = atoi(entry->val);
+        if (limit <= 0) {
+            limit = settings.deal_default;
+        } else if (limit > settings.deal_max) {
+            limit = settings.deal_default;
+        }
+    }
+
     sds cache_key = sdsempty();
-    cache_key = sdscatprintf(cache_key, "deals_%s_%d", market, last_id);
+    cache_key = sdscatprintf(cache_key, "deals_%s_%d_%d", market, last_id, limit);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_string(market));
-    json_array_append_new(query_params, json_integer(1000));
+    json_array_append_new(query_params, json_integer(limit));
     json_array_append_new(query_params, json_integer(last_id));
 
     int ret = check_cache(ses, cache_key, CMD_CACHE_DEALS, query_params);
@@ -377,12 +387,14 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     char *market = entry->val;
     strtoupper(market);
 
-    int limit = 1000;
+    int limit = settings.kline_default;
     entry = dict_find(params, "limit");
     if (entry) {
         limit = atoi(entry->val);
         if (limit <= 0) {
-            limit = 1000;
+            limit = settings.kline_default;
+        } else if (limit > settings.kline_max) {
+            limit = settings.kline_default;
         }
     }
 
@@ -618,19 +630,45 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     if (entry) {
         struct state_data *info = entry->data;
         if (info->ses->id == info->ses_id) {
+            profile_inc("success", 1);
             if (pkg->command == CMD_CACHE_KLINE || pkg->command == CMD_CACHE_DEALS || pkg->command == CMD_CACHE_DEPTH) {
                 json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
                 json_t *cache_result = json_object_get(reply_json, "cache_result");
 
-                if (reply_json == NULL || cache_result == NULL) {
-                    log_error("cache_result null");
+                if (reply_json == NULL) {
+                    sds hex = hexdump(pkg->body, pkg->body_size);
+                    log_error("invalid reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
+                    sdsfree(hex);
+
                     reply_internal_error(ses);
                     nw_state_del(state_context, pkg->sequence);
-                    if (reply_json)
-                        json_decref(reply_json);
                     return;
                 }
 
+                // error, no cache_result
+                if (cache_result == NULL) {
+                    json_t *error = json_object_get(reply_json, "error");
+                    if (!error) {
+                        reply_internal_error(info->ses);
+                        nw_state_del(state_context, pkg->sequence);
+                        json_decref(reply_json);
+                        return;
+                    }
+
+                    if (!json_is_null(error)) {
+                        const char *message = json_string_value(json_object_get(error, "message"));
+                        if (message) {
+                            reply_error(info->ses, 1, message, 200);
+                        } else {
+                            reply_internal_error(info->ses);
+                        }
+                        nw_state_del(state_context, pkg->sequence);
+                        json_decref(reply_json);
+                        return;
+                    }
+                }
+
+                // cache_result
                 json_t *error = json_object_get(cache_result, "error");
                 if (!error) {
                     reply_internal_error(info->ses);
@@ -674,16 +712,21 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                     return;
                 }
 
-                char *data_str = json_dumps(data, 0);
-                send_http_response_simple(info->ses, 200, data_str, strlen(data_str));
-                free(data_str);
+                json_t *reply = json_object();
+                json_object_set_new(reply, "code", json_integer(0));
+                json_object_set    (reply, "data", data);
+                json_object_set_new(reply, "message", json_string("OK"));
+
+                char *reply_str = json_dumps(reply, 0);
+                send_http_response_simple(info->ses, 200, reply_str, strlen(reply_str));
+                free(reply_str);
+                json_decref(reply);
                 json_decref(data);
-                profile_inc("reply_normal", 1);
 
                 if (info->cache_key) {
                     int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
                     struct cache_val val;
-                    val.time_exp = current_timestamp() + ttl;
+                    val.time_exp = current_millis() + ttl;
                     val.result = result;
                     json_incref(result);
                     dict_replace_cache(info->cache_key, &val);
@@ -711,12 +754,6 @@ static int init_backend(void)
     if (matchengine == NULL)
         return -__LINE__;
     if (rpc_clt_start(matchengine) < 0)
-        return -__LINE__;
-
-    marketprice = rpc_clt_create(&settings.marketprice, &ct);
-    if (marketprice == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(marketprice) < 0)
         return -__LINE__;
 
     cache = rpc_clt_create(&settings.cache, &ct);

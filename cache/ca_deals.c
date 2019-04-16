@@ -32,6 +32,7 @@ struct state_data {
     uint64_t last_id;
     nw_ses   *ses;
     uint64_t ses_id;
+    uint32_t sequence;
 };
 
 static uint32_t dict_deals_sub_hash_function(const void *key)
@@ -93,14 +94,17 @@ static void on_timeout(nw_state_entry *entry)
 {
     log_error("state id: %u timeout", entry->id);
     struct state_data *state = entry->data;
-    if (state->ses->id == state->ses_id) {
-        rpc_pkg reply_rpc;
-        memset(&reply_rpc, 0, sizeof(reply_rpc));
-        reply_rpc.command = CMD_CACHE_DEALS;
-        reply_time_out(state->ses, &reply_rpc);
-    } else {
-        log_error("ses id not equal");
-    }
+
+    if (state->ses != NULL) {
+        if (state->ses->id == state->ses_id) {
+            rpc_pkg reply_rpc;
+            memset(&reply_rpc, 0, sizeof(reply_rpc));
+            reply_rpc.command = CMD_CACHE_DEALS;
+            reply_time_out(state->ses, &reply_rpc);
+        } else {
+            log_error("ses id not equal");
+        }
+    }   
 }
 
 static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint64_t last_id)
@@ -114,21 +118,26 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, int lim
         return false;
     }
 
-    double now = current_timestamp();
+    uint64_t now = current_millis();
     int ttl = now - cache->time;
 
     json_t *new_result = json_object();
     json_object_set_new(new_result, "ttl", json_integer(ttl));
-    json_object_set(new_result, "cache_result", cache->result);
 
-    reply_result(ses, pkg, new_result);
+    json_t *reply = json_object();
+    json_object_set_new(reply, "error", json_null());
+    json_object_set    (reply, "result", cache->result);
+    json_object_set_new(reply, "id", json_integer(pkg->req_id));
+    json_object_set_new(new_result, "cache_result", reply);
+
+    reply_json(ses, pkg, new_result);
     sdsfree(key);
     json_decref(new_result);
 
     return true;
 }
 
-static void deals_reply(nw_ses *ses, json_t *result)
+static void deals_reply(nw_ses *ses, json_t *result, uint32_t sequence)
 {
     json_t *new_result = json_object();
     json_object_set_new(new_result, "ttl", json_integer(settings.cache_timeout));
@@ -137,7 +146,8 @@ static void deals_reply(nw_ses *ses, json_t *result)
     rpc_pkg reply_rpc;
     memset(&reply_rpc, 0, sizeof(reply_rpc));
     reply_rpc.command = CMD_CACHE_DEALS;
-    reply_result(ses, &reply_rpc, new_result);
+    reply_rpc.sequence = sequence;
+    reply_json(ses, &reply_rpc, new_result);
     json_decref(new_result);
 
     return;
@@ -181,6 +191,9 @@ static int deals_sub_reply(const char *market, json_t *result)
         return 0;
 
     json_t *first = json_array_get(result, 0);
+    if (first == NULL || !json_is_integer(json_object_get(first, "id")))
+        return -__LINE__;
+
     uint64_t id = json_integer_value(json_object_get(first, "id"));
     if (id == 0)
         return -__LINE__;
@@ -204,9 +217,8 @@ static int deals_sub_reply(const char *market, json_t *result)
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry == NULL) {
+    if (entry == NULL)
         return;
-    }
 
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
@@ -217,15 +229,15 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
+    bool is_error = false;
+
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
     if (error == NULL || !json_is_null(error) || result == NULL) {
         sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
         log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
         sdsfree(reply_str);
-        json_decref(reply);
-        nw_state_del(state_context, pkg->sequence);
-        return;
+        is_error = true;
     }
 
     struct state_data *state = entry->data;
@@ -234,19 +246,22 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_MARKET_DEALS:
         if (state->ses) { // out request
             if (state->ses->id == state->ses_id) {
-                deals_reply(state->ses, result);
+                deals_reply(state->ses, reply, state->sequence);
 
-                sds cache_key = sdsempty();
-                cache_key = sdscatprintf(cache_key, "deals-%s-%d-%ld", state->market, state->limit, state->last_id);
-                add_cache(cache_key, result);
-                sdsfree(cache_key);
+                if (!is_error) {
+                    sds cache_key = sdsempty();
+                    cache_key = sdscatprintf(cache_key, "deals-%s-%d-%ld", state->market, state->limit, state->last_id);
+                    add_cache(cache_key, result);
+                    sdsfree(cache_key);
+                }
             } else {
                 sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
                 log_error("ses id not equal, reply: %s", reply_str);
                 sdsfree(reply_str);
             }
         } else { // sub timer request
-            deals_sub_reply(state->market, result);
+            if (!is_error)
+                deals_sub_reply(state->market, result);
         }
         
         break;
@@ -267,8 +282,11 @@ int deals_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint
     state->limit = limit;
     state->last_id = last_id;
 
-    state->ses = ses;
-    state->ses_id = ses->id;
+    if (ses != NULL) {
+        state->ses = ses;
+        state->ses_id = ses->id;
+        state->sequence = pkg->sequence;
+    }
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
@@ -277,6 +295,9 @@ int deals_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint
 
     rpc_pkg req_pkg;
     memset(&req_pkg, 0, sizeof(req_pkg));
+    if (pkg != NULL) {
+        req_pkg.req_id = pkg->req_id;
+    }
     req_pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
     req_pkg.command   = CMD_MARKET_DEALS;
     req_pkg.sequence  = state_entry->id;
@@ -284,8 +305,6 @@ int deals_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint
     req_pkg.body_size = strlen(req_pkg.body);
 
     rpc_clt_send(marketprice, &req_pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), req_pkg.command, req_pkg.sequence, (char *)req_pkg.body);
     free(req_pkg.body);
     json_decref(params);
 
@@ -310,6 +329,7 @@ static void on_timer(nw_timer *timer, void *privdata)
 
 int deals_subscribe(nw_ses *ses, const char *market)
 {
+    log_info("deals subscribe, market: %s", market);
     struct dict_deals_key key;
     memset(&key, 0, sizeof(key));
     strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);

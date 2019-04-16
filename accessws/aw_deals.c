@@ -71,8 +71,10 @@ static void *dict_market_val_dup(const void *val)
 static void dict_market_val_free(void *val)
 {
     struct market_val *obj = val;
-    dict_release(obj->sessions);
-    list_release(obj->deals);
+    if (obj->sessions)
+        dict_release(obj->sessions);
+    if (obj->deals)
+        list_release(obj->deals);
     free(obj);
 }
 
@@ -200,6 +202,7 @@ static int on_order_deals_reply(const char *market, json_t *result)
         send_notify(entry->key, "deals.update", params);
     }
     dict_release_iterator(iter);
+
     json_decref(params);
     profile_inc("deals.update", dict_size(obj->sessions));
 
@@ -355,6 +358,9 @@ int deals_subscribe(nw_ses *ses, const char *market, uint32_t user_id)
 
     struct market_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
+
+    if (dict_size(obj->sessions) == 1)
+        cache_send_request(market, CMD_CACHE_DEALS_SUBSCRIBE);
 
     if (user_id) {
         int ret = subscribe_user(ses, user_id);

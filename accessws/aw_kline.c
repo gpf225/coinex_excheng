@@ -62,7 +62,8 @@ static void *dict_kline_val_dup(const void *val)
 static void dict_kline_val_free(void *val)
 {
     struct kline_val *obj = val;
-    dict_release(obj->sessions);
+    if (obj->sessions)
+        dict_release(obj->sessions);
     if (obj->last)
         json_decref(obj->last);
     free(obj);
@@ -278,6 +279,9 @@ int kline_subscribe(nw_ses *ses, const char *market, int interval)
 
     struct kline_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
+
+    if (dict_size(obj->sessions) == 1)
+        cache_send_request(market, interval, CMD_CACHE_KLINE_SUBSCRIBE);
 
     return 0;
 }
