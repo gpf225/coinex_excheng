@@ -1601,7 +1601,7 @@ static int on_cmd_update_market_config(nw_ses *ses, rpc_pkg *pkg, json_t *params
     return reply_success(ses, pkg);
 }
 
-static int self_market_deal(market_t *market, mpd_t *amount, mpd_t *price)
+static int self_market_deal(market_t *market, mpd_t *amount, mpd_t *price, uint32_t side)
 {
     // get ask_price_1
     mpd_t *ask_price_1 = NULL;
@@ -1672,7 +1672,7 @@ static int self_market_deal(market_t *market, mpd_t *amount, mpd_t *price)
     order->id        = 0;
     order->user_id   = 0;
 
-    push_deal_message(update_time, deal_id, market, MARKET_TRADE_SIDE_SELL, order, order, real_price, amount, deal, market->money, mpd_zero, market->stock, mpd_zero);
+    push_deal_message(update_time, deal_id, market, side, order, order, real_price, amount, deal, market->money, mpd_zero, market->stock, mpd_zero);
 
     free(order);
     mpd_del(deal);
@@ -1688,7 +1688,7 @@ static int self_market_deal(market_t *market, mpd_t *amount, mpd_t *price)
 
 static int on_cmd_self_market_deal(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) != 4)
         return reply_error_invalid_argument(ses, pkg);
 
     // market
@@ -1716,7 +1716,14 @@ static int on_cmd_self_market_deal(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (price == NULL || mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0)
         goto invalid_argument;
 
-    int ret = self_market_deal(market, amount, price);
+    // side
+    if (!json_is_integer(json_array_get(params, 3)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint32_t side = json_integer_value(json_array_get(params, 3));
+    if (side != MARKET_TRADE_SIDE_SELL && side != MARKET_TRADE_SIDE_BUY)
+        return reply_error_invalid_argument(ses, pkg);
+
+    int ret = self_market_deal(market, amount, price, side);
 
     mpd_del(amount);
     mpd_del(price);
