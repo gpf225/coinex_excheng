@@ -63,6 +63,7 @@
             "db"  : 4
         }
     ],
+    "start_user_id": 0,
     "last_user_id": 0,
     "least_day_per_user": 7,
     "max_order_per_user": 50000,

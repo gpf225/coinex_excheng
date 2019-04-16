@@ -11,7 +11,7 @@
 # include "dm_balance.h"
 # include "dm_dbpool.h"
 
-static bool is_stop_migrate = false;
+static volatile bool is_migrate_cancel = 0;
 static uint32_t has_migrated = 0;
 static uint32_t last_user_id = 0;
 
@@ -160,7 +160,7 @@ static int migrate_user(uint32_t user_id)
     ret = migrate_data(user_id, migrate_start_time, migrate_end_time, settings.migirate_end_time);
     if (ret != 0) {
         log_error("user_id:%u migration failed, ret:%d", user_id, ret);
-        return 0;
+        return ret;
     }
     return 0;
 }
@@ -185,6 +185,10 @@ static void *thread_routine(void *data)
         }
         
         for (uint32_t i = 0; i < user_list->size; ++i) {
+            if (is_migrate_cancel) {
+                log_info("want to stop migration, last completed user_id:%u", last_user_id);
+                break;
+            }
             last_user_id = user_list->users[i];
             int ret = migrate_user(last_user_id);
             if (ret != 0) {
@@ -197,8 +201,9 @@ static void *thread_routine(void *data)
         if (error) {
             break; 
         }
-       
-        if (is_stop_migrate) {
+        
+        log_trace("is_migrate_cancel:%s", is_migrate_cancel ? "true" : "false");
+        if (is_migrate_cancel) {
             log_info("want to stop migration, last completed user_id:%u", last_user_id);
             error = false;
             break;
@@ -206,6 +211,7 @@ static void *thread_routine(void *data)
     }
     
     log_info("stop migration thread, has_migrated:%u last_user_id:%d error: %s", has_migrated, last_user_id, error ? "error" : "none");
+    signal_exit = true;
     return NULL;
 }
 
@@ -231,7 +237,8 @@ int start_migrate(void)
 
 void migrate_cancel(void)
 {
-    is_stop_migrate = true;
+    is_migrate_cancel = true;
+    log_trace("is_migrate_cancel:%s", is_migrate_cancel ? "true" : "false");
 }
 
 sds migrate_status(sds reply)

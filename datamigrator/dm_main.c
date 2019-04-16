@@ -60,12 +60,13 @@ static int init_log(void)
 
 int main(int argc, char *argv[])
 {
-    printf("process: %s version: %s, compile date: %s %s\n", __process__, __version__, __DATE__, __TIME__);
-
-    if (argc < 2) {
+    if (argc < 3) {
         printf("usage: %s config.json\n", argv[0]);
         exit(EXIT_FAILURE);
     }
+    
+    __process__ = argv[2];
+    printf("process: %s version: %s, compile date: %s %s\n", __process__, __version__, __DATE__, __TIME__);
     if (process_exist(__process__) != 0) {
         printf("process: %s exist\n", __process__);
         exit(EXIT_FAILURE);
@@ -90,9 +91,9 @@ int main(int argc, char *argv[])
     }
 
     daemon(1, 1);
-    process_keepalive1(settings.debug);
+    //process_keepalive1(settings.debug);
 
-    ret = init_user(settings.last_user_id);
+    ret = init_user(settings.start_user_id, settings.last_user_id);
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init user fail: %d", ret);
     }

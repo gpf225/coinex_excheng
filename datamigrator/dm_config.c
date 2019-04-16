@@ -92,7 +92,8 @@ static int read_config_from_json(json_t *root)
     ERR_RET(read_cfg_int(root, "least_day_per_user", &settings.least_day_per_user, false, 7));
     ERR_RET(read_cfg_int(root, "max_order_per_user", &settings.max_order_per_user, false, 50000));
     ERR_RET(read_cfg_int(root, "migrate_mode", &settings.migrate_mode, false, 1));
-    ERR_RET(read_cfg_uint32(root, "last_user_id", &settings.last_user_id, false, 0));
+    ERR_RET(read_cfg_uint32(root, "start_user_id", &settings.start_user_id, false, 0));
+    ERR_RET(read_cfg_uint32(root, "last_user_id", &settings.last_user_id, false, UINT_MAX));
     ERR_RET(read_cfg_real(root, "migrate_start_time", &settings.migirate_start_time, true, 1.0));
     ERR_RET(read_cfg_real(root, "migrate_end_time", &settings.migirate_end_time, false, 1.0));
     
@@ -108,6 +109,10 @@ static int read_config_from_json(json_t *root)
             log_stderr("when migirate_end_time does not setted, the migrate mode may be full migration");
             return -__LINE__;
         }
+    }
+
+    if (settings.last_user_id == 0) {
+        settings.last_user_id = UINT_MAX;
     }
 
     return 0;
