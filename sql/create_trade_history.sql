@@ -8,8 +8,10 @@ CREATE TABLE `balance_history_example` (
     `change`        DECIMAL(40,20) NOT NULL COMMENT "资产变更",  # 由原来8位变成20位
     `balance`       DECIMAL(40,20) NOT NULL COMMENT "变更后余额",
     `detail`        TEXT NOT NULL COMMENT "明细信息",
+    INDEX `idx_time` (`time`),
     INDEX `idx_user_time` (`user_id`, `time`),
-    INDEX `idx_time` (`time`)
+    INDEX `idx_user_business_time` (`user_id`, `business`, `time`),
+    INDEX `idx_user_asset_business_time` (`user_id`, `asset`, `business`, `time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id
@@ -33,9 +35,11 @@ CREATE TABLE `order_history_example` (
     `deal_money`    DECIMAL(40,20) NOT NULL COMMENT "定价币种已交易数量", # 由原来16位变成20位，8+12=20，如果价格扩展到20位，那么我们就做四舍五入.
     `deal_fee`      DECIMAL(40,20) NOT NULL COMMENT "定价货币已产生的手续费",
     `asset_fee`     DECIMAL(40,20) NOT NULL COMMENT "手续费币种已产生的手续费",
-    UNIQUE KEY `uk_order` (`order_id`),
+    INDEX `idx_time` (`create_time`),
     INDEX `idx_user_time` (`user_id`, `create_time`),
-    INDEX `idx_time` (`create_time`)
+    INDEX `idx_user_side_time` (`user_id`, `side`, `create_time`),
+    INDEX `idx_user_market_time` (`user_id`, `market`, `create_time`),
+    INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id
@@ -57,9 +61,11 @@ CREATE TABLE `stop_history_example` (
     `taker_fee`     DECIMAL(40,4) NOT NULL COMMENT "taker费率",
     `maker_fee`     DECIMAL(40,4) NOT NULL COMMENT "maker费率",
     `status`        TINYINT UNSIGNED NOT NULL COMMENT "计划委托单状态，成功，失败",
-    UNIQUE KEY `uk_order` (`order_id`),
+    INDEX `idx_time` (`create_time`),
     INDEX `idx_user_time` (`user_id`, `create_time`),
-    INDEX `idx_time` (`create_time`)
+    INDEX `idx_user_side_time` (`user_id`, `side`, `create_time`),
+    INDEX `idx_user_market_time` (`user_id`, `market`, `create_time`),
+    INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id
@@ -67,6 +73,7 @@ CREATE TABLE `user_deal_history_example` (
     `id`            BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `time`          DOUBLE NOT NULL COMMENT "交易时间",
     `user_id`       INT UNSIGNED NOT NULL COMMENT "用户id",
+    `deal_user_id`  INT UNSIGNED NOT NULL COMMENT "对手用户id",
     `market`        VARCHAR(30) NOT NULL COMMENT "市场名称",
     `deal_id`       BIGINT UNSIGNED NOT NULL COMMENT "交易id",
     `order_id`      BIGINT UNSIGNED NOT NULL COMMENT "订单ID",
@@ -80,7 +87,9 @@ CREATE TABLE `user_deal_history_example` (
     `deal_fee`      DECIMAL(40,20) NOT NULL COMMENT "对手单交易手续费",
     `fee_asset`      VARCHAR(30) NOT NULL COMMENT "本交易手续费货币类型",
     `deal_fee_asset` VARCHAR(30) NOT NULL COMMENT "对手交易手续费货币类型",
-    INDEX `idx_order` (`order_id`),
+    INDEX `idx_time` (`time`),
     INDEX `idx_user_time` (`user_id`, `time`),
-    INDEX `idx_time` (`time`)
+    INDEX `idx_user_side_time` (`user_id`, `side`, `time`),
+    INDEX `idx_user_market_time` (`user_id`, `market`, `time`),
+    INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
