@@ -91,8 +91,8 @@ int order_migrate(uint32_t user_id, double migrate_start_time, double migrate_en
 double order_get_end_time(uint32_t user_id, double migrate_start_time, int least_day_per_user, int max_order_per_user)
 {
     sds sql = sdsempty();  
-    sql = sdscatprintf(sql, "SELECT `create_time` from `order_history_%u` WHERE `create_time` <= '%f' AND `user_id` = user_id ORDER BY `id` DESC LIMIT %d, 1", 
-        user_id % HISTORY_HASH_NUM, migrate_start_time, max_order_per_user);
+    sql = sdscatprintf(sql, "SELECT `create_time` from `order_history_%u` WHERE `create_time` <= '%f' AND `user_id` = %u ORDER BY `id` DESC LIMIT %d, 1", 
+        user_id % HISTORY_HASH_NUM, migrate_start_time, user_id, max_order_per_user);
 
     log_trace("sql:%s", sql);
     MYSQL *conn = get_old_db_connection();
