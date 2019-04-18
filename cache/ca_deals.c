@@ -195,6 +195,8 @@ static int deals_sub_reply(const char *market, json_t *result)
         return -__LINE__;
 
     uint64_t id = json_integer_value(json_object_get(first, "id"));
+    log_info("deal sub reply, market: %s, array_size: %zd, last_id: %zd", market, array_size, id);
+
     if (id == 0)
         return -__LINE__;
     obj->last_id = id;
@@ -319,9 +321,14 @@ static void on_timer(nw_timer *timer, void *privdata)
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_deals_key *key = entry->key;
         struct dict_deals_sub_val *val = entry->val;
-        if (dict_size(val->sessions) == 0 || !market_exist(key->market))
-            continue;
 
+        bool is_market_exist = market_exist(key->market);
+        if (dict_size(val->sessions) == 0 || !is_market_exist) {
+            log_info("on time sub_deals, market: %s, is_market_exist: %d", key->market, is_market_exist);
+            continue;
+        }
+
+        log_info("deal sub request, market: %s, last_id: %zd", key->market, val->last_id);
         deals_request(NULL, NULL, key->market, DEALS_QUERY_LIMIT, val->last_id);
     }
     dict_release_iterator(iter);

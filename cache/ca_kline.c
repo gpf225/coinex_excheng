@@ -308,10 +308,15 @@ static void on_timer(nw_timer *timer, void *privdata)
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_kline_key *key = entry->key;
         struct dict_kline_sub_val *val = entry->val;
-        if (dict_size(val->sessions) == 0 || !market_exist(key->market))
+
+        bool is_market_exist = market_exist(key->market);
+        if (dict_size(val->sessions) == 0 || !is_market_exist) {
+            log_info("on time sub_deals, market: %s, is_market_exist: %d", key->market, is_market_exist);
             continue;
+        }
 
         time_t now = time(NULL);
+        log_info("kline sub request, market: %s, interval: %d", key->market, key->interval);
         kline_request(NULL, NULL, key->market, (now - (int)(settings.sub_kline_interval + 1)), now, key->interval);
     }
     dict_release_iterator(iter);

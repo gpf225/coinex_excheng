@@ -349,8 +349,11 @@ static void on_timer(nw_timer *timer, void *privdata)
         struct dict_depth_key *key = entry->key;
         struct dict_depth_sub_val *val = entry->val;
 
-        if (dict_size(val->sessions) == 0 || !market_exist(key->market))
+        bool is_market_exist = market_exist(key->market);
+        if (dict_size(val->sessions) == 0 || !is_market_exist) {
+            log_info("on time sub_deals, market: %s, is_market_exist: %d", key->market, is_market_exist);
             continue;
+        }
 
         sds cache_key = sdsempty();
         cache_key = sdscatprintf(cache_key, "depth_%s_%s", key->market, key->interval);
@@ -360,6 +363,7 @@ static void on_timer(nw_timer *timer, void *privdata)
             int ttl = cache_val->time - current_millis();
             depth_sub_reply(key->market, key->interval, cache_val->result, ttl);
         } else {
+            log_info("depth sub request, market: %s, interval: %s", key->market, key->interval);
             depth_request(NULL, NULL, key->market, settings.depth_limit_max, key->interval);
         }
         sdsfree(cache_key);

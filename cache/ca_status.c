@@ -301,7 +301,7 @@ int status_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int period)
     return 0;
 }
 
-static void on_sub_timer(nw_timer *timer, void *privdata) 
+static void on_timer(nw_timer *timer, void *privdata) 
 {
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_status_sub);
@@ -309,9 +309,14 @@ static void on_sub_timer(nw_timer *timer, void *privdata)
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_status_key *key = entry->key;
         struct dict_status_sub_val *val = entry->val;
-        if (dict_size(val->sessions) == 0 || !market_exist(key->market))
-            continue;
 
+        bool is_market_exist = market_exist(key->market);
+        if (dict_size(val->sessions) == 0 || !is_market_exist) {
+            log_info("on time sub_deals, market: %s, is_market_exist: %d", key->market, is_market_exist);
+            continue;
+        }
+
+        log_info("state sub request, market: %s, period: %d", key->market, key->period);
         status_request(NULL, NULL, key->market, key->period);
     }
     dict_release_iterator(iter);
@@ -419,7 +424,7 @@ int init_status(void)
         return -__LINE__;
     }
 
-    nw_timer_set(&timer, settings.sub_status_interval, true, on_sub_timer, NULL);
+    nw_timer_set(&timer, settings.sub_status_interval, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;
