@@ -310,7 +310,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         dict_delete(dict_depth_sub, &key);
     }
 
-
     switch (pkg->command) {
     case CMD_ORDER_DEPTH:
         if (state->ses) { // out request
@@ -361,7 +360,7 @@ static void on_timer(nw_timer *timer, void *privdata)
         sds cache_key = sdsempty();
         cache_key = sdscatprintf(cache_key, "depth_%s_%s", key->market, key->interval);
 
-        struct dict_cache_val *cache_val = get_cache(cache_key, settings.sub_depth_interval * 1000);
+        struct dict_cache_val *cache_val = get_cache(cache_key, settings.cache_timeout);
         if (cache_val != NULL) {
             int ttl = cache_val->time - current_millis();
             depth_sub_reply(key->market, key->interval, cache_val->result, ttl);

@@ -15,7 +15,6 @@ struct market_val {
     int     id;
 };
 
-
 static uint32_t dict_str_hash_func(const void *key)
 {
     return dict_generic_hash_function(key, strlen(key));
