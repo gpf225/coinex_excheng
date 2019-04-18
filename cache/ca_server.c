@@ -138,11 +138,8 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         goto error;
     }
 
-    if (!market_exist(market)) {
+    if (!market_exist(market))
         log_error("market not exist, market: %s", market);
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        goto error;
-    }
 
     depth_unsubscribe(ses, market, interval);
     int ret = depth_subscribe(ses, market, interval);
@@ -245,10 +242,8 @@ static int on_method_deals_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
     }
 
-    if (!market_exist(market)) {
+    if (!market_exist(market))
         log_error("market not exist, market: %s", market);
-        return reply_error_invalid_argument(ses, pkg);
-    }
 
     deals_unsubscribe(ses, market);
     int ret = deals_subscribe(ses, market);
@@ -338,12 +333,8 @@ static int on_method_kline_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
     }
 
-    if (!market_exist(market)) {
-        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("market not exist, recv_str: %s", recv_str);
-        sdsfree(recv_str);
-        return reply_error_invalid_argument(ses, pkg);
-    }
+    if (!market_exist(market))
+        log_error("market not exist, recv_str: %s", market);
 
     kline_unsubscribe(ses, market, interval);
     int ret = kline_subscribe(ses, market, interval);
@@ -397,10 +388,8 @@ static int on_method_status_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
     }
 
-    if (!market_exist(market)) {
+    if (!market_exist(market))
         log_error("market not exist, market: %s", market);
-        return reply_error_invalid_argument(ses, pkg);
-    }
 
     status_unsubscribe(ses, market, 86400);
     int ret = status_subscribe(ses, market, 86400);

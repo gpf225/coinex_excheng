@@ -195,6 +195,8 @@ static int deals_sub_reply(const char *market, json_t *result)
         return -__LINE__;
 
     uint64_t id = json_integer_value(json_object_get(first, "id"));
+    log_info("deal sub reply, market: %s, array_size: %zd, last_id: %zd", market, array_size, id);
+
     if (id == 0)
         return -__LINE__;
     obj->last_id = id;
@@ -230,6 +232,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     bool is_error = false;
+    struct state_data *state = entry->data;
 
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
@@ -238,9 +241,13 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
         sdsfree(reply_str);
         is_error = true;
+
+        struct dict_deals_key key;
+        memset(&key, 0, sizeof(key));
+        strncpy(key.market, state->market, MARKET_NAME_MAX_LEN - 1);
+        dict_delete(dict_deals_sub,  &key);
     }
 
-    struct state_data *state = entry->data;
 
     switch (pkg->command) {
     case CMD_MARKET_DEALS:
@@ -319,9 +326,13 @@ static void on_timer(nw_timer *timer, void *privdata)
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_deals_key *key = entry->key;
         struct dict_deals_sub_val *val = entry->val;
-        if (dict_size(val->sessions) == 0 || !market_exist(key->market))
-            continue;
 
+        if (dict_size(val->sessions) == 0) {
+            log_info("deal on_timer sessions num is 0, market: %s", key->market);
+            continue;
+        }
+
+        log_info("deal sub request, market: %s, last_id: %zd", key->market, val->last_id);
         deals_request(NULL, NULL, key->market, DEALS_QUERY_LIMIT, val->last_id);
     }
     dict_release_iterator(iter);

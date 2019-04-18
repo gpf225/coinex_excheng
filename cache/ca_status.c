@@ -222,6 +222,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     bool is_error = false;
+    struct state_data *state = entry->data;
 
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
@@ -230,9 +231,13 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
         is_error = true;
         sdsfree(reply_str);
-    }
 
-    struct state_data *state = entry->data;
+        struct dict_status_key key;
+        memset(&key, 0, sizeof(key));
+        strncpy(key.market, state->market, MARKET_NAME_MAX_LEN - 1);
+        key.period = state->period;
+        dict_delete(dict_status_sub, &key);
+    }
 
     switch (pkg->command) {
     case CMD_MARKET_STATUS:
@@ -301,7 +306,7 @@ int status_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int period)
     return 0;
 }
 
-static void on_sub_timer(nw_timer *timer, void *privdata) 
+static void on_timer(nw_timer *timer, void *privdata) 
 {
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_status_sub);
@@ -309,9 +314,13 @@ static void on_sub_timer(nw_timer *timer, void *privdata)
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_status_key *key = entry->key;
         struct dict_status_sub_val *val = entry->val;
-        if (dict_size(val->sessions) == 0 || !market_exist(key->market))
-            continue;
 
+        if (dict_size(val->sessions) == 0) {
+            log_info("state on_timer sessions num is 0, market: %s", key->market);
+            continue;
+        }
+
+        log_info("state sub request, market: %s, period: %d", key->market, key->period);
         status_request(NULL, NULL, key->market, key->period);
     }
     dict_release_iterator(iter);
@@ -419,7 +428,7 @@ int init_status(void)
         return -__LINE__;
     }
 
-    nw_timer_set(&timer, settings.sub_status_interval, true, on_sub_timer, NULL);
+    nw_timer_set(&timer, settings.sub_status_interval, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;

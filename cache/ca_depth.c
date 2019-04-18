@@ -295,6 +295,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     bool is_error = false;
+    struct state_data *state = entry->data;
 
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
@@ -303,9 +304,11 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
         sdsfree(reply_str);
         is_error = true;
-    }
 
-    struct state_data *state = entry->data;
+        struct dict_depth_key key;
+        depth_set_key(&key, state->market, state->interval);
+        dict_delete(dict_depth_sub, &key);
+    }
 
     switch (pkg->command) {
     case CMD_ORDER_DEPTH:
@@ -349,17 +352,20 @@ static void on_timer(nw_timer *timer, void *privdata)
         struct dict_depth_key *key = entry->key;
         struct dict_depth_sub_val *val = entry->val;
 
-        if (dict_size(val->sessions) == 0 || !market_exist(key->market))
+        if (dict_size(val->sessions) == 0) {
+            log_info("detph on_timer sessions num is 0, market: %s", key->market);
             continue;
+        }
 
         sds cache_key = sdsempty();
         cache_key = sdscatprintf(cache_key, "depth_%s_%s", key->market, key->interval);
 
-        struct dict_cache_val *cache_val = get_cache(cache_key, settings.sub_depth_interval * 1000);
+        struct dict_cache_val *cache_val = get_cache(cache_key, settings.cache_timeout);
         if (cache_val != NULL) {
             int ttl = cache_val->time - current_millis();
             depth_sub_reply(key->market, key->interval, cache_val->result, ttl);
         } else {
+            log_info("depth sub request, market: %s, interval: %s", key->market, key->interval);
             depth_request(NULL, NULL, key->market, settings.depth_limit_max, key->interval);
         }
         sdsfree(cache_key);
