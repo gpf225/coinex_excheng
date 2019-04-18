@@ -222,6 +222,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     bool is_error = false;
+    struct state_data *state = entry->data;
 
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
@@ -230,9 +231,13 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
         is_error = true;
         sdsfree(reply_str);
-    }
 
-    struct state_data *state = entry->data;
+        struct dict_status_key key;
+        memset(&key, 0, sizeof(key));
+        strncpy(key.market, state->market, MARKET_NAME_MAX_LEN - 1);
+        key.period = state->period;
+        dict_delete(dict_status_sub, &key);
+    }
 
     switch (pkg->command) {
     case CMD_MARKET_STATUS:
@@ -310,9 +315,8 @@ static void on_timer(nw_timer *timer, void *privdata)
         struct dict_status_key *key = entry->key;
         struct dict_status_sub_val *val = entry->val;
 
-        bool is_market_exist = market_exist(key->market);
-        if (dict_size(val->sessions) == 0 || !is_market_exist) {
-            log_info("on time sub_deals, market: %s, is_market_exist: %d", key->market, is_market_exist);
+        if (dict_size(val->sessions) == 0) {
+            log_info("state on_timer sessions num is 0, market: %s", key->market);
             continue;
         }
 
