@@ -7,7 +7,7 @@
 # include "aw_deals.h"
 # include "aw_server.h"
 
-static dict_t *dict_market;
+static dict_t *dict_sub_deals;
 static dict_t *dict_user;
 
 # define DEALS_QUERY_LIMIT 1000
@@ -16,7 +16,7 @@ struct state_data {
     char market[MARKET_NAME_MAX_LEN];
 };
 
-struct market_val {
+struct sub_deals_val {
     dict_t *sessions;
 };
 
@@ -60,14 +60,14 @@ static void dict_market_key_free(void *key)
 
 static void *dict_market_val_dup(const void *val)
 {
-    struct market_val *obj = malloc(sizeof(struct market_val));
-    memcpy(obj, val, sizeof(struct market_val));
+    struct sub_deals_val *obj = malloc(sizeof(struct sub_deals_val));
+    memcpy(obj, val, sizeof(struct sub_deals_val));
     return obj;
 }
 
 static void dict_market_val_free(void *val)
 {
-    struct market_val *obj = val;
+    struct sub_deals_val *obj = val;
     if (obj->sessions)
         dict_release(obj->sessions);
     free(obj);
@@ -113,15 +113,15 @@ static void dict_user_val_free(void *val)
 
 int deals_sub_update(const char *market, json_t *result)
 {
-    dict_entry *entry = dict_find(dict_market, market);
+    dict_entry *entry = dict_find(dict_sub_deals, market);
     if (entry == NULL)
         return -__LINE__;
-    struct market_val *obj = entry->val;
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append(params, result);
 
+    struct sub_deals_val *obj = entry->val;
     dict_iterator *iter = dict_get_iterator(obj->sessions);
     while ((entry = dict_next(iter)) != NULL) {
         send_notify(entry->key, "deals.update", params);
@@ -145,8 +145,8 @@ int init_deals(void)
     dt.val_dup = dict_market_val_dup;
     dt.val_destructor = dict_market_val_free;
 
-    dict_market = dict_create(&dt, 64);
-    if (dict_market == NULL)
+    dict_sub_deals = dict_create(&dt, 64);
+    if (dict_sub_deals == NULL)
         return -__LINE__;
 
     memset(&dt, 0, sizeof(dt));
@@ -193,9 +193,9 @@ static int subscribe_user(nw_ses *ses, uint32_t user_id)
 
 int deals_subscribe(nw_ses *ses, const char *market, uint32_t user_id)
 {
-    dict_entry *entry = dict_find(dict_market, market);
+    dict_entry *entry = dict_find(dict_sub_deals, market);
     if (entry == NULL) {
-        struct market_val val;
+        struct sub_deals_val val;
         memset(&val, 0, sizeof(val));
 
         dict_types dt;
@@ -206,12 +206,12 @@ int deals_subscribe(nw_ses *ses, const char *market, uint32_t user_id)
         if (val.sessions == NULL)
             return -__LINE__;
 
-        entry = dict_add(dict_market, (char *)market, &val);
+        entry = dict_add(dict_sub_deals, (char *)market, &val);
         if (entry == NULL)
             return -__LINE__;
     }
 
-    struct market_val *obj = entry->val;
+    struct sub_deals_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
 
     if (user_id) {
@@ -237,10 +237,10 @@ static int unsubscribe_user(nw_ses *ses, uint32_t user_id)
 
 int deals_unsubscribe(nw_ses *ses, uint32_t user_id)
 {
-    dict_iterator *iter = dict_get_iterator(dict_market);
+    dict_iterator *iter = dict_get_iterator(dict_sub_deals);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
-        struct market_val *obj = entry->val;
+        struct sub_deals_val *obj = entry->val;
         dict_delete(obj->sessions, ses);
     }
     dict_release_iterator(iter);
@@ -295,10 +295,10 @@ int deals_new(uint32_t user_id, uint64_t id, double timestamp, int type, const c
 size_t deals_subscribe_number(void)
 {
     size_t count = 0;
-    dict_iterator *iter = dict_get_iterator(dict_market);
+    dict_iterator *iter = dict_get_iterator(dict_sub_deals);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
-        const struct market_val *obj = entry->val;
+        const struct sub_deals_val *obj = entry->val;
         count += dict_size(obj->sessions);
     }
     dict_release_iterator(iter);

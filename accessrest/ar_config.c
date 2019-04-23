@@ -86,7 +86,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));
     ERR_RET(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
     ERR_RET(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.5));
-    ERR_RET(read_cfg_real(root, "market_interval", &settings.market_interval, false, 15));
+    ERR_RET(read_cfg_real(root, "market_interval", &settings.market_interval, false, 10));
     ERR_RET(read_cfg_str(root, "market_url", &settings.market_url, NULL));
 
     ERR_RET(read_depth_limit_cfg(root, "depth_limit"));

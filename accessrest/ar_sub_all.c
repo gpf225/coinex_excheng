@@ -29,7 +29,6 @@ struct depth_key {
 
 struct depth_val {
     json_t   *last;
-    uint64_t time;
 };
 
 struct state_val {
@@ -177,7 +176,7 @@ static json_t *pack_depth_result(json_t *result, uint32_t limit)
     json_object_set_new(new_result, "asks", generate_depth_data(asks_array, limit));
     json_object_set_new(new_result, "bids", generate_depth_data(bids_array, limit));
     json_object_set    (new_result, "last", json_object_get(result, "last"));
-    json_object_set    (new_result, "time", json_object_get(result, "time"));
+    json_object_set    (new_result, "time", json_integer(current_millis()));
 
     return new_result;
 }
@@ -277,26 +276,24 @@ static int on_sub_deals_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 
 static bool is_json_equal(json_t *lhs, json_t *rhs)
 {
-    if (lhs == NULL || rhs == NULL) {
+    if (lhs == NULL || rhs == NULL)
         return false;
-    }
+
     char *lhs_str = json_dumps(lhs, JSON_SORT_KEYS);
     char *rhs_str = json_dumps(rhs, JSON_SORT_KEYS);
     int ret = strcmp(lhs_str, rhs_str);
     free(lhs_str);
     free(rhs_str);
+
     return ret == 0;
 }
 
 static bool is_depth_equal(json_t *last, json_t *now)
 {
-    if (last == NULL || now == NULL) {
+    if (last == NULL || now == NULL)
         return false;
-    }
-    
-    if (!is_json_equal(json_object_get(last, "asks"), json_object_get(now, "asks"))) {
+    if (!is_json_equal(json_object_get(last, "asks"), json_object_get(now, "asks")))
         return false;
-    }
     return is_json_equal(json_object_get(last, "bids"), json_object_get(now, "bids"));
 }
 
@@ -330,30 +327,23 @@ static int on_sub_depth_update(json_t *result, nw_ses *ses, rpc_pkg *pkg)
             return -__LINE__;
     }
 
-    uint64_t now = current_millis();
     struct depth_val *val = entry->val;
     if (val->last == NULL) {
         json_incref(depth_data);
         val->last = depth_data;
-        val->time = now;
+        depth_ticker_update(market, depth_data);
+
         return 0;
     }
 
+    json_decref(val->last);
+    json_incref(depth_data);
+    val->last = depth_data;
+
     if (!is_depth_equal(val->last, depth_data)) {
-        json_decref(val->last);
-        json_incref(depth_data);
-        val->last = depth_data;
-        val->time = now;
-    } else {
-        if (now - val->time > 500) {
-            json_decref(val->last);
-            json_incref(depth_data);
-            val->last = depth_data;
-            val->time = now;
-        }
+        depth_ticker_update(market, depth_data);
     }
 
-    depth_ticker_update(market, depth_data);
     return 0;
 }
 
@@ -381,10 +371,12 @@ static int on_sub_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
         entry = dict_add(dict_state, (char *)market, &val);
         if (entry == NULL)
             return -__LINE__;
+
+        status_ticker_update(market, result);
         return 0;
     }
-    struct state_val *info = entry->val;
 
+    struct state_val *info = entry->val;
     char *last_str = NULL;
     if (info->last)
         last_str = json_dumps(info->last, JSON_SORT_KEYS);
@@ -483,7 +475,7 @@ void direct_depth_reply(nw_ses *ses, const char *market, const char *interval, u
     }
 
     if (!is_reply) {
-        reply_internal_error(ses);
+        reply_result_null(ses);
         log_error("depth not find result, market: %s, interval: %s", market, interval);
     }
 
@@ -505,7 +497,7 @@ void direct_deals_result(nw_ses *ses, const char *market, int limit, uint64_t la
     }
 
     if (!is_reply) {
-        reply_internal_error(ses);
+        reply_result_null(ses);
         log_error("deals not find result, market: %s", market);
     }
 
@@ -536,7 +528,7 @@ void direct_state_reply(nw_ses *ses, json_t *params, int64_t id)
     }
 
     if (!is_reply) {
-        reply_invalid_params(ses);
+        reply_result_null(ses);
         log_error("state not find result, market: %s", market);
     }
 

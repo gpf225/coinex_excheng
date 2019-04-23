@@ -33,7 +33,6 @@ struct depth_key {
 
 struct depth_val {
     json_t   *last;
-    double   time;
 };
 
 struct state_val {
@@ -285,23 +284,22 @@ static bool is_json_equal(json_t *lhs, json_t *rhs)
     if (lhs == NULL || rhs == NULL) {
         return false;
     }
+
     char *lhs_str = json_dumps(lhs, JSON_SORT_KEYS);
     char *rhs_str = json_dumps(rhs, JSON_SORT_KEYS);
     int ret = strcmp(lhs_str, rhs_str);
     free(lhs_str);
     free(rhs_str);
+
     return ret == 0;
 }
 
 static bool is_depth_equal(json_t *last, json_t *now)
 {
-    if (last == NULL || now == NULL) {
+    if (last == NULL || now == NULL)
         return false;
-    }
-    
-    if (!is_json_equal(json_object_get(last, "asks"), json_object_get(now, "asks"))) {
+    if (!is_json_equal(json_object_get(last, "asks"), json_object_get(now, "asks")))
         return false;
-    }
     return is_json_equal(json_object_get(last, "bids"), json_object_get(now, "bids"));
 }
 
@@ -335,30 +333,21 @@ static int on_sub_depth_update(json_t *result, nw_ses *ses, rpc_pkg *pkg)
             return -__LINE__;
     }
 
-    uint64_t now = current_millis();
     struct depth_val *val = entry->val;
     if (val->last == NULL) {
         json_incref(depth_data);
         val->last = depth_data;
-        val->time = now;
         depth_sub_update(market, interval, depth_data);
         return 0;
     }
 
     if (!is_depth_equal(val->last, depth_data)) {
         depth_sub_update(market, interval, depth_data);
-        json_decref(val->last);
-        json_incref(depth_data);
-        val->last = depth_data;
-        val->time = now;
-    } else {
-        if (now - val->time > 500) {
-            json_decref(val->last);
-            json_incref(depth_data);
-            val->last = depth_data;
-            val->time = now;
-        }
     }
+
+    json_decref(val->last);
+    json_incref(depth_data);
+    val->last = depth_data;
 
     return 0;
 }
@@ -577,7 +566,7 @@ void direct_depth_reply(nw_ses *ses, json_t *params, int64_t id)
     }
 
     if (!is_reply) {
-        send_error_internal_error(ses, id);
+        reply_result_null(ses, id);
         log_error("depth not find result, market: %s, interval: %s", market, interval);
     }
 
@@ -623,7 +612,7 @@ void direct_deals_reply(nw_ses *ses, json_t *params, int64_t id)
     }
 
     if (!is_reply) {
-        send_error_internal_error(ses, id);
+        reply_result_null(ses, id);
         log_error("deals not find result, market: %s", market);
     }
 
@@ -688,7 +677,7 @@ void direct_state_reply(nw_ses *ses, json_t *params, int64_t id)
     }
 
     if (!is_reply) {
-        send_error_internal_error(ses, id);
+        reply_result_null(ses, id);
         log_error("state not find result, market: %s", market);
     }
 

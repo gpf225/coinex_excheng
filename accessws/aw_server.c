@@ -140,6 +140,12 @@ int send_error_require_auth_sub(nw_ses *ses, uint64_t id)
     return send_error(ses, id, 7, "sub users require authentication");
 }
 
+int reply_result_null(nw_ses *ses, int64_t id)
+{
+    profile_inc("get_result_null", 1);
+    return send_error(ses, id, 8, "get result null");
+}
+
 int send_result(nw_ses *ses, uint64_t id, json_t *result)
 {
     json_t *reply = json_object();
@@ -230,9 +236,6 @@ static int check_cache(nw_ses *ses, uint64_t id, sds key)
 
 static int on_method_kline_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (!rpc_clt_connected(cache))
-        return send_error_internal_error(ses, id);
-
     if (!rpc_clt_connected(marketprice))
         return send_error_internal_error(ses, id);
 

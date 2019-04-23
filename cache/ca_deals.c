@@ -171,8 +171,10 @@ static int deals_sub_reply(const char *market, json_t *result)
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry == NULL)
+    if (entry == NULL) {
+        log_error("nw_state_get get null");
         return;
+    }
 
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
@@ -239,7 +241,7 @@ static int deals_request(const char *market, uint64_t last_id)
 
 static void on_timer(nw_timer *timer, void *privdata) 
 {
-    dict_entry *entry = NULL;
+    dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_deals_sub);
 
     while ((entry = dict_next(iter)) != NULL) {
@@ -251,7 +253,7 @@ static void on_timer(nw_timer *timer, void *privdata)
             continue;
         }
 
-        log_info("deal sub request, market: %s, last_id: %zd", key->market, val->last_id);
+        log_trace("deal sub request, market: %s, last_id: %zd", key->market, val->last_id);
         deals_request(key->market, val->last_id);
     }
     dict_release_iterator(iter);
@@ -297,6 +299,7 @@ int deals_subscribe(nw_ses *ses, const char *market)
 
 void deals_unsubscribe(nw_ses *ses, const char *market)
 {
+    log_info("deals unsubscribe, market: %s", market);
     struct dict_deals_key key;
     memset(&key, 0, sizeof(key));
     strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
@@ -337,18 +340,17 @@ static int deals_sub_send_market(nw_ses *ses, const char *market)
     if (obj->deals->len == 0)
         return 0;
 
+    int count = 0;
     json_t *deals = json_array();
-    list_iter *iter = list_get_iterator(obj->deals, LIST_START_HEAD);
     list_node *node;
 
-    int count = 0;
+    list_iter *iter = list_get_iterator(obj->deals, LIST_START_HEAD);
     while ((node = list_next(iter)) != NULL) {
         json_array_append(deals, node->value);
         count++;
 
-        if (count > 100) {
+        if (count > 100)
             break;
-        }
     }
     list_release_iterator(iter);
 
@@ -371,7 +373,6 @@ void deals_sub_send_full(nw_ses *ses)
 
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market);
-
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
         deals_sub_send_market(ses, market);
@@ -417,7 +418,7 @@ int init_deals(void)
     dt.val_dup         = dict_deals_sub_val_dup;
     dt.val_destructor  = dict_deals_sub_val_free;
 
-    dict_deals_sub = dict_create(&dt, 512);
+    dict_deals_sub = dict_create(&dt, 256);
     if (dict_deals_sub == NULL) {
         log_stderr("dict_create failed");
         return -__LINE__;

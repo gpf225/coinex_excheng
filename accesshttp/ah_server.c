@@ -62,10 +62,16 @@ static void reply_time_out(nw_ses *ses, int64_t id)
     reply_error(ses, id, 5, "service timeout", 504);
 }
 
-void reply_internal_error(nw_ses *ses)
+static void reply_internal_error(nw_ses *ses)
 {
     profile_inc("error_interval_error", 1);
     send_http_response_simple(ses, 500, NULL, 0);
+}
+
+void reply_result_null(nw_ses *ses, int64_t id)
+{
+    profile_inc("get_result_null", 1);
+    reply_error(ses, id, 6, "get result null", 505);
 }
 
 void reply_error_invalid_argument(nw_ses *ses, int64_t id)

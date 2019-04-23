@@ -22,7 +22,6 @@ struct dict_depth_key {
 struct dict_depth_sub_val {
     dict_t   *sessions; 
     json_t   *last;
-    double   time;
 };
 
 struct state_data {
@@ -135,20 +134,15 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     if (entry == NULL)
         return -__LINE__;
 
-    uint64_t now = current_millis();
     struct dict_depth_sub_val *val = entry->val;
-
-    if (is_depth_equal(val->last, result)) {
-        if (now - val->time <= 500) // 500ms
-            return 0;
-    }
+    if (is_depth_equal(val->last, result))
+        return 0;
 
     if (val->last != NULL)
         json_decref(val->last);
 
     val->last = result;
     json_incref(val->last);
-    val->time = now;
 
     json_t *reply = json_object();
     json_object_set_new(reply, "market", json_string(market));
@@ -179,8 +173,10 @@ static void on_backend_connect(nw_ses *ses, bool result)
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry == NULL)
+    if (entry == NULL) {
+        log_error("nw_state_get get null");
         return;
+    }
 
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
@@ -260,7 +256,7 @@ static void on_timer(nw_timer *timer, void *privdata)
             continue;
         }
 
-        log_info("depth sub request, market: %s, interval: %s", key->market, key->interval);
+        log_trace("depth sub request, market: %s, interval: %s", key->market, key->interval);
         depth_request(key->market, key->interval);
     }
     dict_release_iterator(iter);

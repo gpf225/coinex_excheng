@@ -83,7 +83,6 @@ struct settings {
     double              backend_timeout;
     double              cache_timeout;
 
-    double              state_interval;
     double              kline_interval;
     double              market_interval;
 

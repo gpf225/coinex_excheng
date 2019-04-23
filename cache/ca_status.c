@@ -145,9 +145,11 @@ static int status_sub_reply(const char *market, json_t *result)
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry == NULL)
+    if (entry == NULL) {
+        log_error("nw_state_get get null");
         return;
-    
+    }
+
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
         sds hex = hexdump(pkg->body, pkg->body_size);
@@ -223,7 +225,7 @@ static void on_timer(nw_timer *timer, void *privdata)
             continue;
         }
 
-        log_info("state sub request, market: %s", key->market);
+        log_trace("state sub request, market: %s", key->market);
         status_request(key->market);
     }
     dict_release_iterator(iter);

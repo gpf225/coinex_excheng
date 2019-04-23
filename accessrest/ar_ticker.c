@@ -73,10 +73,10 @@ int status_ticker_update(const char *market, json_t *result)
     }
 
     struct state_val *info = entry->val;
-    if (info->last != NULL)
-        json_decref(info->last);
+    if (info->last == NULL) {
+        info->last = json_object();
+    }
 
-    info->last = json_object();
     json_object_set(info->last, "vol", json_object_get(result, "volume"));
     json_object_set(info->last, "low", json_object_get(result, "low"));
     json_object_set(info->last, "open", json_object_get(result, "open"));
@@ -95,13 +95,10 @@ int depth_ticker_update(const char *market, json_t *result)
 
     if (info->last == NULL) {
         info->last = json_object();
-    } else {
-        json_decref(info->last);
-        info->last = json_object();
     }
 
     json_t *bids = json_object_get(result, "bids");
-    if (json_array_size(bids) == 1) {
+    if (json_array_size(bids) >= 1) {
         json_t *buy = json_array_get(bids, 0);
         json_object_set(info->last, "buy", json_array_get(buy, 0));
         json_object_set(info->last, "buy_amount", json_array_get(buy, 1));
@@ -111,7 +108,7 @@ int depth_ticker_update(const char *market, json_t *result)
     }
 
     json_t *asks = json_object_get(result, "asks");
-    if (json_array_size(asks) == 1) {
+    if (json_array_size(asks) >= 1) {
         json_t *sell = json_array_get(asks, 0);
         json_object_set(info->last, "sell", json_array_get(sell, 0));
         json_object_set(info->last, "sell_amount", json_array_get(sell, 1));

@@ -240,7 +240,7 @@ json_t *pack_depth_result(json_t *result, uint32_t limit)
     json_object_set_new(new_result, "asks", generate_depth_data(asks_array, limit));
     json_object_set_new(new_result, "bids", generate_depth_data(bids_array, limit));
     json_object_set    (new_result, "last", json_object_get(result, "last"));
-    json_object_set    (new_result, "time", json_object_get(result, "time"));
+    json_object_set    (new_result, "time", json_integer(current_millis()));
 
     return new_result;
 }

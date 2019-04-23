@@ -223,7 +223,6 @@ int state_unsubscribe(nw_ses *ses)
     return dict_delete(dict_session, ses);
 }
 
-
 int state_send_last(nw_ses *ses)
 {
     dict_entry *entry = dict_find(dict_session, ses);

@@ -63,13 +63,17 @@ static void re_subscribe_all(void)
         nw_ses *ses = entry_sub_all->key;
         dict_entry *entry = NULL;
 
+        // unsubscribe_all
+        depth_unsubscribe_all(ses);
+        deals_unsubscribe_all(ses);
+        status_unsubscribe_all(ses);
+
         dict_iterator *iter_market = dict_get_iterator(dict_market);
         while ((entry = dict_next(iter_market)) != NULL) {
             const char *market = entry->key;
             //depth
             for (int i = 0; i < settings.depth_interval.count; ++i) {
                 char *interval =  settings.depth_interval.interval[i];
-                depth_unsubscribe(ses, market, interval);
                 int ret = depth_subscribe(ses, market, interval);
                 if (ret != 0) {
                     log_error("depth_subscribe fail, market: %s, interval: %s", market, interval);
@@ -78,7 +82,6 @@ static void re_subscribe_all(void)
             }
 
             //deals
-            deals_unsubscribe(ses, market);
             int ret = deals_subscribe(ses, market);
             if (ret != 0) {
                 log_error("deals_subscribe fail, market: %s", market);
@@ -86,7 +89,6 @@ static void re_subscribe_all(void)
             }
 
             //status
-            status_unsubscribe(ses, market);
             ret = status_subscribe(ses, market);
             if (ret != 0) {
                 log_error("status_subscribe fail, market: %s", market);

@@ -88,7 +88,7 @@ static int reply_error(nw_ses *ses, int code, const char *message, uint32_t stat
     return 0;
 }
 
-int reply_internal_error(nw_ses *ses)
+static int reply_internal_error(nw_ses *ses)
 {
     profile_inc("error_internal", 1);
     return reply_error(ses, 1, "internal error", 502);
@@ -110,6 +110,12 @@ int reply_invalid_params(nw_ses *ses)
 {
     profile_inc("error_invalid_params", 1);
     return reply_error(ses, 2, "invalid params", 400);
+}
+
+int reply_result_null(nw_ses *ses)
+{
+    profile_inc("get_result_null", 1);
+    return reply_error(ses, 3, "get result null", 400);
 }
 
 int reply_json(nw_ses *ses, json_t *data, sds cache_key)
@@ -161,6 +167,13 @@ static int on_market_list(nw_ses *ses, dict_t *params)
 
 static int on_market_info(nw_ses *ses, dict_t *params) 
 {
+    dict_entry *entry;
+    entry = dict_find(params, "market");
+    if (entry == NULL)
+        return reply_invalid_params(ses);
+    char *market = entry->val;
+    strtoupper(market);
+
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_info_list");
     int ret = check_cache(ses, cache_key);
