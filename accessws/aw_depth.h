@@ -9,9 +9,10 @@
 # include "aw_config.h"
 
 int init_depth(void);
+int depth_sub_update(const char *market, const char *interval, json_t *depth_data);
+json_t *get_depth_diff(json_t *first, json_t *second, uint32_t limit);
 
 int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval);
-int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char *interval);
 int depth_unsubscribe(nw_ses *ses);
 size_t depth_subscribe_number(void);
 json_t *pack_depth_result(json_t *result, uint32_t limit);

@@ -5,6 +5,10 @@
 
 # include "ca_market.h"
 # include "ca_depth.h"
+# include "ca_market.h"
+# include "ca_deals.h"
+# include "ca_status.h"
+# include "ca_server.h"
 
 static dict_t *dict_market = NULL;
 static rpc_clt *matchengine = NULL;
@@ -47,10 +51,60 @@ static void dict_market_val_free(void *val)
     free(val);
 }
 
+static void re_subscribe_all(void)
+{
+    log_info("market list is change");
+    dict_t *dict_market = get_market();
+    dict_entry *entry_sub_all;
+
+    dict_t *dict_sub_all = get_sub_all_dict();
+    dict_iterator *iter_sub_all = dict_get_iterator(dict_sub_all);
+    while ((entry_sub_all = dict_next(iter_sub_all)) != NULL) {
+        nw_ses *ses = entry_sub_all->key;
+        dict_entry *entry = NULL;
+
+        dict_iterator *iter_market = dict_get_iterator(dict_market);
+        while ((entry = dict_next(iter_market)) != NULL) {
+            const char *market = entry->key;
+            //depth
+            for (int i = 0; i < settings.depth_interval.count; ++i) {
+                char *interval =  settings.depth_interval.interval[i];
+                depth_unsubscribe(ses, market, interval);
+                int ret = depth_subscribe(ses, market, interval);
+                if (ret != 0) {
+                    log_error("depth_subscribe fail, market: %s, interval: %s", market, interval);
+                    continue;
+                }
+            }
+
+            //deals
+            deals_unsubscribe(ses, market);
+            int ret = deals_subscribe(ses, market);
+            if (ret != 0) {
+                log_error("deals_subscribe fail, market: %s", market);
+                continue;
+            }
+
+            //status
+            status_unsubscribe(ses, market);
+            ret = status_subscribe(ses, market);
+            if (ret != 0) {
+                log_error("status_subscribe fail, market: %s", market);
+                continue;
+            }
+        }
+        dict_release_iterator(iter_market);
+    }
+    dict_release_iterator(iter_sub_all);
+
+    return;
+}
+
 static int on_market_list_reply(json_t *result)
 {
     static uint32_t update_id = 0;
     update_id += 1;
+    bool is_change = false;
 
     for (size_t i = 0; i < json_array_size(result); ++i) {
         json_t *item = json_array_get(result, i);
@@ -61,6 +115,7 @@ static int on_market_list_reply(json_t *result)
             memset(&val, 0, sizeof(val));
             val.id = update_id;
             dict_add(dict_market, (char *)name, &val);
+            is_change = true;
             log_info("add market: %s", name);
         } else {
             struct market_val *info = entry->val;
@@ -74,17 +129,22 @@ static int on_market_list_reply(json_t *result)
         struct market_val *info = entry->val;
         if (info->id != update_id) {
             dict_delete(dict_market, entry->key);
+            is_change = true;
             log_info("del market: %s", (char *)entry->key);
         }
     }
     dict_release_iterator(iter);
 
+    if (is_change)
+        re_subscribe_all();
     return 0;
 }
 
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+    log_trace("market_list reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
+
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
     if (entry == NULL) {
         sdsfree(reply_str);

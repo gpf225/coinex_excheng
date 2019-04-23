@@ -82,11 +82,6 @@ static int read_config_from_json(json_t *root)
         printf("load readhistory clt config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_rpc_clt(root, "longpoll", &settings.longpoll);
-    if (ret < 0) {
-        printf("load longpoll clt config fail: %d\n", ret);
-        return -__LINE__;
-    }
     ret = load_cfg_rpc_clt(root, "cache", &settings.cache);
     if (ret < 0) {
         printf("load cache clt config fail: %d\n", ret);
@@ -123,11 +118,8 @@ static int read_config_from_json(json_t *root)
     ERR_RET(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
     ERR_RET(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.5));
 
-    ERR_RET(read_cfg_real(root, "deals_interval", &settings.deals_interval, false, 0.5));
-    ERR_RET(read_cfg_real(root, "price_interval", &settings.price_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "state_interval", &settings.state_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "kline_interval", &settings.kline_interval, false, 0.5));
-    ERR_RET(read_cfg_real(root, "depth_interval", &settings.depth_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "market_interval", &settings.market_interval, false, 60));
 
     ERR_RET(read_depth_limit_cfg(root, "depth_limit"));

@@ -5,7 +5,7 @@ int init_deals(void);
 void deals_unsubscribe_all(nw_ses *ses);
 void deals_unsubscribe(nw_ses *ses, const char *market);
 int deals_subscribe(nw_ses *ses, const char *market);
-int deals_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint64_t last_id);
+void deals_sub_send_full(nw_ses *ses);
 
 # endif
 

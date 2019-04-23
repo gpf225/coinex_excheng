@@ -40,6 +40,16 @@
 
 # define AH_LISTENER_BIND   "seqpacket@/tmp/accesshttp_listener.sock"
 
+typedef struct depth_limit_cfg {
+    int     count;
+    int     *limit;
+} depth_limit_cfg;
+
+typedef struct depth_merge_cfg {
+    int     count;
+    mpd_t   **limit;
+} depth_merge_cfg;
+
 struct settings {
     process_cfg         process;
     log_cfg             log;
@@ -49,9 +59,12 @@ struct settings {
     rpc_clt_cfg         marketprice;
     rpc_clt_cfg         readhistory;
     rpc_clt_cfg         monitorcenter;
-    rpc_clt_cfg         cache;
     double              timeout;
     int                 worker_num;
+    rpc_clt_cfg         cache;
+
+    depth_limit_cfg     depth_limit;
+    depth_merge_cfg     depth_merge;
 };
 
 extern struct settings settings;

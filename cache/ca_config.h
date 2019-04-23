@@ -40,6 +40,11 @@
 # define INTERVAL_MAX_LEN       16
 #define MARKET_DEALS_MAX        1000
 
+typedef struct depth_merge_cfg {
+    int    count;
+    char   **interval;
+} depth_interval_cfg;
+
 struct settings {
     bool                debug;
     process_cfg         process;
@@ -55,10 +60,12 @@ struct settings {
     double              sub_kline_interval;
     double              sub_status_interval;
     double              market_interval;
+    depth_interval_cfg  depth_interval;
 
     int                 cache_timeout;
     int                 depth_limit_max;
     int                 kline_max;
+    int                 deal_max;
 };
 
 extern struct settings settings;

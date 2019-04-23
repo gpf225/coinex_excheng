@@ -5,7 +5,6 @@
 
 # include "ca_config.h"
 # include "ca_deals.h"
-# include "ca_cache.h"
 # include "ca_server.h"
 # include "ca_market.h"
 
@@ -15,8 +14,6 @@ static nw_state *state_context;
 static dict_t *dict_deals_sub;
 static nw_timer timer;
 
-# define DEALS_QUERY_LIMIT 100
-
 struct dict_deals_key {
     char market[MARKET_NAME_MAX_LEN];
 };
@@ -24,27 +21,23 @@ struct dict_deals_key {
 struct dict_deals_sub_val {
     dict_t   *sessions; 
     uint64_t last_id;
+    list_t   *deals;
 };
 
 struct state_data {
     char     market[MARKET_NAME_MAX_LEN];
-    int      limit;
-    uint64_t last_id;
-    nw_ses   *ses;
-    uint64_t ses_id;
-    uint32_t sequence;
 };
 
 static uint32_t dict_deals_sub_hash_function(const void *key)
 {
     const struct dict_deals_key *obj = key;
-    return dict_generic_hash_function(key, strlen(obj->market));
+    return dict_generic_hash_function(obj->market, strlen(obj->market));
 }
 
 static int dict_deals_sub_key_compare(const void *key1, const void *key2)
 {
     const struct dict_deals_key *obj1 = key1;
-    const struct dict_deals_key *obj2 = key1;
+    const struct dict_deals_key *obj2 = key2;
 
     if (strcmp(obj1->market, obj2->market) == 0) {
         return 0;
@@ -77,7 +70,14 @@ static void dict_deals_sub_val_free(void *key)
     struct dict_deals_sub_val *obj = key;
     if (obj->sessions != NULL)
         dict_release(obj->sessions);
+    if (obj->deals)
+        list_release(obj->deals);
     free(obj);   
+}
+
+static void list_free(void *value)
+{
+    json_decref(value);
 }
 
 static dict_t* dict_create_deals_session(void)
@@ -85,7 +85,7 @@ static dict_t* dict_create_deals_session(void)
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.hash_function = dict_ses_hash_func;
-    dt.key_compare = dict_ses_hash_compare;
+    dt.key_compare   = dict_ses_hash_compare;
 
     return dict_create(&dt, 16);
 }
@@ -93,64 +93,6 @@ static dict_t* dict_create_deals_session(void)
 static void on_timeout(nw_state_entry *entry)
 {
     log_error("state id: %u timeout", entry->id);
-    struct state_data *state = entry->data;
-
-    if (state->ses != NULL) {
-        if (state->ses->id == state->ses_id) {
-            rpc_pkg reply_rpc;
-            memset(&reply_rpc, 0, sizeof(reply_rpc));
-            reply_rpc.command = CMD_CACHE_DEALS;
-            reply_time_out(state->ses, &reply_rpc);
-        } else {
-            log_error("ses id not equal");
-        }
-    }   
-}
-
-static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint64_t last_id)
-{
-    sds key = sdsempty();
-    key = sdscatprintf(key, "deals-%s-%d-%ld", market, limit, last_id);
-
-    struct dict_cache_val *cache = get_cache(key, settings.cache_timeout);
-    if (cache == NULL) {
-        sdsfree(key);
-        return false;
-    }
-
-    uint64_t now = current_millis();
-    int ttl = now - cache->time;
-
-    json_t *new_result = json_object();
-    json_object_set_new(new_result, "ttl", json_integer(ttl));
-
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", json_null());
-    json_object_set    (reply, "result", cache->result);
-    json_object_set_new(reply, "id", json_integer(pkg->req_id));
-    json_object_set_new(new_result, "cache_result", reply);
-
-    reply_json(ses, pkg, new_result);
-    sdsfree(key);
-    json_decref(new_result);
-
-    return true;
-}
-
-static void deals_reply(nw_ses *ses, json_t *result, uint32_t sequence)
-{
-    json_t *new_result = json_object();
-    json_object_set_new(new_result, "ttl", json_integer(settings.cache_timeout));
-    json_object_set(new_result, "cache_result", result);
-
-    rpc_pkg reply_rpc;
-    memset(&reply_rpc, 0, sizeof(reply_rpc));
-    reply_rpc.command = CMD_CACHE_DEALS;
-    reply_rpc.sequence = sequence;
-    reply_json(ses, &reply_rpc, new_result);
-    json_decref(new_result);
-
-    return;
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)
@@ -201,6 +143,16 @@ static int deals_sub_reply(const char *market, json_t *result)
         return -__LINE__;
     obj->last_id = id;
 
+    for (size_t i = array_size; i > 0; --i) {
+        json_t *deal = json_array_get(result, i - 1);
+        json_incref(deal);
+        list_add_node_head(obj->deals, deal);
+    }
+
+    while (obj->deals->len > settings.deal_max) {
+        list_del(obj->deals, list_tail(obj->deals));
+    }
+
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append(params, result);
@@ -241,36 +193,17 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
         sdsfree(reply_str);
         is_error = true;
-
-        struct dict_deals_key key;
-        memset(&key, 0, sizeof(key));
-        strncpy(key.market, state->market, MARKET_NAME_MAX_LEN - 1);
-        dict_delete(dict_deals_sub,  &key);
     }
-
 
     switch (pkg->command) {
     case CMD_MARKET_DEALS:
-        if (state->ses) { // out request
-            if (state->ses->id == state->ses_id) {
-                deals_reply(state->ses, reply, state->sequence);
-
-                if (!is_error) {
-                    sds cache_key = sdsempty();
-                    cache_key = sdscatprintf(cache_key, "deals-%s-%d-%ld", state->market, state->limit, state->last_id);
-                    add_cache(cache_key, result);
-                    sdsfree(cache_key);
-                }
-            } else {
-                sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-                log_error("ses id not equal, reply: %s", reply_str);
-                sdsfree(reply_str);
-            }
-        } else { // sub timer request
-            if (!is_error)
-                deals_sub_reply(state->market, result);
+        if (!is_error) {
+            deals_sub_reply(state->market, result);
         }
-        
+        break;
+
+    default:
+        log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
         break;
     }
 
@@ -278,33 +211,19 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     nw_state_del(state_context, pkg->sequence);
 }
 
-int deals_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, uint64_t last_id)
+static int deals_request(const char *market, uint64_t last_id)
 {
-    if (ses != NULL && process_cache(ses, pkg, market, limit, last_id))
-        return 0;
-
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
-    state->limit = limit;
-    state->last_id = last_id;
-
-    if (ses != NULL) {
-        state->ses = ses;
-        state->ses_id = ses->id;
-        state->sequence = pkg->sequence;
-    }
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
-    json_array_append_new(params, json_integer(limit));
+    json_array_append_new(params, json_integer(settings.deal_max));
     json_array_append_new(params, json_integer(last_id));
 
     rpc_pkg req_pkg;
     memset(&req_pkg, 0, sizeof(req_pkg));
-    if (pkg != NULL) {
-        req_pkg.req_id = pkg->req_id;
-    }
     req_pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
     req_pkg.command   = CMD_MARKET_DEALS;
     req_pkg.sequence  = state_entry->id;
@@ -328,12 +247,12 @@ static void on_timer(nw_timer *timer, void *privdata)
         struct dict_deals_sub_val *val = entry->val;
 
         if (dict_size(val->sessions) == 0) {
-            log_info("deal on_timer sessions num is 0, market: %s", key->market);
+            log_info("deal sessions num is 0, market: %s", key->market);
             continue;
         }
 
         log_info("deal sub request, market: %s, last_id: %zd", key->market, val->last_id);
-        deals_request(NULL, NULL, key->market, DEALS_QUERY_LIMIT, val->last_id);
+        deals_request(key->market, val->last_id);
     }
     dict_release_iterator(iter);
 }
@@ -354,6 +273,14 @@ int deals_subscribe(nw_ses *ses, const char *market)
         if (val.sessions == NULL)
             return -__LINE__;
 
+        list_type lt;
+        memset(&lt, 0, sizeof(lt));
+        lt.free = list_free;
+
+        val.deals = list_create(&lt);
+        if (val.deals == NULL)
+            return -__LINE__;
+
         entry = dict_add(dict_deals_sub, &key, &val);
         if (entry == NULL) {
             dict_release(val.sessions);
@@ -364,6 +291,7 @@ int deals_subscribe(nw_ses *ses, const char *market)
     struct dict_deals_sub_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
 
+    deals_sub_send_full(ses);
     return 0;  
 }
 
@@ -390,6 +318,63 @@ void deals_unsubscribe_all(nw_ses *ses)
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_deals_sub_val *val = entry->val;
         dict_delete(val->sessions, ses);
+    }
+    dict_release_iterator(iter);
+
+    return;
+}
+
+static int deals_sub_send_market(nw_ses *ses, const char *market)
+{
+    struct dict_deals_key key;
+    memset(&key, 0, sizeof(key));
+    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
+
+    dict_entry *entry = dict_find(dict_deals_sub, &key);
+    if (entry == NULL)
+        return -__LINE__;
+    struct dict_deals_sub_val *obj = entry->val;
+    if (obj->deals->len == 0)
+        return 0;
+
+    json_t *deals = json_array();
+    list_iter *iter = list_get_iterator(obj->deals, LIST_START_HEAD);
+    list_node *node;
+
+    int count = 0;
+    while ((node = list_next(iter)) != NULL) {
+        json_array_append(deals, node->value);
+        count++;
+
+        if (count > 100) {
+            break;
+        }
+    }
+    list_release_iterator(iter);
+
+    json_t *params = json_array();
+    json_array_append_new(params, json_string(market));
+    json_array_append_new(params, deals);
+    notify_message(ses, CMD_CACHE_DEALS_UPDATE, params);
+
+    json_decref(params);
+    return 0;
+}
+
+void deals_sub_send_full(nw_ses *ses)
+{
+    dict_t *dict_market = get_market();
+    if (dict_size(dict_market) == 0) {
+        log_error("dict_market is null");
+        return;
+    }
+
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+
+    while ((entry = dict_next(iter)) != NULL) {
+        const char *market = entry->key;
+        deals_sub_send_market(ses, market);
     }
     dict_release_iterator(iter);
 

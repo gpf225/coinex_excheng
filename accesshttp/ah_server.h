@@ -7,6 +7,9 @@
 # define _AH_SERVER_H_
 
 int init_server(void);
+void reply_internal_error(nw_ses *ses);
+void reply_message(nw_ses *ses, int64_t id, json_t *result);
+void reply_error_invalid_argument(nw_ses *ses, int64_t id);
 
 # endif
 

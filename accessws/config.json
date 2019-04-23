@@ -43,13 +43,6 @@
         ],
         "max_pkg_size": 2000000
     },
-    "longpoll": {
-        "name": "longpoll",
-        "addr": [
-            "tcp@127.0.0.1:10001"
-        ],
-        "max_pkg_size": 2000000
-    },
     "cache": {
         "name": "cache",
         "addr": [

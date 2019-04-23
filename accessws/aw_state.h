@@ -10,9 +10,10 @@ int init_state(void);
 
 int state_subscribe(nw_ses *ses, json_t *market_list);
 int state_unsubscribe(nw_ses *ses);
-int state_send_last(nw_ses *ses);
 size_t state_subscribe_number(void);
 bool market_exists(const char *market);
+int state_send_last(nw_ses *ses);
+void notify_state_update(void);
 
 # endif
 

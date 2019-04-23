@@ -8,8 +8,8 @@
 # include "ar_ticker.h"
 # include "ar_server.h"
 # include "ar_market.h"
-# include "ar_cache.h"
 # include "ar_listener.h"
+# include "ar_sub_all.h"
 
 const char *__process__ = "accessrest";
 const char *__version__ = "0.1.0";
@@ -116,9 +116,9 @@ server:
     daemon(1, 1);
     process_keepalive();
 
-    ret = init_cache();
+    ret = init_sub_all();
     if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
+        error(EXIT_FAILURE, errno, "init sub all fail: %d", ret);
     }
     ret = init_ticker();
     if (ret < 0) {
