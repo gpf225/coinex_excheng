@@ -160,6 +160,29 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     return 0;
 }
 
+static int depth_send_last(nw_ses *ses, const char *market, const char *interval)
+{
+    struct dict_depth_key key;
+    depth_set_key(&key, market, interval);  
+
+
+    dict_entry *entry = dict_find(dict_depth_sub, &key);
+    if (entry == NULL)
+        return 0;
+
+    struct dict_depth_sub_val *obj = entry->val;
+    if (obj->last) {
+        json_t *reply = json_object();
+        json_object_set_new(reply, "market", json_string(market));
+        json_object_set_new(reply, "interval", json_string(interval));
+        json_object_set    (reply, "data", obj->last);
+        notify_message(ses, CMD_CACHE_DEPTH_UPDATE, reply);
+        json_decref(reply);
+    }
+
+    return 0;
+}
+
 static void on_backend_connect(nw_ses *ses, bool result)
 {
     rpc_clt *clt = ses->privdata;
@@ -286,6 +309,7 @@ int depth_subscribe(nw_ses *ses, const char *market, const char *interval)
 
     struct dict_depth_sub_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
+    depth_send_last(ses, market, interval);
 
     return 0;  
 }

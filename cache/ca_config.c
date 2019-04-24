@@ -80,9 +80,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_real(root, "sub_kline_interval", &settings.sub_kline_interval, false, 0.5));
     ERR_RET_LN(read_cfg_real(root, "sub_status_interval", &settings.sub_status_interval, false, 0.5));
     ERR_RET_LN(read_cfg_real(root, "market_interval", &settings.market_interval, false, 10));
-    ERR_RET_LN(read_cfg_int(root, "cache_timeout", &settings.cache_timeout, false, 1000));
     ERR_RET_LN(read_cfg_int(root, "depth_limit_max", &settings.depth_limit_max, false, 50));
-    ERR_RET_LN(read_cfg_int(root, "kline_max", &settings.kline_max, false, 1000));
     ERR_RET(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
     
     ERR_RET(read_depth_interval_cfg(root, "depth_merge"));

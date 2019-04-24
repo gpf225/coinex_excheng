@@ -48,7 +48,8 @@
         "addr": [
             "tcp@127.0.0.1:7801"
         ],
-        "max_pkg_size": 2000000
+        "max_pkg_size": 2000000,
+        "heartbeat_timeout": 30
     },
     "deals": {
         "brokers": "127.0.0.1:9092",
