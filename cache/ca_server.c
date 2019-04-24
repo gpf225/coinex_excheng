@@ -4,15 +4,14 @@
  */
 
 # include "ca_config.h"
-# include "ca_cache.h"
 # include "ca_depth.h"
-# include "ca_kline.h"
 # include "ca_market.h"
 # include "ca_deals.h"
 # include "ca_status.h"
 # include "ca_server.h"
 
 static rpc_svr *svr;
+static dict_t *dict_sub_all;
 
 int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
@@ -85,334 +84,62 @@ int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     return ret;
 }
 
-static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+static void add_subscribe_all_ses(nw_ses *ses)
 {
-    sds recv_str = NULL;
-    if (json_array_size(params) != 3) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        goto error;
-    }
-
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (market == NULL) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        goto error;
-    }
-
-    if (!market_exist(market)) {
-        log_error("market not exist, market: %s", market);
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        goto error;
-    }
-
-    uint32_t limit = json_integer_value(json_array_get(params, 1));
-
-    const char *interval = json_string_value(json_array_get(params, 2));
-    if (interval == NULL) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        goto error;
-    }
-
-    depth_request(ses, pkg, market, limit, interval);
-    return 0;
-
-error:
-    log_error("parameter error, recv_str: %s", recv_str);
-    sdsfree(recv_str);
-    return reply_error_invalid_argument(ses, pkg);
+    dict_add(dict_sub_all, ses, NULL);
 }
 
-static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+static void del_subscribe_all_ses(nw_ses *ses)
 {
-    sds recv_str = NULL;
-    if (json_array_size(params) != 2) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        goto error;
-    }
+    dict_delete(dict_sub_all, ses);
+}
 
-    const char *market = json_string_value(json_array_get(params, 0));
-    const char *interval = json_string_value(json_array_get(params, 1));
-
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        goto error;
-    }
-
-    if (!market_exist(market))
-        log_error("market not exist, market: %s", market);
-
-    depth_unsubscribe(ses, market, interval);
-    int ret = depth_subscribe(ses, market, interval);
-    if (ret != 0) {
-        log_error("depth_subscribe fail, market: %s, interval: %s", market, interval);
+static int on_method_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    dict_t *dict_market = get_market();
+    if (dict_size(dict_market) == 0) {
+        log_error("dict_market is null");
         reply_error_internal_error(ses, pkg);
-        return ret;
+        return 0;
     }
 
-    depth_send_last(ses, market, interval);
-    return 0;
+    log_info("depth_subscribe_all, connection: %s", nw_sock_human_addr(&ses->peer_addr));
+    dict_entry *entry;
 
-error:
-    log_error("parameter error, recv_str: %s", recv_str);
-    sdsfree(recv_str);
-    return reply_error_invalid_argument(ses, pkg);
-}
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        const char *market = entry->key;
 
-static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    sds recv_str = NULL;
-    if (json_array_size(params) != 2) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        goto error;
+        //depth
+        for (int i = 0; i < settings.depth_interval.count; ++i) {
+            char *interval =  settings.depth_interval.interval[i];
+            depth_unsubscribe(ses, market, interval);
+            int ret = depth_subscribe(ses, market, interval);
+            if (ret != 0) {
+                log_error("depth_subscribe fail, market: %s, interval: %s", market, interval);
+                continue;
+            }
+        }
+
+        //deals
+        deals_unsubscribe(ses, market);
+        int ret = deals_subscribe(ses, market);
+        if (ret != 0) {
+            log_error("deals_subscribe fail, market: %s", market);
+            continue;
+        }
+
+        //status
+        status_unsubscribe(ses, market);
+        ret = status_subscribe(ses, market);
+        if (ret != 0) {
+            log_error("status_subscribe fail, market: %s", market);
+            continue;
+        }
     }
+    dict_release_iterator(iter);
+    add_subscribe_all_ses(ses);
 
-    const char *market = json_string_value(json_array_get(params, 0));
-    const char *interval = json_string_value(json_array_get(params, 1));
-
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        goto error;
-    }
-
-    depth_unsubscribe(ses, market, interval);
-    return 0;
-
-error:
-    log_error("parameter error, recv_str: %s", recv_str);
-    sdsfree(recv_str);
-    return reply_error_invalid_argument(ses, pkg);
-}
-
-static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    int error_num;
-    sds recv_str = NULL;
-    if (json_array_size(params) != 3) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        error_num = -__LINE__;
-        goto error;
-    }
-
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (!market) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        error_num = -__LINE__;
-        goto error;
-    }
-
-    if (!market_exist(market)) {
-        log_error("market not exist, market: %s", market);
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        error_num = -__LINE__;
-        goto error;
-    }
-
-    int limit = json_integer_value(json_array_get(params, 1));
-    if (limit <= 0 || limit > MARKET_DEALS_MAX) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        error_num = -__LINE__;
-        goto error;
-    }
-
-    if (!json_is_integer(json_array_get(params, 2))) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        error_num = -__LINE__;
-        goto error;
-    }
-    uint64_t last_id = json_integer_value(json_array_get(params, 2));
-
-    deals_request(ses, pkg, market, limit, last_id);
-    return 0;
-
-
-error:
-    log_error("parameter error, error_num: %d, recv_str: %s", error_num, recv_str);
-    sdsfree(recv_str);
-    return reply_error_invalid_argument(ses, pkg);
-}
-
-static int on_method_deals_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    const char *market = json_string_value(json_array_get(params, 0));
-
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
-        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("parameter error, recv_str: %s", recv_str);
-        sdsfree(recv_str);
-        return reply_error_invalid_argument(ses, pkg);
-    }
-
-    if (!market_exist(market))
-        log_error("market not exist, market: %s", market);
-
-    deals_unsubscribe(ses, market);
-    int ret = deals_subscribe(ses, market);
-    if (ret != 0) {
-        log_error("deals_subscribe fail, market: %s", market);
-        reply_error_internal_error(ses, pkg);
-        return ret;
-    }
-
-    return 0;
-}
-
-static int on_method_deals_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    const char *market = json_string_value(json_array_get(params, 0));
-
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
-        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("parameter error, recv_str: %s", recv_str);
-        sdsfree(recv_str);
-        return reply_error_invalid_argument(ses, pkg);
-    }
-
-    deals_unsubscribe(ses, market);
-    return 0;
-}
-
-static int on_method_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    int error_num;
-    sds recv_str = NULL;
-    if (json_array_size(params) != 4) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        error_num = -__LINE__;
-        goto error;
-    }
-
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (!market || !market_exist(market)) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        error_num = -__LINE__;
-        goto error;
-    }
-
-    time_t start = json_integer_value(json_array_get(params, 1));
-    if (start <= 0) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        error_num = -__LINE__;
-        goto error;
-    }
-
-    time_t end = json_integer_value(json_array_get(params, 2));
-    time_t now = time(NULL);
-    if (end > now)
-        end = now;
-    if (end <= 0 || start > end) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        error_num = -__LINE__;
-        goto error;
-    }
-
-    int interval = json_integer_value(json_array_get(params, 3));
-    if (interval <= 0) {
-        recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        error_num = -__LINE__;
-        goto error;
-    }
-
-    kline_request(ses, pkg, market, start, end, interval);
-    return 0;
-
-error:
-    log_error("parameter error, error_num: %d, recv_str: %s", error_num, recv_str);
-    sdsfree(recv_str);
-    return reply_error_invalid_argument(ses, pkg);
-}
-
-static int on_method_kline_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    const char *market = json_string_value(json_array_get(params, 0));
-    int interval = json_integer_value(json_array_get(params, 1));
-
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval < 0) {
-        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("parameter error, recv_str: %s", recv_str);
-        sdsfree(recv_str);
-        return reply_error_invalid_argument(ses, pkg);
-    }
-
-    if (!market_exist(market))
-        log_error("market not exist, recv_str: %s", market);
-
-    kline_unsubscribe(ses, market, interval);
-    int ret = kline_subscribe(ses, market, interval);
-    if (ret != 0) {
-        log_error("kline_subscribe fail, market: %s, interval: %d", market, interval);
-        reply_error_internal_error(ses, pkg);
-        return ret;
-    }
-
-    return 0;
-}
-
-static int on_method_kline_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    const char *market = json_string_value(json_array_get(params, 0));
-    int interval = json_integer_value(json_array_get(params, 1));
-
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval < 0) {
-        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("parameter error, recv_str: %s", recv_str);
-        sdsfree(recv_str);
-        return reply_error_invalid_argument(ses, pkg);
-    }
-
-    kline_unsubscribe(ses, market, interval);
-    return 0;
-}
-
-static int on_cmd_market_state(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (!market || !market_exist(market)) {
-        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("parameter error, recv_str: %s", recv_str);
-        sdsfree(recv_str);
-        return reply_error_invalid_argument(ses, pkg);
-    }
-
-    int period = json_integer_value(json_array_get(params, 1));
-    status_request(ses, pkg, market, period);
-    return 0;
-}
-
-static int on_method_status_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
-        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("parameter error, recv_str: %s", recv_str);
-        sdsfree(recv_str);
-        return reply_error_invalid_argument(ses, pkg);
-    }
-
-    if (!market_exist(market))
-        log_error("market not exist, market: %s", market);
-
-    status_unsubscribe(ses, market, 86400);
-    int ret = status_subscribe(ses, market, 86400);
-    if (ret != 0) {
-        log_error("status_subscribe fail, market: %s", market);
-        reply_error_internal_error(ses, pkg);
-        return ret;
-    }
-
-    return 0;
-}
-
-static int on_method_status_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN) {
-        sds recv_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("parameter error, recv_str: %s", recv_str);
-        sdsfree(recv_str);
-        return reply_error_invalid_argument(ses, pkg);
-    }
-
-    status_unsubscribe(ses, market, 86400);
     return 0;
 }
 
@@ -428,88 +155,11 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     int ret;
     switch (pkg->command) {
-    case CMD_CACHE_DEPTH:
-        profile_inc("cmd_cache_depth", 1);
-        ret = on_method_order_depth(ses, pkg, params);
+    case CMD_CACHE_SUBSCRIBE_ALL:
+        profile_inc("cmd_subscribe_all", 1);
+        ret = on_method_subscribe_all(ses, pkg, params);
         if (ret < 0) {
-            log_error("on_method_order_depth fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_DEPTH_SUBSCRIBE:
-        profile_inc("cmd_cache_depth_sub", 1);
-        ret = on_method_depth_subscribe(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_depth_subscribe fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_DEPTH_UNSUBSCRIBE:
-        profile_inc("cmd_cache_depth_unsub", 1);
-        ret = on_method_depth_unsubscribe(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_depth_unsubscribe fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_DEALS:
-        profile_inc("cmd_cache_deals", 1);
-        ret = on_cmd_market_deals(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_cmd_market_deals fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_DEALS_SUBSCRIBE:
-        profile_inc("cmd_cache_deals_sub", 1);
-        ret = on_method_deals_subscribe(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_deals_subscribe fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_DEALS_UNSUBSCRIBE:
-        profile_inc("cmd_cache_deals_unsub", 1);
-        ret = on_method_deals_unsubscribe(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_deals_unsubscribe fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_KLINE:
-        profile_inc("cmd_cache_kline", 1);
-        ret = on_method_kline(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_kline fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_KLINE_SUBSCRIBE:
-        profile_inc("cmd_cache_kline_sub", 1);
-        ret = on_method_kline_subscribe(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_kline_subscribe fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_KLINE_UNSUBSCRIBE:
-        profile_inc("cmd_cache_kline_unsub", 1);
-        ret = on_method_kline_unsubscribe(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_kline_unsubscribe fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_STATUS:
-        profile_inc("cmd_cache_status", 1);
-        ret = on_cmd_market_state(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_cmd_market_state fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_STATUS_SUBSCRIBE:
-        profile_inc("cmd_cache_status_sub", 1);
-        ret = on_method_status_subscribe(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_status_subscribe fail: %d", ret);
-        }
-        break;
-    case CMD_CACHE_STATUS_UNSUBSCRIBE:
-        profile_inc("cmd_cache_status_unsub", 1);
-        ret = on_method_status_unsubscribe(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_status_unsubscribe fail: %d", ret);
+            log_error("on_method_subscribe_all fail: %d", ret);
         }
         break;
     default:
@@ -529,17 +179,22 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
 static void svr_on_new_connection(nw_ses *ses)
 {
-    log_trace("new connection: %s", nw_sock_human_addr(&ses->peer_addr));
+    log_info("new connection: %s", nw_sock_human_addr(&ses->peer_addr));
 }
 
 static void svr_on_connection_close(nw_ses *ses)
 {
     log_info("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
 
-    kline_unsubscribe_all(ses);
     depth_unsubscribe_all(ses);
     deals_unsubscribe_all(ses);
     status_unsubscribe_all(ses);
+    del_subscribe_all_ses(ses);
+}
+
+dict_t *get_sub_all_dict()
+{
+    return dict_sub_all;
 }
 
 int init_server(void)
@@ -554,6 +209,14 @@ int init_server(void)
     if (svr == NULL)
         return -__LINE__;
     if (rpc_svr_start(svr) < 0)
+        return -__LINE__;
+
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function = dict_ses_hash_func;
+    dt.key_compare = dict_ses_hash_compare;
+    dict_sub_all = dict_create(&dt, 64);
+    if (dict_sub_all == NULL)
         return -__LINE__;
 
     return 0;

@@ -17,6 +17,24 @@ int dict_ses_hash_compare(const void *key1, const void *key2)
     return (uintptr_t)key1 == (uintptr_t)key2 ? 0 : 1;
 }
 
+static int read_depth_interval_cfg(json_t *root, const char *key)
+{
+    json_t *obj = json_object_get(root, key);
+    if (obj == NULL || !json_is_array(obj))
+        return -__LINE__;
+
+    settings.depth_interval.count = json_array_size(obj);
+    settings.depth_interval.interval = malloc(sizeof(char *) * settings.depth_interval.count);
+
+    for (int i = 0; i < settings.depth_interval.count; ++i) {
+        settings.depth_interval.interval[i] = strdup(json_string_value(json_array_get(obj, i)));
+        if (settings.depth_interval.interval[i] == NULL)
+            return -__LINE__;
+    }
+
+    return 0;
+}
+
 static int read_config_from_json(json_t *root)
 {
     int ret;
@@ -61,10 +79,11 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_real(root, "sub_deals_interval", &settings.sub_deals_interval, false, 0.5));
     ERR_RET_LN(read_cfg_real(root, "sub_kline_interval", &settings.sub_kline_interval, false, 0.5));
     ERR_RET_LN(read_cfg_real(root, "sub_status_interval", &settings.sub_status_interval, false, 0.5));
-    ERR_RET_LN(read_cfg_real(root, "market_interval", &settings.market_interval, false, 15));
-    ERR_RET_LN(read_cfg_int(root, "cache_timeout", &settings.cache_timeout, false, 1000));
+    ERR_RET_LN(read_cfg_real(root, "market_interval", &settings.market_interval, false, 10));
     ERR_RET_LN(read_cfg_int(root, "depth_limit_max", &settings.depth_limit_max, false, 50));
-    ERR_RET_LN(read_cfg_int(root, "kline_max", &settings.kline_max, false, 1000));
+    ERR_RET(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
+    
+    ERR_RET(read_depth_interval_cfg(root, "depth_merge"));
 
     return 0;
 }

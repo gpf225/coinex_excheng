@@ -9,6 +9,9 @@
 # include "ar_config.h"
 
 int init_server(void);
+int reply_json(nw_ses *ses, json_t *data, sds cache_key);
+int reply_result_null(nw_ses *ses);
+int reply_invalid_params(nw_ses *ses);
 
 # endif
 

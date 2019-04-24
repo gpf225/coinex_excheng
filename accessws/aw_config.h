@@ -67,7 +67,6 @@ struct settings {
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
     rpc_clt_cfg         readhistory;
-    rpc_clt_cfg         longpoll;
     rpc_clt_cfg         cache;
 
     kafka_consumer_cfg  deals;
@@ -84,11 +83,7 @@ struct settings {
     double              backend_timeout;
     double              cache_timeout;
 
-    double              deals_interval;
-    double              price_interval;
-    double              state_interval;
     double              kline_interval;
-    double              depth_interval;
     double              market_interval;
 
     depth_limit_cfg     depth_limit;
