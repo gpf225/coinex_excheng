@@ -23,7 +23,7 @@
 # include "nw_sock.h"
 
 # define MAX_NAME_LEN 128
-# define MAGIC_NUM    20130610
+# define MAGIC_NUM    20190424
 
 # pragma pack(1)
 
@@ -132,7 +132,7 @@ static int check_mem(queue_t *queue, size_t size)
     return 0;
 }
 
-static int queue_init(queue_t *queue, char *name, key_t shm_key, uint32_t mem_size)
+static int queue_init(queue_t *queue, char *name, key_t shm_key, uint32_t mem_size, bool reset)
 {
     size_t real_mem_size = sizeof(struct queue_head) + mem_size;
     void *memory = NULL;
@@ -156,6 +156,13 @@ static int queue_init(queue_t *queue, char *name, key_t shm_key, uint32_t mem_si
         head->mem_size = mem_size;
     }
 
+    if (reset) {
+        head->mem_use = 0;
+        head->mem_num = 0;
+        head->p_head  = 0;
+        head->p_tail  = 0;
+    }
+
     memset(queue, 0, sizeof(*queue));
     queue->memory = memory;
 
@@ -165,7 +172,7 @@ static int queue_init(queue_t *queue, char *name, key_t shm_key, uint32_t mem_si
 static void queue_can_read(struct ev_loop *loop, ev_io *watcher, int events)
 {
     queue_t *queue = (queue_t *)watcher;
-    char buffer[PIPE_BUF+1];
+    char buffer[PIPE_BUF + 1];
     for (;;) {
         int ret = read(queue->pipe_fd, buffer, PIPE_BUF);
         if (ret < 0)
@@ -190,7 +197,7 @@ int queue_reader_init(queue_t *queue, queue_type *type, char *name, char *pipe_p
     if (!queue || !pipe_path || !name || strlen(name) > MAX_NAME_LEN || !mem_size || !shm_key)
         return -__LINE__;
 
-    int ret = queue_init(queue, name, shm_key, mem_size);
+    int ret = queue_init(queue, name, shm_key, mem_size, false);
     if (ret < 0) {
         return ret;
     }
@@ -226,7 +233,7 @@ int queue_writer_init(queue_t *queue, queue_type *type, char *name, char *pipe_p
     if (!queue || !pipe_path || !name || strlen(name) > MAX_NAME_LEN || !mem_size || !shm_key)
         return -__LINE__;    
 
-    int ret = queue_init(queue, name, shm_key, mem_size);
+    int ret = queue_init(queue, name, shm_key, mem_size, true);
     if (ret < 0) {
         return ret;
     }
