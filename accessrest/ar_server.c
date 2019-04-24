@@ -7,6 +7,7 @@
 # include "ar_market.h"
 # include "ar_ticker.h"
 # include "ar_sub_all.h"
+# include "ar_cache.h"
 
 static http_svr *svr;
 static rpc_clt *listener;
@@ -17,6 +18,7 @@ static nw_timer timer;
 
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
+static rpc_clt *cache;
 
 struct state_data {
     nw_ses      *ses;
@@ -167,13 +169,6 @@ static int on_market_list(nw_ses *ses, dict_t *params)
 
 static int on_market_info(nw_ses *ses, dict_t *params) 
 {
-    dict_entry *entry;
-    entry = dict_find(params, "market");
-    if (entry == NULL)
-        return reply_invalid_params(ses);
-    char *market = entry->val;
-    strtoupper(market);
-
     sds cache_key = sdsempty();
     cache_key = sdscatprintf(cache_key, "market_info_list");
     int ret = check_cache(ses, cache_key);
@@ -281,7 +276,48 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         }
     }
 
-    direct_depth_reply(ses, market, merge, limit);
+    sds cache_key = sdsempty();
+    cache_key = sdscatprintf(cache_key, "depth_%s_%s_%d", market, merge, limit);
+
+    json_t *query_params = json_array();
+    json_array_append_new(query_params, json_string(market));
+    json_array_append_new(query_params, json_integer(limit));
+    json_array_append_new(query_params, json_string(merge));
+
+
+    int ret = check_exp_cache(ses, cache_key, CMD_CACHE_DEPTH, query_params);
+    if (ret > 0) {
+        sdsfree(cache_key);
+        return 0;
+    }
+
+    if (!rpc_clt_connected(cache)) {
+        sdsfree(cache_key);
+        json_decref(query_params);
+        return reply_internal_error(ses);
+    }
+
+    nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
+    struct state_data *state = state_entry->data;
+    state->ses = ses;
+    state->ses_id = ses->id;
+    state->cache_key = cache_key;
+
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
+    pkg.command   = CMD_CACHE_DEPTH;
+    pkg.sequence  = state_entry->id;
+    pkg.body      = json_dumps(query_params, 0);
+    pkg.body_size = strlen(pkg.body);
+
+    state->cmd = pkg.command;
+    rpc_clt_send(cache, &pkg);
+    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
+            nw_sock_human_addr(rpc_clt_peer_addr(cache)), pkg.command, pkg.sequence, (char *)pkg.body);
+    free(pkg.body);
+    json_decref(query_params);
+
     return 0;
 }
 
@@ -537,37 +573,6 @@ static int init_svr(void)
     return 0;
 }
 
-static json_t *process_order_depth_result(json_t *result)
-{
-    return json_incref(result);
-}
-
-static json_t *process_market_deals_result(json_t *result)
-{
-    json_t *data = json_array();
-    size_t size = json_array_size(result);
-    for (size_t i = 0; i < size; ++i) {
-        json_t *unit = json_object();
-        json_t *item = json_array_get(result, i);
-        json_object_set(unit, "id", json_object_get(item, "id"));
-        json_object_set(unit, "type", json_object_get(item, "type"));
-        json_object_set(unit, "price", json_object_get(item, "price"));
-        json_object_set(unit, "amount", json_object_get(item, "amount"));
-        double date = json_real_value(json_object_get(item, "time"));
-        json_object_set_new(unit, "date", json_integer((time_t)date));
-        json_object_set_new(unit, "date_ms", json_integer((int64_t)(date * 1000)));
-
-        json_array_append_new(data, unit);
-    }
-
-    return data;
-}
-
-static json_t *process_market_kline_result(json_t *result)
-{
-    return json_incref(result);
-}
-
 static void on_backend_connect(nw_ses *ses, bool result)
 {
     rpc_clt *clt = ses->privdata;
@@ -592,48 +597,70 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         reply_internal_error(state->ses);
         goto clean;
     }
-    json_t *error = json_object_get(reply, "error");
-    if (!error) {
-        reply_internal_error(state->ses);
-        goto clean;
-    }
-    if (!json_is_null(error)) {
-        const char *message = json_string_value(json_object_get(error, "message"));
-        if (message) {
-            reply_error(state->ses, 1, message, 200);
+
+    if (pkg->command == CMD_CACHE_DEPTH) {
+        json_t *cache_result = json_object_get(reply, "cache_result");
+        if (cache_result == NULL) { // error result, no cache_result
+            json_t *error = json_object_get(reply, "error");
+            if (!error) {
+                reply_internal_error(state->ses);
+            }
+            if (!json_is_null(error)) {
+                const char *message = json_string_value(json_object_get(error, "message"));
+                if (message) {
+                    reply_error(state->ses, 1, message, 200);
+                } else {
+                    reply_internal_error(state->ses);
+                }
+            }
         } else {
+            json_t *result = json_object_get(cache_result, "result");
+            if (!result) {
+                reply_internal_error(state->ses);
+                goto clean;
+            }
+
+            if (state->ses && state->ses->id == state->ses_id) {
+                reply_json(state->ses, result, NULL);
+            }
+
+            if (state->cache_key) {
+                int ttl = json_integer_value(json_object_get(reply, "ttl"));
+                struct cache_exp_val val;
+                val.time_exp = current_millis() + ttl;
+                val.result = result;
+                json_incref(result);
+                dict_replace_cache(state->cache_key, &val);
+            }
+        }
+    } else if (pkg->command == CMD_MARKET_KLINE) {
+        json_t *error = json_object_get(reply, "error");
+        if (!error) {
             reply_internal_error(state->ses);
+            goto clean;
         }
-        goto clean;
-    }
+        if (!json_is_null(error)) {
+            const char *message = json_string_value(json_object_get(error, "message"));
+            if (message) {
+                reply_error(state->ses, 1, message, 200);
+            } else {
+                reply_internal_error(state->ses);
+            }
+            goto clean;
+        }
 
-    json_t *result = json_object_get(reply, "result");
-    if (!result) {
-        reply_internal_error(state->ses);
-        goto clean;
-    }
+        json_t *result = json_object_get(reply, "result");
+        if (!result) {
+            reply_internal_error(state->ses);
+            goto clean;
+        }
 
-    json_t *data = NULL;
-    switch (pkg->command) {
-    case CMD_ORDER_DEPTH:
-        data = process_order_depth_result(result);
-        break;
-    case CMD_MARKET_DEALS:
-        data = process_market_deals_result(result);
-        break;
-    case CMD_MARKET_KLINE:
-        data = process_market_kline_result(result);
-        break;
-    default:
-        break;
-    }
-
-    if (data) {
         if (state->ses && state->ses->id == state->ses_id) {
-            reply_json(state->ses, data, state->cache_key);
+            reply_json(state->ses, result, state->cache_key);
         }
-        json_decref(data);
     } else {
+        log_error("recv pkg from: %s, cmd: %u, sequence: %u",
+                nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence);
         reply_internal_error(state->ses);
     }
 
@@ -699,6 +726,12 @@ static int init_backend(void)
     if (marketprice == NULL)
         return -__LINE__;
     if (rpc_clt_start(marketprice) < 0)
+        return -__LINE__;
+
+    cache = rpc_clt_create(&settings.cache, &ct);
+    if (cache == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(cache) < 0)
         return -__LINE__;
 
     dict_types dt;

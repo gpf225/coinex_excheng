@@ -7,6 +7,7 @@
 # include "ca_depth.h"
 # include "ca_market.h"
 # include "ca_server.h"
+# include "ca_cache.h"
 
 static rpc_clt *matchengine;
 static nw_state *state_context;
@@ -27,6 +28,10 @@ struct dict_depth_sub_val {
 struct state_data {
     char      market[MARKET_NAME_MAX_LEN];
     char      interval[INTERVAL_MAX_LEN];
+    int       limit;
+    nw_ses    *ses;
+    uint64_t  ses_id;
+    uint32_t  sequence;
 };
 
 uint32_t dict_depth_sub_hash_func(const void *key)
@@ -165,7 +170,6 @@ static int depth_send_last(nw_ses *ses, const char *market, const char *interval
     struct dict_depth_key key;
     depth_set_key(&key, market, interval);  
 
-
     dict_entry *entry = dict_find(dict_depth_sub, &key);
     if (entry == NULL)
         return 0;
@@ -181,6 +185,94 @@ static int depth_send_last(nw_ses *ses, const char *market, const char *interval
     }
 
     return 0;
+}
+
+static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval)
+{
+    sds key = sdsempty();
+    key = sdscatprintf(key, "depth_%s_%s", market, interval);
+
+    struct dict_cache_val *cache = get_cache(key, settings.cache_timeout);
+    if (cache == NULL) {
+        sdsfree(key);
+        return false;
+    }
+
+    uint64_t now = current_millis();
+    int ttl = cache->time + settings.cache_timeout - now;
+
+    json_t *new_result = json_object();
+    json_object_set_new(new_result, "ttl", json_integer(ttl));
+
+    json_t *reply = json_object();
+    json_object_set_new(reply, "error", json_null());
+    json_object_set    (reply, "result", cache->result);
+    json_object_set_new(reply, "id", json_integer(pkg->req_id));
+    json_object_set_new(new_result, "cache_result", reply);
+
+    reply_json(ses, pkg, new_result);
+    json_decref(new_result);
+    sdsfree(key);
+
+    return true;
+}
+
+static json_t *generate_depth_data(json_t *array, int limit) 
+{
+    if (array == NULL)
+        return json_array();
+
+    json_t *new_data = json_array();
+    int size = json_array_size(array) > limit ? limit : json_array_size(array);
+    for (int i = 0; i < size; ++i) {
+        json_t *unit = json_array_get(array, i);
+        json_array_append(new_data, unit);
+    }
+
+    return new_data;
+}
+
+static json_t *pack_depth_result(json_t *result, uint32_t limit)
+{
+    json_t *asks_array = json_object_get(result, "asks");
+    json_t *bids_array = json_object_get(result, "bids");
+
+    json_t *new_result = json_object();
+    json_object_set_new(new_result, "asks", generate_depth_data(asks_array, limit));
+    json_object_set_new(new_result, "bids", generate_depth_data(bids_array, limit));
+    json_object_set    (new_result, "last", json_object_get(result, "last"));
+    json_object_set    (new_result, "time", json_object_get(result, "time"));
+
+    return new_result;
+}
+
+static void depth_reply(nw_ses *ses, int limit, json_t *result, bool is_error, uint32_t sequence)
+{
+    json_t *new_result = json_object();
+
+    if (is_error) {
+        json_object_set_new(new_result, "error", json_object_get(result, "error"));
+        json_object_set_new(new_result, "result", json_object_get(result, "result"));
+        json_object_set    (new_result, "id", json_object_get(result, "id"));
+    } else {
+        json_t *reply = json_object();
+        json_t *result_inside = json_object_get(result, "result");
+        json_object_set_new(reply, "error", json_null());
+        json_object_set_new(reply, "result", pack_depth_result(result_inside, limit));
+        json_object_set    (reply, "id", json_object_get(result, "id"));
+
+        json_object_set_new(new_result, "ttl", json_integer(settings.cache_timeout));
+        json_object_set_new(new_result, "cache_result", reply);
+    }
+
+    rpc_pkg reply_rpc;
+    memset(&reply_rpc, 0, sizeof(reply_rpc));
+    reply_rpc.command = CMD_CACHE_DEPTH;
+    reply_rpc.sequence = sequence;
+    reply_json(ses, &reply_rpc, new_result);
+    json_decref(new_result);
+
+    return;
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)
@@ -224,8 +316,24 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     switch (pkg->command) {
     case CMD_ORDER_DEPTH:
+         if (state->ses) { // out request
+            if (state->ses->id == state->ses_id) {
+                depth_reply(state->ses, state->limit, reply, is_error, state->sequence);
+            } else {
+                sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+                log_error("ses id not equal, reply: %s", reply_str);
+                sdsfree(reply_str);
+                break;
+            }
+        }
+
         if (!is_error) {
             depth_sub_reply(state->market, state->interval, result);
+
+            sds cache_key = sdsempty();
+            cache_key = sdscatprintf(cache_key, "depth_%s_%s", state->market, state->interval);
+            add_cache(cache_key, result);
+            sdsfree(cache_key);
         }
 
         break;
@@ -238,12 +346,22 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     nw_state_del(state_context, pkg->sequence);
 }
 
-static int depth_request(const char *market, const char *interval)
+int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, const char *interval)
 {
+    if (ses != NULL && process_cache(ses, pkg, market, interval))
+        return 0;
+
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
     strncpy(state->interval, interval, INTERVAL_MAX_LEN - 1);
+    state->limit = limit;
+
+    if (ses != NULL) {
+        state->ses = ses;
+        state->ses_id = ses->id;
+        state->sequence = pkg->sequence;
+    }
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
@@ -252,6 +370,9 @@ static int depth_request(const char *market, const char *interval)
 
     rpc_pkg req_pkg;
     memset(&req_pkg, 0, sizeof(req_pkg));
+    if (pkg != NULL) {
+        req_pkg.req_id = pkg->req_id;
+    }
     req_pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
     req_pkg.command   = CMD_ORDER_DEPTH;
     req_pkg.sequence  = state_entry->id;
@@ -280,7 +401,7 @@ static void on_timer(nw_timer *timer, void *privdata)
         }
 
         log_trace("depth sub request, market: %s, interval: %s", key->market, key->interval);
-        depth_request(key->market, key->interval);
+        depth_request(NULL, NULL, key->market, settings.depth_limit_max, key->interval);
     }
     dict_release_iterator(iter);
 }

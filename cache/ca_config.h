@@ -62,6 +62,7 @@ struct settings {
     double              market_interval;
     depth_interval_cfg  depth_interval;
 
+    int                 cache_timeout;
     int                 depth_limit_max;
     int                 deal_max;
 };

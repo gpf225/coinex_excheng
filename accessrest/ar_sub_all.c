@@ -9,7 +9,6 @@
 # include "ar_ticker.h"
 
 static dict_t *dict_deals;
-static dict_t *dict_depth;
 static dict_t *dict_state;
 static rpc_clt *cache;
 
@@ -76,44 +75,6 @@ static void list_free(void *value)
     json_decref(value);
 }
 
-// dict depth
-static uint32_t dict_depth_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, sizeof(struct depth_key));
-}
-
-static int dict_depth_key_compare(const void *key1, const void *key2)
-{
-    return memcmp(key1, key2, sizeof(struct depth_key));
-}
-
-static void *dict_depth_key_dup(const void *key)
-{
-    struct depth_key *obj = malloc(sizeof(struct depth_key));
-    memcpy(obj, key, sizeof(struct depth_key));
-    return obj;
-}
-
-static void dict_depth_key_free(void *key)
-{
-    free(key);
-}
-
-static void *dict_depth_val_dup(const void *val)
-{
-    struct depth_val *obj = malloc(sizeof(struct depth_val));
-    memcpy(obj, val, sizeof(struct depth_val));
-    return obj;
-}
-
-static void dict_depth_val_free(void *val)
-{
-    struct depth_val *obj = val;
-    if (obj->last != NULL)
-        json_decref(obj->last);
-    free(obj);
-}
-
 //dict state
 static void *dict_state_val_dup(const void *key)
 {
@@ -152,35 +113,6 @@ static void sub_cache_all()
     json_decref(params);
 }
 
-static json_t *generate_depth_data(json_t *array, int limit) 
-{
-    if (array == NULL)
-        return json_array();
-
-    json_t *new_data = json_array();
-    int size = json_array_size(array) > limit ? limit : json_array_size(array);
-    for (int i = 0; i < size; ++i) {
-        json_t *unit = json_array_get(array, i);
-        json_array_append(new_data, unit);
-    }
-
-    return new_data;
-}
-
-static json_t *pack_depth_result(json_t *result, uint32_t limit)
-{
-    json_t *asks_array = json_object_get(result, "asks");
-    json_t *bids_array = json_object_get(result, "bids");
-
-    json_t *new_result = json_object();
-    json_object_set_new(new_result, "asks", generate_depth_data(asks_array, limit));
-    json_object_set_new(new_result, "bids", generate_depth_data(bids_array, limit));
-    json_object_set    (new_result, "last", json_object_get(result, "last"));
-    json_object_set    (new_result, "time", json_integer(current_millis()));
-
-    return new_result;
-}
-
 // deals reply
 static json_t *pack_deals_result(list_t *deals, uint32_t limit, int64_t last_id)
 {
@@ -194,13 +126,17 @@ static json_t *pack_deals_result(list_t *deals, uint32_t limit, int64_t last_id)
         if (id <= last_id) {
             break;
         }
-        json_t *item = json_object();
-        json_object_set(item, "id", json_object_get(deal, "id"));
-        json_object_set(item, "time", json_object_get(deal, "time"));
-        json_object_set(item, "type", json_object_get(deal, "type"));
-        json_object_set(item, "price", json_object_get(deal, "price"));
-        json_object_set(item, "amount", json_object_get(deal, "amount"));
-        json_array_append_new(result, item);
+
+        json_t *unit = json_object();
+        json_object_set(unit, "id", json_object_get(deal, "id"));
+        json_object_set(unit, "type", json_object_get(deal, "type"));
+        json_object_set(unit, "price", json_object_get(deal, "price"));
+        json_object_set(unit, "amount", json_object_get(deal, "amount"));
+        double date = json_real_value(json_object_get(deal, "time"));
+        json_object_set_new(unit, "date", json_integer((time_t)date));
+        json_object_set_new(unit, "date_ms", json_integer((int64_t)(date * 1000)));
+        json_array_append_new(result, unit);
+
         count += 1;
         if (count == limit) {
             break;
@@ -269,79 +205,6 @@ static int on_sub_deals_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 
     while (obj->deals->len > MAX_DEALS_LIMIT) {
         list_del(obj->deals, list_tail(obj->deals));
-    }
-
-    return 0;
-}
-
-static bool is_json_equal(json_t *lhs, json_t *rhs)
-{
-    if (lhs == NULL || rhs == NULL)
-        return false;
-
-    char *lhs_str = json_dumps(lhs, JSON_SORT_KEYS);
-    char *rhs_str = json_dumps(rhs, JSON_SORT_KEYS);
-    int ret = strcmp(lhs_str, rhs_str);
-    free(lhs_str);
-    free(rhs_str);
-
-    return ret == 0;
-}
-
-static bool is_depth_equal(json_t *last, json_t *now)
-{
-    if (last == NULL || now == NULL)
-        return false;
-    if (!is_json_equal(json_object_get(last, "asks"), json_object_get(now, "asks")))
-        return false;
-    return is_json_equal(json_object_get(last, "bids"), json_object_get(now, "bids"));
-}
-
-// depth update
-static int on_sub_depth_update(json_t *result, nw_ses *ses, rpc_pkg *pkg)
-{
-    const char *market = json_string_value(json_object_get(result, "market"));
-    const char *interval = json_string_value(json_object_get(result, "interval"));
-    json_t *depth_data = json_object_get(result, "data");
-
-    log_trace("depth update, market: %s, interval: %s", market, interval);
-    if (market == NULL || interval == NULL || depth_data == NULL) {
-        sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
-        sdsfree(reply_str);
-        return -__LINE__;
-    }
-
-    struct depth_key key;
-    memset(&key, 0, sizeof(struct depth_key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(key.interval, interval, INTERVAL_MAX_LEN - 1);
-
-    dict_entry *entry = dict_find(dict_depth, &key);
-    if (entry == NULL) {
-        struct depth_val val;
-        memset(&val, 0, sizeof(val));
-
-        entry = dict_add(dict_depth, &key, &val);
-        if (entry == NULL)
-            return -__LINE__;
-    }
-
-    struct depth_val *val = entry->val;
-    if (val->last == NULL) {
-        json_incref(depth_data);
-        val->last = depth_data;
-        depth_ticker_update(market, depth_data);
-
-        return 0;
-    }
-
-    json_decref(val->last);
-    json_incref(depth_data);
-    val->last = depth_data;
-
-    if (!is_depth_equal(val->last, depth_data)) {
-        depth_ticker_update(market, depth_data);
     }
 
     return 0;
@@ -434,9 +297,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     switch (pkg->command) {
-    case CMD_CACHE_DEPTH_UPDATE:
-        on_sub_depth_update(result, ses, pkg);
-        break;
     case CMD_CACHE_DEALS_UPDATE:
         on_sub_deals_update(result, ses, pkg);
         break;
@@ -450,34 +310,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 clean:
     if (reply)
         json_decref(reply);
-
-    return;
-}
-
-// direct reply
-void direct_depth_reply(nw_ses *ses, const char *market, const char *interval, uint32_t limit)
-{
-    struct depth_key key;
-    memset(&key, 0, sizeof(struct depth_key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(key.interval, interval, INTERVAL_MAX_LEN - 1);
-
-    bool is_reply = false;
-    dict_entry *entry = dict_find(dict_depth, &key);
-    if (entry != NULL) {
-        struct depth_val *val = entry->val;
-        if (val->last != NULL) {
-            is_reply = true;
-            json_t *result = pack_depth_result(val->last, limit);
-            reply_json(ses, result, NULL);
-            json_decref(result);
-        }
-    }
-
-    if (!is_reply) {
-        reply_result_null(ses);
-        log_error("depth not find result, market: %s, interval: %s", market, interval);
-    }
 
     return;
 }
@@ -567,17 +399,6 @@ int init_sub_all(void)
     dt.val_destructor = dict_deals_val_free;
     dict_deals = dict_create(&dt, 64);
     if (dict_deals == NULL)
-        return -__LINE__;
-
-    memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = dict_depth_hash_func;
-    dt.key_compare    = dict_depth_key_compare;
-    dt.key_dup        = dict_depth_key_dup;
-    dt.key_destructor = dict_depth_key_free;
-    dt.val_dup        = dict_depth_val_dup;
-    dt.val_destructor = dict_depth_val_free;
-    dict_depth        = dict_create(&dt, 64);
-    if (dict_depth == NULL)
         return -__LINE__;
 
     memset(&dt, 0, sizeof(dt));

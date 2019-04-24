@@ -8,6 +8,9 @@
 # include "ar_market.h"
 
 static dict_t *dict_state;
+static nw_timer update_timer;
+static nw_state *state_context;
+static rpc_clt *matchengine;
 
 struct state_data {
     uint32_t cmd;
@@ -89,16 +92,21 @@ int status_ticker_update(const char *market, json_t *result)
 int depth_ticker_update(const char *market, json_t *result)
 {
     dict_entry *entry = dict_find(dict_state, market);
-    if (entry == NULL)
-        return -__LINE__;
-    struct state_val *info = entry->val;
+    if (entry == NULL) {
+        struct state_val val;
+        memset(&val, 0, sizeof(val));
 
+        val.last = json_object();
+        entry = dict_add(dict_state, (char *)market, &val);
+    }
+
+    struct state_val *info = entry->val;
     if (info->last == NULL) {
         info->last = json_object();
     }
 
     json_t *bids = json_object_get(result, "bids");
-    if (json_array_size(bids) >= 1) {
+    if (json_array_size(bids) == 1) {
         json_t *buy = json_array_get(bids, 0);
         json_object_set(info->last, "buy", json_array_get(buy, 0));
         json_object_set(info->last, "buy_amount", json_array_get(buy, 1));
@@ -120,6 +128,111 @@ int depth_ticker_update(const char *market, json_t *result)
     return 0;
 }
 
+static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
+{
+    sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+    log_trace("recv pkg from: %s, cmd: %u, sequence: %u, reply: %s",
+            nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, reply_str);
+    nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
+    if (entry == NULL) {
+        sdsfree(reply_str);
+        return;
+    }
+
+    struct state_data *state = entry->data;
+    json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
+    if (reply == NULL) {
+        sdsfree(reply_str);
+        nw_state_del(state_context, pkg->sequence);
+        return;
+    }
+
+    json_t *error = json_object_get(reply, "error");
+    json_t *result = json_object_get(reply, "result");
+    if (error == NULL || !json_is_null(error) || result == NULL) {
+        log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
+        sdsfree(reply_str);
+        json_decref(reply);
+        nw_state_del(state_context, pkg->sequence);
+        return;
+    }
+
+    int ret;
+    switch (pkg->command) {
+    case CMD_ORDER_DEPTH:
+        ret = depth_ticker_update(state->market, result);  
+        if (ret < 0) {
+            log_error("on_order_depth_reply: %d, reply: %s", ret, reply_str);
+        }
+        break;
+    default:
+        log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
+        break;
+    }
+
+    sdsfree(reply_str);
+    json_decref(reply);
+    nw_state_del(state_context, pkg->sequence);
+}
+
+static void on_backend_connect(nw_ses *ses, bool result)
+{
+    rpc_clt *clt = ses->privdata;
+    if (result) {
+        log_info("connect %s:%s success", clt->name, nw_sock_human_addr(&ses->peer_addr));
+    } else {
+        log_info("connect %s:%s fail", clt->name, nw_sock_human_addr(&ses->peer_addr));
+    }
+}
+
+static int query_market_depth(const char *market)
+{
+    json_t *params = json_array();
+    json_array_append_new(params, json_string(market));
+    json_array_append_new(params, json_integer(1));
+    json_array_append_new(params, json_string("0"));
+
+    nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
+    struct state_data *state = state_entry->data;
+    strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
+
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
+    pkg.command   = CMD_ORDER_DEPTH;
+    pkg.sequence  = state_entry->id;
+    pkg.body      = json_dumps(params, 0);
+    pkg.body_size = strlen(pkg.body);
+
+    state->cmd = pkg.command;
+    rpc_clt_send(matchengine, &pkg);
+    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
+            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
+    free(pkg.body);
+    json_decref(params);
+
+    return 0;
+}
+
+static void on_update_timer(nw_timer *timer, void *privdata)
+{
+    dict_t *dict_market = get_market();
+
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        const char *market = entry->key;
+        query_market_depth(market);
+    }
+    dict_release_iterator(iter);
+}
+
+static void on_timeout(nw_state_entry *entry)
+{
+    struct state_data *state = entry->data;
+    log_fatal("query timeout, state id: %u, command: %u", entry->id, state->cmd);
+}
+
 int init_ticker(void)
 {
     dict_types dt;
@@ -136,6 +249,28 @@ int init_ticker(void)
         log_stderr("dict_create failed");
         return -__LINE__;
     }
+
+    rpc_clt_type ct;
+    memset(&ct, 0, sizeof(ct));
+    ct.on_connect = on_backend_connect;
+    ct.on_recv_pkg = on_backend_recv_pkg;
+
+    matchengine = rpc_clt_create(&settings.matchengine, &ct);
+    if (matchengine == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(matchengine) < 0)
+        return -__LINE__;
+
+    nw_state_type st;
+    memset(&st, 0, sizeof(st));
+    st.on_timeout = on_timeout;
+
+    state_context = nw_state_create(&st, sizeof(struct state_data));
+    if (state_context == NULL)
+        return -__LINE__;
+
+    nw_timer_set(&update_timer, settings.state_interval, true, on_update_timer, NULL);
+    nw_timer_start(&update_timer);
 
     return 0;
 }
