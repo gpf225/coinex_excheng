@@ -523,4 +523,9 @@ paket-files/
 # wireshark
 *.cap
 
+# subline
+.DS_Store
+.tags
+.tags_sorted_by_file
+
 # End of https://www.gitignore.io/api/c,vim,python,windows,visualstudio

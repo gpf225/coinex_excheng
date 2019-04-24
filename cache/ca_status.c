@@ -5,7 +5,6 @@
 
 # include "ca_config.h"
 # include "ca_status.h"
-# include "ca_cache.h"
 # include "ca_server.h"
 # include "ca_market.h"
 
@@ -17,7 +16,6 @@ static nw_timer timer;
 
 struct dict_status_key {
     char        market[MARKET_NAME_MAX_LEN];
-    int         period;
 };
 
 struct dict_status_sub_val {
@@ -27,10 +25,6 @@ struct dict_status_sub_val {
 
 struct state_data {
     char        market[MARKET_NAME_MAX_LEN];
-    int         period;
-    nw_ses      *ses;
-    uint64_t    ses_id;
-    uint32_t    sequence;
 };
 
 static uint32_t dict_status_sub_hash_function(const void *key)
@@ -75,7 +69,7 @@ static dict_t* dict_create_status_session(void)
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.hash_function = dict_ses_hash_func;
-    dt.key_compare = dict_ses_hash_compare;
+    dt.key_compare   = dict_ses_hash_compare;
 
     return dict_create(&dt, 16);
 }
@@ -83,63 +77,6 @@ static dict_t* dict_create_status_session(void)
 static void on_timeout(nw_state_entry *entry)
 {
     log_error("state id: %u timeout", entry->id);
-    struct state_data *state = entry->data;
-
-    if (state->ses != NULL) {
-        if (state->ses->id == state->ses_id) {
-            rpc_pkg reply_rpc;
-            memset(&reply_rpc, 0, sizeof(reply_rpc));
-            reply_rpc.command = CMD_CACHE_STATUS;
-            reply_time_out(state->ses, &reply_rpc);
-        } else {
-            log_error("ses id not equal");
-        }
-    }
-}
-
-static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, int period)
-{
-    sds key = sdsempty();
-    key = sdscatprintf(key, "status_%s_%d", market, period);
-
-    struct dict_cache_val *cache = get_cache(key, settings.cache_timeout);
-    if (cache == NULL) {
-        sdsfree(key);
-        return false;
-    }
-
-    uint64_t now = current_millis();
-    int ttl = now - cache->time;
-    json_t *new_result = json_object();
-    json_object_set_new(new_result, "ttl", json_integer(ttl));
-
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", json_null());
-    json_object_set    (reply, "result", cache->result);
-    json_object_set_new(reply, "id", json_integer(pkg->req_id));
-    json_object_set_new(new_result, "cache_result", reply);
-
-    reply_json(ses, pkg, new_result);
-    sdsfree(key);
-    json_decref(new_result);
-
-    return true;
-}
-
-static void status_reply(nw_ses *ses, json_t *result, uint32_t sequence)
-{
-    json_t *new_result = json_object();
-    json_object_set_new(new_result, "ttl", json_integer(settings.cache_timeout));
-    json_object_set(new_result, "cache_result", result);
-
-    rpc_pkg reply_rpc;
-    memset(&reply_rpc, 0, sizeof(reply_rpc));
-    reply_rpc.command = CMD_CACHE_STATUS;
-    reply_rpc.sequence = sequence;
-    reply_json(ses, &reply_rpc, new_result);
-    json_decref(new_result);
-
-    return;
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)
@@ -161,12 +98,11 @@ static int notify_message(nw_ses *ses, int command, json_t *message)
     return reply_result(ses, &pkg, message);
 }
 
-static int status_sub_reply(const char *market, int period, json_t *result)
+static int status_sub_reply(const char *market, json_t *result)
 {
     struct dict_status_key key;
     memset(&key, 0, sizeof(key));
     strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-    key.period = period;
 
     dict_entry *entry = dict_find(dict_status_sub, &key);
     if (entry == NULL)
@@ -209,9 +145,11 @@ static int status_sub_reply(const char *market, int period, json_t *result)
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry == NULL)
+    if (entry == NULL) {
+        log_error("nw_state_get get null");
         return;
-    
+    }
+
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
         sds hex = hexdump(pkg->body, pkg->body_size);
@@ -231,36 +169,16 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
         is_error = true;
         sdsfree(reply_str);
-
-        struct dict_status_key key;
-        memset(&key, 0, sizeof(key));
-        strncpy(key.market, state->market, MARKET_NAME_MAX_LEN - 1);
-        key.period = state->period;
-        dict_delete(dict_status_sub, &key);
     }
 
     switch (pkg->command) {
     case CMD_MARKET_STATUS:
-        if (state->ses) { // out request
-            if (state->ses->id == state->ses_id) {
-                status_reply(state->ses, reply, state->sequence);
-
-                if (!is_error) {
-                    sds cache_key = sdsempty();
-                    cache_key = sdscatprintf(cache_key, "status_%s_%d", state->market, state->period);
-                    add_cache(cache_key, result);
-                    sdsfree(cache_key);    
-                }
-            } else {
-                sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-                log_error("ses id not equal, reply: %s", reply_str);
-                sdsfree(reply_str);
-            }
-        } else { // sub timer request
-            if (!is_error)
-                status_sub_reply(state->market, state->period, result);
+        if (!is_error) {
+            status_sub_reply(state->market, result);
         }
-
+        break;
+    default:
+        log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
         break;
     }
 
@@ -268,31 +186,18 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     nw_state_del(state_context, pkg->sequence);
 }
 
-int status_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int period)
+static int status_request(const char *market)
 {
-    if (ses != NULL && process_cache(ses, pkg, market, period))
-        return 0;
-
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
-    state->period = period;
-
-    if (ses != NULL) {
-        state->ses = ses;
-        state->ses_id = ses->id;
-        state->sequence = pkg->sequence;
-    }
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
-    json_array_append_new(params, json_integer(period));
+    json_array_append_new(params, json_integer(86400));
 
     rpc_pkg req_pkg;
     memset(&req_pkg, 0, sizeof(req_pkg));
-    if (pkg != NULL) {
-        req_pkg.req_id = pkg->req_id;
-    }
     req_pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
     req_pkg.command   = CMD_MARKET_STATUS;
     req_pkg.sequence  = state_entry->id;
@@ -320,19 +225,37 @@ static void on_timer(nw_timer *timer, void *privdata)
             continue;
         }
 
-        log_info("state sub request, market: %s, period: %d", key->market, key->period);
-        status_request(NULL, NULL, key->market, key->period);
+        log_trace("state sub request, market: %s", key->market);
+        status_request(key->market);
     }
     dict_release_iterator(iter);
 }
 
-int status_subscribe(nw_ses *ses, const char *market, int period)
+static void send_last_state(nw_ses *ses, const char *market)
 {
-    log_info("depth subscribe, market: %s, period: %d", market, period);
     struct dict_status_key key;
     memset(&key, 0, sizeof(key));
     strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-    key.period = period;
+
+    dict_entry *entry = dict_find(dict_status_sub, &key);
+    if (entry != NULL) {
+        struct dict_status_sub_val *obj = entry->val;
+        json_t *params = json_array();
+        json_array_append_new(params, json_string(market));
+        json_array_append    (params, obj->sub_last);
+        notify_message(ses, CMD_CACHE_STATUS_UPDATE, params);
+        json_decref(params);
+    }
+
+    return;
+}
+
+int status_subscribe(nw_ses *ses, const char *market)
+{
+    log_info("depth subscribe, market: %s", market);
+    struct dict_status_key key;
+    memset(&key, 0, sizeof(key));
+    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
 
     dict_entry *entry = dict_find(dict_status_sub, &key);
     if (entry == NULL) {
@@ -353,15 +276,15 @@ int status_subscribe(nw_ses *ses, const char *market, int period)
     struct dict_status_sub_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
 
+    send_last_state(ses, market);
     return 0;  
 }
 
-void status_unsubscribe(nw_ses *ses, const char *market, int period)
+void status_unsubscribe(nw_ses *ses, const char *market)
 {
     struct dict_status_key key;
     memset(&key, 0, sizeof(key));
     strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-    key.period = period;
 
     dict_entry *entry = dict_find(dict_status_sub, &key);
     if (entry == NULL)

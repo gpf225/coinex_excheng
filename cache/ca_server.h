@@ -14,6 +14,7 @@ int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result);
 int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message);
 int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg);
 int depth_subscribe_all(nw_ses *ses);
+dict_t *get_sub_all_dict();
 
 # endif
 

@@ -75,22 +75,10 @@
 # define CMD_LP_STATE_UPDATE            510
 
 //cache
-# define CMD_CACHE_KLINE     			 601
-# define CMD_CACHE_DEALS     			 602
-# define CMD_CACHE_STATUS     			 603
-# define CMD_CACHE_DEPTH     			 604
-# define CMD_CACHE_DEPTH_SUBSCRIBE       605
-# define CMD_CACHE_DEPTH_UNSUBSCRIBE     606
-# define CMD_CACHE_DEALS_SUBSCRIBE       607
-# define CMD_CACHE_DEALS_UNSUBSCRIBE     608
-# define CMD_CACHE_KLINE_SUBSCRIBE       609
-# define CMD_CACHE_KLINE_UNSUBSCRIBE     610
-# define CMD_CACHE_STATUS_SUBSCRIBE      611
-# define CMD_CACHE_STATUS_UNSUBSCRIBE    612
-# define CMD_CACHE_KLINE_UPDATE     	 613
-# define CMD_CACHE_DEALS_UPDATE     	 614
-# define CMD_CACHE_STATUS_UPDATE    	 615
-# define CMD_CACHE_DEPTH_UPDATE          616
+# define CMD_CACHE_SUBSCRIBE_ALL        601
+# define CMD_CACHE_DEPTH_UPDATE         602
+# define CMD_CACHE_DEALS_UPDATE     	603
+# define CMD_CACHE_STATUS_UPDATE    	604
 
 // dealrank
 # define CMD_DEAL_RANK                   701

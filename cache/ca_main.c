@@ -7,9 +7,7 @@
 # include "ca_depth.h"
 # include "ca_server.h"
 # include "ca_market.h"
-# include "ca_cache.h"
 # include "ca_deals.h"
-# include "ca_kline.h"
 # include "ca_status.h"
 # include "ut_title.h"
 
@@ -95,10 +93,6 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
     }
-    ret = init_cache();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
-    }
     ret = init_depth();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init depth fail: %d", ret);
@@ -106,10 +100,6 @@ int main(int argc, char *argv[])
     ret = init_deals();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init deals fail: %d", ret);
-    }
-    ret = init_kline();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init kline fail: %d", ret);
     }
     ret = init_status();
     if (ret < 0) {
