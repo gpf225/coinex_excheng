@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
         goto run;
     }
 
-    process_title_set("writer");
+    process_title_set("reader");
     daemon(1, 1);
     process_keepalive();
 
