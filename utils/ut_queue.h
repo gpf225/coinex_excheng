@@ -1,7 +1,8 @@
 /*
  * Description: A variable length circular queue, support single process or
  *              thread write and single process or thread read.
- *     History: yangxiaoqaing@viabtc.com, 2019/04/025, update
+ *     History: damonyang@tencent.com, 2013/06/08, create
+                yangxiaoqaing@viabtc.com, 2019/04/025, update （remove file storage, add evio and named pipe）
  */
 
 # ifndef _UT_QUEUE_H_
