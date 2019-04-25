@@ -1,13 +1,8 @@
 /*
  * Description: A variable length circular queue, support single process or
  *              thread write and single process or thread read.
- *              Support use file as storage.
- *     History: damonyang@tencent.com, 2013/06/08, create
+ *     History: yangxiaoqaing@viabtc.com, 2019/04/025, update
  */
-
-
-# undef  _FILE_OFFSET_BITS
-# define _FILE_OFFSET_BITS 64
 
 # include <stdio.h>
 # include <string.h>
@@ -17,13 +12,18 @@
 # include <assert.h>
 # include <limits.h>
 # include <errno.h>
+# include <unistd.h>
 # include <sys/types.h>
+# include <sys/stat.h>
 # include <sys/ipc.h>
 # include <sys/shm.h>
+# include <fcntl.h>
 
 # include "ut_queue.h"
+# include "nw_sock.h"
 
-# define MAGIC_NUM 20130610
+# define MAX_NAME_LEN 128
+# define MAGIC_NUM    20190424
 
 # pragma pack(1)
 
@@ -38,12 +38,6 @@ struct queue_head
     uint32_t mem_num;
     uint32_t p_head;
     uint32_t p_tail;
-
-    char     file[512];
-    uint64_t file_max_size;
-    uint64_t file_start;
-    uint64_t file_end;
-    uint32_t file_num;
 };
 
 # pragma pack()
@@ -71,150 +65,6 @@ static int get_shm(key_t key, size_t size, void **addr)
     return -__LINE__;
 }
 
-int queue_init(queue_t *queue, char *name, key_t shm_key,
-        uint32_t mem_size, char *reserve_file, uint64_t file_max_size)
-{
-    if (!queue || !mem_size)
-        return -__LINE__;
-
-    size_t real_mem_size = sizeof(struct queue_head) + mem_size;
-    void *memory = NULL;
-    bool old_shm = false;
-
-    if (shm_key) {
-        int ret = get_shm(shm_key, real_mem_size, &memory);
-        if (ret < 0)
-            return -__LINE__;
-        else if (ret == 0)
-            old_shm = true;
-    } else {
-        memory = calloc(1, real_mem_size);
-        if (memory == NULL)
-            return -__LINE__;
-    }
-
-    volatile struct queue_head *head = memory;
-    if (old_shm == false) {
-        head->magic    = MAGIC_NUM;
-        if (name) {
-            if (strlen(name) >= sizeof(head->name))
-                return -__LINE__;
-            strcpy((char *)head->name, name);
-        }
-
-        head->shm_key  = shm_key;
-        head->mem_size = mem_size;
-
-        if (reserve_file) {
-            if (strlen(reserve_file) >= sizeof(head->file))
-                return -__LINE__;
-            strcpy((char *)head->file, reserve_file);
-            remove((char *)head->file);
-            errno = 0;
-            head->file_max_size = file_max_size;
-        }
-    } else {
-        if (name && strcmp((char *)head->name, name) != 0)
-            return -__LINE__;
-        if (reserve_file && !strcmp(reserve_file, (char *)head->file) != 0) {
-            strcpy((char *)head->file, reserve_file);
-            remove((char *)head->file);
-            errno = 0;
-            head->file_max_size = file_max_size;
-            head->file_start = head->file_end = head->file_num = 0;
-        }
-    }
-
-    memset(queue, 0, sizeof(*queue));
-    queue->memory = memory;
-
-    return 0;
-}
-
-static int write_file(queue_t *queue, void *data, uint32_t size)
-{
-    volatile struct queue_head *head = queue->memory;
-    if (head->file_max_size) {
-        if ((head->file_end + (sizeof(size) + size)) > head->file_max_size)
-            return -__LINE__;
-    }
-    if (head->file_num == UINT32_MAX) {
-        return -__LINE__;
-    }
-    FILE *fp = fopen((char *)head->file, "a+");
-    if (fp == NULL) {
-        return -__LINE__;
-    }
-    if (fseeko(fp, head->file_end, SEEK_SET) != 0) {
-        fclose(fp);
-        return -__LINE__;
-    }
-    if (fwrite(&size, sizeof(size), 1, fp) != 1) {
-        fclose(fp);
-        return -__LINE__;
-    }
-    if (fwrite(data, size, 1, fp) != 1) {
-        fclose(fp);
-        return -__LINE__;
-    }
-    fclose(fp);
-
-    head->file_end += (sizeof(size) + size);
-    __sync_fetch_and_add(&head->file_num, 1);
-
-    return 0;
-}
-
-static void putmem(queue_t *queue, uint32_t *p_tail, void *data, uint32_t size)
-{
-    volatile struct queue_head *head = queue->memory;
-    void *buf = queue->memory + sizeof(struct queue_head);
-
-    uint32_t tail_left = head->mem_size - *p_tail;
-    if (tail_left < size) {
-        memcpy(buf + *p_tail, data, tail_left);
-        *p_tail = size - tail_left;
-        memcpy(buf, data + tail_left, *p_tail);
-    } else {
-        memcpy(buf + *p_tail, data, size);
-        *p_tail += size;
-    }
-}
-
-int queue_push(queue_t *queue, void *data, uint32_t size)
-{
-    if (!queue || !data)
-        return -__LINE__;
-
-    volatile struct queue_head *head = queue->memory;
-    assert(head->magic == MAGIC_NUM);
-
-    if ((head->mem_size - head->mem_use) < (sizeof(size) + size)) {
-        if (head->file[0]) {
-            return write_file(queue, data, size);
-        }
-        return -__LINE__;
-    }
-
-    if (head->file[0] && head->file_end && head->file_num == 0) {
-        remove((char *)head->file);
-        head->file_start = 0;
-        head->file_end   = 0;
-    }
-
-    uint32_t p_tail = head->p_tail;
-
-    putmem(queue, &p_tail, &size, sizeof(size));
-    putmem(queue, &p_tail, data, size);
-
-    head->p_tail = p_tail;
-
-    __sync_fetch_and_add(&head->mem_use, sizeof(size) + size);
-    __sync_fetch_and_add(&head->mem_num, 1);
-
-    return 0;
-}
-
 static void *alloc_read_buf(queue_t *queue, uint32_t size)
 {
     if (queue->read_buf == NULL || queue->read_buf_size < size) {
@@ -236,45 +86,20 @@ static void *alloc_read_buf(queue_t *queue, uint32_t size)
     return queue->read_buf;
 }
 
-static int read_file(queue_t *queue, void **data, uint32_t *size)
+static void putmem(queue_t *queue, uint32_t *p_tail, void *data, uint32_t size)
 {
     volatile struct queue_head *head = queue->memory;
-    errno = 0;
-    FILE *fp = fopen((char *)head->file, "r");
-    if (fp == NULL) {
-        if (errno == ENOENT) {
-            head->file_num   = 0;
-            head->file_start = 0;
-            head->file_end   = 0;
-        }
-        return -__LINE__;
-    }
-    if (fseeko(fp, head->file_start, SEEK_SET) != 0) {
-        fclose(fp);
-        return -__LINE__;
-    }
-    uint32_t chunk_size = 0;
-    if (fread(&chunk_size, sizeof(chunk_size), 1, fp) != 1) {
-        fclose(fp);
-        return -__LINE__;
-    }
-    *data = alloc_read_buf(queue, chunk_size);
-    if (*data == NULL) {
-        fclose(fp);
-        return -__LINE__;
-    }
-    if (fread(*data, chunk_size, 1, fp) != 1) {
-        fclose(fp);
-        return -__LINE__;
-    }
-    fclose(fp);
+    void *buf = queue->memory + sizeof(struct queue_head);
 
-    *size = chunk_size;
-
-    head->file_start += sizeof(chunk_size) + chunk_size;
-    __sync_fetch_and_sub(&head->file_num, 1);
-
-    return 0;
+    uint32_t tail_left = head->mem_size - *p_tail;
+    if (tail_left < size) {
+        memcpy(buf + *p_tail, data, tail_left);
+        *p_tail = size - tail_left;
+        memcpy(buf, data + tail_left, *p_tail);
+    } else {
+        memcpy(buf + *p_tail, data, size);
+        *p_tail += size;
+    }
 }
 
 static void getmem(queue_t *queue, uint32_t *p_head, void *data, uint32_t size)
@@ -307,6 +132,159 @@ static int check_mem(queue_t *queue, size_t size)
     return 0;
 }
 
+static int queue_init(queue_t *queue, char *name, key_t shm_key, uint32_t mem_size, bool reset)
+{
+    size_t real_mem_size = sizeof(struct queue_head) + mem_size;
+    void *memory = NULL;
+    bool old_shm = false;
+
+    int ret = get_shm(shm_key, real_mem_size, &memory);
+    if (ret < 0)
+        return -__LINE__;
+    else if (ret == 0)
+        old_shm = true;
+
+    volatile struct queue_head *head = memory;
+    if (old_shm) {
+        if (name && strcmp((char *)head->name, name) != 0) {
+            return -__LINE__;
+        }
+    } else {
+        strcpy((char *)head->name, name);
+        head->magic = MAGIC_NUM;
+        head->shm_key  = shm_key;
+        head->mem_size = mem_size;
+    }
+
+    if (reset) {
+        head->mem_use = 0;
+        head->mem_num = 0;
+        head->p_head  = 0;
+        head->p_tail  = 0;
+    }
+
+    memset(queue, 0, sizeof(*queue));
+    queue->memory = memory;
+
+    return 0;
+}
+
+static void queue_can_read(struct ev_loop *loop, ev_io *watcher, int events)
+{
+    queue_t *queue = (queue_t *)watcher;
+    char buffer[PIPE_BUF + 1];
+    for (;;) {
+        int ret = read(queue->pipe_fd, buffer, PIPE_BUF);
+        if (ret < 0)
+            break;
+    }
+
+    for (;;) {
+        void *data;
+        uint32_t size;
+        int ret = queue_pop(queue, &data, &size);
+        if (ret < 0) {
+            return;
+        }
+        
+        if (queue->type.on_message)
+            queue->type.on_message(data, size);
+    }
+}
+
+int queue_reader_init(queue_t *queue, queue_type *type, char *name, char *pipe_path, key_t shm_key, uint32_t mem_size)
+{
+    if (!queue || !pipe_path || !name || strlen(name) > MAX_NAME_LEN || !mem_size || !shm_key)
+        return -__LINE__;
+
+    int ret = queue_init(queue, name, shm_key, mem_size, false);
+    if (ret < 0) {
+        return ret;
+    }
+
+    if (type == NULL) {
+        return -__LINE__;
+    }
+    queue->type = *type;
+
+    if (access(pipe_path, F_OK) == -1) {
+        if (mkfifo(pipe_path, 0777) != 0) {
+            return -__LINE__;
+        }
+    }
+
+    int pipe_fd = open(pipe_path, O_RDONLY);
+    if (pipe_fd == -1) {
+        return -__LINE__;
+    }
+
+    nw_loop_init();
+    queue->pipe_path = strdup(pipe_path);
+    queue->pipe_fd = pipe_fd;
+    queue->loop = nw_default_loop;
+    nw_sock_set_nonblock(queue->pipe_fd);
+    ev_io_init(&queue->ev, queue_can_read, queue->pipe_fd, EV_READ);
+    ev_io_start(queue->loop, &queue->ev);
+    return 0;
+}
+
+int queue_writer_init(queue_t *queue, queue_type *type, char *name, char *pipe_path, key_t shm_key, uint32_t mem_size)
+{
+    if (!queue || !pipe_path || !name || strlen(name) > MAX_NAME_LEN || !mem_size || !shm_key)
+        return -__LINE__;    
+
+    int ret = queue_init(queue, name, shm_key, mem_size, true);
+    if (ret < 0) {
+        return ret;
+    }
+
+    if (type != NULL) {
+        queue->type = *type;
+    }
+    
+    if(access(pipe_path, F_OK)==-1) {
+        if (mkfifo(pipe_path, 0777) != 0) {
+            return -__LINE__;
+        }
+    }
+    
+    int pipe_fd = open(pipe_path, O_WRONLY);
+    if (pipe_fd == -1) {
+        return -__LINE__;
+    }
+
+    queue->pipe_path = strdup(pipe_path);
+    queue->pipe_fd = pipe_fd;
+    nw_sock_set_nonblock(queue->pipe_fd);
+    return 0;
+}
+
+int queue_push(queue_t *queue, void *data, uint32_t size)
+{
+    if (!queue || !data)
+        return -__LINE__;
+
+    volatile struct queue_head *head = queue->memory;
+    assert(head->magic == MAGIC_NUM);
+
+    if ((head->mem_size - head->mem_use) < (sizeof(size) + size)) {
+        return -__LINE__;
+    }
+
+    uint32_t p_tail = head->p_tail;
+
+    putmem(queue, &p_tail, &size, sizeof(size));
+    putmem(queue, &p_tail, data, size);
+
+    head->p_tail = p_tail;
+
+    __sync_fetch_and_add(&head->mem_use, sizeof(size) + size);
+    __sync_fetch_and_add(&head->mem_num, 1);
+
+    write(queue->pipe_fd, " ", 1);
+    return 0;
+}
+
 int queue_pop(queue_t *queue, void **data, uint32_t *size)
 {
     if (!queue || !data || !size)
@@ -315,14 +293,6 @@ int queue_pop(queue_t *queue, void **data, uint32_t *size)
     volatile struct queue_head *head = queue->memory;
     assert(head->magic == MAGIC_NUM);
     if (head->mem_num == 0) {
-        if (head->file[0] && head->file_num) {
-            int ret = read_file(queue, data, size);
-            if (ret < 0) {
-                return -__LINE__;
-            } else {
-                return 0;
-            }
-        }
         return -__LINE__;
     }
 
@@ -358,7 +328,7 @@ uint64_t queue_len(queue_t *queue)
     volatile struct queue_head *head = queue->memory;
     assert(head->magic == MAGIC_NUM);
 
-    return head->mem_use + head->file_end - head->file_start;
+    return head->mem_use;
 }
 
 uint64_t queue_num(queue_t *queue)
@@ -369,20 +339,16 @@ uint64_t queue_num(queue_t *queue)
     volatile struct queue_head *head = queue->memory;
     assert(head->magic == MAGIC_NUM);
 
-    return head->mem_num + head->file_num;
+    return head->mem_num;
 }
 
-int queue_stat(queue_t *queue, \
-        uint32_t *mem_num, uint32_t *mem_size, uint32_t *file_num, uint64_t *file_size)
+int queue_stat(queue_t *queue, uint32_t *mem_num, uint32_t *mem_size)
 {
     volatile struct queue_head *head = queue->memory;
     assert(head->magic == MAGIC_NUM);
 
     *mem_num   = head->mem_num;
     *mem_size  = head->mem_use;
-    *file_num  = head->file_num;
-    *file_size = head->file_end - head->file_start;
-
     return 0;
 }
 
@@ -399,8 +365,15 @@ void queue_fini(queue_t *queue)
 
     if (head->shm_key)
         shmdt(queue->memory);
-    else
-        free(queue->memory);
+
+    if (queue->loop)
+        ev_io_stop(queue->loop, &queue->ev);
+
+    if (queue->pipe_path)
+        free(queue->pipe_path);
+
+    if (queue->pipe_fd > 0)
+        close(queue->pipe_fd);
 
     return;
 }

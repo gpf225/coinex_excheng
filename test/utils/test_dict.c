@@ -51,7 +51,7 @@ static void dict_order_value_free(void *value)
 int main(void)
 {
     dict_types types_order;
-    memset(&types_order, 0, sizeof(dt));
+    memset(&types_order, 0, sizeof(dict_types));
     types_order.hash_function  = dict_order_hash_function;
     types_order.key_compare    = dict_order_key_compare;
     types_order.key_dup        = dict_order_key_dup;
@@ -63,12 +63,14 @@ int main(void)
         return -__LINE__;
     }
 
+    /*
     json_t *order_info = get_order_info();
     json_object_set_new(order_info, "finished", json_true());
-    dict_entry *entry = dict_add(dict_order, &order->id, order_info);
+    dict_entry *entry = dict_add(dict_order, &order_info->id, order_info);
     json_t *order_info2 = entry->val;
     char *data = json_dumps(order_info2, JSON_INDENT(4));
     log_info("add finished order info: %s",  data);
     free(data);
+    */
 }
 
