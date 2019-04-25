@@ -37,5 +37,6 @@
     "slice_keeptime": 259200,
     "depth_merge_max": 800,
     "usdc_assets": ["TUSD", "PAX", "GUSD"],
-    "history_mode": 3
+    "history_mode": 3,
+    "reader_num": 4
 }

@@ -2054,7 +2054,7 @@ int init_server(void)
     if (rpc_svr_start(svr) < 0)
         return -__LINE__;
 
-        dict_types dt;
+    dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.hash_function  = cache_dict_hash_function;
     dt.key_compare    = cache_dict_key_compare;

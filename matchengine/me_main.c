@@ -13,6 +13,9 @@
 # include "me_history.h"
 # include "me_message.h"
 # include "me_cli.h"
+# include "me_reader.h"
+# include "me_writer.h"
+# include "me_access.h"
 # include "me_server.h"
 
 const char *__process__ = "matchengine";
@@ -59,6 +62,32 @@ static int init_log(void)
     return 0;
 }
 
+static int init_context()
+{
+    int ret;
+    ret = init_balance();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init balance fail: %d", ret);
+    }
+    ret = init_update();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init update fail: %d", ret);
+    }
+    ret = init_trade();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init trade fail: %d", ret);
+    }
+    ret = init_market();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
+    }
+    ret = init_from_db();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init from db fail: %d", ret);
+    }
+    return ret;
+}
+
 int main(int argc, char *argv[])
 {
     printf("process: %s version: %s, compile date: %s %s\n", __process__, __version__, __DATE__, __TIME__);
@@ -89,23 +118,48 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init log fail: %d", ret);
     }
-    ret = init_balance();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init balance fail: %d", ret);
-    }
-    ret = init_update();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init update fail: %d", ret);
-    }
-    ret = init_trade();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init trade fail: %d", ret);
-    }
-    ret = init_market();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
+
+    int pid;
+    pid = fork();
+    if (pid < 0) {
+        error(EXIT_FAILURE, errno, "fork error");
+    } else if (pid == 0) {
+        process_title_set("%s_access", __process__);
+        daemon(1, 1);
+        process_keepalive();
+
+        ret = init_access();
+        if (ret < 0) {
+            error(EXIT_FAILURE, errno, "init access fail: %d", ret);
+        }
+
+        goto run;
     }
 
+    init_context();
+    for (int i = 0; i < settings.reader_num; ++i) {
+        pid = fork();
+        if (pid < 0) {
+            error(EXIT_FAILURE, errno, "fork error");
+        } else if (pid != 0) {
+            process_title_set("%s_reader_%d", __process__, i);
+            daemon(1, 1);
+            process_keepalive();
+
+            ret = init_reader(i);
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init reader %d fail: %d", i, ret);
+            }
+
+            ret = init_cli(i);
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init cli %d fail: %d", i, ret);
+            }
+            goto run;
+        }
+    }
+
+    process_title_set("%s_writer", __process__);
     daemon(1, 1);
     process_keepalive();
 
@@ -121,23 +175,29 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init message fail: %d", ret);
     }
-    ret = init_from_db();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init from db fail: %d", ret);
-    }
     ret = init_persist();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init persist fail: %d", ret);
     }
-    ret = init_cli();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init cli fail: %d", ret);
-    }
-    ret = init_server();
+
+    ret = init_writer();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
     }
 
+    ret = init_cli(settings.reader_num);
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init cli fail: %d", ret);
+    }
+
+    /*
+    ret = init_server();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init server fail: %d", ret);
+    }
+    */
+
+run:
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
     nw_timer_start(&cron_timer);
 

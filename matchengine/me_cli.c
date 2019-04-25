@@ -89,8 +89,9 @@ static sds on_cmd_history_control(const char *cmd, int argc, sds *argv)
     return sdscatprintf(reply, "change history mode success: %d\n", mode);
 }
 
-int init_cli(void)
+int init_cli(int id)
 {
+    log_info("id: %d", id);
     svr = cli_svr_create(&settings.cli);
     if (svr == NULL) {
         return -__LINE__;
