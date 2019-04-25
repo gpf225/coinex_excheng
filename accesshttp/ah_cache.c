@@ -44,9 +44,67 @@ static void cache_dict_val_free(void *val)
     free(val);
 }
 
+json_t *generate_depth_data(json_t *array, int limit) 
+{
+    if (array == NULL)
+        return json_array();
+
+    json_t *new_data = json_array();
+    int size = json_array_size(array) > limit ? limit : json_array_size(array);
+    for (int i = 0; i < size; ++i) {
+        json_t *unit = json_array_get(array, i);
+        json_array_append(new_data, unit);
+    }
+
+    return new_data;
+}
+
+json_t *pack_depth_result(json_t *result, uint32_t limit)
+{
+    json_t *asks_array = json_object_get(result, "asks");
+    json_t *bids_array = json_object_get(result, "bids");
+
+    json_t *new_result = json_object();
+    json_object_set_new(new_result, "asks", generate_depth_data(asks_array, limit));
+    json_object_set_new(new_result, "bids", generate_depth_data(bids_array, limit));
+    json_object_set    (new_result, "last", json_object_get(result, "last"));
+    json_object_set    (new_result, "time", json_object_get(result, "time"));
+
+    return new_result;
+}
+
 void dict_replace_cache(sds cache_key, struct cache_val *val)
 {
     dict_replace(backend_cache, cache_key, val);
+}
+
+int check_depth_cache(nw_ses *ses, uint64_t id, sds key, int limit)
+{
+    dict_entry *entry = dict_find(backend_cache, key);
+    if (entry == NULL) {
+        return 0;
+    }
+
+    struct cache_val *cache = entry->val;
+    double now = current_millis();
+    if (now >= cache->time_exp) {
+        dict_delete(backend_cache, key);
+        return 0;
+    }
+
+    json_t *result = pack_depth_result(cache->result, limit);
+    json_t *reply = json_object();
+    json_object_set_new(reply, "error", json_null());
+    json_object_set    (reply, "result", result);
+    json_object_set_new(reply, "id", json_integer(id));   
+
+    char *reply_str = json_dumps(reply, 0);
+    send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
+    json_decref(reply);
+    free(reply_str);
+    profile_inc("hit_cache", 1);
+
+    return 1;
 }
 
 int check_cache(nw_ses *ses, uint64_t id, sds key)

@@ -25,6 +25,7 @@ struct state_data {
     uint64_t    ses_id;
     uint32_t    cmd;
     sds         cache_key;
+    int         depth_limit;
 };
 
 struct cache_val {
@@ -277,15 +278,14 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     }
 
     sds cache_key = sdsempty();
-    cache_key = sdscatprintf(cache_key, "depth_%s_%s_%d", market, merge, limit);
+    cache_key = sdscatprintf(cache_key, "depth_%s_%s", market, merge);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_string(market));
     json_array_append_new(query_params, json_integer(limit));
     json_array_append_new(query_params, json_string(merge));
 
-
-    int ret = check_exp_cache(ses, cache_key, CMD_CACHE_DEPTH, query_params);
+    int ret = check_exp_cache(ses, cache_key, CMD_CACHE_DEPTH, limit);
     if (ret > 0) {
         sdsfree(cache_key);
         return 0;
@@ -302,6 +302,7 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     state->ses = ses;
     state->ses_id = ses->id;
     state->cache_key = cache_key;
+    state->depth_limit = limit;
 
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
@@ -573,6 +574,35 @@ static int init_svr(void)
     return 0;
 }
 
+static json_t *generate_depth_data(json_t *array, int limit) 
+{
+    if (array == NULL)
+        return json_array();
+
+    json_t *new_data = json_array();
+    int size = json_array_size(array) > limit ? limit : json_array_size(array);
+    for (int i = 0; i < size; ++i) {
+        json_t *unit = json_array_get(array, i);
+        json_array_append(new_data, unit);
+    }
+
+    return new_data;
+}
+
+static json_t *pack_depth_result(json_t *result, uint32_t limit)
+{
+    json_t *asks_array = json_object_get(result, "asks");
+    json_t *bids_array = json_object_get(result, "bids");
+
+    json_t *new_result = json_object();
+    json_object_set_new(new_result, "asks", generate_depth_data(asks_array, limit));
+    json_object_set_new(new_result, "bids", generate_depth_data(bids_array, limit));
+    json_object_set    (new_result, "last", json_object_get(result, "last"));
+    json_object_set    (new_result, "time", json_object_get(result, "time"));
+
+    return new_result;
+}
+
 static void on_backend_connect(nw_ses *ses, bool result)
 {
     rpc_clt *clt = ses->privdata;
@@ -621,7 +651,9 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             }
 
             if (state->ses && state->ses->id == state->ses_id) {
-                reply_json(state->ses, result, NULL);
+                json_t *reply_depth = pack_depth_result(result, state->depth_limit);
+                reply_json(state->ses, reply_depth, NULL);
+                json_decref(reply_depth);
             }
 
             if (state->cache_key) {
@@ -630,7 +662,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 val.time_exp = current_millis() + ttl;
                 val.result = result;
                 json_incref(result);
-                dict_replace_cache(state->cache_key, &val);
+                dict_replace_exp_cache(state->cache_key, &val);
             }
         }
     } else if (pkg->command == CMD_MARKET_KLINE) {

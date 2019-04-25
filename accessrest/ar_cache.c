@@ -73,12 +73,12 @@ static json_t *pack_depth_result(json_t *result, uint32_t limit)
     return new_result;
 }
 
-void dict_replace_cache(sds cache_key, struct cache_exp_val *val)
+void dict_replace_exp_cache(sds cache_key, struct cache_exp_val *val)
 {
     dict_replace(backend_cache, cache_key, val);
 }
 
-int check_exp_cache(nw_ses *ses, sds key, uint32_t cmd, json_t *params)
+int check_exp_cache(nw_ses *ses, sds key, uint32_t cmd, int limit)
 {
     dict_entry *entry = dict_find(backend_cache, key);
     if (entry == NULL)
@@ -96,7 +96,6 @@ int check_exp_cache(nw_ses *ses, sds key, uint32_t cmd, json_t *params)
     json_object_set_new(result, "code", json_integer(0));
     
     if (cmd == CMD_ORDER_DEPTH) {
-        int limit = json_integer_value(json_array_get(params, 1));
         json_t *result_depth = pack_depth_result(cache->result, limit);
         json_object_set_new(result, "data", result_depth);
     } else {

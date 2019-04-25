@@ -298,6 +298,7 @@ static void svr_on_connection_close(nw_ses *ses)
     deals_unsubscribe_all(ses);
     status_unsubscribe_all(ses);
     del_subscribe_all_ses(ses);
+    depth_filter_remove_all(ses);
 }
 
 dict_t *get_sub_all_dict()

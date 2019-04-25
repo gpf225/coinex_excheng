@@ -7,8 +7,8 @@ struct cache_exp_val {
 };
 
 int init_cache(void);
-int check_exp_cache(nw_ses *ses, sds key, uint32_t cmd, json_t *params);
-void dict_replace_cache(sds cache_key, struct cache_exp_val *val);
+int check_exp_cache(nw_ses *ses, sds key, uint32_t cmd, int limit);
+void dict_replace_exp_cache(sds cache_key, struct cache_exp_val *val);
 
 #endif
 

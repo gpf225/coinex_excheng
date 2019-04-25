@@ -24,6 +24,7 @@ struct state_info {
     uint64_t ses_id;
     int64_t  request_id;
     sds      cache_key;
+    int      depth_limit;
 };
 
 struct request_info {
@@ -108,6 +109,22 @@ void reply_message(nw_ses *ses, int64_t id, json_t *result)
     json_decref(reply);
 }
 
+static int check_depth_param(json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return -__LINE__;
+
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (market == NULL)
+        return -__LINE__;
+
+    const char *interval = json_string_value(json_array_get(params, 2));
+    if (interval == NULL)
+        return -__LINE__;
+
+    return 0;
+}
+
 static int on_http_request(nw_ses *ses, http_request_t *request)
 {
     log_trace("new http request, url: %s, method: %u", request->url, request->method);
@@ -146,14 +163,22 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         struct request_info *req = entry->val;
         sds key = NULL;
 
-        if (req->cmd == CMD_ORDER_DEPTH) {
-            key = sdsempty();
-            char *params_str = json_dumps(params, 0);
-            key = sdscatprintf(key, "%u-%s", req->cmd, params_str);
-            free(params_str);
+        if (req->cmd == CMD_CACHE_DEPTH) {
+            if (check_depth_param(params) != 0) {
+                reply_error_invalid_argument(ses, json_integer_value(id));
+                json_decref(body);
+                return 0;
+            }
 
-            int ret;
-            ret = check_cache(ses, json_integer_value(id), key);
+            const char *market = json_string_value(json_array_get(params, 0));
+            uint32_t limit = json_integer_value(json_array_get(params, 1));
+            const char *interval = json_string_value(json_array_get(params, 2));
+
+            // check cache
+            key = sdsempty();
+            key = sdscatprintf(key, "%u-%s-%s", req->cmd, market, interval);
+
+            int ret = check_depth_cache(ses, json_integer_value(id), key, limit);
             if (ret > 0) {
                 sdsfree(key);
                 json_decref(body);
@@ -182,6 +207,10 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         info->ses_id = ses->id;
         info->request_id = json_integer_value(id);
         info->cache_key = key;
+
+        if (req->cmd == CMD_CACHE_DEPTH) {
+            info->depth_limit = json_integer_value(json_array_get(params, 1));
+        }
 
         rpc_pkg pkg;
         memset(&pkg, 0, sizeof(pkg));
@@ -286,10 +315,12 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                     send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
                     profile_inc("success", 1);
                 } else {
-                    char *reply_str = json_dumps(cache_result, 0);
-                    send_http_response_simple(info->ses, 200, reply_str, strlen(reply_str));
+                    json_t *result = json_object_get(cache_result, "result");
+                    json_t *result_depth = pack_depth_result(result, info->depth_limit);
+
+                    reply_message(info->ses, info->request_id, result_depth);
+                    json_decref(result_depth);
                     profile_inc("success", 1);
-                    free(reply_str);
 
                     if (info->cache_key) {
                         json_t *error = json_object_get(cache_result, "error");
