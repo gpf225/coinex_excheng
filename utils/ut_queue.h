@@ -50,10 +50,10 @@ int queue_push(queue_t *queue, void *data, uint32_t size);
 int queue_pop(queue_t *queue, void **data, uint32_t *size);
 
 /* return queue len in byte */
-uint64_t queue_len(queue_t *queue);
+uint32_t queue_len(queue_t *queue);
 
 /* return queue unit num */
-uint64_t queue_num(queue_t *queue);
+uint32_t queue_num(queue_t *queue);
 
 /* get queue stat */
 int queue_stat(queue_t *queue, uint32_t *mem_num, uint32_t *mem_size);
