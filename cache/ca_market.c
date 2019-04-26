@@ -19,26 +19,6 @@ struct market_val {
     int     id;
 };
 
-static uint32_t dict_str_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, strlen(key));
-}
-
-static int dict_str_compare(const void *value1, const void *value2)
-{
-    return strcmp(value1, value2);
-}
-
-static void *dict_str_dup(const void *value)
-{
-    return strdup(value);
-}
-
-static void dict_str_free(void *value)
-{
-    free(value);
-}
-
 static void *dict_market_val_dup(const void *key)
 {
     struct market_val *obj = malloc(sizeof(struct market_val));
@@ -79,7 +59,6 @@ static void subscribe_all_market(const char *market)
     dict_iterator *iter = dict_get_iterator(dict_sub_all);
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
-        const char *market = entry->key;
 
         //deals
         deals_unsubscribe(ses, market);

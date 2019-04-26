@@ -116,7 +116,7 @@ int depth_ticker_update(const char *market, json_t *result)
     }
 
     json_t *asks = json_object_get(result, "asks");
-    if (json_array_size(asks) >= 1) {
+    if (json_array_size(asks) == 1) {
         json_t *sell = json_array_get(asks, 0);
         json_object_set(info->last, "sell", json_array_get(sell, 0));
         json_object_set(info->last, "sell_amount", json_array_get(sell, 1));

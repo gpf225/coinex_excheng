@@ -180,21 +180,24 @@ static int on_sub_deals_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
         return 0;
 
     json_t *first = json_array_get(result, 0);
-    uint64_t id = json_integer_value(json_object_get(first, "id"));
-    if (id == 0)
+    uint64_t first_id = json_integer_value(json_object_get(first, "id"));
+    if (first_id == 0)
         return -__LINE__;
 
     struct deals_val *obj = entry->val;
+    log_info("deal sub reply, market: %s, array_size: %zd, last_id: %zd, first_id: %zd", market, array_size, obj->last_id, first_id);
+
     for (size_t i = array_size; i > 0; --i) {
         json_t *deal = json_array_get(result, i - 1);
 
-        id = json_integer_value(json_object_get(deal, "id"));
+        uint64_t id = json_integer_value(json_object_get(deal, "id"));
         if (id > obj->last_id) {
-            obj->last_id = id;
             json_incref(deal);
             list_add_node_head(obj->deals, deal);  
         }
     }
+
+    obj->last_id = first_id;
 
     while (obj->deals->len > MAX_DEALS_LIMIT) {
         list_del(obj->deals, list_tail(obj->deals));

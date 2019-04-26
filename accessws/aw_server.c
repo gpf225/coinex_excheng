@@ -41,7 +41,7 @@ struct state_data {
 };
 
 struct cache_val {
-    double      time_exp;
+    double      time_cache;
     json_t      *result;
 };
 
@@ -224,7 +224,7 @@ static int check_cache(nw_ses *ses, uint64_t id, sds key)
 
     struct cache_val *cache = entry->val;
     double now = current_millis();
-    if (now >= cache->time_exp) {
+    if (now >= cache->time_cache) {
         dict_delete(backend_cache, key);
         return 0;
     }
@@ -242,7 +242,7 @@ static int check_depth_cache(nw_ses *ses, uint64_t id, sds key, int limit)
         struct cache_val *cache = entry->val;
         double now = current_millis();
 
-        if (now >= cache->time_exp) {
+        if (now >= cache->time_cache) {
             dict_delete(backend_cache, key);
         } else {
             json_t *result = pack_depth_result(cache->result, limit);
@@ -262,7 +262,7 @@ void set_sub_depth_cache(json_t *depth_data, const char *market, const char *int
     key = sdscatprintf(key, "%u-%s-%s", CMD_CACHE_DEPTH, market, interval);
 
     struct cache_val val;
-    val.time_exp = current_millis() + ttl;
+    val.time_cache = current_millis() + ttl;
     val.result = depth_data;
     json_incref(depth_data);
     dict_replace(backend_cache, key, &val);
@@ -1136,7 +1136,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
                 struct cache_val val;
                 double now = current_millis();
-                val.time_exp = now + ttl;
+                val.time_cache = now + ttl;
                 val.result = result;
                 json_incref(result);
                 dict_replace(backend_cache, state->cache_key, &val);
@@ -1145,7 +1145,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             json_t *result = json_object_get(reply_json, "result");
             if (result && !json_is_null(result)) {
                 struct cache_val val;
-                val.time_exp = current_millis() + settings.cache_timeout * 1000;
+                val.time_cache = current_millis() + settings.cache_timeout * 1000;
                 val.result = result;
                 json_incref(result);
                 dict_replace(backend_cache, state->cache_key, &val);
@@ -1218,7 +1218,7 @@ static void on_timer(nw_timer *timer, void *privdata)
         struct cache_val *val = entry->val;
         double now = current_millis();
 
-        if (now >= val->time_exp) {
+        if (now >= val->time_cache) {
             dict_delete(backend_cache, entry->key);
         }
     }

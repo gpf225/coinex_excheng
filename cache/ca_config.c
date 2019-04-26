@@ -7,6 +7,7 @@
 
 struct settings settings;
 
+// ses key dict
 uint32_t dict_ses_hash_func(const void *key)
 {
     return (uintptr_t)key;
@@ -15,6 +16,27 @@ uint32_t dict_ses_hash_func(const void *key)
 int dict_ses_hash_compare(const void *key1, const void *key2)
 {
     return (uintptr_t)key1 == (uintptr_t)key2 ? 0 : 1;
+}
+
+//sds key dict
+uint32_t dict_str_hash_func(const void *key)
+{
+    return dict_generic_hash_function(key, strlen(key));
+}
+
+int dict_str_compare(const void *value1, const void *value2)
+{
+    return strcmp(value1, value2);
+}
+
+void *dict_str_dup(const void *value)
+{
+    return strdup(value);
+}
+
+void dict_str_free(void *value)
+{
+    free(value);
 }
 
 static int read_depth_interval_cfg(json_t *root, const char *key)

@@ -329,7 +329,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                         if (error && json_is_null(error) && result) {
                             int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
                             struct cache_val val;
-                            val.time_exp = current_millis() + ttl;
+                            val.time_cache = current_millis() + ttl;
                             val.result = result;
                             json_incref(result);
                             dict_replace_cache(info->cache_key, &val);

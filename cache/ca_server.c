@@ -9,6 +9,7 @@
 # include "ca_deals.h"
 # include "ca_status.h"
 # include "ca_server.h"
+# include "ca_filter.h"
 
 static rpc_svr *svr;
 static dict_t *dict_sub_all;
@@ -298,7 +299,7 @@ static void svr_on_connection_close(nw_ses *ses)
     deals_unsubscribe_all(ses);
     status_unsubscribe_all(ses);
     del_subscribe_all_ses(ses);
-    depth_filter_remove_all(ses);
+    remove_all_filter(ses);
 }
 
 dict_t *get_sub_all_dict()

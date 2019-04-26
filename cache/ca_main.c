@@ -11,9 +11,9 @@
 # include "ca_status.h"
 # include "ut_title.h"
 # include "ca_cache.h"
-# include "ca_depth_filter.h"
+# include "ca_filter.h"
 
-const char *__process__ = "cache";
+const char *__process__ = "cachecenter";
 const char *__version__ = "0.1.0";
 
 nw_timer cron_timer;
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
     }
-    ret = init_depth_filter_queue();
+    ret = init_filter();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init depth filter fail: %d", ret);
     }

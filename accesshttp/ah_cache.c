@@ -87,7 +87,7 @@ int check_depth_cache(nw_ses *ses, uint64_t id, sds key, int limit)
 
     struct cache_val *cache = entry->val;
     double now = current_millis();
-    if (now >= cache->time_exp) {
+    if (now >= cache->time_cache) {
         dict_delete(backend_cache, key);
         return 0;
     }
@@ -115,7 +115,7 @@ int check_cache(nw_ses *ses, uint64_t id, sds key)
 
     struct cache_val *cache = entry->val;
     uint64_t now = current_millis();
-    if (now >= cache->time_exp) {
+    if (now >= cache->time_cache) {
         dict_delete(backend_cache, key);
         return 0;
     }
@@ -143,7 +143,7 @@ static void on_cache_clear_timer(nw_timer *timer, void *privdata)
         struct cache_val *val = entry->val;
         uint64_t now = current_millis();
 
-        if (now > val->time_exp)
+        if (now > val->time_cache)
             dict_delete(backend_cache, entry->key);
     }
     dict_release_iterator(iter);

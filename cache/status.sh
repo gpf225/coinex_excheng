@@ -1,2 +1,2 @@
 #!/bin/bash
-ps -ef | grep cache
+ps -ef | grep cachecenter

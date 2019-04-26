@@ -8,14 +8,19 @@
 # include "ca_market.h"
 # include "ca_server.h"
 # include "ca_cache.h"
-# include "ca_depth_filter.h"
+# include "ca_filter.h"
 
 static rpc_clt *matchengine;
 static nw_state *state_context;
 
 static dict_t *dict_depth_sub;
-static dict_t *dict_depth_filter;
+static dict_t *dict_filter;
 static nw_timer timer;
+
+struct dict_depth_key {
+    char      market[MARKET_NAME_MAX_LEN];
+    char      interval[INTERVAL_MAX_LEN];
+};
 
 struct dict_depth_sub_val {
     dict_t   *sessions; 
@@ -78,11 +83,18 @@ dict_t* dict_create_depth_session(void)
     return dict_create(&dt, 16);
 }
 
+static void depth_set_key(struct dict_depth_key *key, const char *market, const char *interval)
+{
+    memset(key, 0, sizeof(struct dict_depth_key));
+    strncpy(key->market, market, MARKET_NAME_MAX_LEN - 1);
+    strncpy(key->interval, interval, INTERVAL_MAX_LEN - 1);
+}
+
 static void remove_depth_filter(const char *market, const char *interval)
 {
     struct dict_depth_key key;
     depth_set_key(&key, market, interval);
-    dict_delete(dict_depth_filter, &key);
+    dict_delete(dict_filter, &key);
 }
 
 static void on_timeout(nw_state_entry *entry)
@@ -90,7 +102,7 @@ static void on_timeout(nw_state_entry *entry)
     log_error("state id: %u timeout", entry->id);
     struct state_data *state = entry->data;
     remove_depth_filter(state->market, state->interval);
-    delete_depth_filter_queue(state->market, state->interval);
+    delete_filter_queue(state->market, state->interval);
 }
 
 static int notify_message(nw_ses *ses, int command, json_t *message)
@@ -100,13 +112,6 @@ static int notify_message(nw_ses *ses, int command, json_t *message)
     pkg.command = command;
 
     return reply_result(ses, &pkg, message);
-}
-
-void depth_set_key(struct dict_depth_key *key, const char *market, const char *interval)
-{
-    memset(key, 0, sizeof(struct dict_depth_key));
-    strncpy(key->market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(key->interval, interval, INTERVAL_MAX_LEN - 1);
 }
 
 static bool is_json_equal(json_t *l, json_t *r)
@@ -263,7 +268,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     switch (pkg->command) {
     case CMD_ORDER_DEPTH:
-        depth_out_reply(state->market, state->interval, is_error, reply); // reply out request
+        reply_filter_message(state->market, state->interval, is_error, reply); // reply out request
 
         if (!is_error) { // reply sub
             depth_sub_reply(state->market, state->interval, result);
@@ -281,7 +286,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     json_decref(reply);
-    delete_depth_filter_queue(state->market, state->interval);
+    delete_filter_queue(state->market, state->interval);
     nw_state_del(state_context, pkg->sequence);
 }
 
@@ -292,17 +297,17 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, cons
     }
 
     if (ses != NULL) {
-        add_depth_filter_queue(market, interval, limit, ses, pkg);
+        add_filter_queue(market, interval, limit, ses, pkg);
     }
 
     //filter same request
     struct dict_depth_key key;
     depth_set_key(&key, market, interval);
-    dict_entry *entry = dict_find(dict_depth_filter, &key);
+    dict_entry *entry = dict_find(dict_filter, &key);
     if (entry != NULL) {
         return 0;
     } else {
-        dict_add(dict_depth_filter, &key, NULL);
+        dict_add(dict_filter, &key, NULL);
     }
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
@@ -461,8 +466,8 @@ int init_depth(void)
     dt.key_dup        = dict_depth_key_dup;
     dt.key_destructor = dict_depth_key_free;
 
-    dict_depth_filter = dict_create(&dt, 128);
-    if (dict_depth_filter == NULL) {
+    dict_filter = dict_create(&dt, 128);
+    if (dict_filter == NULL) {
         return -__LINE__;
     }
 
