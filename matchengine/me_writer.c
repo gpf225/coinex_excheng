@@ -12,11 +12,13 @@
 # include "me_history.h"
 # include "me_message.h"
 # include "me_asset_backup.h"
+# include "me_persist.h"
 # include "ut_queue.h"
 # include "me_writer.h"
 # include "me_reply.h"
 
 static rpc_svr *svr;
+static cli_svr *svrcli;
 static queue_t *queue_writers;
 
 static int queue_push_operlog(const char *method, json_t *params)
@@ -1164,6 +1166,103 @@ static int init_server()
     return 0;
 }
 
+static sds on_cmd_status(const char *cmd, int argc, sds *argv)
+{
+    sds reply = sdsempty();
+    reply = market_status(reply);
+    reply = operlog_status(reply);
+    reply = history_status(reply);
+    reply = message_status(reply);
+    return reply;
+}
+
+static sds on_cmd_makeslice(const char *cmd, int argc, sds *argv)
+{
+    time_t now = time(NULL);
+    make_slice(now);
+    return sdsnew("OK\n");
+}
+
+static sds on_cmd_unfreeze(const char *cmd, int argc, sds *argv)
+{
+    if (argc != 3) {
+        sds reply = sdsempty();
+        return sdscatprintf(reply, "usage: %s user_id asset amount\n", cmd);
+    }
+
+    uint32_t user_id = strtoul(argv[0], NULL, 0);
+    if (user_id <= 0) {
+        return sdsnew("failed, user_id error\n");
+    }
+
+    char *asset = strdup(argv[1]);
+    if (!asset) {
+        return sdsnew("failed, asset error\n");
+    }
+    if (!asset_exist(asset)) {
+        free(asset);
+        return sdsnew("failed, asset not exist\n");
+    }
+
+    mpd_t *amount = decimal(argv[2], asset_prec(asset));
+    if (!amount) {
+        free(asset);
+        return sdsnew("failed, amount error\n");
+    }
+
+    mpd_t *frozen = balance_unfreeze(user_id, BALANCE_TYPE_FROZEN, asset, amount);
+    if (!frozen) {
+        free(asset);
+        mpd_del(amount);
+        sds reply = sdsempty();
+        return sdscatprintf(reply, "unfreeze failed, user_id: %d\n", user_id);
+    }
+
+    free(asset);
+    mpd_del(amount);
+    sds reply = sdsempty();
+    return sdscatprintf(reply, "unfreeze success, user_id: %d\n", user_id);
+}
+
+static sds on_cmd_history_control(const char *cmd, int argc, sds *argv)
+{
+    if (argc != 1) {
+        sds reply = sdsempty();
+        return sdscatprintf(reply, "usage: %s history_mode[1, 2, 3]\n", cmd);
+    }
+
+    uint32_t mode = strtoul(argv[0], NULL, 0);
+    if (mode != HISTORY_MODE_DIRECT && mode != HISTORY_MODE_KAFKA && mode != HISTORY_MODE_DOUBLE) {
+        return sdsnew("failed, mode should be 1, 2 or 3\n");
+    }
+
+    settings.history_mode = mode;
+    sds reply = sdsempty();
+    return sdscatprintf(reply, "change history mode success: %d\n", mode);
+}
+
+static int init_cli()
+{
+    if (settings.cli.addr.family == AF_INET) {
+        settings.cli.addr.in.sin_port = htons(ntohs(settings.cli.addr.in.sin_port) + 1);
+    } else if (settings.cli.addr.family == AF_INET6) {
+        settings.cli.addr.in6.sin6_port = htons(ntohs(settings.cli.addr.in6.sin6_port) + 1);
+    }
+
+    svrcli = cli_svr_create(&settings.cli);
+    if (svrcli == NULL) {
+        return -__LINE__;
+    }
+
+    
+    cli_svr_add_cmd(svrcli, "status", on_cmd_status);
+    cli_svr_add_cmd(svrcli, "makeslice", on_cmd_makeslice);
+    cli_svr_add_cmd(svrcli, "unfreeze", on_cmd_unfreeze);
+    cli_svr_add_cmd(svrcli, "hiscontrol", on_cmd_history_control);
+
+    return 0;
+}
+
 static int init_queue()
 {
     queue_writers = (queue_t *)malloc(sizeof(queue_t) * settings.reader_num);
@@ -1196,6 +1295,11 @@ int init_writer()
     int ret;
     ret = init_queue();
     if (ret < 0) {
+        return -__LINE__;
+    }
+
+    ret = init_cli();
+    if(ret < 0) {
         return -__LINE__;
     }
 

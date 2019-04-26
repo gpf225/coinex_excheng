@@ -9,6 +9,7 @@
 # include "me_reply.h"
 
 static rpc_svr *svr;
+static cli_svr *svrcli;
 static rpc_clt *writer_clt;
 static rpc_clt **reader_clt_arr;
 static nw_state *state_context;
@@ -289,13 +290,43 @@ static int init_worker_clt()
     return 0;
 }
 
+static sds on_cmd_status(const char *cmd, int argc, sds *argv)
+{
+    sds reply = sdsempty();
+    //TODO
+    return reply;
+}
+
+static int init_cli()
+{
+    if (settings.cli.addr.family == AF_INET) {
+        settings.cli.addr.in.sin_port = htons(ntohs(settings.cli.addr.in.sin_port));
+    } else if (settings.cli.addr.family == AF_INET6) {
+        settings.cli.addr.in6.sin6_port = htons(ntohs(settings.cli.addr.in6.sin6_port));
+    }
+
+    svrcli = cli_svr_create(&settings.cli);
+    if (svrcli == NULL) {
+        return -__LINE__;
+    }
+
+    cli_svr_add_cmd(svrcli, "status", on_cmd_status);
+    return 0;
+}
+
 int init_access()
 {
-    int ret = init_server();
+    int ret = init_worker_clt();
     if (ret < 0) {
         return -__LINE__;
     }
-    ret = init_worker_clt();
+
+    ret = init_cli();
+    if (ret < 0) {
+        return -__LINE__;
+    }
+
+    ret = init_server();
     if (ret < 0) {
         return -__LINE__;
     }

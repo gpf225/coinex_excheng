@@ -13,6 +13,7 @@
 # include "ut_queue.h"
 
 static rpc_svr *svr;
+static cli_svr *svrcli;
 static dict_t *dict_cache;
 static nw_timer cache_timer;
 static int reader_id;
@@ -995,6 +996,30 @@ static int init_server()
     return 0;
 }
 
+static sds on_cmd_status(const char *cmd, int argc, sds *argv)
+{
+    sds reply = sdsempty();
+    //TODO
+    return reply;
+}
+
+static int init_cli()
+{
+    if (settings.cli.addr.family == AF_INET) {
+        settings.cli.addr.in.sin_port = htons(ntohs(settings.cli.addr.in.sin_port) + reader_id + 2);
+    } else if (settings.cli.addr.family == AF_INET6) {
+        settings.cli.addr.in6.sin6_port = htons(ntohs(settings.cli.addr.in6.sin6_port) + reader_id + 2);
+    }
+
+    svrcli = cli_svr_create(&settings.cli);
+    if (svrcli == NULL) {
+        return -__LINE__;
+    }
+
+    cli_svr_add_cmd(svrcli, "status", on_cmd_status);
+    return 0;
+}
+
 static void on_message(void *data, uint32_t size)
 {
     json_t *detail = json_loadb(data, size, 0, NULL);
@@ -1051,6 +1076,11 @@ int init_reader(int id)
     }
 
     ret = init_cache();
+    if (ret < 0) {
+        return -__LINE__;
+    }
+
+    ret = init_cli();
     if (ret < 0) {
         return -__LINE__;
     }

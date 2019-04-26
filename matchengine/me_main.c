@@ -151,11 +151,6 @@ int main(int argc, char *argv[])
             if (ret < 0) {
                 error(EXIT_FAILURE, errno, "init reader %d fail: %d", i, ret);
             }
-
-            ret = init_cli(i);
-            if (ret < 0) {
-                error(EXIT_FAILURE, errno, "init cli %d fail: %d", i, ret);
-            }
             goto run;
         }
     }
@@ -185,11 +180,6 @@ int main(int argc, char *argv[])
     ret = init_writer();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
-    }
-
-    ret = init_cli(settings.reader_num);
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init cli fail: %d", ret);
     }
 
 run:

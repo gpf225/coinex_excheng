@@ -17,7 +17,7 @@
         "bind": "tcp@0.0.0.0:7316",
         "max_pkg_size": 10240
     },
-    "cli": "tcp@127.0.0.1:8317",
+    "cli": "tcp@127.0.0.1:8316",
     "db_log": {
         "host": "localhost",
         "user": "root",
