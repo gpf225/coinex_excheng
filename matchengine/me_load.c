@@ -912,7 +912,7 @@ static int load_cancel_stop(json_t *params)
     return 0;
 }
 
-static int load_oper(json_t *detail)
+int load_oper(json_t *detail)
 {
     const char *method = json_string_value(json_object_get(detail, "method"));
     if (method == NULL)

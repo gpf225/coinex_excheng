@@ -55,7 +55,7 @@
 # define HISTORY_MODE_DOUBLE    3
 
 # define QUEUE_MEM_SIZE         100000
-# define QUEUE_SHMKEY_START     0x273833
+# define QUEUE_SHMKEY_START     0x16120802
 # define QUEUE_NAME             "matchengine_queue"
 # define QUEUE_PIPE_PATH        "/tmp/matchengine_queue_pipe"
 
@@ -104,6 +104,7 @@ struct settings {
     char               *usdc_assets[32];
     int                 usdc_assets_num;
     int                 reader_num;
+    double              worker_timeout;
 };
 
 extern struct settings settings;

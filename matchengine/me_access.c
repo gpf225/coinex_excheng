@@ -19,6 +19,72 @@ struct state_info {
     uint32_t sequence;
 };
 
+static void sendto_clt_pkg(rpc_clt *clt, nw_ses *ses, rpc_pkg *pkg)
+{
+    nw_state_entry *entry = nw_state_add(state_context, settings.worker_timeout, 0);
+    struct state_info *info = entry->data;
+    info->ses = ses;
+    info->ses_id = ses->id;
+    info->sequence = pkg->sequence;
+
+    pkg->sequence = entry->id;
+    rpc_clt_send(clt, pkg);
+}
+
+static void sendto_writer(nw_ses *ses, rpc_pkg *pkg)
+{
+    if (!rpc_clt_connected(writer_clt)) {
+        reply_error_internal_error(ses, pkg);
+        log_fatal("lose connection to writer");
+        return;
+    }
+
+    sendto_clt_pkg(writer_clt, ses, pkg);
+}
+
+static void sendto_reader(nw_ses *ses, rpc_pkg *pkg, const char *market, uint64_t user_order_id)
+{
+    int reader_id = -1;
+    if (market == NULL && user_order_id == 0) {
+        reader_id = rand() % settings.reader_num;
+    } else if (market != NULL) {
+        uint32_t hash = dict_generic_hash_function(market, strlen(market));
+        reader_id = hash % settings.reader_num;
+    } else {
+        reader_id = user_order_id % settings.reader_num;
+    }
+
+    if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
+        reply_error_internal_error(ses, pkg);
+        log_fatal("lose connection to reader: %d", reader_id);
+        return;
+    }
+
+    sendto_clt_pkg(reader_clt_arr[reader_id], ses, pkg);
+}
+
+static void sendto_all(nw_ses *ses, rpc_pkg *pkg)
+{
+    if (!rpc_clt_connected(writer_clt)) {
+        reply_error_internal_error(ses, pkg);
+        log_fatal("lose connection to writer");
+        return;
+    }
+
+    for (int i = 0; i < settings.reader_num; ++i) {
+        if (!rpc_clt_connected(reader_clt_arr[i])) {
+            reply_error_internal_error(ses, pkg);
+            log_fatal("lose connection to reader: %d", i);
+            return;
+        }
+    }
+
+    sendto_clt_pkg(writer_clt, ses, pkg);
+    for (int i = 0; i < settings.reader_num; ++i) {
+        sendto_clt_pkg(reader_clt_arr[i], ses, pkg);
+    }
+}
+
 static void svr_on_new_connection(nw_ses *ses)
 {
     log_trace("new connection: %s", nw_sock_human_addr(&ses->peer_addr));
@@ -35,20 +101,8 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     if (params == NULL || !json_is_array(params)) {
         goto decode_error;
     }
-    sds params_str = sdsnewlen(pkg->body, pkg->body_size);
 
     switch (pkg->command) {
-    case CMD_ASSET_LIST:
-    case CMD_ASSET_QUERY:
-    case CMD_ASSET_QUERY_LOCK:
-    case CMD_ORDER_PENDING:
-    case CMD_ORDER_BOOK:
-    case CMD_ORDER_DEPTH:
-    case CMD_ORDER_PENDING_DETAIL:
-    case CMD_ORDER_PENDING_STOP:
-    case CMD_ORDER_STOP_BOOK:
-    case CMD_MARKET_LIST:
-        //read
     case CMD_ASSET_UPDATE:
     case CMD_ASSET_LOCK:
     case CMD_ASSET_UNLOCK:
@@ -60,17 +114,57 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_ORDER_PUT_STOP_MARKET:
     case CMD_ORDER_CANCEL_STOP:
     case CMD_MARKET_SELF_DEAL:
-        //write
+        sendto_writer(ses, pkg);
+        break;
+
+    case CMD_ASSET_QUERY:
+    case CMD_ASSET_QUERY_LOCK:
+    case CMD_ORDER_PENDING:
+    case CMD_ORDER_PENDING_STOP:
+        if (!json_is_integer(json_array_get(params, 0))) {
+            reply_error_invalid_argument(ses, pkg);
+            break;
+        }
+        uint32_t user_id = json_integer_value(json_array_get(params, 0));
+        sendto_reader(ses, pkg, NULL, user_id);
+        break;
+
+    case CMD_ORDER_BOOK:
+    case CMD_ORDER_STOP_BOOK:
+    case CMD_ORDER_DEPTH:
+        if (!json_is_string(json_array_get(params, 0))) {
+            reply_error_invalid_argument(ses, pkg);
+            break;
+        }
+        const char *market_name = json_string_value(json_array_get(params, 0));
+        sendto_reader(ses, pkg, market_name, 0);
+        break;
+
     case CMD_CONFIG_UPDATE_ASSET:
     case CMD_CONFIG_UPDATE_MARKET:
-        //write && read
+        sendto_all(ses, pkg);
+        break;
+
+    case CMD_MARKET_LIST:
+    case CMD_ASSET_LIST:
+        sendto_reader(ses, pkg, NULL, 0);
+        break;
+
+    case CMD_ORDER_PENDING_DETAIL:
+        if (json_array_size(params) != 2 && !json_is_integer(json_array_get(params, 1))) {
+            reply_error_invalid_argument(ses, pkg);
+            break;
+        }
+        uint64_t order_id = json_integer_value(json_array_get(params, 1));
+        sendto_reader(ses, pkg, NULL, order_id);
+        break;
 
     default:
+        profile_inc("method_not_found", 1);
         log_error("from: %s unknown command: %u", nw_sock_human_addr(&ses->peer_addr), pkg->command);
         break;
     }
 
-    sdsfree(params_str);
     json_decref(params);
     return;
 
@@ -109,7 +203,7 @@ static void on_state_timeout(nw_state_entry *entry)
     log_error("state id: %u timeout", entry->id);
     struct state_info *info = entry->data;
     if (info->ses->id == info->ses_id) {
-        log_error("request timeout");
+        log_error("state id: %u timeout", entry->id);
     }
 }
 
@@ -176,7 +270,6 @@ static int init_worker_clt()
     if (writer_clt == NULL) {
         return -__LINE__;
     }
-
     if (rpc_clt_start(writer_clt) < 0)
             return -__LINE__;
 

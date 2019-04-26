@@ -222,12 +222,8 @@ static int read_config_from_json(json_t *root)
         return -__LINE__;
     }
 
-    ret = read_cfg_int(root, "reader_num", &settings.reader_num, true, 2);
-    if (ret < 0) {
-        printf("load reader_num fail: %d", ret);
-        return -__LINE__;
-    }
-
+    ERR_RET(read_cfg_real(root, "worker_timeout", &settings.worker_timeout, false, 1.0));
+    ERR_RET(read_cfg_int(root, "reader_num", &settings.reader_num, false, 2));
     return 0;
 }
 

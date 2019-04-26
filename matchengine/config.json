@@ -17,7 +17,7 @@
         "bind": "tcp@0.0.0.0:7316",
         "max_pkg_size": 10240
     },
-    "cli": "tcp@127.0.0.1:7317",
+    "cli": "tcp@127.0.0.1:8317",
     "db_log": {
         "host": "localhost",
         "user": "root",
@@ -38,5 +38,6 @@
     "depth_merge_max": 800,
     "usdc_assets": ["TUSD", "PAX", "GUSD"],
     "history_mode": 3,
-    "reader_num": 4
+    "reader_num": 4,
+    "worker_timeout": 1.0
 }

@@ -16,7 +16,6 @@
 # include "me_reader.h"
 # include "me_writer.h"
 # include "me_access.h"
-# include "me_server.h"
 
 const char *__process__ = "matchengine";
 const char *__version__ = "0.1.0";
@@ -100,7 +99,9 @@ int main(int argc, char *argv[])
         printf("process: %s exist\n", __process__);
         exit(EXIT_FAILURE);
     }
+    process_title_init(argc, argv);
 
+    bool need_release = false;
     int ret;
     ret = init_mpd();
     if (ret < 0) {
@@ -163,6 +164,7 @@ int main(int argc, char *argv[])
     daemon(1, 1);
     process_keepalive();
 
+    need_release = true;
     ret = init_operlog();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init oper log fail: %d", ret);
@@ -190,13 +192,6 @@ int main(int argc, char *argv[])
         error(EXIT_FAILURE, errno, "init cli fail: %d", ret);
     }
 
-    /*
-    ret = init_server();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init server fail: %d", ret);
-    }
-    */
-
 run:
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
     nw_timer_start(&cron_timer);
@@ -206,9 +201,11 @@ run:
     nw_loop_run();
     log_vip("server stop");
 
-    fini_message();
-    fini_history();
-    fini_operlog();
+    if (need_release) {
+        fini_message();
+        fini_history();
+        fini_operlog();
+    }
 
     return 0;
 }
