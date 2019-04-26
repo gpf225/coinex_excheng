@@ -62,6 +62,7 @@ struct settings {
     double              market_interval;
     depth_interval_cfg  depth_interval;
 
+    int                 cache_timeout;
     int                 depth_limit_max;
     int                 deal_max;
 };
@@ -71,6 +72,11 @@ int init_config(const char *path);
 
 uint32_t dict_ses_hash_func(const void *key);
 int dict_ses_hash_compare(const void *key1, const void *key2);
+
+uint32_t dict_str_hash_func(const void *key);
+int dict_str_compare(const void *value1, const void *value2);
+void *dict_str_dup(const void *value);
+void dict_str_free(void *value);
 
 # endif
 

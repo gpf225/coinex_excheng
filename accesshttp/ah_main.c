@@ -8,6 +8,7 @@
 # include "ah_server.h"
 # include "ah_listener.h"
 # include "ah_sub_all.h"
+# include "ah_cache.h"
 
 const char *__process__ = "accesshttp";
 const char *__version__ = "0.1.0";
@@ -93,11 +94,14 @@ int main(int argc, char *argv[])
                 dlog_set_no_shift(default_dlog);
             }
 
+            ret = init_cache();
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
+            }
             ret = init_sub_all();
             if (ret < 0) {
                 error(EXIT_FAILURE, errno, "init sub all fail: %d", ret);
             }
-
             ret = init_server();
             if (ret < 0) {
                 error(EXIT_FAILURE, errno, "init server fail: %d", ret);

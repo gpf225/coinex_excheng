@@ -79,6 +79,9 @@
 # define CMD_CACHE_DEPTH_UPDATE         602
 # define CMD_CACHE_DEALS_UPDATE     	603
 # define CMD_CACHE_STATUS_UPDATE    	604
+# define CMD_CACHE_DEPTH    			605
+# define CMD_CACHE_DEPTH_SUBSCRIBE    	606
+# define CMD_CACHE_DEPTH_UNSUBSCRIBE    607
 
 // dealrank
 # define CMD_DEAL_RANK                   701
