@@ -13,7 +13,6 @@ static rpc_clt *cache_deals;
 
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
-# define MAX_DEALS_LIMIT        1000
 
 struct deals_val {
     list_t *deals;
@@ -154,7 +153,7 @@ static int on_deals_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 
     obj->last_id = first_id;
 
-    while (obj->deals->len > MAX_DEALS_LIMIT) {
+    while (obj->deals->len > settings.deal_max) {
         list_del(obj->deals, list_tail(obj->deals));
     }
 

@@ -19,7 +19,6 @@
 # include "aw_sub_user.h"
 # include "aw_state.h"
 # include "aw_market.h"
-# include "aw_cache_deals.h"
 
 static ws_svr *svr;
 static dict_t *method_map;

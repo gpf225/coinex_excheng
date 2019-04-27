@@ -124,7 +124,10 @@ static void notify_state(void)
 static void on_timeout(nw_state_entry *entry)
 {
     log_error("state id: %u timeout", entry->id);
-    notify_state();
+    if(nw_state_count(state_context) == 0)
+        notify_state();
+
+    return;
 }
 
 static int status_sub_reply(const char *market, json_t *result)

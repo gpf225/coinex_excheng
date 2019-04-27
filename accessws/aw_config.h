@@ -92,6 +92,7 @@ struct settings {
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;
     bool debug;
+    int                 deal_max;
 };
 
 extern struct settings settings;

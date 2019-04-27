@@ -314,9 +314,6 @@ static int send_market_deals(nw_ses *ses, const char *market)
     while ((node = list_next(iter)) != NULL) {
         json_array_append(deals, node->value);
         count++;
-
-        if (count > 100)
-            break;
     }
     list_release_iterator(iter);
 

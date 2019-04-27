@@ -264,6 +264,10 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_error("error reply from: %s, market: %s, interval: %s cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str);
         sdsfree(reply_str);
         is_error = true;
+
+        struct dict_depth_key key;
+        depth_set_key(&key, state->market, state->interval);  
+        dict_delete(dict_depth_sub, &key);
     }
 
     switch (pkg->command) {
@@ -297,7 +301,10 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, cons
     }
 
     if (ses != NULL) {
-        add_filter_queue(market, interval, limit, ses, pkg);
+        sds key = sdsempty();
+        key = sdscatprintf(key, "%s_%s", market, interval);
+        add_filter_queue(key, limit, ses, pkg);
+        sdsfree(key);
     }
 
     //filter same request

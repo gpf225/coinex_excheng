@@ -21,7 +21,6 @@
 # include "aw_listener.h"
 # include "aw_sub_user.h"
 # include "aw_market.h"
-# include "aw_cache_deals.h"
 
 const char *__process__ = "accessws";
 const char *__version__ = "0.1.0";
@@ -204,10 +203,6 @@ server:
     ret = init_server();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
-    }
-    ret = init_cache_deals();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init cache deals fail: %d", ret);
     }
 
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);

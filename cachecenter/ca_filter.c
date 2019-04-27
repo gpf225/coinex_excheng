@@ -70,24 +70,19 @@ static list_t *create_item_list(void)
     return list_create(&type);
 }
 
-int add_filter_queue(const char *market, const char *interval, uint32_t limit, nw_ses *ses, rpc_pkg *pkg)
+int add_filter_queue(sds key, uint32_t limit, nw_ses *ses, rpc_pkg *pkg)
 {
-    sds key = sdsempty();
-    key = sdscatprintf(key, "%s_%s", market, interval);
-
     dict_entry *entry = dict_find(dict_filter, key);
     if (entry == NULL) {
         struct dict_filter_val val;
         memset(&val, 0, sizeof(struct dict_filter_val));
         val.dict_filter_session = dict_create_filter_session();
         if (val.dict_filter_session == NULL) {
-            sdsfree(key);
             return -__LINE__;
         }
 
         entry = dict_add(dict_filter, key, &val);
         if (entry == NULL) {
-            sdsfree(key);
             return -__LINE__;
         }
     }
@@ -97,13 +92,11 @@ int add_filter_queue(const char *market, const char *interval, uint32_t limit, n
     if (entry == NULL) {
         list_t *list = create_item_list();
         if (list == NULL) {
-            sdsfree(key);
             return -__LINE__;
         }
 
         entry = dict_add(val->dict_filter_session, ses, list);
         if (entry == NULL) {
-            sdsfree(key);
             return -__LINE__;
         }
     }
@@ -114,7 +107,6 @@ int add_filter_queue(const char *market, const char *interval, uint32_t limit, n
     memcpy(&item.pkg, pkg, RPC_PKG_HEAD_SIZE);
 
     list_add_node_tail(list, &item);
-    sdsfree(key);
 
     return 0;
 }
