@@ -48,7 +48,7 @@ static int clear_stop(uint32_t user_id, double migrate_start_time, double migrat
 {
     MYSQL *conn = get_new_db_connection(user_id);
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "DELETE from stop_history_%u WHERE `user_id`='%u' AND `finish_time` <= '%f' AND `finish_time` > '%f'",
+    sql = sdscatprintf(sql, "DELETE from stop_history_%u WHERE `user_id`='%u' AND `create_time` <= '%f' AND `create_time` > '%f'",
             user_id % HISTORY_HASH_NUM, user_id, migrate_start_time, migrate_end_time);
     
     log_trace("sql:%s", sql);
@@ -66,7 +66,7 @@ static int clear_order(uint32_t user_id, double migrate_start_time, double migra
 {
     MYSQL *conn = get_new_db_connection(user_id);
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "DELETE from order_history_%u WHERE `user_id`='%u' AND `finish_time` <= '%f' AND `finish_time` > '%f'",
+    sql = sdscatprintf(sql, "DELETE from order_history_%u WHERE `user_id`='%u' AND `create_time` <= '%f' AND `create_time` > '%f'",
             user_id % HISTORY_HASH_NUM, user_id, migrate_start_time, migrate_end_time);
     
     log_trace("sql:%s", sql);

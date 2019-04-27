@@ -53,7 +53,7 @@ int stop_migrate(uint32_t user_id, double migrate_start_time, double migrate_end
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, "
             "`stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `fee_asset`, `fee_discount`, `status`"
-            "FROM `stop_history_%u` WHERE `user_id` = %u AND `id` > '%ld' AND `finish_time` <= '%f' AND `finish_time` > '%f' ORDER BY `id` ASC LIMIT %d",
+            "FROM `stop_history_%u` WHERE `user_id` = %u AND `id` > '%ld' AND `create_time` <= '%f' AND `create_time` > '%f' ORDER BY `id` ASC LIMIT %d",
              user_id % HISTORY_HASH_NUM, user_id, last_order_id, migrate_start_time, migrate_end_time, QUERY_LIMIT);
 
         int ret = mysql_real_query(conn, sql, sdslen(sql));
