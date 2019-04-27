@@ -38,7 +38,6 @@
 
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
-#define MARKET_DEALS_MAX        1000
 
 typedef struct depth_merge_cfg {
     int    count;

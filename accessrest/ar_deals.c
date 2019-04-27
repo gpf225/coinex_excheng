@@ -11,9 +11,6 @@
 static dict_t *dict_deals;
 static rpc_clt *cache_deals;
 
-# define MARKET_NAME_MAX_LEN    16
-# define INTERVAL_MAX_LEN       16
-
 struct deals_val {
     list_t *deals;
     uint64_t last_id;
