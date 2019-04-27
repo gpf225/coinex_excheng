@@ -33,24 +33,24 @@ struct state_data {
     int       limit;
 };
 
-uint32_t dict_depth_hash_func(const void *key)
+static uint32_t dict_depth_hash_func(const void *key)
 {
     return dict_generic_hash_function(key, sizeof(struct dict_depth_key));
 }
 
-int dict_depth_key_compare(const void *key1, const void *key2)
+static int dict_depth_key_compare(const void *key1, const void *key2)
 {
     return memcmp(key1, key2, sizeof(struct dict_depth_key));
 }
 
-void *dict_depth_key_dup(const void *key)
+static void *dict_depth_key_dup(const void *key)
 {
     struct dict_depth_key *obj = malloc(sizeof(struct dict_depth_key));
     memcpy(obj, key, sizeof(struct dict_depth_key));
     return obj;
 }
 
-void dict_depth_key_free(void *key)
+static void dict_depth_key_free(void *key)
 {
     free(key);
 }
@@ -73,7 +73,7 @@ static void dict_depth_sub_val_free(void *key)
     free(obj);
 }
 
-dict_t* dict_create_depth_session(void)
+static dict_t* dict_create_depth_session(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
@@ -476,5 +476,4 @@ int init_depth(void)
 
     return 0;
 }
-
 

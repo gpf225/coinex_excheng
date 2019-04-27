@@ -10,18 +10,11 @@
 static dict_t *dict_deals;
 static rpc_clt *cache_deals;
 
-# define MARKET_NAME_MAX_LEN    16
-# define INTERVAL_MAX_LEN       16
 # define MAX_DEALS_LIMIT        1000
 
 struct deals_val {
     list_t   *deals;
     uint64_t last_id;
-};
-
-struct depth_key {
-    char     market[MARKET_NAME_MAX_LEN];
-    char     interval[INTERVAL_MAX_LEN];
 };
 
 static uint32_t dict_market_hash_func(const void *key)

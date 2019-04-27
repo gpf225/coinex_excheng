@@ -59,7 +59,6 @@ struct settings {
     double              backend_timeout;
     double              sub_depth_interval;
     double              sub_deals_interval;
-    double              sub_kline_interval;
     double              sub_status_interval;
     double              market_interval;
     depth_interval_cfg  depth_interval;

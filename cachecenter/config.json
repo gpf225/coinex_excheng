@@ -40,8 +40,7 @@
         "max_pkg_size": 2000000
     },
     "backend_timeout": 5.0,
-    "sub_depth_interval": 0.5,
-    "sub_kline_interval": 0.5,
+    "sub_depth_interval": 1,
     "sub_status_interval": 0.5,
     "sub_deals_interval": 0.5,
     "depth_limit_max": 50,

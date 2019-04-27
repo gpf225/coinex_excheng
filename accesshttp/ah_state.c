@@ -61,46 +61,64 @@ static void dict_state_val_free(void *val)
 // state update
 static int on_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 {
-    const char *market = json_string_value(json_array_get(result_array, 0));
-    json_t *result = json_array_get(result_array, 1);
-    if (market == NULL || result == NULL) {
-        sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
-        sdsfree(reply_str);
-        return -__LINE__;
-    }
+    log_trace("state update");
+    const size_t state_num = json_array_size(result_array);
 
-    log_trace("state update, market: %s", market);
-    dict_entry *entry = dict_find(dict_state, market);
-    if (entry == NULL) {
-        struct state_val val;
-        memset(&val, 0, sizeof(val));
-
-        val.last = result;
-        json_incref(result);
-
-        entry = dict_add(dict_state, (char *)market, &val);
-        if (entry == NULL)
+    for (size_t i = 0; i < state_num; ++i) {
+        json_t *row = json_array_get(result_array, i);
+        if (!json_is_object(row)) {
             return -__LINE__;
-        return 0;
+        }
+
+        const char *market = json_string_value(json_object_get(row, "name"));
+        if (market == NULL) {
+            sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+            log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
+            sdsfree(reply_str);
+            continue;
+        }
+
+        json_t *result = json_object_get(row, "result");
+        if (result == NULL) {
+            sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+            log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
+            sdsfree(reply_str);
+            continue;
+        }
+
+        // add to dict_state
+        dict_entry *entry = dict_find(dict_state, market);
+        if (entry == NULL) {
+            struct state_val val;
+            memset(&val, 0, sizeof(val));
+
+            val.last = result;
+            json_incref(result);
+
+            entry = dict_add(dict_state, (char *)market, &val);
+            if (entry == NULL) {
+                log_fatal("dict_add fail");
+                return -__LINE__;
+            }
+        } else {
+            struct state_val *info = entry->val;
+            char *last_str = NULL;
+            if (info->last)
+                last_str = json_dumps(info->last, JSON_SORT_KEYS);
+            char *curr_str = json_dumps(result, JSON_SORT_KEYS);
+
+            if (info->last == NULL || strcmp(last_str, curr_str) != 0) {
+                if (info->last)
+                    json_decref(info->last);
+                info->last = result;
+                json_incref(result);
+            }
+
+            if (last_str != NULL)
+                free(last_str);
+            free(curr_str);
+        }
     }
-
-    struct state_val *info = entry->val;
-    char *last_str = NULL;
-    if (info->last)
-        last_str = json_dumps(info->last, JSON_SORT_KEYS);
-    char *curr_str = json_dumps(result, JSON_SORT_KEYS);
-
-    if (info->last == NULL || strcmp(last_str, curr_str) != 0) {
-        if (info->last)
-            json_decref(info->last);
-        info->last = result;
-        json_incref(result);
-    }
-
-    if (last_str != NULL)
-        free(last_str);
-    free(curr_str);
 
     return 0;
 }

@@ -176,23 +176,23 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
+    struct state_data *state = entry->data;
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
         sds hex = hexdump(pkg->body, pkg->body_size);
-        log_fatal("invalid reply from: %s, cmd: %u, reply: \n%s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
+        log_fatal("invalid reply from: %s, market: %s, cmd: %u, reply: \n%s", nw_sock_human_addr(&ses->peer_addr), state->market, pkg->command, hex);
         sdsfree(hex);
         nw_state_del(state_context, pkg->sequence);
         return;
     }
 
     bool is_error = false;
-    struct state_data *state = entry->data;
 
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
     if (error == NULL || !json_is_null(error) || result == NULL) {
         sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-        log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
+        log_error("error reply from: %s, market: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), state->market, pkg->command, reply_str);
         sdsfree(reply_str);
         is_error = true;
     }

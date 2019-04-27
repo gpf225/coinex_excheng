@@ -20,7 +20,7 @@ struct dict_status_key {
     char        market[MARKET_NAME_MAX_LEN];
 };
 
-struct dict_status_sub_val {
+struct dict_status_val {
     json_t      *last;
 };
 
@@ -52,14 +52,14 @@ static void dict_status_sub_key_free(void *key)
 
 static void *dict_status_sub_val_dup(const void *val)
 {
-    struct dict_status_sub_val *obj = malloc(sizeof(struct dict_status_sub_val));
-    memcpy(obj, val, sizeof(struct dict_status_sub_val));
+    struct dict_status_val *obj = malloc(sizeof(struct dict_status_val));
+    memcpy(obj, val, sizeof(struct dict_status_val));
     return obj;
 }
 
 static void dict_status_sub_val_free(void *key)
 {
-    struct dict_status_sub_val *obj = key;
+    struct dict_status_val *obj = key;
     if (obj->last)
         json_decref(obj->last);
     free(obj);
@@ -73,11 +73,6 @@ static dict_t* dict_create_status_session(void)
     dt.key_compare   = dict_ses_hash_compare;
 
     return dict_create(&dt, 16);
-}
-
-static void on_timeout(nw_state_entry *entry)
-{
-    log_error("state id: %u timeout", entry->id);
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)
@@ -99,6 +94,39 @@ static int notify_message(nw_ses *ses, int command, json_t *message)
     return reply_result(ses, &pkg, message);
 }
 
+static void notify_state(void)
+{
+    dict_entry *entry;
+    json_t *result = json_array();
+    dict_iterator *iter = dict_get_iterator(dict_state);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct dict_status_key *key = entry->key;
+        struct dict_status_val *val = entry->val;
+
+        if (val->last) {
+            json_t *params = json_object();
+            json_object_set_new(params, "name", json_string(key->market));
+            json_object_set    (params, "result", val->last);
+            json_array_append_new(result, params);
+        }
+    }
+    dict_release_iterator(iter);
+
+    iter = dict_get_iterator(dict_session);
+    while ((entry = dict_next(iter)) != NULL) {
+        nw_ses *ses = entry->key;
+        notify_message(ses, CMD_CACHE_STATUS_UPDATE, result);
+    }
+    dict_release_iterator(iter);
+    json_decref(result);
+}
+
+static void on_timeout(nw_state_entry *entry)
+{
+    log_error("state id: %u timeout", entry->id);
+    notify_state();
+}
+
 static int status_sub_reply(const char *market, json_t *result)
 {
     struct dict_status_key key;
@@ -109,7 +137,7 @@ static int status_sub_reply(const char *market, json_t *result)
     if (entry == NULL)
         return -__LINE__;
 
-    struct dict_status_sub_val *obj = entry->val;
+    struct dict_status_val *obj = entry->val;
     char *last_str = NULL;
 
     if (obj->last)
@@ -121,19 +149,6 @@ static int status_sub_reply(const char *market, json_t *result)
             json_decref(obj->last);
         obj->last = result;
         json_incref(result);
-
-        json_t *params = json_array();
-        json_array_append_new(params, json_string(market));
-        json_array_append(params, result);
-
-        dict_iterator *iter = dict_get_iterator(dict_session);
-        while ((entry = dict_next(iter)) != NULL) {
-            nw_ses *ses = entry->key;
-            notify_message(ses, CMD_CACHE_STATUS_UPDATE, params);
-        }
-        dict_release_iterator(iter);
-
-        json_decref(params);
     }
 
     if (last_str != NULL)
@@ -185,6 +200,12 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     json_decref(reply);
     nw_state_del(state_context, pkg->sequence);
+
+    if(nw_state_count(state_context) == 0) {
+        notify_state();
+    }
+
+    return;
 }
 
 static int status_request(const char *market)
@@ -245,7 +266,7 @@ int add_state_market(const char *market)
 
     dict_entry *entry = dict_find(dict_state, &key);
     if (entry == NULL) {
-        struct dict_status_sub_val val;
+        struct dict_status_val val;
         memset(&val, 0, sizeof(val));
 
         entry = dict_add(dict_state, &key, &val);
@@ -257,44 +278,6 @@ int add_state_market(const char *market)
     return 0;  
 }
 
-static void send_state_market(nw_ses *ses, const char *market)
-{
-    struct dict_status_key key;
-    memset(&key, 0, sizeof(key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-
-    dict_entry *entry = dict_find(dict_state, &key);
-    if (entry != NULL) {
-        struct dict_status_sub_val *obj = entry->val;
-        json_t *params = json_array();
-        json_array_append_new(params, json_string(market));
-        json_array_append    (params, obj->last);
-        notify_message(ses, CMD_CACHE_STATUS_UPDATE, params);
-        json_decref(params);
-    }
-
-    return;
-}
-
-static void send_full_state(nw_ses *ses)
-{
-    dict_t *dict_market = get_market();
-    if (dict_size(dict_market) == 0) {
-        log_error("dict_market is null");
-        return;
-    }
-
-    dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(dict_market);
-    while ((entry = dict_next(iter)) != NULL) {
-        const char *market = entry->key;
-        send_state_market(ses, market);
-    }
-    dict_release_iterator(iter);
-
-    return;
-}
-
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     return;
@@ -303,8 +286,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 static void svr_on_new_connection(nw_ses *ses)
 {
     dict_add(dict_session, ses, NULL);
-    send_full_state(ses);
-
     log_info("new connection: %s", nw_sock_human_addr(&ses->peer_addr));
 }
 
@@ -355,6 +336,7 @@ int init_status(void)
     if (rpc_svr_start(state_svr) < 0)
         return -__LINE__;
 
+    // sub session
     dict_session = dict_create_status_session();
     if (dict_session == NULL)
         return -__LINE__;
