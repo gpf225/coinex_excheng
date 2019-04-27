@@ -124,7 +124,7 @@ static void notify_state(void)
 static void on_timeout(nw_state_entry *entry)
 {
     log_error("state id: %u timeout", entry->id);
-    if(nw_state_count(state_context) == 0)
+    if(nw_state_count(state_context) == 1)
         notify_state();
 
     return;

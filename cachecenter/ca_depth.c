@@ -102,7 +102,11 @@ static void on_timeout(nw_state_entry *entry)
     log_error("state id: %u timeout", entry->id);
     struct state_data *state = entry->data;
     remove_depth_filter(state->market, state->interval);
-    delete_filter_queue(state->market, state->interval);
+
+    sds key = sdsempty();
+    key = sdscatprintf(key, "%s_%s", state->market, state->market);
+    delete_filter_queue(key);
+    sdsfree(key);
 }
 
 static int notify_message(nw_ses *ses, int command, json_t *message)
@@ -256,6 +260,9 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
+    sds key_filter = sdsempty();
+    key_filter = sdscatprintf(key_filter, "%s_%s", state->market, state->interval);
+
     bool is_error = false;
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
@@ -272,8 +279,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     switch (pkg->command) {
     case CMD_ORDER_DEPTH:
-        reply_filter_message(state->market, state->interval, is_error, reply); // reply out request
-
+        reply_filter_message(key_filter, is_error, reply); // reply out request
         if (!is_error) { // reply sub
             depth_sub_reply(state->market, state->interval, result);
 
@@ -290,7 +296,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     json_decref(reply);
-    delete_filter_queue(state->market, state->interval);
+    delete_filter_queue(key_filter);
+    sdsfree(key_filter);
     nw_state_del(state_context, pkg->sequence);
 }
 

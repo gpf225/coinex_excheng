@@ -127,20 +127,15 @@ int remove_all_filter(nw_ses *ses)
     return 0;
 }
 
-void delete_filter_queue(const char *market, const char *interval)
+void delete_filter_queue(sds key)
 {
-    sds key = sdsempty();
-    key = sdscatprintf(key, "%s_%s", market, interval);
-
     dict_entry *entry = dict_find(dict_filter, key);
     if (entry != NULL) {
         dict_delete(dict_filter, entry->key);
     }
-
-    sdsfree(key);
 }
 
-static void reply_to_ses(const char *market, const char *interval, bool is_error, json_t *reply, nw_ses *ses, list_t *list)
+static void reply_to_ses(bool is_error, json_t *reply, nw_ses *ses, list_t *list)
 {
     list_node *node = NULL;
     list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
@@ -161,7 +156,7 @@ static void reply_to_ses(const char *market, const char *interval, bool is_error
 
         int ret = reply_json(ses, &item->pkg, new_result);
         if (ret != 0) {
-            log_error("send_result fail, market: %s, interval: %s", market, interval);
+            log_error("send_result fail: ret: %d", ret);
         }
         json_decref(new_result);  
     }
@@ -170,14 +165,10 @@ static void reply_to_ses(const char *market, const char *interval, bool is_error
     return;
 }
 
-void reply_filter_message(const char *market, const char *interval, bool is_error, json_t *reply)
+void reply_filter_message(sds key, bool is_error, json_t *reply)
 {
-    sds key = sdsempty();
-    key = sdscatprintf(key, "%s_%s", market, interval);
-
     dict_entry *entry = dict_find(dict_filter, key);
     if (entry == NULL) {
-        sdsfree(key);
         return;
     }
 
@@ -186,12 +177,11 @@ void reply_filter_message(const char *market, const char *interval, bool is_erro
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
         list_t *list = entry->val;
-        reply_to_ses(market, interval, is_error, reply, ses, list);
+        reply_to_ses(is_error, reply, ses, list);
     }
     dict_release_iterator(iter);
 
-    dict_delete(dict_filter, &key);
-    sdsfree(key);
+    dict_delete(dict_filter, key);
 
     return;
 }
