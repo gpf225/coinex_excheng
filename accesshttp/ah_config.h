@@ -61,7 +61,10 @@ struct settings {
     rpc_clt_cfg         monitorcenter;
     double              timeout;
     int                 worker_num;
+
     rpc_clt_cfg         cache;
+    rpc_clt_cfg         cache_deals;
+    rpc_clt_cfg         cache_state;
 
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;

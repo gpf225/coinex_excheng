@@ -51,6 +51,8 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
+    rpc_svr_cfg         deals_svr;
+    rpc_svr_cfg         state_svr;
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
     

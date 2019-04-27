@@ -80,9 +80,20 @@ static int read_config_from_json(json_t *root)
         printf("load alert config fail: %d\n", ret);
         return -__LINE__;
     }
+
     ret = load_cfg_rpc_svr(root, "svr", &settings.svr);
     if (ret < 0) {
         printf("load svr config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_rpc_svr(root, "deals_svr", &settings.deals_svr);
+    if (ret < 0) {
+        printf("load deals_svr config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_rpc_svr(root, "state_svr", &settings.state_svr);
+    if (ret < 0) {
+        printf("load state_svr config fail: %d\n", ret);
         return -__LINE__;
     }
     ret = load_cfg_rpc_clt(root, "matchengine", &settings.matchengine);

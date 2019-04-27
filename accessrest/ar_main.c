@@ -9,7 +9,8 @@
 # include "ar_server.h"
 # include "ar_market.h"
 # include "ar_listener.h"
-# include "ar_sub_all.h"
+# include "ar_deals.h"
+# include "ar_state.h"
 
 const char *__process__ = "accessrest";
 const char *__version__ = "0.1.0";
@@ -116,9 +117,13 @@ server:
     daemon(1, 1);
     process_keepalive();
 
-    ret = init_sub_all();
+    ret = init_deals();
     if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init sub all fail: %d", ret);
+        error(EXIT_FAILURE, errno, "init deals all fail: %d", ret);
+    }
+    ret = init_state();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init state all fail: %d", ret);
     }
     ret = init_ticker();
     if (ret < 0) {

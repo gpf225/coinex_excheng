@@ -12,7 +12,6 @@
 # include "ca_filter.h"
 
 static rpc_svr *svr;
-static dict_t *dict_sub_all;
 
 int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
@@ -83,16 +82,6 @@ int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     json_decref(reply);
 
     return ret;
-}
-
-static void add_subscribe_all_ses(nw_ses *ses)
-{
-    dict_add(dict_sub_all, ses, NULL);
-}
-
-static void del_subscribe_all_ses(nw_ses *ses)
-{
-    dict_delete(dict_sub_all, ses);
 }
 
 static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -193,44 +182,6 @@ error:
     return reply_error_invalid_argument(ses, pkg);
 }
 
-static int on_method_subscribe_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
-{
-    dict_t *dict_market = get_market();
-    if (dict_size(dict_market) == 0) {
-        log_error("dict_market is null");
-        reply_error_internal_error(ses, pkg);
-        return 0;
-    }
-
-    log_info("depth_subscribe_all, connection: %s", nw_sock_human_addr(&ses->peer_addr));
-    dict_entry *entry;
-
-    dict_iterator *iter = dict_get_iterator(dict_market);
-    while ((entry = dict_next(iter)) != NULL) {
-        const char *market = entry->key;
-
-        //deals
-        deals_unsubscribe(ses, market);
-        int ret = deals_subscribe(ses, market);
-        if (ret != 0) {
-            log_error("deals_subscribe fail, market: %s", market);
-            continue;
-        }
-
-        //status
-        status_unsubscribe(ses, market);
-        ret = status_subscribe(ses, market);
-        if (ret != 0) {
-            log_error("status_subscribe fail, market: %s", market);
-            continue;
-        }
-    }
-    dict_release_iterator(iter);
-    add_subscribe_all_ses(ses);
-
-    return 0;
-}
-
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     json_t *params = json_loadb(pkg->body, pkg->body_size, 0, NULL);
@@ -243,13 +194,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     int ret;
     switch (pkg->command) {
-    case CMD_CACHE_SUBSCRIBE_ALL:
-        profile_inc("cmd_subscribe_all", 1);
-        ret = on_method_subscribe_all(ses, pkg, params);
-        if (ret < 0) {
-            log_error("on_method_subscribe_all fail: %d", ret);
-        }
-        break;
     case CMD_CACHE_DEPTH:
         profile_inc("cmd_cache_depth", 1);
         ret = on_method_order_depth(ses, pkg, params);
@@ -296,15 +240,7 @@ static void svr_on_connection_close(nw_ses *ses)
     log_info("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
 
     depth_unsubscribe_all(ses);
-    deals_unsubscribe_all(ses);
-    status_unsubscribe_all(ses);
-    del_subscribe_all_ses(ses);
     remove_all_filter(ses);
-}
-
-dict_t *get_sub_all_dict()
-{
-    return dict_sub_all;
 }
 
 int init_server(void)
@@ -319,14 +255,6 @@ int init_server(void)
     if (svr == NULL)
         return -__LINE__;
     if (rpc_svr_start(svr) < 0)
-        return -__LINE__;
-
-    dict_types dt;
-    memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_ses_hash_func;
-    dt.key_compare = dict_ses_hash_compare;
-    dict_sub_all = dict_create(&dt, 64);
-    if (dict_sub_all == NULL)
         return -__LINE__;
 
     return 0;

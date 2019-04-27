@@ -87,7 +87,15 @@ static int read_config_from_json(json_t *root)
         printf("load cache clt config fail: %d\n", ret);
         return -__LINE__;
     }
-
+    ret = load_cfg_rpc_clt(root, "cache_deals", &settings.cache_deals);
+    if (ret < 0) {
+        printf("load cache_deals clt config fail: %d\n", ret);
+        return -__LINE__;
+    }ret = load_cfg_rpc_clt(root, "cache_state", &settings.cache_state);
+    if (ret < 0) {
+        printf("load cache_state clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
     ret = load_cfg_kafka_consumer(root, "deals", &settings.deals);
     if (ret < 0) {
         printf("load kafka deals config fail: %d\n", ret);

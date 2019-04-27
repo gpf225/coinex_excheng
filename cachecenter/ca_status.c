@@ -11,7 +11,9 @@
 static rpc_clt *marketprice;
 static nw_state *state_context;
 
-static dict_t *dict_status_sub;
+static dict_t *dict_state;
+static dict_t *dict_session;
+static rpc_svr *state_svr;
 static nw_timer timer;
 
 struct dict_status_key {
@@ -19,8 +21,7 @@ struct dict_status_key {
 };
 
 struct dict_status_sub_val {
-    dict_t      *sessions; 
-    json_t      *sub_last;
+    json_t      *last;
 };
 
 struct state_data {
@@ -59,8 +60,8 @@ static void *dict_status_sub_val_dup(const void *val)
 static void dict_status_sub_val_free(void *key)
 {
     struct dict_status_sub_val *obj = key;
-    if (obj->sessions != NULL)
-        dict_release(obj->sessions);
+    if (obj->last)
+        json_decref(obj->last);
     free(obj);
 }
 
@@ -104,28 +105,28 @@ static int status_sub_reply(const char *market, json_t *result)
     memset(&key, 0, sizeof(key));
     strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
 
-    dict_entry *entry = dict_find(dict_status_sub, &key);
+    dict_entry *entry = dict_find(dict_state, &key);
     if (entry == NULL)
         return -__LINE__;
 
     struct dict_status_sub_val *obj = entry->val;
     char *last_str = NULL;
 
-    if (obj->sub_last)
-        last_str = json_dumps(obj->sub_last, JSON_SORT_KEYS);
+    if (obj->last)
+        last_str = json_dumps(obj->last, JSON_SORT_KEYS);
     char *curr_str = json_dumps(result, JSON_SORT_KEYS);
 
-    if (obj->sub_last == NULL || strcmp(last_str, curr_str) != 0) {
-        if (obj->sub_last)
-            json_decref(obj->sub_last);
-        obj->sub_last = result;
+    if (obj->last == NULL || strcmp(last_str, curr_str) != 0) {
+        if (obj->last)
+            json_decref(obj->last);
+        obj->last = result;
         json_incref(result);
 
         json_t *params = json_array();
         json_array_append_new(params, json_string(market));
         json_array_append(params, result);
 
-        dict_iterator *iter = dict_get_iterator(obj->sessions);
+        dict_iterator *iter = dict_get_iterator(dict_session);
         while ((entry = dict_next(iter)) != NULL) {
             nw_ses *ses = entry->key;
             notify_message(ses, CMD_CACHE_STATUS_UPDATE, params);
@@ -214,16 +215,10 @@ static int status_request(const char *market)
 static void on_timer(nw_timer *timer, void *privdata) 
 {
     dict_entry *entry = NULL;
-    dict_iterator *iter = dict_get_iterator(dict_status_sub);
+    dict_iterator *iter = dict_get_iterator(dict_state);
 
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_status_key *key = entry->key;
-        struct dict_status_sub_val *val = entry->val;
-
-        if (dict_size(val->sessions) == 0) {
-            log_info("state on_timer sessions num is 0, market: %s", key->market);
-            continue;
-        }
 
         log_trace("state sub request, market: %s", key->market);
         status_request(key->market);
@@ -231,18 +226,49 @@ static void on_timer(nw_timer *timer, void *privdata)
     dict_release_iterator(iter);
 }
 
-static void send_last_state(nw_ses *ses, const char *market)
+void delete_state_market(const char *market)
+{
+    log_info("deals subscribe, market: %s", market);
+    struct dict_status_key key;
+    memset(&key, 0, sizeof(key));
+    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
+
+    dict_delete(dict_state, &key);
+}
+
+int add_state_market(const char *market)
+{
+    log_info("depth subscribe, market: %s", market);
+    struct dict_status_key key;
+    memset(&key, 0, sizeof(key));
+    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
+
+    dict_entry *entry = dict_find(dict_state, &key);
+    if (entry == NULL) {
+        struct dict_status_sub_val val;
+        memset(&val, 0, sizeof(val));
+
+        entry = dict_add(dict_state, &key, &val);
+        if (entry == NULL) {
+            return -__LINE__;
+        }
+    }
+
+    return 0;  
+}
+
+static void send_state_market(nw_ses *ses, const char *market)
 {
     struct dict_status_key key;
     memset(&key, 0, sizeof(key));
     strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
 
-    dict_entry *entry = dict_find(dict_status_sub, &key);
+    dict_entry *entry = dict_find(dict_state, &key);
     if (entry != NULL) {
         struct dict_status_sub_val *obj = entry->val;
         json_t *params = json_array();
         json_array_append_new(params, json_string(market));
-        json_array_append    (params, obj->sub_last);
+        json_array_append    (params, obj->last);
         notify_message(ses, CMD_CACHE_STATUS_UPDATE, params);
         json_decref(params);
     }
@@ -250,67 +276,47 @@ static void send_last_state(nw_ses *ses, const char *market)
     return;
 }
 
-int status_subscribe(nw_ses *ses, const char *market)
+static void send_full_state(nw_ses *ses)
 {
-    log_info("depth subscribe, market: %s", market);
-    struct dict_status_key key;
-    memset(&key, 0, sizeof(key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-
-    dict_entry *entry = dict_find(dict_status_sub, &key);
-    if (entry == NULL) {
-        struct dict_status_sub_val val;
-        memset(&val, 0, sizeof(val));
-
-        val.sessions = dict_create_status_session();
-        if (val.sessions == NULL)
-            return -__LINE__;
-
-        entry = dict_add(dict_status_sub, &key, &val);
-        if (entry == NULL) {
-            dict_release(val.sessions);
-            return -__LINE__;
-        }
+    dict_t *dict_market = get_market();
+    if (dict_size(dict_market) == 0) {
+        log_error("dict_market is null");
+        return;
     }
 
-    struct dict_status_sub_val *obj = entry->val;
-    dict_add(obj->sessions, ses, NULL);
-
-    send_last_state(ses, market);
-    return 0;  
-}
-
-void status_unsubscribe(nw_ses *ses, const char *market)
-{
-    struct dict_status_key key;
-    memset(&key, 0, sizeof(key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-
-    dict_entry *entry = dict_find(dict_status_sub, &key);
-    if (entry == NULL)
-        return;
-
-    struct dict_status_sub_val *val = entry->val;
-    dict_delete(val->sessions, ses);
-
-    return;
-}
-
-void status_unsubscribe_all(nw_ses *ses)
-{
-    dict_entry *entry = NULL;
-    dict_iterator *iter = dict_get_iterator(dict_status_sub);
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
-        struct dict_status_sub_val *val = entry->val;
-        dict_delete(val->sessions, ses);
+        const char *market = entry->key;
+        send_state_market(ses, market);
     }
     dict_release_iterator(iter);
 
     return;
 }
 
+static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
+{
+    return;
+}
+
+static void svr_on_new_connection(nw_ses *ses)
+{
+    dict_add(dict_session, ses, NULL);
+    send_full_state(ses);
+
+    log_info("new connection: %s", nw_sock_human_addr(&ses->peer_addr));
+}
+
+static void svr_on_connection_close(nw_ses *ses)
+{
+    dict_delete(dict_session, ses);
+    log_info("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
+}
+
 int init_status(void)
 {
+    // cli to marketprice
     rpc_clt_type ct;
     memset(&ct, 0, sizeof(ct));
     ct.on_connect = on_backend_connect;
@@ -336,6 +342,23 @@ int init_status(void)
         return -__LINE__;
     }
 
+    // state state_svr
+    rpc_svr_type type;
+    memset(&type, 0, sizeof(type));
+    type.on_recv_pkg         = svr_on_recv_pkg;
+    type.on_new_connection   = svr_on_new_connection;
+    type.on_connection_close = svr_on_connection_close;
+
+    state_svr = rpc_svr_create(&settings.state_svr, &type);
+    if (state_svr == NULL)
+        return -__LINE__;
+    if (rpc_svr_start(state_svr) < 0)
+        return -__LINE__;
+
+    dict_session = dict_create_status_session();
+    if (dict_session == NULL)
+        return -__LINE__;
+
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.hash_function   = dict_status_sub_hash_function;
@@ -345,8 +368,8 @@ int init_status(void)
     dt.val_dup         = dict_status_sub_val_dup;
     dt.val_destructor  = dict_status_sub_val_free;
 
-    dict_status_sub = dict_create(&dt, 256);
-    if (dict_status_sub == NULL) {
+    dict_state = dict_create(&dt, 256);
+    if (dict_state == NULL) {
         log_stderr("dict_create failed");
         return -__LINE__;
     }
