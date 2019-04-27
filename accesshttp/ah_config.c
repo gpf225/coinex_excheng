@@ -103,7 +103,8 @@ static int read_config_from_json(json_t *root)
 
     ERR_RET(read_cfg_real(root, "timeout", &settings.timeout, false, 5.0));
     ERR_RET(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));
-
+    ERR_RET(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
+    
     ERR_RET(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET(read_depth_merge_cfg(root, "depth_merge"));
 

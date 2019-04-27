@@ -10,8 +10,6 @@
 static dict_t *dict_deals;
 static rpc_clt *cache_deals;
 
-# define MAX_DEALS_LIMIT        1000
-
 struct deals_val {
     list_t   *deals;
     uint64_t last_id;
@@ -149,7 +147,7 @@ static int on_sub_deals_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 
     obj->last_id = first_id;
 
-    while (obj->deals->len > MAX_DEALS_LIMIT) {
+    while (obj->deals->len > settings.deal_max) {
         list_del(obj->deals, list_tail(obj->deals));
     }
 
@@ -221,8 +219,8 @@ void direct_deals_reply(nw_ses *ses, json_t *params, int64_t id)
     }
 
     int limit = json_integer_value(json_array_get(params, 1));
-    if (limit <= 0 || limit > MAX_DEALS_LIMIT) {
-        log_error("exceed deals max limit, limit: %d, max_limit: %d", limit, MAX_DEALS_LIMIT);
+    if (limit <= 0 || limit > settings.deal_max) {
+        log_error("exceed deals max limit, limit: %d, max_limit: %d", limit, settings.deal_max);
         reply_error_invalid_argument(ses, id);
         return;
     }

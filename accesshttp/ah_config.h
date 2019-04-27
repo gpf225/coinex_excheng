@@ -61,6 +61,7 @@ struct settings {
     rpc_clt_cfg         monitorcenter;
     double              timeout;
     int                 worker_num;
+    int                 deal_max;
 
     rpc_clt_cfg         cache;
     rpc_clt_cfg         cache_deals;
