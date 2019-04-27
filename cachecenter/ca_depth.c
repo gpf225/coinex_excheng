@@ -104,7 +104,7 @@ static void on_timeout(nw_state_entry *entry)
     remove_depth_filter(state->market, state->interval);
 
     sds key = sdsempty();
-    key = sdscatprintf(key, "%s_%s", state->market, state->market);
+    key = sdscatprintf(key, "%s_%s", state->market, state->interval);
     delete_filter_queue(key);
     sdsfree(key);
 }
