@@ -1,24 +1,21 @@
 /*
  * Description: 
- *     History: yang@haipo.me, 2017/04/28, create
+ *     History: ouxiangyang, 2019/04/19, create
  */
 
 # include "aw_config.h"
-# include "aw_http.h"
-# include "aw_state.h"
 # include "aw_server.h"
-# include "aw_sub_all.h"
+# include "aw_depth.h"
+# include "aw_state.h"
+# include "aw_market.h"
 
-static nw_timer market_timer;
-static dict_t *dict_market;
+static dict_t *dict_state;
 static dict_t *dict_session;
 
-struct state_data {
-    char market[MARKET_NAME_MAX_LEN];
-};
+static rpc_clt *cache_state;
 
-struct market_val {
-    int     id;
+struct state_val {
+    json_t  *last;
     double  update_time;
 };
 
@@ -42,19 +39,6 @@ static void dict_market_key_free(void *key)
     free(key);
 }
 
-static void *dict_market_val_dup(const void *key)
-{
-    struct market_val *obj = malloc(sizeof(struct market_val));
-    memcpy(obj, key, sizeof(struct market_val));
-    return obj;
-}
-
-static void dict_market_val_free(void *val)
-{
-    struct market_val *obj = val;
-    free(obj);
-}
-
 static void *list_market_dup(void *val)
 {
     return strdup(val);
@@ -65,6 +49,7 @@ static void list_market_free(void *val)
     free(val);
 }
 
+// ses
 static uint32_t dict_ses_hash_func(const void *key)
 {
     return dict_generic_hash_function(key, sizeof(void *));
@@ -82,7 +67,59 @@ static void dict_ses_val_free(void *val)
     }
 }
 
-void notify_state_update(void)
+//dict state
+static void *dict_state_val_dup(const void *key)
+{
+    struct state_val *obj = malloc(sizeof(struct state_val));
+    memcpy(obj, key, sizeof(struct state_val));
+    return obj;
+}
+
+static void dict_state_val_free(void *val)
+{
+    struct state_val *obj = val;
+    if (obj->last)
+        json_decref(obj->last);
+    free(obj);
+}
+
+static json_t *get_state_notify_full(double last_notify)
+{
+    json_t *result = json_object();
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_state);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct state_val *info = entry->val;
+        if (info->last && info->update_time > last_notify) {
+            json_object_set(result, entry->key, info->last);
+        }
+    }
+    dict_release_iterator(iter);
+
+    return result;
+}
+
+static json_t *get_state_notify_list(list_t *list, double last_notify)
+{
+    json_t *result = json_object();
+    list_node *node;
+    list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
+    while ((node = list_next(iter)) != NULL) {
+        dict_entry *entry = dict_find(dict_state, node->value);
+        if (!entry) {
+            continue;
+        }
+        struct state_val *info = entry->val;
+        if (info->last && info->update_time > last_notify) {
+            json_object_set(result, entry->key, info->last);
+        }
+    }
+    list_release_iterator(iter);
+
+    return result;
+}
+
+static void notify_state_update(void)
 {
     static double last_notify;
     size_t count = 0;
@@ -119,59 +156,193 @@ void notify_state_update(void)
     }
 }
 
-static void on_market_list_callback(json_t *result)
+// state update
+static int on_sub_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 {
-    static uint32_t update_id = 0;
-    update_id += 1;
+    const size_t state_num = json_array_size(result_array);
+    log_trace("state update, state_num: %zd", state_num);
 
-    for (size_t i = 0; i < json_array_size(result); ++i) {
-        json_t *item = json_array_get(result, i);
-        const char *name = json_string_value(json_object_get(item, "name"));
-        dict_entry *entry = dict_find(dict_market, name);
+    for (size_t i = 0; i < state_num; ++i) {
+        json_t *row = json_array_get(result_array, i);
+        if (!json_is_object(row)) {
+            return -__LINE__;
+        }
+
+        const char *market = json_string_value(json_object_get(row, "name"));
+        if (market == NULL) {
+            sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+            log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
+            sdsfree(reply_str);
+            continue;
+        }
+
+        json_t *result = json_object_get(row, "result");
+        if (result == NULL) {
+            sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+            log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
+            sdsfree(reply_str);
+            continue;
+        }
+
+        // add to dict_state
+        dict_entry *entry = dict_find(dict_state, market);
         if (entry == NULL) {
-            struct market_val val;
+            struct state_val val;
             memset(&val, 0, sizeof(val));
-            val.id = update_id;
-            dict_add(dict_market, (char *)name, &val);
-            log_info("add market: %s", name);
+
+            val.update_time = current_timestamp();
+            val.last = result;
+            json_incref(result);
+
+            entry = dict_add(dict_state, (char *)market, &val);
+            if (entry == NULL) {
+                log_fatal("dict_add fail");
+                return -__LINE__;
+            }
         } else {
-            struct market_val *info = entry->val;
-            info->id = update_id;
+            struct state_val *info = entry->val;
+            char *last_str = NULL;
+            if (info->last)
+                last_str = json_dumps(info->last, JSON_SORT_KEYS);
+            char *curr_str = json_dumps(result, JSON_SORT_KEYS);
+
+            if (info->last == NULL || strcmp(last_str, curr_str) != 0) {
+                if (info->last)
+                    json_decref(info->last);
+                info->last = result;
+                json_incref(result);
+                info->update_time = current_timestamp();
+            }
+
+            if (last_str != NULL)
+                free(last_str);
+            free(curr_str);
         }
     }
 
-    dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(dict_market);
-    while ((entry = dict_next(iter)) != NULL) {
-        struct market_val *info = entry->val;
-        if (info->id != update_id) {
-            dict_delete(dict_market, entry->key);
-            log_info("del market: %s", (char *)entry->key);
-        }
-    }
-    dict_release_iterator(iter);
+    notify_state_update();
+    return 0;
 }
 
-static void on_market_timer(nw_timer *timer, void *privdata)
+static void on_backend_connect(nw_ses *ses, bool result)
 {
-    json_t *params = json_array();
-    send_http_request("market.list", params, on_market_list_callback);
+    rpc_clt *clt = ses->privdata;
+    if (result) {
+        log_info("connect %s:%s success", clt->name, nw_sock_human_addr(&ses->peer_addr));
+    } else {
+        log_info("connect %s:%s fail", clt->name, nw_sock_human_addr(&ses->peer_addr));
+    }
+}
+
+static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
+{
+    log_trace("recv pkg from: %s, cmd: %u, sequence: %u",
+            nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence);
+    json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
+    if (!reply) {
+        log_error("json_loadb fail");
+        goto clean;
+    }
+    json_t *error = json_object_get(reply, "error");
+    if (!error) {
+        log_error("error param not find");
+        goto clean;
+    }
+    if (!json_is_null(error)) {
+        log_error("error is not null");
+        goto clean;
+    }
+
+    json_t *result = json_object_get(reply, "result");
+    if (!result) {
+        log_error("result param not find");
+        goto clean;
+    }
+
+    switch (pkg->command) {
+    case CMD_CACHE_STATUS_UPDATE:
+        on_sub_state_update(result, ses, pkg);
+        break;
+    default:
+        break;
+    }
+
+clean:
+    if (reply)
+        json_decref(reply);
+
+    return;
+}
+
+void direct_state_reply(nw_ses *ses, json_t *params, int64_t id)
+{
+    if (json_array_size(params) != 2) {
+        send_error_invalid_argument(ses, id);
+        return;
+    }
+
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (!market) {
+        send_error_invalid_argument(ses, id);
+        return;
+    }
+
+    bool is_reply = false;
+    dict_entry *entry = dict_find(dict_state, market);
+    if (entry != NULL) {
+        struct state_val *val = entry->val;
+        if (val->last != NULL) {
+            is_reply = true;
+            send_result(ses, id, val->last);
+        }
+    }
+
+    if (!is_reply) {
+        reply_result_null(ses, id);
+        log_error("state not find result, market: %s", market);
+    }
+
+    return;
+}
+
+bool judege_state_period_is_day(json_t *params)
+{
+    if (json_array_size(params) != 2)
+        return false;
+
+    int period = json_integer_value(json_array_get(params, 1));
+    if (period == 86400) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 int init_state(void)
 {
+    rpc_clt_type ct;
+    memset(&ct, 0, sizeof(ct));
+    ct.on_connect = on_backend_connect;
+    ct.on_recv_pkg = on_backend_recv_pkg;
+
+    cache_state = rpc_clt_create(&settings.cache_state, &ct);
+    if (cache_state == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(cache_state) < 0)
+        return -__LINE__;
+
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_market_hash_func;
-    dt.key_compare = dict_market_key_compare;
-    dt.key_dup = dict_market_key_dup;
+    dt.hash_function  = dict_market_hash_func;
+    dt.key_compare    = dict_market_key_compare;
+    dt.key_dup        = dict_market_key_dup;
     dt.key_destructor = dict_market_key_free;
-    dt.val_dup = dict_market_val_dup;
-    dt.val_destructor = dict_market_val_free;
-
-    dict_market = dict_create(&dt, 64);
-    if (dict_market == NULL)
+    dt.val_dup        = dict_state_val_dup;
+    dt.val_destructor = dict_state_val_free;
+    dict_state = dict_create(&dt, 64);
+    if (dict_state == NULL)
         return -__LINE__;
+
 
     memset(&dt, 0, sizeof(dt));
     dt.hash_function = dict_ses_hash_func;
@@ -181,10 +352,6 @@ int init_state(void)
     dict_session = dict_create(&dt, 64);
     if (dict_session == NULL)
         return -__LINE__;
-
-    nw_timer_set(&market_timer, settings.market_interval, true, on_market_timer, NULL);
-    nw_timer_start(&market_timer);
-    on_market_timer(NULL, NULL);
 
     return 0;
 }
@@ -209,7 +376,7 @@ int state_subscribe(nw_ses *ses, json_t *market_list)
         const char *name = json_string_value(json_array_get(market_list, i));
         if (name == NULL)
             continue;
-        if (dict_find(dict_market, name)) {
+        if (market_exists(name)) {
             list_add_node_tail(list, (char *)name);
         }
     }
@@ -223,6 +390,19 @@ int state_unsubscribe(nw_ses *ses)
     return dict_delete(dict_session, ses);
 }
 
+static json_t *get_state(const char *market)
+{
+    dict_entry *entry = dict_find(dict_state, market);
+    if (entry != NULL) {
+        struct state_val *val = entry->val;
+        if (val->last != NULL) {
+            return val->last;
+        }
+    }
+
+    return NULL;
+}
+
 int state_send_last(nw_ses *ses)
 {
     dict_entry *entry = dict_find(dict_session, ses);
@@ -233,7 +413,7 @@ int state_send_last(nw_ses *ses)
     json_t *result = json_object();
     if (entry->val == NULL) {
         dict_entry *entry;
-        dict_iterator *iter = dict_get_iterator(dict_market);
+        dict_iterator *iter = dict_get_iterator(dict_state);
         while ((entry = dict_next(iter)) != NULL) {
             json_t *state = get_state(entry->key);
             if (state != NULL) {
@@ -245,7 +425,7 @@ int state_send_last(nw_ses *ses)
         list_node *node;
         list_iter *iter = list_get_iterator(entry->val, LIST_START_HEAD);
         while ((node = list_next(iter)) != NULL) {
-            dict_entry *entry = dict_find(dict_market, node->value);
+            dict_entry *entry = dict_find(dict_state, node->value);
             if (!entry) {
                 list_del(entry->val, node);
                 continue;
@@ -269,9 +449,4 @@ int state_send_last(nw_ses *ses)
 size_t state_subscribe_number(void)
 {
     return dict_size(dict_session);
-}
-
-bool market_exists(const char *market)
-{
-    return (dict_find(dict_market, market) != NULL);
 }

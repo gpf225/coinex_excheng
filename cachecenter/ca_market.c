@@ -31,59 +31,8 @@ static void dict_market_val_free(void *val)
     free(val);
 }
 
-static void unsubscribe_all_market(const char *market)
-{
-    log_info("unsubscribe_all, market: %s", market);
-
-    dict_entry *entry;
-    dict_t *dict_sub_all = get_sub_all_dict();
-    dict_iterator *iter = dict_get_iterator(dict_sub_all);
-    while ((entry = dict_next(iter)) != NULL) {
-        nw_ses *ses = entry->key;
-        const char *market = entry->key;
-
-        deals_unsubscribe(ses, market);
-        status_unsubscribe(ses, market);
-    }
-    dict_release_iterator(iter);
-
-    return;
-}
-
-static void subscribe_all_market(const char *market)
-{
-    log_info("re_subscribe_all, market: %s", market);
-
-    dict_entry *entry;
-    dict_t *dict_sub_all = get_sub_all_dict();
-    dict_iterator *iter = dict_get_iterator(dict_sub_all);
-    while ((entry = dict_next(iter)) != NULL) {
-        nw_ses *ses = entry->key;
-
-        //deals
-        deals_unsubscribe(ses, market);
-        int ret = deals_subscribe(ses, market);
-        if (ret != 0) {
-            log_error("deals_subscribe fail, market: %s", market);
-            continue;
-        }
-
-        //status
-        status_unsubscribe(ses, market);
-        ret = status_subscribe(ses, market);
-        if (ret != 0) {
-            log_error("status_subscribe fail, market: %s", market);
-            continue;
-        }
-    }
-    dict_release_iterator(iter);
-
-    return;
-}
-
 static int on_market_list_reply(json_t *result)
 {
-    static bool is_first = true;
     static uint32_t update_id = 0;
     update_id += 1;
 
@@ -97,9 +46,9 @@ static int on_market_list_reply(json_t *result)
             val.id = update_id;
             dict_add(dict_market, (char *)name, &val);
 
-            if (!is_first) {
-                subscribe_all_market((char *)name);
-            }
+            add_deals_market((char *)name);
+            add_state_market((char *)name);
+
             log_info("add market: %s", name);
         } else {
             struct market_val *info = entry->val;
@@ -113,12 +62,13 @@ static int on_market_list_reply(json_t *result)
         struct market_val *info = entry->val;
         if (info->id != update_id) {
             dict_delete(dict_market, entry->key);
-            unsubscribe_all_market((char *)entry->key);
+            delete_deals_market((char *)entry->key);
+            delete_state_market((char *)entry->key);
+
             log_info("del market: %s", (char *)entry->key);
         }
     }
     dict_release_iterator(iter);
-    is_first =false;
 
     return 0;
 }
@@ -249,6 +199,7 @@ int init_market(void)
 
     nw_timer_set(&market_timer, settings.market_interval, true, on_market_timer, NULL);
     nw_timer_start(&market_timer);
+    on_market_timer(NULL, NULL);
 
     return 0;
 }

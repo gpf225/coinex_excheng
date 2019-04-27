@@ -2,4 +2,4 @@
 
 killall -s SIGQUIT cachecenter.exe
 sleep 1
-./cache.exe config.json
+./cachecenter.exe config.json

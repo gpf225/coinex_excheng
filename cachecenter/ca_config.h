@@ -38,7 +38,6 @@
 
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
-#define MARKET_DEALS_MAX        1000
 
 typedef struct depth_merge_cfg {
     int    count;
@@ -51,13 +50,14 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
+    rpc_svr_cfg         deals_svr;
+    rpc_svr_cfg         state_svr;
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
     
     double              backend_timeout;
     double              sub_depth_interval;
     double              sub_deals_interval;
-    double              sub_kline_interval;
     double              sub_status_interval;
     double              market_interval;
     depth_interval_cfg  depth_interval;

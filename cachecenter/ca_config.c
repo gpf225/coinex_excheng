@@ -80,9 +80,20 @@ static int read_config_from_json(json_t *root)
         printf("load alert config fail: %d\n", ret);
         return -__LINE__;
     }
+
     ret = load_cfg_rpc_svr(root, "svr", &settings.svr);
     if (ret < 0) {
         printf("load svr config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_rpc_svr(root, "deals_svr", &settings.deals_svr);
+    if (ret < 0) {
+        printf("load deals_svr config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_rpc_svr(root, "state_svr", &settings.state_svr);
+    if (ret < 0) {
+        printf("load state_svr config fail: %d\n", ret);
         return -__LINE__;
     }
     ret = load_cfg_rpc_clt(root, "matchengine", &settings.matchengine);
@@ -99,7 +110,6 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
     ERR_RET_LN(read_cfg_real(root, "sub_depth_interval", &settings.sub_depth_interval, false, 0.5));
     ERR_RET_LN(read_cfg_real(root, "sub_deals_interval", &settings.sub_deals_interval, false, 0.5));
-    ERR_RET_LN(read_cfg_real(root, "sub_kline_interval", &settings.sub_kline_interval, false, 0.5));
     ERR_RET_LN(read_cfg_real(root, "sub_status_interval", &settings.sub_status_interval, false, 0.5));
     ERR_RET_LN(read_cfg_real(root, "market_interval", &settings.market_interval, false, 10));
     ERR_RET_LN(read_cfg_int(root, "depth_limit_max", &settings.depth_limit_max, false, 50));

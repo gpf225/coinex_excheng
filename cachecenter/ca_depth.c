@@ -33,24 +33,24 @@ struct state_data {
     int       limit;
 };
 
-uint32_t dict_depth_hash_func(const void *key)
+static uint32_t dict_depth_hash_func(const void *key)
 {
     return dict_generic_hash_function(key, sizeof(struct dict_depth_key));
 }
 
-int dict_depth_key_compare(const void *key1, const void *key2)
+static int dict_depth_key_compare(const void *key1, const void *key2)
 {
     return memcmp(key1, key2, sizeof(struct dict_depth_key));
 }
 
-void *dict_depth_key_dup(const void *key)
+static void *dict_depth_key_dup(const void *key)
 {
     struct dict_depth_key *obj = malloc(sizeof(struct dict_depth_key));
     memcpy(obj, key, sizeof(struct dict_depth_key));
     return obj;
 }
 
-void dict_depth_key_free(void *key)
+static void dict_depth_key_free(void *key)
 {
     free(key);
 }
@@ -73,7 +73,7 @@ static void dict_depth_sub_val_free(void *key)
     free(obj);
 }
 
-dict_t* dict_create_depth_session(void)
+static dict_t* dict_create_depth_session(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
@@ -102,7 +102,11 @@ static void on_timeout(nw_state_entry *entry)
     log_error("state id: %u timeout", entry->id);
     struct state_data *state = entry->data;
     remove_depth_filter(state->market, state->interval);
-    delete_filter_queue(state->market, state->interval);
+
+    sds key = sdsempty();
+    key = sdscatprintf(key, "%s_%s", state->market, state->interval);
+    delete_filter_queue(key);
+    sdsfree(key);
 }
 
 static int notify_message(nw_ses *ses, int command, json_t *message)
@@ -256,6 +260,9 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
+    sds key_filter = sdsempty();
+    key_filter = sdscatprintf(key_filter, "%s_%s", state->market, state->interval);
+
     bool is_error = false;
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
@@ -264,12 +271,15 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         log_error("error reply from: %s, market: %s, interval: %s cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str);
         sdsfree(reply_str);
         is_error = true;
+
+        struct dict_depth_key key;
+        depth_set_key(&key, state->market, state->interval);  
+        dict_delete(dict_depth_sub, &key);
     }
 
     switch (pkg->command) {
     case CMD_ORDER_DEPTH:
-        reply_filter_message(state->market, state->interval, is_error, reply); // reply out request
-
+        reply_filter_message(key_filter, is_error, reply); // reply out request
         if (!is_error) { // reply sub
             depth_sub_reply(state->market, state->interval, result);
 
@@ -286,7 +296,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     json_decref(reply);
-    delete_filter_queue(state->market, state->interval);
+    delete_filter_queue(key_filter);
+    sdsfree(key_filter);
     nw_state_del(state_context, pkg->sequence);
 }
 
@@ -297,7 +308,10 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, cons
     }
 
     if (ses != NULL) {
-        add_filter_queue(market, interval, limit, ses, pkg);
+        sds key = sdsempty();
+        key = sdscatprintf(key, "%s_%s", market, interval);
+        add_filter_queue(key, limit, ses, pkg);
+        sdsfree(key);
     }
 
     //filter same request
@@ -476,5 +490,4 @@ int init_depth(void)
 
     return 0;
 }
-
 

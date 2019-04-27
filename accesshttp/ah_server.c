@@ -5,7 +5,8 @@
 
 # include "ah_config.h"
 # include "ah_server.h"
-# include "ah_sub_all.h"
+# include "ah_deals.h"
+# include "ah_state.h"
 # include "ah_cache.h"
 
 static http_svr *svr;

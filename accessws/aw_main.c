@@ -20,7 +20,7 @@
 # include "aw_message.h"
 # include "aw_listener.h"
 # include "aw_sub_user.h"
-# include "aw_sub_all.h"
+# include "aw_market.h"
 
 const char *__process__ = "accessws";
 const char *__version__ = "0.1.0";
@@ -196,13 +196,13 @@ server:
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init message fail: %d", ret);
     }
+    ret = init_market();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
+    }
     ret = init_server();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
-    }
-    ret = init_sub_all();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init sub all fail: %d", ret);
     }
 
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
