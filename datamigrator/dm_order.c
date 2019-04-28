@@ -53,7 +53,7 @@ int order_migrate(uint32_t user_id, double migrate_start_time, double migrate_en
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, `price`, `amount`, "
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
-            "FROM `order_history_%u` WHERE `user_id` = %u AND `id` > %ld AND `finish_time` <= '%f' AND `finish_time` > '%f' ORDER BY `id` ASC LIMIT %d",
+            "FROM `order_history_%u` WHERE `user_id` = %u AND `id` > %ld AND `create_time` <= '%f' AND `create_time` > '%f' ORDER BY `id` ASC LIMIT %d",
              user_id % HISTORY_HASH_NUM, user_id, last_order_id, migrate_start_time, migrate_end_time, QUERY_LIMIT);
         
         log_trace("sql:%s", sql);
@@ -91,9 +91,9 @@ int order_migrate(uint32_t user_id, double migrate_start_time, double migrate_en
 double order_get_end_time(uint32_t user_id, double migrate_start_time, int least_day_per_user, int max_order_per_user)
 {
     sds sql = sdsempty();  
-    sql = sdscatprintf(sql, "SELECT `finish_time` from `order_history_%u` WHERE `finish_time` <= '%f' ORDER BY `id` DESC LIMIT %d, 1", 
-        user_id % HISTORY_HASH_NUM, migrate_start_time, max_order_per_user);
-    
+    sql = sdscatprintf(sql, "SELECT `create_time` from `order_history_%u` WHERE `create_time` <= '%f' AND `user_id` = %u ORDER BY `id` DESC LIMIT %d, 1", 
+        user_id % HISTORY_HASH_NUM, migrate_start_time, user_id, max_order_per_user);
+
     log_trace("sql:%s", sql);
     MYSQL *conn = get_old_db_connection();
     int ret = mysql_real_query(conn, sql, sdslen(sql));

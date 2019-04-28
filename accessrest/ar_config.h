@@ -56,15 +56,20 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     http_svr_cfg        svr;
+    int                 deal_max;
 
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
+
     rpc_clt_cfg         cache;
+    rpc_clt_cfg         cache_deals;
+    rpc_clt_cfg         cache_state;
 
     int                 worker_num;
     double              backend_timeout;
     double              cache_timeout;
     double              market_interval;
+    double              state_interval;
     char                *market_url;
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;

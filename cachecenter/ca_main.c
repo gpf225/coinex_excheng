@@ -10,8 +10,10 @@
 # include "ca_deals.h"
 # include "ca_status.h"
 # include "ut_title.h"
+# include "ca_cache.h"
+# include "ca_filter.h"
 
-const char *__process__ = "cache";
+const char *__process__ = "cachecenter";
 const char *__version__ = "0.1.0";
 
 nw_timer cron_timer;
@@ -89,13 +91,13 @@ int main(int argc, char *argv[])
     daemon(1, 1);
     process_keepalive1(settings.debug);
 
+    ret = init_market();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
+    }
     ret = init_server();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
-    }
-    ret = init_depth();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init depth fail: %d", ret);
     }
     ret = init_deals();
     if (ret < 0) {
@@ -105,9 +107,17 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init state fail: %d", ret);
     }
-    ret = init_market();
+    ret = init_depth();
     if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
+        error(EXIT_FAILURE, errno, "init depth fail: %d", ret);
+    }
+    ret = init_cache();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
+    }
+    ret = init_filter();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init depth filter fail: %d", ret);
     }
 
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);

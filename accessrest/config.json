@@ -44,6 +44,22 @@
         "max_pkg_size": 2000000,
         "heartbeat_timeout": 30
     },
+    "cache_deals": {
+        "name": "cache_deals",
+        "addr": [
+            "tcp@127.0.0.1:7802"
+        ],
+        "max_pkg_size": 2000000,
+        "heartbeat_timeout": 30
+    },
+    "cache_state": {
+        "name": "cache_state",
+        "addr": [
+            "tcp@127.0.0.1:7803"
+        ],
+        "max_pkg_size": 2000000,
+        "heartbeat_timeout": 30
+    },
     "worker_num": 2,
     "backend_timeout": 1.0,
     "cache_timeout": 0.5,

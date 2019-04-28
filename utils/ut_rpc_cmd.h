@@ -60,25 +60,14 @@
 # define CMD_CONFIG_UPDATE_ASSET    401
 # define CMD_CONFIG_UPDATE_MARKET   402
 
-// longpoll
-# define CMD_LP_DEPTH_SUBSCRIBE         501
-# define CMD_LP_DEPTH_SUBSCRIBE_ALL     502
-# define CMD_LP_DEPTH_UNSUBSCRIBE       503
-# define CMD_LP_DEPTH_UPDATE            504
-
-# define CMD_LP_MARKET_SUBSCRIBE        505
-# define CMD_LP_MARKET_UNSUBSCRIBE      506
-# define CMD_LP_MARKET_UPDATE           507
-
-# define CMD_LP_STATE_SUBSCRIBE         508
-# define CMD_LP_STATE_UNSUBSCRIBE       509
-# define CMD_LP_STATE_UPDATE            510
-
 //cache
-# define CMD_CACHE_SUBSCRIBE_ALL        601
-# define CMD_CACHE_DEPTH_UPDATE         602
-# define CMD_CACHE_DEALS_UPDATE     	603
-# define CMD_CACHE_STATUS_UPDATE    	604
+# define CMD_CACHE_SUBSCRIBE_ALL        501
+# define CMD_CACHE_DEPTH_UPDATE         502
+# define CMD_CACHE_DEALS_UPDATE     	503
+# define CMD_CACHE_STATUS_UPDATE    	504
+# define CMD_CACHE_DEPTH    			505
+# define CMD_CACHE_DEPTH_SUBSCRIBE    	506
+# define CMD_CACHE_DEPTH_UNSUBSCRIBE    507
 
 // dealrank
 # define CMD_DEAL_RANK                   701

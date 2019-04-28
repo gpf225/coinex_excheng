@@ -87,7 +87,15 @@ static int read_config_from_json(json_t *root)
         printf("load cache clt config fail: %d\n", ret);
         return -__LINE__;
     }
-
+    ret = load_cfg_rpc_clt(root, "cache_deals", &settings.cache_deals);
+    if (ret < 0) {
+        printf("load cache_deals clt config fail: %d\n", ret);
+        return -__LINE__;
+    }ret = load_cfg_rpc_clt(root, "cache_state", &settings.cache_state);
+    if (ret < 0) {
+        printf("load cache_state clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
     ret = load_cfg_kafka_consumer(root, "deals", &settings.deals);
     if (ret < 0) {
         printf("load kafka deals config fail: %d\n", ret);
@@ -117,10 +125,10 @@ static int read_config_from_json(json_t *root)
     ERR_RET(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
     ERR_RET(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
     ERR_RET(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.5));
-
     ERR_RET(read_cfg_real(root, "kline_interval", &settings.kline_interval, false, 0.5));
     ERR_RET(read_cfg_real(root, "market_interval", &settings.market_interval, false, 10));
-
+    ERR_RET(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
+    
     ERR_RET(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET(read_depth_merge_cfg(root, "depth_merge"));
     ERR_RET(read_cfg_bool(root, "debug", &settings.debug, false, true));

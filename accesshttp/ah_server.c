@@ -5,7 +5,9 @@
 
 # include "ah_config.h"
 # include "ah_server.h"
-# include "ah_sub_all.h"
+# include "ah_deals.h"
+# include "ah_state.h"
+# include "ah_cache.h"
 
 static http_svr *svr;
 static nw_state *state;
@@ -16,11 +18,14 @@ static rpc_clt *matchengine;
 static rpc_clt *marketprice;
 static rpc_clt *readhistory;
 static rpc_clt *monitorcenter;
+static rpc_clt *cache;
 
 struct state_info {
     nw_ses  *ses;
     uint64_t ses_id;
     int64_t  request_id;
+    sds      cache_key;
+    int      depth_limit;
 };
 
 struct request_info {
@@ -105,6 +110,22 @@ void reply_message(nw_ses *ses, int64_t id, json_t *result)
     json_decref(reply);
 }
 
+static int check_depth_param(json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return -__LINE__;
+
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (market == NULL)
+        return -__LINE__;
+
+    const char *interval = json_string_value(json_array_get(params, 2));
+    if (interval == NULL)
+        return -__LINE__;
+
+    return 0;
+}
+
 static int on_http_request(nw_ses *ses, http_request_t *request)
 {
     log_trace("new http request, url: %s, method: %u", request->url, request->method);
@@ -141,13 +162,34 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         reply_not_found(ses, json_integer_value(id));
     } else {
         struct request_info *req = entry->val;
-        if (req->cmd == CMD_MARKET_DEALS || req->cmd == CMD_ORDER_DEPTH) {
-            on_direct_reply(ses, params, req->cmd, json_integer_value(id));
+        sds key = NULL;
+
+        if (req->cmd == CMD_CACHE_DEPTH) {
+            if (check_depth_param(params) != 0) {
+                reply_error_invalid_argument(ses, json_integer_value(id));
+                json_decref(body);
+                return 0;
+            }
+
+            const char *market = json_string_value(json_array_get(params, 0));
+            uint32_t limit = json_integer_value(json_array_get(params, 1));
+            const char *interval = json_string_value(json_array_get(params, 2));
+
+            // check cache
+            key = sdsempty();
+            key = sdscatprintf(key, "%u-%s-%s", req->cmd, market, interval);
+
+            int ret = check_depth_cache(ses, json_integer_value(id), key, limit);
+            if (ret > 0) {
+                sdsfree(key);
+                json_decref(body);
+                return 0;
+            }
+        } else if (req->cmd == CMD_MARKET_DEALS) {
+            direct_deals_reply(ses, params, json_integer_value(id));
             json_decref(body);
             return 0;
-        }
-
-        if (req->cmd == CMD_MARKET_STATUS && judege_state_period_is_day(params)) {
+        } else if (req->cmd == CMD_MARKET_STATUS && judege_state_period_is_day(params)) {
             direct_state_reply(ses, params, json_integer_value(id));
             json_decref(body);
             return 0;
@@ -165,6 +207,11 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         info->ses = ses;
         info->ses_id = ses->id;
         info->request_id = json_integer_value(id);
+        info->cache_key = key;
+
+        if (req->cmd == CMD_CACHE_DEPTH) {
+            info->depth_limit = json_integer_value(json_array_get(params, 1));
+        }
 
         rpc_pkg pkg;
         memset(&pkg, 0, sizeof(pkg));
@@ -254,8 +301,47 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         struct state_info *info = entry->data;
         if (info->ses->id == info->ses_id) {
             log_trace("send response to: %s", nw_sock_human_addr(&info->ses->peer_addr));
-            send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
-            profile_inc("success", 1);
+
+            if (pkg->command == CMD_CACHE_DEPTH) {
+                json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
+                if (reply_json == NULL) {
+                    log_error("json_loadb fail");
+                    reply_internal_error(ses);
+                    nw_state_del(state, pkg->sequence);
+                    return;
+                }
+
+                json_t *cache_result = json_object_get(reply_json, "cache_result");
+                if (cache_result == NULL) { // error result, no cache_result
+                    send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
+                    profile_inc("success", 1);
+                } else {
+                    json_t *result = json_object_get(cache_result, "result");
+                    json_t *result_depth = pack_depth_result(result, info->depth_limit);
+
+                    reply_message(info->ses, info->request_id, result_depth);
+                    json_decref(result_depth);
+                    profile_inc("success", 1);
+
+                    if (info->cache_key) {
+                        json_t *error = json_object_get(cache_result, "error");
+                        json_t *result = json_object_get(cache_result, "result");
+
+                        if (error && json_is_null(error) && result) {
+                            int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
+                            struct cache_val val;
+                            val.time_cache = current_millis() + ttl;
+                            val.result = result;
+                            json_incref(result);
+                            dict_replace_cache(info->cache_key, &val);
+                        }
+                    }
+                }
+                json_decref(reply_json);
+            } else {
+                send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
+                profile_inc("success", 1);
+            }
         }
         nw_state_del(state, pkg->sequence);
     }
@@ -336,7 +422,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.put_market", matchengine, CMD_ORDER_PUT_MARKET));
     ERR_RET_LN(add_handler("order.cancel", matchengine, CMD_ORDER_CANCEL));
     ERR_RET_LN(add_handler("order.book", matchengine, CMD_ORDER_BOOK));
-    ERR_RET_LN(add_handler("order.depth", matchengine, CMD_ORDER_DEPTH));
+    ERR_RET_LN(add_handler("order.depth", cache, CMD_CACHE_DEPTH));
     ERR_RET_LN(add_handler("order.pending", matchengine, CMD_ORDER_PENDING));
     ERR_RET_LN(add_handler("order.pending_detail", matchengine, CMD_ORDER_PENDING_DETAIL));
     ERR_RET_LN(add_handler("order.deals", readhistory, CMD_ORDER_DEALS));
@@ -372,6 +458,13 @@ static int init_methods_handler(void)
     return 0;
 }
 
+static void on_release(nw_state_entry *entry)
+{
+    struct state_info *state = entry->data;
+    if (state->cache_key)
+        sdsfree(state->cache_key);
+}
+
 int init_server(void)
 {
     dict_types dt;
@@ -389,6 +482,7 @@ int init_server(void)
     nw_state_type st;
     memset(&st, 0, sizeof(st));
     st.on_timeout = on_state_timeout;
+    st.on_release = on_release;
     state = nw_state_create(&st, sizeof(struct state_info));
     if (state == NULL)
         return -__LINE__;
@@ -419,6 +513,12 @@ int init_server(void)
     if (monitorcenter == NULL)
         return -__LINE__;
     if (rpc_clt_start(monitorcenter) < 0)
+        return -__LINE__;
+
+    cache = rpc_clt_create(&settings.cache, &ct);
+    if (cache == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(cache) < 0)
         return -__LINE__;
 
     svr = http_svr_create(&settings.svr, on_http_request);
