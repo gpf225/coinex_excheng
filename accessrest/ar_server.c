@@ -429,7 +429,7 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
     entry = dict_find(params, "limit");
     if (entry) {
         limit = atoi(entry->val);
-        if (limit < 0) {
+        if (limit <= 0) {
             return reply_invalid_params(ses);
         }
 
