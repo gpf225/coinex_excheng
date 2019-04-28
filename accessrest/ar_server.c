@@ -425,7 +425,16 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
         }
     }
 
-    direct_deals_result(ses, market, 1000, last_id);
+    int limit = 20;
+    entry = dict_find(params, "limit");
+    if (entry) {
+        limit = atoi(entry->val);
+        if (limit > settings.deal_max) {
+            limit = settings.deal_max;
+        }
+    }
+
+    direct_deals_result(ses, market, limit, last_id);
     return 0;
 }
 
