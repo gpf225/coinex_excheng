@@ -344,12 +344,6 @@ static sds on_cmd_status(const char *cmd, int argc, sds *argv)
 
 static int init_cli()
 {
-    if (settings.cli.addr.family == AF_INET) {
-        settings.cli.addr.in.sin_port = htons(ntohs(settings.cli.addr.in.sin_port));
-    } else if (settings.cli.addr.family == AF_INET6) {
-        settings.cli.addr.in6.sin6_port = htons(ntohs(settings.cli.addr.in6.sin6_port));
-    }
-
     svrcli = cli_svr_create(&settings.cli);
     if (svrcli == NULL) {
         return -__LINE__;
