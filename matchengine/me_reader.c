@@ -1020,22 +1020,39 @@ static int init_cli()
     return 0;
 }
 
+static int send_reader_error()
+{
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.command = CMD_REDER_ERROR;
+
+    nw_ses *curr = svr->raw_svr->clt_list_head;
+    while (curr) {
+        push_error_reader_unavailable(curr, &pkg);
+        curr = curr->next;
+    }
+    return 0;
+}
+
 static void on_message(void *data, uint32_t size)
 {
     json_t *detail = json_loadb(data, size, 0, NULL);
     if (detail == NULL || !json_is_object(detail)) {
-        log_error("read operlog error from queue: %d", reader_id);
+        log_fatal("read operlog error from queue: %d", reader_id);
+        send_reader_error();
         return;
     }
     
     char *detail_str = (char *)malloc(size + 1);
     memset(detail_str, 0, size + 1);
     memcpy(detail_str, data, size);
-    log_info("read operlog %s from queue %d", detail_str, reader_id);
+    
+    log_trace("read operlog %s from queue %d", detail_str, reader_id);
 
     int ret = load_oper(detail);
     if (ret < 0) {
-        log_error("load operlog failed, ret: %d", ret);
+        log_fatal("load operlog failed, ret: %d, data: %s, queue: %d", ret, detail_str, reader_id);
+        send_reader_error();
     }
 }
 

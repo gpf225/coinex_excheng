@@ -13,6 +13,7 @@ static cli_svr *svrcli;
 static rpc_clt *writer_clt;
 static rpc_clt **reader_clt_arr;
 static nw_state *state_context;
+static bool available;
 
 struct state_info {
     nw_ses  *ses;
@@ -103,6 +104,12 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     json_t *params = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (params == NULL || !json_is_array(params)) {
         goto decode_error;
+    }
+
+    if (!available) {
+        reply_error_service_unavailable(ses, pkg);
+        json_decref(params);
+        return;
     }
 
     switch (pkg->command) {
@@ -225,16 +232,29 @@ static void on_worker_connect(nw_ses *ses, bool result)
 
 static void on_worker_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
-    nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry) {
-        uint32_t sequence = pkg->sequence;
-        struct state_info *info = entry->data;
-        if (info->ses->id == info->ses_id) {
-            pkg->sequence = info->sequence;
-            pkg->command  = info->command;
-            rpc_send(info->ses, pkg);
+    if (pkg->pkg_type == RPC_PKG_TYPE_PUSH) {
+        switch (pkg->command) {
+        case CMD_REDER_ERROR:
+            available = false;
+            log_fatal("from: %s reader error", nw_sock_human_addr(&ses->peer_addr));
+            break;
+        default:
+            profile_inc("method_push_not_found", 1);
+            log_error("from: %s unknown command: %u", nw_sock_human_addr(&ses->peer_addr), pkg->command);
+            break;
         }
-        nw_state_del(state_context, sequence);
+    } else {
+        nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
+        if (entry) {
+            uint32_t sequence = pkg->sequence;
+            struct state_info *info = entry->data;
+            if (info->ses->id == info->ses_id) {
+                pkg->sequence = info->sequence;
+                pkg->command  = info->command;
+                rpc_send(info->ses, pkg);
+            }
+            nw_state_del(state_context, sequence);
+        }
     }
 }
 
@@ -299,6 +319,12 @@ static int init_worker_clt()
 static sds on_cmd_status(const char *cmd, int argc, sds *argv)
 {
     sds reply = sdsempty();
+    if (available) {
+        reply = sdscatprintf(reply, "sevice available\n");
+    } else {
+        reply = sdscatprintf(reply, "sevice unavailable\n");
+    }
+
     if (rpc_clt_connected(writer_clt)) {
         reply = sdscatprintf(reply, "writer ok\n");
     } else {
@@ -335,6 +361,7 @@ static int init_cli()
 
 int init_access()
 {
+    available = false;
     int ret = init_worker_clt();
     if (ret < 0) {
         return -__LINE__;
@@ -349,5 +376,6 @@ int init_access()
     if (ret < 0) {
         return -__LINE__;
     }
+    available = true;
     return 0;
 }

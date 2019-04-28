@@ -17,4 +17,8 @@ int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result);
 
 int reply_success(nw_ses *ses, rpc_pkg *pkg);
 
+int push_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message);
+
+int push_error_reader_unavailable(nw_ses *ses, rpc_pkg *pkg);
+
 # endif

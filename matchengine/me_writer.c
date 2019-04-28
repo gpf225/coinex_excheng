@@ -29,6 +29,7 @@ static int push_operlog(const char *method, json_t *params)
     char *detail = json_dumps(data, JSON_SORT_KEYS);
     json_decref(data);
 
+    log_trace("operlog: %s", detail);
     for (int i = 0; i < settings.reader_num; ++i) {
         queue_push(&queue_writers[i], detail, strlen(detail));
     }
@@ -955,11 +956,27 @@ invalid_argument:
     return reply_error_invalid_argument(ses, pkg);
 }
 
+static bool is_queue_block()
+{
+    for (int i = 0; i < settings.reader_num; i++) {
+        uint32_t left = queue_left(&queue_writers[i]);
+        if (left <= QUEUE_MEM_MIN) {
+            log_error("queue: %d block, mem left: %u", i, left);
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool is_service_availablce(void)
 {
-    if (is_operlog_block() || is_history_block() || is_message_block()) {
-        log_fatal("service unavailable, operlog: %d, history: %d, message: %d",
-                is_operlog_block(), is_history_block(), is_message_block());
+    bool queue_block = is_queue_block();
+    bool operlog_block = is_operlog_block();
+    bool history_block = is_history_block();
+    bool message_block = is_message_block();
+    if (queue_block || operlog_block || history_block || message_block) {
+        log_fatal("service unavailable, queue: %d, operlog: %d, history: %d, message: %d",
+                queue_block, operlog_block, history_block, message_block);
         return false;
     }
     return true;
