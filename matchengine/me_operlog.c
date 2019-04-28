@@ -150,16 +150,12 @@ int fini_operlog(void)
     return 0;
 }
 
-int append_operlog(const char *method, json_t *params)
+int append_operlog(const char *detail)
 {
-    json_t *detail = json_object();
-    json_object_set_new(detail, "method", json_string(method));
-    json_object_set(detail, "params", params);
     struct operlog *log = malloc(sizeof(struct operlog));
     log->id = ++operlog_id_start;
     log->create_time = current_timestamp();
-    log->detail = json_dumps(detail, JSON_SORT_KEYS);
-    json_decref(detail);
+    log->detail = strdup(detail);
     list_add_node_tail(list, log);
     log_trace("add log: %s", log->detail);
     profile_inc("operlog", 1);

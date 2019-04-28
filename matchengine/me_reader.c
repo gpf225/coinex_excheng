@@ -724,13 +724,10 @@ static int on_cmd_order_detail(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     order_t *order = market_get_order(market, order_id);
     json_t *result = NULL;
     if (order == NULL) {
-        //TODO xyang
         result = json_null();
-        /*
-        result = get_order_finished(order_id);
+        result = market_get_fini_order(order_id);
         if (result == NULL)
             result = json_null();
-        */
     } else {
         result = get_order_info(order);
     }
@@ -999,7 +996,10 @@ static int init_server()
 static sds on_cmd_status(const char *cmd, int argc, sds *argv)
 {
     sds reply = sdsempty();
-    //TODO
+    uint32_t mem_num = 0;
+    uint32_t mem_size = 0;
+    queue_stat(&queue_reader, &mem_num, &mem_size);
+    reply = sdscatprintf(reply, "mem num: %u, size: %u\n", mem_num, mem_size);
     return reply;
 }
 
@@ -1085,6 +1085,11 @@ int init_reader(int id)
         return -__LINE__;
     }
     
+    ret = market_set_reader();
+    if (ret < 0) {
+        return -__LINE__;
+    }
+
     ret = init_server();
     if (ret < 0) {
         return -__LINE__;

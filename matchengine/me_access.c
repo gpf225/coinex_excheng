@@ -18,6 +18,7 @@ struct state_info {
     nw_ses  *ses;
     uint64_t ses_id;
     uint32_t sequence;
+    uint32_t command;
 };
 
 static void sendto_clt_pkg(rpc_clt *clt, nw_ses *ses, rpc_pkg *pkg)
@@ -27,6 +28,7 @@ static void sendto_clt_pkg(rpc_clt *clt, nw_ses *ses, rpc_pkg *pkg)
     info->ses = ses;
     info->ses_id = ses->id;
     info->sequence = pkg->sequence;
+    info->command = pkg->command;
 
     pkg->sequence = entry->id;
     rpc_clt_send(clt, pkg);
@@ -204,7 +206,10 @@ static void on_state_timeout(nw_state_entry *entry)
     log_error("state id: %u timeout", entry->id);
     struct state_info *info = entry->data;
     if (info->ses->id == info->ses_id) {
-        log_error("state id: %u timeout", entry->id);
+        rpc_pkg pkg;
+        memset(&pkg, 0, sizeof(pkg));
+        pkg.sequence = info->sequence;
+        reply_error_timeout(info->ses, &pkg);
     }
 }
 
@@ -226,6 +231,7 @@ static void on_worker_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         struct state_info *info = entry->data;
         if (info->ses->id == info->ses_id) {
             pkg->sequence = info->sequence;
+            pkg->command  = info->command;
             rpc_send(info->ses, pkg);
         }
         nw_state_del(state_context, sequence);
@@ -293,7 +299,20 @@ static int init_worker_clt()
 static sds on_cmd_status(const char *cmd, int argc, sds *argv)
 {
     sds reply = sdsempty();
-    //TODO
+    if (rpc_clt_connected(writer_clt)) {
+        reply = sdscatprintf(reply, "writer ok\n");
+    } else {
+        reply = sdscatprintf(reply, "writer dead\n");
+    }
+
+    for (int i = 0; i < settings.reader_num; ++i) {
+        if (!rpc_clt_connected(reader_clt_arr[i])) {
+            reply = sdscatprintf(reply, "reader: %u ok\n", i);
+        } else {
+            reply = sdscatprintf(reply, "reader: %u dead\n", i);
+        }
+    }
+    
     return reply;
 }
 

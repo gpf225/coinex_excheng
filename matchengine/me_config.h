@@ -105,6 +105,7 @@ struct settings {
     int                 usdc_assets_num;
     int                 reader_num;
     double              worker_timeout;
+    double              order_fini_keeptime;
 };
 
 extern struct settings settings;

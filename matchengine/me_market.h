@@ -113,5 +113,8 @@ int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t 
 
 sds market_status(sds reply);
 
+json_t *market_get_fini_order(uint64_t order_id);
+int market_set_reader();
+
 # endif
 

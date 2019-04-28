@@ -21,23 +21,19 @@ static rpc_svr *svr;
 static cli_svr *svrcli;
 static queue_t *queue_writers;
 
-static int queue_push_operlog(const char *method, json_t *params)
+static int push_operlog(const char *method, json_t *params)
 {
     json_t *data = json_object();
     json_object_set_new(data, "method", json_string(method));
     json_object_set(data, "params", params);
-    char *data_str = json_dumps(data, JSON_SORT_KEYS);
-    if (data_str == NULL) {
-        json_decref(data);
-        return -__LINE__;
-    }
+    char *detail = json_dumps(data, JSON_SORT_KEYS);
     json_decref(data);
 
     for (int i = 0; i < settings.reader_num; ++i) {
-        queue_push(&queue_writers[i], data_str, strlen(data_str));
+        queue_push(&queue_writers[i], detail, strlen(detail));
     }
-
-    free(data_str);
+    append_operlog(detail);
+    free(detail);
     return 0;
 }
 
@@ -103,8 +99,7 @@ static int on_cmd_asset_update(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
 
-    append_operlog("update_balance", params);
-    queue_push_operlog("update_balance", params);
+    push_operlog("update_balance", params);
     return reply_success(ses, pkg);
 }
 
@@ -157,8 +152,7 @@ static int on_cmd_asset_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
 
-    append_operlog("asset_lock", params);
-    queue_push_operlog("asset_lock", params);
+    push_operlog("asset_lock", params);
     return reply_success(ses, pkg);
 }
 
@@ -211,8 +205,7 @@ static int on_cmd_asset_unlock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
 
-    append_operlog("asset_unlock", params);
-    queue_push_operlog("asset_unlock", params);
+    push_operlog("asset_unlock", params);
     return reply_success(ses, pkg);
 }
 
@@ -338,8 +331,7 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
 
-    append_operlog("limit_order", params);
-    queue_push_operlog("limit_order", params);
+    push_operlog("limit_order", params);
     ret = reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
@@ -449,8 +441,7 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
 
-    append_operlog("market_order", params);
-    queue_push_operlog("market_order", params);
+    push_operlog("market_order", params);
     ret = reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
@@ -504,8 +495,7 @@ static int on_cmd_order_cancel(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
 
-    append_operlog("cancel_order", params);
-    queue_push_operlog("cancel_order", params);
+    push_operlog("cancel_order", params);
     ret = reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
@@ -620,8 +610,7 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
 
-    append_operlog("stop_limit", params);
-    queue_push_operlog("stop_limit", params);
+    push_operlog("stop_limit", params);
     ret = reply_success(ses, pkg);
     return ret;
 
@@ -733,8 +722,7 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
 
-    append_operlog("stop_market", params);
-    queue_push_operlog("stop_market", params);
+    push_operlog("stop_market", params);
     ret = reply_success(ses, pkg);
     return ret;
 
@@ -789,8 +777,7 @@ static int on_cmd_cancel_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_internal_error(ses, pkg);
     }
 
-    append_operlog("cancel_stop", params);
-    queue_push_operlog("cancel_stop", params);
+    push_operlog("cancel_stop", params);
     ret = reply_result(ses, pkg, result);
     json_decref(result);
     return ret;

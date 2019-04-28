@@ -61,32 +61,6 @@ static int init_log(void)
     return 0;
 }
 
-static int init_context()
-{
-    int ret;
-    ret = init_balance();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init balance fail: %d", ret);
-    }
-    ret = init_update();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init update fail: %d", ret);
-    }
-    ret = init_trade();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init trade fail: %d", ret);
-    }
-    ret = init_market();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
-    }
-    ret = init_from_db();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init from db fail: %d", ret);
-    }
-    return ret;
-}
-
 int main(int argc, char *argv[])
 {
     printf("process: %s version: %s, compile date: %s %s\n", __process__, __version__, __DATE__, __TIME__);
@@ -119,6 +93,26 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init log fail: %d", ret);
     }
+    ret = init_balance();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init balance fail: %d", ret);
+    }
+    ret = init_update();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init update fail: %d", ret);
+    }
+    ret = init_trade();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init trade fail: %d", ret);
+    }
+    ret = init_market();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init market fail: %d", ret);
+    }
+    ret = init_from_db();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init from db fail: %d", ret);
+    }
 
     int pid;
     pid = fork();
@@ -129,6 +123,7 @@ int main(int argc, char *argv[])
         daemon(1, 1);
         process_keepalive();
 
+        sleep(2);
         ret = init_access();
         if (ret < 0) {
             error(EXIT_FAILURE, errno, "init access fail: %d", ret);
@@ -137,7 +132,6 @@ int main(int argc, char *argv[])
         goto run;
     }
 
-    init_context();
     for (int i = 0; i < settings.reader_num; ++i) {
         pid = fork();
         if (pid < 0) {

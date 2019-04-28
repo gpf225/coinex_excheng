@@ -39,5 +39,6 @@
     "usdc_assets": ["TUSD", "PAX", "GUSD"],
     "history_mode": 3,
     "reader_num": 4,
-    "worker_timeout": 1.0
+    "worker_timeout": 1.0,
+    "order_fini_keeptime": 5
 }

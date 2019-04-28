@@ -58,6 +58,12 @@ int reply_error_service_unavailable(nw_ses *ses, rpc_pkg *pkg)
     return reply_error(ses, pkg, 3, "service unavailable");
 }
 
+int reply_error_timeout(nw_ses *ses, rpc_pkg *pkg)
+{
+    profile_inc("error_timeout", 1);
+    return reply_error(ses, pkg, 4, "timeout");
+}
+
 int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
 {
     json_t *reply = json_object();

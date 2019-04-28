@@ -13,11 +13,14 @@
 
 static dict_t *dict_user_orders;
 static dict_t *dict_user_stops;
+static dict_t *dict_fini_orders;
 
 uint64_t order_id_start;
 uint64_t deals_id_start;
 
 static nw_timer timer;
+static nw_timer timer_fini_order;
+static bool is_reader;
 
 struct dict_user_key {
     uint32_t    user_id;
@@ -85,6 +88,11 @@ static void *dict_order_key_dup(const void *key)
 static void dict_order_key_free(void *key)
 {
     free(key);
+}
+
+static void dict_order_value_free(void *value)
+{
+    json_decref((json_t *)value);
 }
 
 static int order_match_compare(const void *value1, const void *value2)
@@ -248,6 +256,15 @@ json_t *get_stop_info(stop_t *stop)
     return info;
 }
 
+static int append_fini_order(order_t *order)
+{
+    json_t *order_info = get_order_info(order);
+    json_object_set_new(order_info, "finished", json_true());
+    struct dict_order_key order_key = { .order_id = order->id };
+    dict_add(dict_fini_orders, &order_key, order_info);
+    return 0;
+}
+
 static int put_order(market_t *m, order_t *order)
 {
     if (order->type != MARKET_ORDER_TYPE_LIMIT)
@@ -370,12 +387,14 @@ static int finish_order(bool real, market_t *m, order_t *order)
         }
     }
 
-    if (real) {
-        if (mpd_cmp(order->deal_stock, mpd_zero, &mpd_ctx) > 0) {
+    if (mpd_cmp(order->deal_stock, mpd_zero, &mpd_ctx) > 0) {
+        if (real) {
             int ret = append_order_history(order);
             if (ret < 0) {
                 log_fatal("append_order_history fail: %d, order: %"PRIu64"", ret, order->id);
             }
+        } else {
+            append_fini_order(order);
         }
     }
 
@@ -511,6 +530,21 @@ static void on_timer(nw_timer *timer, void *privdata)
     status_report();
 }
 
+static void on_timer_fini_order()
+{
+    double now = current_timestamp();
+    dict_iterator *iter = dict_get_iterator(dict_fini_orders);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        json_t *order = entry->val;
+        double update_time = json_real_value(json_object_get(order, "mtime"));
+        if (now - update_time > settings.order_fini_keeptime) {
+            dict_delete(dict_fini_orders, entry->key);
+        }
+    }
+    dict_release_iterator(iter);
+}
+
 int init_market(void)
 {
     dict_types dt;
@@ -529,6 +563,7 @@ int init_market(void)
     if (dict_user_stops == NULL)
         return -__LINE__;
 
+    is_reader = false;
     nw_timer_set(&timer, 60, true, on_timer, NULL);
     nw_timer_start(&timer);
 
@@ -1196,6 +1231,8 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             if (result) {
                 *result = get_order_info(order);
             }
+        } else if (is_reader) {
+            append_fini_order(order);
         }
         order_free(order);
     } else {
@@ -1674,6 +1711,8 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         if (result) {
             *result = get_order_info(order);
         }
+    } else if (is_reader) {
+        append_fini_order(order);
     }
 
     order_free(order);
@@ -1926,3 +1965,39 @@ sds market_status(sds reply)
     return reply;
 }
 
+json_t *market_get_fini_order(uint64_t order_id)
+{
+    if (!is_reader)
+        return NULL;
+    
+    struct dict_order_key order_key = { .order_id = order_id };
+    dict_entry *entry = dict_find(dict_fini_orders, &order_key);
+    if (entry) {
+        json_t *order = entry->val;
+        json_incref(order);
+        return order;
+    }
+    return NULL;
+}
+
+int market_set_reader()
+{
+    is_reader = true;
+    dict_types types_order;
+    memset(&types_order, 0, sizeof(types_order));
+    types_order.hash_function  = dict_order_hash_function;
+    types_order.key_compare    = dict_order_key_compare;
+    types_order.key_dup        = dict_order_key_dup;
+    types_order.key_destructor = dict_order_key_free;
+    types_order.val_destructor = dict_order_value_free;
+
+    dict_fini_orders = dict_create(&types_order, 1024);
+    if (dict_fini_orders == NULL) {
+        return -__LINE__;
+    }
+
+    nw_timer_set(&timer_fini_order, 0.5, true, on_timer_fini_order, NULL);
+    nw_timer_start(&timer_fini_order);
+
+    return 0;
+}
