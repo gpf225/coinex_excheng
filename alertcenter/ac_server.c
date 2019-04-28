@@ -7,7 +7,6 @@
 # include "ac_config.h"
 
 static nw_svr *svr;
-static redis_sentinel_t *redis;
 static const char *magic_head = "373d26968a5a2b698045";
 
 static int decode_pkg(nw_ses *ses, void *data, size_t max)
@@ -40,7 +39,7 @@ static void on_recv_pkg(nw_ses *ses, void *data, size_t size)
     message += 20;
     log_info("alert message: %s", message);
 
-    redisContext *context = redis_sentinel_connect_master(redis);
+    redisContext *context = redis_connect(&settings.redis);
     if (context == NULL) {
         log_error("connect redis master fail");
         return;
@@ -77,19 +76,9 @@ static int init_svr(void)
     return 0;
 }
 
-static int init_redis(void)
-{
-    redis = redis_sentinel_create(&settings.redis);
-    if (redis == NULL)
-        return -__LINE__;
-    return 0;
-}
-
 int init_server(void)
 {
     ERR_RET(init_svr());
-    ERR_RET(init_redis());
-
     return 0;
 }
 
