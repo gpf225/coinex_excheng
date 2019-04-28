@@ -306,13 +306,13 @@ static sds on_cmd_status(const char *cmd, int argc, sds *argv)
     }
 
     for (int i = 0; i < settings.reader_num; ++i) {
-        if (!rpc_clt_connected(reader_clt_arr[i])) {
+        if (rpc_clt_connected(reader_clt_arr[i])) {
             reply = sdscatprintf(reply, "reader: %u ok\n", i);
         } else {
             reply = sdscatprintf(reply, "reader: %u dead\n", i);
         }
     }
-    
+
     return reply;
 }
 

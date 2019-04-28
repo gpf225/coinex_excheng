@@ -999,7 +999,7 @@ static sds on_cmd_status(const char *cmd, int argc, sds *argv)
     uint32_t mem_num = 0;
     uint32_t mem_size = 0;
     queue_stat(&queue_reader, &mem_num, &mem_size);
-    reply = sdscatprintf(reply, "mem num: %u, size: %u\n", mem_num, mem_size);
+    reply = sdscatprintf(reply, "queue num: %u, size: %u\n", mem_num, mem_size);
     return reply;
 }
 

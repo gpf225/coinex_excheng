@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
         daemon(1, 1);
         process_keepalive();
 
-        sleep(2);
+        sleep(1);
         ret = init_access();
         if (ret < 0) {
             error(EXIT_FAILURE, errno, "init access fail: %d", ret);

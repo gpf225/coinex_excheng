@@ -18,7 +18,7 @@ static dict_t *dict_fini_orders;
 uint64_t order_id_start;
 uint64_t deals_id_start;
 
-static nw_timer timer;
+static nw_timer timer_status;
 static nw_timer timer_fini_order;
 static bool is_reader;
 
@@ -393,7 +393,7 @@ static int finish_order(bool real, market_t *m, order_t *order)
             if (ret < 0) {
                 log_fatal("append_order_history fail: %d, order: %"PRIu64"", ret, order->id);
             }
-        } else {
+        } else if (is_reader) {
             append_fini_order(order);
         }
     }
@@ -525,12 +525,12 @@ static void status_report(void)
     profile_set("pending_users", dict_size(dict_user_orders));
 }
 
-static void on_timer(nw_timer *timer, void *privdata)
+static void on_timer_status(nw_timer *timer, void *privdata)
 {
     status_report();
 }
 
-static void on_timer_fini_order()
+static void on_timer_fini_order(nw_timer *timer, void *privdata)
 {
     double now = current_timestamp();
     dict_iterator *iter = dict_get_iterator(dict_fini_orders);
@@ -564,8 +564,8 @@ int init_market(void)
         return -__LINE__;
 
     is_reader = false;
-    nw_timer_set(&timer, 60, true, on_timer, NULL);
-    nw_timer_start(&timer);
+    nw_timer_set(&timer_status, 60, true, on_timer_status, NULL);
+    nw_timer_start(&timer_status);
 
     return 0;
 }
@@ -1969,7 +1969,7 @@ json_t *market_get_fini_order(uint64_t order_id)
 {
     if (!is_reader)
         return NULL;
-    
+
     struct dict_order_key order_key = { .order_id = order_id };
     dict_entry *entry = dict_find(dict_fini_orders, &order_key);
     if (entry) {
