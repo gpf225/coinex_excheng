@@ -202,7 +202,7 @@ int asset_subscribe(uint32_t user_id, nw_ses *ses, const char *asset)
     struct sub_unit unit;
     memset(&unit, 0, sizeof(unit));
     unit.ses = ses;
-    strncpy(unit.asset, asset, ASSET_NAME_MAX_LEN - 1);
+    sstrncpy(unit.asset, asset, ASSET_NAME_MAX_LEN - 1);
 
     if (list_find(list, &unit) != NULL)
         return 0;
@@ -266,7 +266,7 @@ int asset_on_update(uint32_t user_id, const char *asset)
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     state->user_id = user_id;
-    strncpy(state->asset, asset, ASSET_NAME_MAX_LEN - 1);
+    sstrncpy(state->asset, asset, ASSET_NAME_MAX_LEN - 1);
 
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));

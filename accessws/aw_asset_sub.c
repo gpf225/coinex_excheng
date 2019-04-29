@@ -321,7 +321,7 @@ int asset_on_update_sub(uint32_t user_id, const char *asset)
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     state->user_id = user_id;
-    strncpy(state->asset, asset, ASSET_NAME_MAX_LEN - 1);
+    sstrncpy(state->asset, asset, ASSET_NAME_MAX_LEN - 1);
 
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));

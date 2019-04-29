@@ -85,8 +85,8 @@ static dict_t* dict_create_depth_session(void)
 static void depth_set_key(struct dict_depth_key *key, const char *market, const char *interval)
 {
     memset(key, 0, sizeof(struct dict_depth_key));
-    strncpy(key->market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(key->interval, interval, INTERVAL_MAX_LEN - 1);
+    sstrncpy(key->market, market, MARKET_NAME_MAX_LEN - 1);
+    sstrncpy(key->interval, interval, INTERVAL_MAX_LEN - 1);
 }
 
 static void remove_depth_filter(const char *market, const char *interval)
@@ -330,8 +330,8 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(state->interval, interval, INTERVAL_MAX_LEN - 1);
+    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
+    sstrncpy(state->interval, interval, INTERVAL_MAX_LEN - 1);
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));

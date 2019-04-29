@@ -83,7 +83,7 @@ int order_subscribe(uint32_t user_id, nw_ses *ses, const char *market)
     struct sub_unit unit;
     memset(&unit, 0, sizeof(unit));
     unit.ses = ses;
-    strncpy(unit.market, market, MARKET_NAME_MAX_LEN - 1);
+    sstrncpy(unit.market, market, MARKET_NAME_MAX_LEN - 1);
 
     if (list_find(list, &unit) != NULL)
         return 0;

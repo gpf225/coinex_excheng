@@ -273,7 +273,7 @@ int kline_subscribe(nw_ses *ses, const char *market, int interval)
 {
     struct kline_key key;
     memset(&key, 0, sizeof(key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
+    sstrncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
     key.interval = interval;
 
     dict_entry *entry = dict_find(dict_kline, &key);

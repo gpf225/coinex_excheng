@@ -93,8 +93,8 @@ static void dict_depth_sub_counter_free(void *val)
 static void depth_set_key(struct depth_key *key, const char *market, const char *interval, uint32_t limit)
 {
     memset(key, 0, sizeof(struct depth_key));
-    strncpy(key->market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(key->interval, interval, INTERVAL_MAX_LEN - 1);
+    sstrncpy(key->market, market, MARKET_NAME_MAX_LEN - 1);
+    sstrncpy(key->interval, interval, INTERVAL_MAX_LEN - 1);
     key->limit = limit;
 }
 
@@ -565,8 +565,8 @@ int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char
 {
     struct depth_key key;
     memset(&key, 0, sizeof(key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(key.interval, interval, INTERVAL_MAX_LEN - 1);
+    sstrncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
+    sstrncpy(key.interval, interval, INTERVAL_MAX_LEN - 1);
     key.limit = limit;
 
     dict_entry *entry = dict_find(dict_depth_sub, &key);
