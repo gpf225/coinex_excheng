@@ -230,7 +230,7 @@ static int query_market_status(const char *market)
 {
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
+    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN);
     state->cmd = CMD_MARKET_STATUS;
 
     json_t *params = json_array();
@@ -262,7 +262,7 @@ static int query_market_depth(const char *market)
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
+    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN);
     state->cmd = CMD_ORDER_DEPTH;
 
     rpc_pkg pkg;
