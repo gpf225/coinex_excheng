@@ -12,7 +12,6 @@
 # include "me_persist.h"
 # include "me_history.h"
 # include "me_message.h"
-# include "me_cli.h"
 # include "me_reader.h"
 # include "me_writer.h"
 # include "me_access.h"
