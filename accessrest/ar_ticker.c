@@ -12,7 +12,8 @@ static rpc_clt *cache_state;
 static json_t  *ticker_all;
 
 struct state_val {
-    json_t  *last;
+    json_t  *last_result;
+    json_t  *last_depth;
     json_t  *ticker;
 };
 
@@ -46,8 +47,12 @@ static void *dict_state_val_dup(const void *key)
 static void dict_state_val_free(void *val)
 {
     struct state_val *obj = val;
-    if (obj->last)
-        json_decref(obj->last);
+    if (obj->last_result)
+        json_decref(obj->last_result);
+    if (obj->last_depth)
+        json_decref(obj->last_depth);
+    if (obj->ticker)
+        json_decref(obj->ticker);
     free(obj);
 }
 
@@ -133,8 +138,11 @@ static int on_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
             struct state_val val;
             memset(&val, 0, sizeof(val));
 
-            val.last = result;
+            val.last_result = result;
             json_incref(result);
+
+            val.last_depth = depth;
+            json_incref(depth);
 
             entry = dict_add(dict_state, (char *)market, &val);
             if (entry == NULL) {
@@ -145,24 +153,38 @@ static int on_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
             ticker_update(market, result, depth);
         } else {
             struct state_val *info = entry->val;
-            char *last_str = NULL;
-            if (info->last)
-                last_str = json_dumps(info->last, JSON_SORT_KEYS);
-            char *curr_str = json_dumps(result, JSON_SORT_KEYS);
+            char *last_result_str = NULL;
+            char *last_depth_str = NULL;
 
-            if (info->last == NULL || strcmp(last_str, curr_str) != 0) {
-                if (info->last)
-                    json_decref(info->last);
-                info->last = result;
+            if (info->last_result)
+                last_result_str = json_dumps(info->last_result, JSON_SORT_KEYS);
+            char *curr_result_str = json_dumps(result, JSON_SORT_KEYS);
+
+            if (info->last_depth)
+                last_depth_str = json_dumps(info->last_depth, JSON_SORT_KEYS);
+            char *curr_depth_str = json_dumps(depth, JSON_SORT_KEYS);
+
+            if (info->last_result == NULL || info->last_depth == NULL 
+                || strcmp(last_result_str, curr_result_str) !=0 || strcmp(last_depth_str, curr_depth_str) != 0) {
+                if (info->last_result)
+                    json_decref(info->last_result);
+                info->last_result = result;
                 json_incref(result);
 
-                json_t *depth = json_object_get(row, "depth");
+                if (info->last_depth)
+                    json_decref(info->last_depth);
+                info->last_depth = depth;
+                json_incref(depth);
+
                 ticker_update(market, result, depth);
             }
 
-            if (last_str != NULL)
-                free(last_str);
-            free(curr_str);
+            if (last_result_str != NULL)
+                free(last_result_str);
+            if (last_depth_str != NULL)
+                free(last_depth_str);
+            free(curr_result_str);
+            free(curr_depth_str);
         }
     }
 
@@ -236,9 +258,9 @@ void direct_state_reply(nw_ses *ses, json_t *params, int64_t id)
     dict_entry *entry = dict_find(dict_state, market);
     if (entry != NULL) {
         struct state_val *val = entry->val;
-        if (val->last != NULL) {
+        if (val->last_result != NULL) {
             is_reply = true;
-            reply_json(ses, val->last);
+            reply_json(ses, val->last_result);
         }
     }
 
