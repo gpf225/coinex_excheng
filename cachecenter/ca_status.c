@@ -82,6 +82,7 @@ static void notify_state(void)
             json_object_set_new(params, "name", json_string(market));
             json_object_set    (params, "result", val->last_state);   // state
             json_object_set    (params, "depth", depth_reply);
+            json_object_set_new(params, "date", json_integer((uint64_t)(current_timestamp() * 1000)));
             json_array_append_new(result, params);
         }
     }
