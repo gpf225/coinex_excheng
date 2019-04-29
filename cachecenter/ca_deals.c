@@ -189,7 +189,7 @@ static int deals_request(const char *market, uint64_t last_id)
 {
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
+    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN);
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
