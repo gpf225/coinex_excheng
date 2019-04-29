@@ -321,7 +321,7 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     if (entry) {
         limit = atoi(entry->val);
         if (!is_good_limit(limit)) {
-            limit = 20;
+            return reply_invalid_params(ses);
         }
     }
 
@@ -401,6 +401,7 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
     }
 
     direct_deals_result(ses, market, limit, last_id);
+
     return 0;
 }
 
@@ -448,12 +449,16 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     char *market = entry->val;
     strtoupper(market);
 
-    int limit = 1000;
+    int limit = 100;
     entry = dict_find(params, "limit");
     if (entry) {
         limit = atoi(entry->val);
         if (limit <= 0) {
-            limit = 1000;
+            return reply_invalid_params(ses);
+        }
+
+        if (limit > settings.kline_max) {
+            limit = settings.kline_max;
         }
     }
 
