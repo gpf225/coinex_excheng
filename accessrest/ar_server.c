@@ -7,7 +7,6 @@
 # include "ar_market.h"
 # include "ar_ticker.h"
 # include "ar_deals.h"
-# include "ar_state.h"
 
 static http_svr *svr;
 static rpc_clt *listener;
