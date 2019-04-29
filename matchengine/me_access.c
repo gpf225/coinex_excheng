@@ -161,7 +161,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
 
     case CMD_ORDER_PENDING_DETAIL:
-        if (json_array_size(params) != 2 && !json_is_integer(json_array_get(params, 1))) {
+        if (json_array_size(params) != 2 || !json_is_integer(json_array_get(params, 1))) {
             reply_error_invalid_argument(ses, pkg);
             break;
         }

@@ -1054,6 +1054,8 @@ static void on_message(void *data, uint32_t size)
         log_fatal("load operlog failed, ret: %d, data: %s, queue: %d", ret, detail_str, reader_id);
         send_reader_error();
     }
+    
+    free(detail_str);
 }
 
 static int init_queue()
