@@ -85,9 +85,7 @@ struct settings {
     char                *accesshttp;
     double              backend_timeout;
     double              cache_timeout;
-
     double              kline_interval;
-    double              market_interval;
 
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;

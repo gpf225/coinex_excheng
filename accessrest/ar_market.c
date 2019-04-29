@@ -129,7 +129,6 @@ static json_t* get_market_item(const char *market_name, json_t *market_info)
 
 static int load_markets(json_t *market_infos)
 {
-    bool market_update = false;
     static uint32_t update_id = 0;
     update_id += 1;
 
@@ -158,7 +157,6 @@ static int load_markets(json_t *market_infos)
             val.id = update_id;
             val.info = market_item;
             dict_add(dict_market, (char *)market_name, &val);
-            market_update = true;
             log_info("add market info: %s", market_name);
         } else {
             struct market_val *info = entry->val;
@@ -176,16 +174,10 @@ static int load_markets(json_t *market_infos)
         struct market_val *info = entry->val;
         if (info->id != update_id) {
             dict_delete(dict_market, entry->key);
-            market_update = true;
             log_info("del market info: %s", (char *)entry->key);
         }
     }
     dict_release_iterator(iter);
-
-    if (market_update) {
-        on_market_list(NULL, NULL);
-        on_market_info(NULL, NULL);
-    }
 
     return 0;
 }

@@ -56,13 +56,10 @@ struct settings {
     rpc_clt_cfg         marketprice;
     
     double              backend_timeout;
-    double              sub_depth_interval;
-    double              sub_deals_interval;
-    double              sub_status_interval;
     double              market_interval;
     depth_interval_cfg  depth_interval;
 
-    int                 cache_timeout;
+    double              interval_time;
     int                 depth_limit_max;
     int                 deal_max;
 };

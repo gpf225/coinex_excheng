@@ -17,6 +17,26 @@ struct filter_list_item {
     rpc_pkg   pkg;
 };
 
+static uint32_t dict_sds_hash_function(const void *key)
+{
+    return dict_generic_hash_function(key, sdslen((sds)key));
+}
+
+static int dict_sds_key_compare(const void *key1, const void *key2)
+{
+    return sdscmp((sds)key1, (sds)key2);
+}
+
+static void *dict_sds_key_dup(const void *key)
+{
+    return sdsdup((const sds)key);
+}
+
+static void dict_sds_key_free(void *key)
+{
+    sdsfree(key);
+}
+
 static void *dict_filter_val_dup(const void *val)
 {
     struct dict_filter_val *obj = malloc(sizeof(struct dict_filter_val));
@@ -70,7 +90,7 @@ static list_t *create_item_list(void)
     return list_create(&type);
 }
 
-int add_filter_queue(sds key, uint32_t limit, nw_ses *ses, rpc_pkg *pkg)
+int add_filter_queue(sds key, nw_ses *ses, rpc_pkg *pkg)
 {
     dict_entry *entry = dict_find(dict_filter, key);
     if (entry == NULL) {
@@ -150,7 +170,7 @@ static void reply_to_ses(bool is_error, json_t *reply, nw_ses *ses, list_t *list
         json_t *new_result = result;
         if (!is_error) {
             new_result = json_object();
-            json_object_set_new(new_result, "ttl", json_integer(settings.cache_timeout));
+            json_object_set_new(new_result, "ttl", json_integer(settings.interval_time * 1000));
             json_object_set_new(new_result, "cache_result", result);
         }
 
@@ -190,10 +210,10 @@ int init_filter(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = dict_str_hash_func;
-    dt.key_compare    = dict_str_compare;
-    dt.key_dup        = dict_str_dup;
-    dt.key_destructor = dict_str_free;
+    dt.hash_function  = dict_sds_hash_function;
+    dt.key_compare    = dict_sds_key_compare;
+    dt.key_dup        = dict_sds_key_dup;
+    dt.key_destructor = dict_sds_key_free;
     dt.val_dup        = dict_filter_val_dup;
     dt.val_destructor = dict_filter_val_free;
 

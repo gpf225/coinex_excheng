@@ -12,6 +12,7 @@
 # include "ca_filter.h"
 
 static rpc_svr *svr;
+static nw_timer timer;
 
 int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
@@ -24,6 +25,7 @@ int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
     if (message_data == NULL) {
         return -__LINE__;
     }
+    log_trace("connection: %s send: %s", nw_sock_human_addr(&ses->peer_addr), message_data);
 
     rpc_pkg reply;
     memcpy(&reply, pkg, sizeof(reply));
@@ -104,15 +106,13 @@ static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         goto error;
     }
 
-    uint32_t limit = json_integer_value(json_array_get(params, 1));
-
     const char *interval = json_string_value(json_array_get(params, 2));
     if (interval == NULL) {
         recv_str = sdsnewlen(pkg->body, pkg->body_size);
         goto error;
     }
 
-    depth_request(ses, pkg, market, limit, interval);
+    depth_request(ses, pkg, market, interval);
     return 0;
 
 error:
@@ -192,6 +192,9 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return ;
     }
 
+    sds params_str = sdsnewlen(pkg->body, pkg->body_size);
+    log_trace("from: %s cmd: %u, squence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, params_str);
+
     int ret;
     switch (pkg->command) {
     case CMD_CACHE_DEPTH:
@@ -221,11 +224,9 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     json_decref(params);
-    if (ret != 0) {
-        sds params_str = sdsnewlen(pkg->body, pkg->body_size);
+    if (ret != 0)
         log_info("from: %s cmd: %u, squence: %u params: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence, params_str);
-        sdsfree(params_str);
-    }
+    sdsfree(params_str);
 
     return;
 }
@@ -243,6 +244,11 @@ static void svr_on_connection_close(nw_ses *ses)
     remove_all_filter(ses);
 }
 
+static void on_timer(nw_timer *timer, void *privdata)
+{
+    profile_set("subscribe_depth", depth_subscribe_number());
+}
+
 int init_server(void)
 {
     rpc_svr_type type;
@@ -257,6 +263,7 @@ int init_server(void)
     if (rpc_svr_start(svr) < 0)
         return -__LINE__;
 
+    nw_timer_set(&timer, 60, true, on_timer, NULL);
     return 0;
 }
 

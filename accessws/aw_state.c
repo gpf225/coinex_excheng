@@ -7,7 +7,6 @@
 # include "aw_server.h"
 # include "aw_depth.h"
 # include "aw_state.h"
-# include "aw_market.h"
 
 static dict_t *dict_state;
 static dict_t *dict_session;
@@ -376,8 +375,11 @@ int state_subscribe(nw_ses *ses, json_t *market_list)
         const char *name = json_string_value(json_array_get(market_list, i));
         if (name == NULL)
             continue;
+
         if (market_exists(name)) {
             list_add_node_tail(list, (char *)name);
+        } else {
+            log_info("market: %s not exist", name);
         }
     }
     dict_add(dict_session, ses, list);
@@ -449,4 +451,9 @@ int state_send_last(nw_ses *ses)
 size_t state_subscribe_number(void)
 {
     return dict_size(dict_session);
+}
+
+bool market_exists(const char *market)
+{
+    return (dict_find(dict_state, market) != NULL);
 }

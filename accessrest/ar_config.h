@@ -69,7 +69,6 @@ struct settings {
     double              backend_timeout;
     double              cache_timeout;
     double              market_interval;
-    double              state_interval;
     char                *market_url;
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;

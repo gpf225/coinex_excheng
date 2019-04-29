@@ -45,10 +45,6 @@ static int on_market_list_reply(json_t *result)
             memset(&val, 0, sizeof(val));
             val.id = update_id;
             dict_add(dict_market, (char *)name, &val);
-
-            add_deals_market((char *)name);
-            add_state_market((char *)name);
-
             log_info("add market: %s", name);
         } else {
             struct market_val *info = entry->val;
@@ -62,9 +58,6 @@ static int on_market_list_reply(json_t *result)
         struct market_val *info = entry->val;
         if (info->id != update_id) {
             dict_delete(dict_market, entry->key);
-            delete_deals_market((char *)entry->key);
-            delete_state_market((char *)entry->key);
-
             log_info("del market: %s", (char *)entry->key);
         }
     }

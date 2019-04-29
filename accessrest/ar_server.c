@@ -216,63 +216,27 @@ static int on_ping(nw_ses *ses, dict_t *params)
 
 int on_market_list(nw_ses *ses, dict_t *params)
 {
-    static json_t *save_result = NULL;
-    static double save_time = 0;
-
-    if (ses == NULL && params == NULL) {
-        if (save_result != NULL) {
-            json_decref(save_result);
-            save_result = NULL;
-        }
-        return 0;
-    }
-
-    if (save_result && (current_timestamp() - save_time < settings.cache_timeout))
-        return reply_json(ses, save_result);
-
-    if (save_result) {
-        json_decref(save_result);
-        save_result = NULL;
-    }
-
-    save_time = current_timestamp();
-    save_result = get_market_list();
-
-    if (save_result == NULL)
+   json_t *data = get_market_list();
+    if (data == NULL) {
         return reply_internal_error(ses);
+    }
 
-    reply_json(ses, save_result);
+    reply_json(ses, data);
+    json_decref(data);
+
     return 0;
 }
 
 int on_market_info(nw_ses *ses, dict_t *params)
 {
-    static json_t *save_result = NULL;
-    static double save_time = 0;
-
-    if (ses == NULL && params == NULL) {
-        if (save_result != NULL) {
-            json_decref(save_result);
-            save_result = NULL;
-        }
-        return 0;
-    }
-
-    if (save_result && (current_timestamp() - save_time < settings.cache_timeout))
-        return reply_json(ses, save_result);
-
-    if (save_result) {
-        json_decref(save_result);
-        save_result = NULL;
-    }
-
-    save_time = current_timestamp();
-    save_result = get_market_info_list();
-
-    if (save_result == NULL)
+    json_t *data = get_market_info_list();
+    if (data == NULL) {
         return reply_internal_error(ses);
+    }
 
-    reply_json(ses, save_result);
+    reply_json(ses, data);
+    json_decref(data);
+
     return 0;
 }
 
@@ -425,7 +389,20 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
         }
     }
 
-    direct_deals_result(ses, market, 1000, last_id);
+    int limit = 100;
+    entry = dict_find(params, "limit");
+    if (entry) {
+        limit = atoi(entry->val);
+        if (limit <= 0) {
+            return reply_invalid_params(ses);
+        }
+
+        if (limit > settings.deal_max) {
+            limit = settings.deal_max;
+        }
+    }
+
+    direct_deals_result(ses, market, limit, last_id);
     return 0;
 }
 

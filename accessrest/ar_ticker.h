@@ -10,7 +10,7 @@ int init_ticker(void);
 
 json_t *get_market_ticker(const void *market);
 json_t *get_market_ticker_all(void);
-int status_ticker_update(const char *market, json_t *result);
+int ticker_update(const char *market, json_t *result, json_t *depth);
 
 # endif
 

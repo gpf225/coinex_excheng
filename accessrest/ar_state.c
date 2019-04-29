@@ -81,8 +81,9 @@ static int on_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
             continue;
         }
 
+        json_t *depth = json_object_get(row, "depth");
         json_t *result = json_object_get(row, "result");
-        if (result == NULL) {
+        if (result == NULL || depth == NULL) {
             sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
             log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
             sdsfree(reply_str);
@@ -104,7 +105,8 @@ static int on_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
                 log_fatal("dict_add fail");
                 return -__LINE__;
             }
-            status_ticker_update(market, result);
+
+            ticker_update(market, result, depth);
         } else {
             struct state_val *info = entry->val;
             char *last_str = NULL;
@@ -118,7 +120,9 @@ static int on_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
                 info->update_time = current_timestamp();
                 info->last = result;
                 json_incref(result);
-                status_ticker_update(market, result);
+
+                json_t *depth = json_object_get(row, "depth");
+                ticker_update(market, result, depth);
             }
 
             if (last_str != NULL)
