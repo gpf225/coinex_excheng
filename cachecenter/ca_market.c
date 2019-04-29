@@ -206,3 +206,4 @@ bool market_exist(const char *market)
 {
     return dict_find(dict_market, market) != NULL;
 }
+

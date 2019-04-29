@@ -10,14 +10,6 @@
 static dict_t *dict_state;
 static rpc_clt *cache_state;
 
-# define MARKET_NAME_MAX_LEN    16
-# define INTERVAL_MAX_LEN       16
-
-struct depth_key {
-    char     market[MARKET_NAME_MAX_LEN];
-    char     interval[INTERVAL_MAX_LEN];
-};
-
 struct state_val {
     json_t *last;
 };
@@ -78,8 +70,8 @@ static int on_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
             continue;
         }
 
-        json_t *result = json_object_get(row, "result");
-        if (result == NULL) {
+        json_t *state= json_object_get(row, "state");
+        if (state == NULL) {
             sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
             log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
             sdsfree(reply_str);
@@ -91,33 +83,16 @@ static int on_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
         if (entry == NULL) {
             struct state_val val;
             memset(&val, 0, sizeof(val));
-
-            val.last = result;
-            json_incref(result);
-
             entry = dict_add(dict_state, (char *)market, &val);
-            if (entry == NULL) {
-                log_fatal("dict_add fail");
-                return -__LINE__;
-            }
-        } else {
-            struct state_val *info = entry->val;
-            char *last_str = NULL;
-            if (info->last)
-                last_str = json_dumps(info->last, JSON_SORT_KEYS);
-            char *curr_str = json_dumps(result, JSON_SORT_KEYS);
-
-            if (info->last == NULL || strcmp(last_str, curr_str) != 0) {
-                if (info->last)
-                    json_decref(info->last);
-                info->last = result;
-                json_incref(result);
-            }
-
-            if (last_str != NULL)
-                free(last_str);
-            free(curr_str);
         }
+
+        struct state_val *obj = entry->val;
+        if (obj->last != NULL) {
+            json_decref(obj->last);
+        }
+
+        obj->last = state;
+        json_incref(state);
     }
 
     return 0;

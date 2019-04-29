@@ -12,9 +12,8 @@ static rpc_clt *cache_state;
 static json_t  *ticker_all;
 
 struct state_val {
-    json_t  *last_result;
-    json_t  *last_depth;
-    json_t  *ticker;
+    int     id;
+    json_t  *data;
 };
 
 static uint32_t dict_market_hash_func(const void *key)
@@ -47,146 +46,124 @@ static void *dict_state_val_dup(const void *key)
 static void dict_state_val_free(void *val)
 {
     struct state_val *obj = val;
-    if (obj->last_result)
-        json_decref(obj->last_result);
-    if (obj->last_depth)
-        json_decref(obj->last_depth);
-    if (obj->ticker)
-        json_decref(obj->ticker);
+    if (obj->data)
+        json_decref(obj->data);
     free(obj);
 }
 
-static int ticker_update(const char *market, json_t *result, json_t *depth)
+static int update_ticker(const char *market, int update_id, uint64_t date, json_t *state, json_t *depth)
 {
-    dict_entry *entry = dict_find(dict_state, market);
-    if (entry == NULL) {
-        struct state_val val;
-        memset(&val, 0, sizeof(val));
-        entry = dict_add(dict_state, (char *)market, &val);
-        if (entry == NULL) {
-            log_fatal("dict_add fail");
-            return -__LINE__;
-        }
-    }
-
-    struct state_val *info = entry->val;
-    if (info->ticker == NULL) {
-        info->ticker = json_object();
-    }
-
     json_t *ticker = json_object();
-    json_object_set(ticker, "vol", json_object_get(result, "volume"));
-    json_object_set(ticker, "low", json_object_get(result, "low"));
-    json_object_set(ticker, "open", json_object_get(result, "open"));
-    json_object_set(ticker, "high", json_object_get(result, "high"));
-    json_object_set(ticker, "last", json_object_get(result, "last"));
-
+    json_object_set(ticker, "vol",  json_object_get(state, "volume"));
+    json_object_set(ticker, "low",  json_object_get(state, "low"));
+    json_object_set(ticker, "open", json_object_get(state, "open"));
+    json_object_set(ticker, "high", json_object_get(state, "high"));
+    json_object_set(ticker, "last", json_object_get(state, "last"));
     json_object_set(ticker, "buy", json_object_get(depth, "buy"));
     json_object_set(ticker, "buy_amount", json_object_get(depth, "buy_amount"));
     json_object_set(ticker, "sell", json_object_get(depth, "sell"));
     json_object_set(ticker, "sell_amount", json_object_get(depth, "sell_amount"));
 
-    json_object_set    (info->ticker, "date", json_object_get(result, "date"));
-    json_object_set_new(info->ticker, "ticker", ticker);
+    json_t *data = json_object();
+    json_object_set_new(data, "date", json_integer(date));
+    json_object_set_new(data, "ticker", ticker);
 
-    // ticker_all
-    if (json_object_get(ticker_all, "ticker") == NULL) {
-        json_t *ticker_market = json_object();
-        json_object_set    (ticker_market, market, ticker);
-        json_object_set_new(ticker_all, "ticker", ticker_market);
-    } else {
-        json_t *ticker_market = json_object_get(ticker_all, "ticker");
-        json_object_set(ticker_market, market, ticker);
+    dict_entry *entry = dict_find(dict_state, market);
+    if (entry == NULL) {
+        struct state_val val;
+        memset(&val, 0, sizeof(val));
+        entry = dict_add(dict_state, (char *)market, &val);
     }
-    json_object_set(ticker_all, "date", json_object_get(result, "date"));
+
+    struct state_val *info = entry->val;
+    info->id = update_id;
+    if (info->data != NULL) {
+        json_decref(info->data);
+    }
+    info->data = data;
 
     return 0;
+}
+
+static int update_market(json_t *row, int update_id)
+{
+    const char *market = json_string_value(json_object_get(row, "name"));
+    if (market == NULL)
+        return -__LINE__;
+
+    uint64_t date = json_integer_value(json_object_get(row, "date"));
+    if (date == 0)
+        return -__LINE__;
+
+    json_t *state = json_object_get(row, "state");
+    if (state == NULL || !json_is_object(state))
+        return -__LINE__;
+
+    json_t *depth = json_object_get(row, "depth");
+    if (depth == NULL || !json_is_object(depth))
+        return -__LINE__;
+
+    return update_ticker(market, update_id, date, state, depth);
+}
+
+static void update_ticker_all(void)
+{
+    json_t *ticker = json_object();
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_state);
+    while ((entry = dict_next(iter)) != NULL) {
+        const char *market = entry->key;
+        struct state_val *info = entry->val;
+        if (info->data) {
+            json_object_set(ticker, market, json_object_get(info->data, "ticker"));
+        }
+    }
+    dict_release_iterator(iter);
+
+    uint64_t date = (uint64_t)(current_timestamp() * 1000);
+    json_t *data = json_object();
+    json_object_set_new(data, "date", json_integer(date));
+    json_object_set_new(data, "ticker", ticker);
+
+    if (ticker_all != NULL)
+        json_decref(ticker_all);
+    ticker_all = data;
 }
 
 // state update
 static int on_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 {
-    log_trace("state update");
-    const size_t state_num = json_array_size(result_array);
+    static uint32_t update_id = 0;
+    update_id += 1;
 
+    const size_t state_num = json_array_size(result_array);
     for (size_t i = 0; i < state_num; ++i) {
         json_t *row = json_array_get(result_array, i);
         if (!json_is_object(row)) {
             return -__LINE__;
         }
 
-        const char *market = json_string_value(json_object_get(row, "name"));
-        if (market == NULL) {
+        int ret = update_market(row, update_id);
+        if (ret < 0) {
             sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
             log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
             sdsfree(reply_str);
-            continue;
-        }
-
-        json_t *depth = json_object_get(row, "depth");
-        json_t *result = json_object_get(row, "result");
-        if (result == NULL || depth == NULL) {
-            sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-            log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
-            sdsfree(reply_str);
-            continue;
-        }
-
-        // add to dict_state
-        dict_entry *entry = dict_find(dict_state, market);
-        if (entry == NULL) {
-            struct state_val val;
-            memset(&val, 0, sizeof(val));
-
-            val.last_result = result;
-            json_incref(result);
-
-            val.last_depth = depth;
-            json_incref(depth);
-
-            entry = dict_add(dict_state, (char *)market, &val);
-            if (entry == NULL) {
-                log_fatal("dict_add fail");
-                return -__LINE__;
-            }
-
-            ticker_update(market, result, depth);
-        } else {
-            struct state_val *info = entry->val;
-            char *last_result_str = NULL;
-            char *last_depth_str = NULL;
-
-            if (info->last_result)
-                last_result_str = json_dumps(info->last_result, JSON_SORT_KEYS);
-            char *curr_result_str = json_dumps(result, JSON_SORT_KEYS);
-
-            if (info->last_depth)
-                last_depth_str = json_dumps(info->last_depth, JSON_SORT_KEYS);
-            char *curr_depth_str = json_dumps(depth, JSON_SORT_KEYS);
-
-            if (info->last_result == NULL || info->last_depth == NULL 
-                || strcmp(last_result_str, curr_result_str) !=0 || strcmp(last_depth_str, curr_depth_str) != 0) {
-                if (info->last_result)
-                    json_decref(info->last_result);
-                info->last_result = result;
-                json_incref(result);
-
-                if (info->last_depth)
-                    json_decref(info->last_depth);
-                info->last_depth = depth;
-                json_incref(depth);
-
-                ticker_update(market, result, depth);
-            }
-
-            if (last_result_str != NULL)
-                free(last_result_str);
-            if (last_depth_str != NULL)
-                free(last_depth_str);
-            free(curr_result_str);
-            free(curr_depth_str);
+            return -__LINE__;
         }
     }
+
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_state);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct state_val *info = entry->val;
+        if (info->id != update_id) {
+            dict_delete(dict_state, entry->key);
+            log_info("delete market: %s", (char *)entry->key);
+        }
+    }
+    dict_release_iterator(iter);
+
+    update_ticker_all();
 
     return 0;
 }
@@ -241,37 +218,6 @@ clean:
     return;
 }
 
-void direct_state_reply(nw_ses *ses, json_t *params, int64_t id)
-{
-    if (json_array_size(params) != 2) {
-        reply_invalid_params(ses);
-        return;
-    }
-
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (!market) {
-        reply_invalid_params(ses);
-        return;
-    }
-
-    bool is_reply = false;
-    dict_entry *entry = dict_find(dict_state, market);
-    if (entry != NULL) {
-        struct state_val *val = entry->val;
-        if (val->last_result != NULL) {
-            is_reply = true;
-            reply_json(ses, val->last_result);
-        }
-    }
-
-    if (!is_reply) {
-        reply_result_null(ses);
-        log_error("state not find result, market: %s", market);
-    }
-
-    return;
-}
-
 int init_ticker(void)
 {
     rpc_clt_type ct;
@@ -300,7 +246,6 @@ int init_ticker(void)
         return -__LINE__;
     }
 
-    ticker_all = json_object();
     return 0;
 }
 
@@ -311,13 +256,11 @@ json_t *get_market_ticker(const void *market)
         return NULL;
 
     struct state_val *info = entry->val;
-    return info->ticker;
+    return info->data;
 }
 
 json_t *get_market_ticker_all(void)
 {
-    if (json_object_get(ticker_all, "ticker") == NULL)
-        return NULL;
     return ticker_all;
 }
 

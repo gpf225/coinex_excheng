@@ -59,32 +59,19 @@ static void notify_state(void)
     dict_entry *entry;
     json_t *result = json_array();
     dict_iterator *iter = dict_get_iterator(dict_state);
+    uint64_t now = (uint64_t)(current_timestamp() * 1000);
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
         struct dict_status_val *val = entry->val;
+        if (val->last_state == NULL || val->last_depth == NULL)
+            continue;
 
-        if (val->last_state) {
-            json_t *depth_reply = json_object();   // depth
-            json_t *depth_last = val->last_depth;
-            if (depth_last) {
-                json_object_set(depth_reply, "buy", json_object_get(depth_last, "buy"));
-                json_object_set(depth_reply, "buy_amount", json_object_get(depth_last, "buy_amount"));
-                json_object_set(depth_reply, "sell", json_object_get(depth_last, "sell"));
-                json_object_set(depth_reply, "sell_amount", json_object_get(depth_last, "sell_amount"));
-            } else {
-                json_object_set_new(depth_reply, "buy", json_string("0"));
-                json_object_set_new(depth_reply, "buy_amount", json_string("0"));
-                json_object_set_new(depth_reply, "sell", json_string("0"));
-                json_object_set_new(depth_reply, "sell_amount", json_string("0"));
-            }
-
-            json_t *params = json_object();
-            json_object_set_new(params, "name", json_string(market));
-            json_object_set    (params, "result", val->last_state);   // state
-            json_object_set    (params, "depth", depth_reply);
-            json_object_set_new(params, "date", json_integer((uint64_t)(current_timestamp() * 1000)));
-            json_array_append_new(result, params);
-        }
+        json_t *params = json_object();
+        json_object_set_new(params, "name", json_string(market));
+        json_object_set_new(params, "date", json_integer(now));
+        json_object_set    (params, "state", val->last_state);
+        json_object_set    (params, "depth", val->last_depth);
+        json_array_append_new(result, params);
     }
     dict_release_iterator(iter);
 
@@ -105,8 +92,8 @@ static void on_timeout(nw_state_entry *entry)
         notify_state();
     }
 
-    char str[32] = {0};
-    sprintf(str, "timeout_command: %u", state->cmd);
+    char str[100] = {0};
+    sprintf(str, "timeout_command_%u", state->cmd);
     profile_inc(str, 1);
 
     return;
@@ -122,21 +109,10 @@ static int status_sub_reply(const char *market, json_t *result)
     }
 
     struct dict_status_val *obj = entry->val;
-    char *last_str = NULL;
     if (obj->last_state)
-        last_str = json_dumps(obj->last_state, JSON_SORT_KEYS);
-    char *curr_str = json_dumps(result, JSON_SORT_KEYS);
-
-    if (obj->last_state == NULL || strcmp(last_str, curr_str) != 0) {
-        if (obj->last_state)
-            json_decref(obj->last_state);
-        obj->last_state = result;
-        json_incref(result);
-    }
-
-    if (last_str != NULL)
-        free(last_str);
-    free(curr_str);
+        json_decref(obj->last_state);
+    obj->last_state = result;
+    json_incref(result);
 
     return 0;
 }
@@ -150,30 +126,31 @@ static int order_depth_reply(const char *market, json_t *result)
         entry = dict_add(dict_state, (char *)market, &val);
     }
 
-    struct dict_status_val *info = entry->val;
-    if (info->last_depth == NULL) {
-        info->last_depth = json_object();
-    }
-
+    json_t *depth = json_object();
     json_t *bids = json_object_get(result, "bids");
     if (json_array_size(bids) == 1) {
         json_t *buy = json_array_get(bids, 0);
-        json_object_set(info->last_depth, "buy", json_array_get(buy, 0));
-        json_object_set(info->last_depth, "buy_amount", json_array_get(buy, 1));
+        json_object_set(depth, "buy", json_array_get(buy, 0));
+        json_object_set(depth, "buy_amount", json_array_get(buy, 1));
     } else {
-        json_object_set_new(info->last_depth, "buy", json_string("0"));
-        json_object_set_new(info->last_depth, "buy_amount", json_string("0"));
+        json_object_set_new(depth, "buy", json_string("0"));
+        json_object_set_new(depth, "buy_amount", json_string("0"));
     }
 
     json_t *asks = json_object_get(result, "asks");
     if (json_array_size(asks) == 1) {
         json_t *sell = json_array_get(asks, 0);
-        json_object_set(info->last_depth, "sell", json_array_get(sell, 0));
-        json_object_set(info->last_depth, "sell_amount", json_array_get(sell, 1));
+        json_object_set(depth, "sell", json_array_get(sell, 0));
+        json_object_set(depth, "sell_amount", json_array_get(sell, 1));
     } else {
-        json_object_set_new(info->last_depth, "sell", json_string("0"));
-        json_object_set_new(info->last_depth, "sell_amount", json_string("0"));
+        json_object_set_new(depth, "sell", json_string("0"));
+        json_object_set_new(depth, "sell_amount", json_string("0"));
     }
+
+    struct dict_status_val *obj = entry->val;
+    if (obj->last_depth)
+        json_decref(obj->last_depth);
+    obj->last_depth = depth;
 
     return 0;
 }
@@ -199,7 +176,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
         sds hex = hexdump(pkg->body, pkg->body_size);
-        log_fatal("invalid reply from: %s, cmd: %u, reply: \n%s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
+        log_error("invalid reply from: %s, cmd: %u, reply: \n%s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
         sdsfree(hex);
         nw_state_del(state_context, pkg->sequence);
         return;
@@ -309,19 +286,28 @@ static int query_market_depth(const char *market)
 
 static void on_timer(nw_timer *timer, void *privdata) 
 {
-    // query depth
     dict_entry *entry = NULL;
+    dict_iterator *iter = NULL;
     dict_t *dict_market = get_market();
-    if (dict_size(dict_market) > 0) {
-        dict_iterator *iter = dict_get_iterator(dict_market);
-        while ((entry = dict_next(iter)) != NULL) {
-            const char *market = entry->key;
-            query_market_depth(market);
-            query_market_status(market);
-            log_trace("state sub request, market: %s", market);
+
+    // update market list
+    iter = dict_get_iterator(dict_state);
+    while ((entry = dict_next(iter)) != NULL) {
+        const char *market = entry->key;
+        if (dict_find(dict_market, market) == NULL) {
+            dict_delete(dict_state, market);
         }
-        dict_release_iterator(iter);
     }
+    dict_release_iterator(iter);
+
+    // query depth and state data
+    iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        const char *market = entry->key;
+        query_market_depth(market);
+        query_market_status(market);
+    }
+    dict_release_iterator(iter);
 }
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
@@ -407,3 +393,4 @@ int init_status(void)
 
     return 0;
 }
+

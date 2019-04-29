@@ -215,7 +215,7 @@ static int on_ping(nw_ses *ses, dict_t *params)
 
 int on_market_list(nw_ses *ses, dict_t *params)
 {
-   json_t *data = get_market_list();
+    json_t *data = get_market_list();
     if (data == NULL) {
         return reply_internal_error(ses);
     }
