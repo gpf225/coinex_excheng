@@ -247,6 +247,8 @@ static int on_market_ticker(nw_ses *ses, dict_t *params)
         return reply_invalid_params(ses);
     char *market = entry->val;
     strtoupper(market);
+    if (!market_exist(market))
+        return reply_invalid_params(ses);
 
     json_t *data = get_market_ticker(market);
     if (data == NULL) {
@@ -308,6 +310,8 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         return reply_invalid_params(ses);
     char *market = entry->val;
     strtoupper(market);
+    if (!market_exist(market))
+        return reply_invalid_params(ses);
 
     entry = dict_find(params, "merge");
     if (entry == NULL)
@@ -378,6 +382,8 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
         return reply_invalid_params(ses);
     char *market = entry->val;
     strtoupper(market);
+    if (!market_exist(market))
+        return reply_invalid_params(ses);
 
     int last_id = 0;
     entry = dict_find(params, "last_id");
@@ -449,6 +455,8 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
         return reply_invalid_params(ses);
     char *market = entry->val;
     strtoupper(market);
+    if (!market_exist(market))
+        return reply_invalid_params(ses);
 
     int limit = 100;
     entry = dict_find(params, "limit");
