@@ -105,6 +105,8 @@ int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop);
 int market_put_order(market_t *m, order_t *order);
 int market_put_stop(market_t *m, stop_t *stop);
 
+int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, uint32_t side);
+
 skiplist_t *market_get_order_list(market_t *m, uint32_t user_id);
 skiplist_t *market_get_stop_list(market_t *m, uint32_t user_id);
 

@@ -1871,6 +1871,93 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t si
     return 0;
 }
 
+int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, uint32_t side)
+{
+    // get ask_price_1
+    mpd_t *ask_price_1 = NULL;
+    skiplist_iter *iter = skiplist_get_iterator(market->asks);
+    if (iter != NULL) {
+        skiplist_node *node = skiplist_next(iter);
+        if (node != NULL) {
+            order_t *order = node->value;
+            ask_price_1 = mpd_new(&mpd_ctx);
+            mpd_copy(ask_price_1, order->price, &mpd_ctx);
+        }
+        skiplist_release_iterator(iter);
+    } else {
+        return -__LINE__;
+    }
+
+    // get bid_price_1
+    mpd_t *bid_price_1 = NULL;
+    iter = skiplist_get_iterator(market->bids);
+    if (iter != NULL) {
+        skiplist_node *node = skiplist_next(iter);
+        if (node != NULL) {
+            order_t *order = node->value;
+            bid_price_1 = mpd_new(&mpd_ctx);
+            mpd_copy(bid_price_1, order->price, &mpd_ctx);
+        }
+        skiplist_release_iterator(iter);
+    } else {
+        if (ask_price_1 != NULL)
+            mpd_del(ask_price_1);
+        return -__LINE__;
+    }
+
+    mpd_t *deal_min_gear = mpd_new(&mpd_ctx);
+    mpd_set_i32(deal_min_gear, -market->money_prec, &mpd_ctx);
+    mpd_pow(deal_min_gear, mpd_ten, deal_min_gear, &mpd_ctx);
+
+    if (ask_price_1 != NULL && bid_price_1 != NULL) {
+        mpd_t *ask_bid_sub = mpd_new(&mpd_ctx);
+        mpd_sub(ask_bid_sub, ask_price_1, bid_price_1, &mpd_ctx);
+        if (mpd_cmp(deal_min_gear, ask_bid_sub, &mpd_ctx) == 0) {
+            mpd_del(ask_bid_sub);
+            mpd_del(deal_min_gear);
+
+            if (ask_price_1 != NULL)
+                mpd_del(ask_price_1);
+            if (bid_price_1 != NULL)
+                mpd_del(bid_price_1);
+            return -1;
+        }
+        mpd_del(ask_bid_sub);
+    }
+
+    mpd_t *real_price = mpd_qncopy(price);
+    if (ask_price_1 != NULL && mpd_cmp(price, ask_price_1, &mpd_ctx) >= 0) {
+        mpd_sub(real_price, ask_price_1, deal_min_gear, &mpd_ctx);
+    } else if (bid_price_1 != NULL && mpd_cmp(price, bid_price_1, &mpd_ctx) <= 0){
+        mpd_add(real_price, bid_price_1, deal_min_gear, &mpd_ctx);
+    }
+
+    mpd_t *deal = mpd_new(&mpd_ctx);
+    mpd_mul(deal, real_price, amount, &mpd_ctx);
+
+    uint64_t deal_id = ++deals_id_start;
+    double update_time = current_timestamp();
+
+    order_t *order = malloc(sizeof(order_t));
+    order->id        = 0;
+    order->user_id   = 0;
+
+    if (real) {
+        push_deal_message(update_time, deal_id, market, side, order, order, real_price, amount, deal, market->money, mpd_zero, market->stock, mpd_zero);
+    }
+    
+    free(order);
+    mpd_del(deal);
+    mpd_del(real_price);
+    mpd_del(deal_min_gear);
+    if (bid_price_1 != NULL)
+        mpd_del(bid_price_1);
+    if (ask_price_1 != NULL)
+        mpd_del(ask_price_1);
+
+    return 0;
+}
+
 int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
 {
     if (real) {

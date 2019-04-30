@@ -912,6 +912,61 @@ static int load_cancel_stop(json_t *params)
     return 0;
 }
 
+static int load_self_deal(json_t *params)
+{
+    if (json_array_size(params) != 4)
+        return -__LINE__;
+
+    // market
+    if (!json_is_string(json_array_get(params, 0)))
+        return -__LINE__;
+    const char *market_name = json_string_value(json_array_get(params, 0));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return 0;
+
+    mpd_t *amount  = NULL;
+    mpd_t *price   = NULL;
+
+    // amount
+    if (!json_is_string(json_array_get(params, 1)))
+        goto error;
+    amount = decimal(json_string_value(json_array_get(params, 1)), market->stock_prec);
+    if (amount == NULL)
+        goto error;
+    if (mpd_cmp(amount, mpd_zero, &mpd_ctx) <= 0)
+        goto error;
+
+    // price 
+    if (!json_is_string(json_array_get(params, 2)))
+        goto error;
+    price = decimal(json_string_value(json_array_get(params, 2)), market->money_prec);
+    if (price == NULL) 
+        goto error;
+    if (mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0)
+        goto error;
+
+    // side
+    if (!json_is_integer(json_array_get(params, 3)))
+        goto error;
+    uint32_t side = json_integer_value(json_array_get(params, 3));
+    if (side != MARKET_TRADE_SIDE_SELL && side != MARKET_TRADE_SIDE_BUY)
+        goto error;
+
+    int ret = market_self_deal(false, market, amount, price, side);
+
+    mpd_del(amount);
+    mpd_del(price);
+    return ret;
+error:
+    if (amount)
+        mpd_del(amount);
+    if (price)
+        mpd_del(price);
+
+    return __LINE__;
+}
+
 int load_oper(json_t *detail)
 {
     const char *method = json_string_value(json_object_get(detail, "method"));
@@ -940,6 +995,8 @@ int load_oper(json_t *detail)
         ret = load_stop_market(params);
     } else if (strcmp(method, "cancel_stop") == 0) {
         ret = load_cancel_stop(params);
+    } else if (strcmp(method, "self_deal") == 0) {
+        ret = load_self_deal(params);
     } else {
         return -__LINE__;
     }
