@@ -246,7 +246,9 @@ static void svr_on_connection_close(nw_ses *ses)
 
 static void on_timer(nw_timer *timer, void *privdata)
 {
-    profile_set("subscribe_depth", depth_subscribe_number());
+    size_t count = depth_subscribe_number();
+    profile_set("subscribe_depth", count);
+    log_info("depth subscribe count: %zu", count);
 }
 
 int init_server(void)
@@ -264,6 +266,7 @@ int init_server(void)
         return -__LINE__;
 
     nw_timer_set(&timer, 60, true, on_timer, NULL);
+
     return 0;
 }
 
