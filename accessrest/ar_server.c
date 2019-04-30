@@ -221,6 +221,7 @@ int on_market_list(nw_ses *ses, dict_t *params)
     }
 
     reply_json(ses, data);
+    json_decref(data);
 
     return 0;
 }
@@ -233,7 +234,8 @@ int on_market_info(nw_ses *ses, dict_t *params)
     }
 
     reply_json(ses, data);
-
+    json_decref(data);
+    
     return 0;
 }
 
@@ -252,7 +254,8 @@ static int on_market_ticker(nw_ses *ses, dict_t *params)
     }
 
     reply_json(ses, data);
-
+    json_decref(data);
+    
     return 0;
 }
 
@@ -264,7 +267,8 @@ static int on_market_ticker_all(nw_ses *ses, dict_t *params)
     }
 
     reply_json(ses, data);
-
+    json_decref(data);
+    
     return 0;
 }
 
