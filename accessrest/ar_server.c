@@ -235,7 +235,7 @@ int on_market_info(nw_ses *ses, dict_t *params)
 
     reply_json(ses, data);
     json_decref(data);
-    
+
     return 0;
 }
 
@@ -255,7 +255,7 @@ static int on_market_ticker(nw_ses *ses, dict_t *params)
 
     reply_json(ses, data);
     json_decref(data);
-    
+
     return 0;
 }
 
@@ -268,7 +268,7 @@ static int on_market_ticker_all(nw_ses *ses, dict_t *params)
 
     reply_json(ses, data);
     json_decref(data);
-    
+
     return 0;
 }
 
@@ -330,6 +330,7 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_string(market));
+    json_array_append_new(query_params, json_integer(limit));
     json_array_append_new(query_params, json_string(merge));
 
     int ret = check_depth_cache(ses, cache_key, CMD_CACHE_DEPTH, limit);
