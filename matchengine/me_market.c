@@ -1938,15 +1938,15 @@ int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, u
     uint64_t deal_id = ++deals_id_start;
     double update_time = current_timestamp();
 
-    order_t *order = malloc(sizeof(order_t));
-    order->id        = 0;
-    order->user_id   = 0;
-
     if (real) {
+        order_t *order = malloc(sizeof(order_t));
+        memset(order, 0, sizeof(order_t))
+        order->id        = 0;
+        order->user_id   = 0;
         push_deal_message(update_time, deal_id, market, side, order, order, real_price, amount, deal, market->money, mpd_zero, market->stock, mpd_zero);
+        free(order);
     }
     
-    free(order);
     mpd_del(deal);
     mpd_del(real_price);
     mpd_del(deal_min_gear);
