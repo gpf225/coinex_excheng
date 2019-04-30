@@ -993,13 +993,20 @@ static int init_server()
     return 0;
 }
 
-static sds on_cmd_status(const char *cmd, int argc, sds *argv)
+static sds queue_status(sds reply)
 {
-    sds reply = sdsempty();
     uint32_t mem_num = 0;
     uint32_t mem_size = 0;
     queue_stat(&queue_reader, &mem_num, &mem_size);
-    reply = sdscatprintf(reply, "queue num: %u, size: %u\n", mem_num, mem_size);
+    reply = sdscatprintf(reply, "queue used num: %u, used size: %u\n", mem_num, mem_size);
+    return reply;
+}
+
+static sds on_cmd_status(const char *cmd, int argc, sds *argv)
+{
+    sds reply = sdsempty();
+    reply = queue_status(reply);
+    reply = market_status(reply);
     return reply;
 }
 

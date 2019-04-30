@@ -306,10 +306,14 @@ static int init_worker_clt()
         name = sdscatprintf(name, "reader_clt_%d", i);
 
         reader_clt_arr[i] = init_clt(name, i + 2);
-        if (reader_clt_arr[i] == NULL)
+        if (reader_clt_arr[i] == NULL) {
+            sdsfree(name);
             return -__LINE__;
-        if (rpc_clt_start(reader_clt_arr[i]) < 0)
+        }
+        if (rpc_clt_start(reader_clt_arr[i]) < 0) {
+            sdsfree(name);
             return -__LINE__;
+        }
 
         sdsfree(name);
     }

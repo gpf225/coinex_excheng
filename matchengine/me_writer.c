@@ -1176,7 +1176,7 @@ static sds queue_status(sds reply)
     uint32_t mem_size = 0;
     for (int i = 0; i < settings.reader_num; i++) {
         queue_stat(&queue_writers[i], &mem_num, &mem_size);
-        reply = sdscatprintf(reply, "queue: %d, num: %u, size: %u\n", i, mem_num, mem_size);
+        reply = sdscatprintf(reply, "queue: %d, used num: %u, used size: %u\n", i, mem_num, mem_size);
     }
     return reply;
 }

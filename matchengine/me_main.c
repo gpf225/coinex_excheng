@@ -120,6 +120,7 @@ int main(int argc, char *argv[])
     } else if (pid == 0) {
         process_title_set("%s_access", __process__);
         daemon(1, 1);
+        init_signal();
 
         sleep(1);
         ret = init_access();
@@ -137,6 +138,7 @@ int main(int argc, char *argv[])
         } else if (pid != 0) {
             process_title_set("%s_reader_%d", __process__, i);
             daemon(1, 1);
+            init_signal();
 
             ret = init_reader(i);
             if (ret < 0) {
@@ -148,6 +150,7 @@ int main(int argc, char *argv[])
 
     process_title_set("%s_writer", __process__);
     daemon(1, 1);
+    init_signal();
 
     need_release = true;
     ret = init_operlog();
