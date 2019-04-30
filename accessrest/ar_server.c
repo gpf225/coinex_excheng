@@ -678,6 +678,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             json_t *error = json_object_get(reply, "error");
             if (!error) {
                 reply_internal_error(state->ses);
+                goto clean;
             }
             if (!json_is_null(error)) {
                 const char *message = json_string_value(json_object_get(error, "message"));
