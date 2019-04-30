@@ -89,7 +89,7 @@ int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
 static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     sds recv_str = NULL;
-    if (json_array_size(params) != 3) {
+    if (json_array_size(params) != 2) {
         recv_str = sdsnewlen(pkg->body, pkg->body_size);
         goto error;
     }
@@ -106,7 +106,7 @@ static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         goto error;
     }
 
-    const char *interval = json_string_value(json_array_get(params, 2));
+    const char *interval = json_string_value(json_array_get(params, 1));
     if (interval == NULL) {
         recv_str = sdsnewlen(pkg->body, pkg->body_size);
         goto error;

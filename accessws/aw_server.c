@@ -367,7 +367,6 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
 
     json_t *new_params = json_array();
     json_array_append_new(new_params, json_string(market));
-    json_array_append_new(new_params, json_integer(limit));
     json_array_append_new(new_params, json_string(interval));
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);

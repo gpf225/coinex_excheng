@@ -256,11 +256,11 @@ json_t *get_market_ticker(const void *market)
         return NULL;
 
     struct state_val *info = entry->val;
-    return info->data;
+    return json_incref(info->data);
 }
 
 json_t *get_market_ticker_all(void)
 {
-    return ticker_all;
+    return json_incref(ticker_all);
 }
 

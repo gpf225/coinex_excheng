@@ -342,12 +342,12 @@ int init_market(void)
 
 json_t *get_market_list(void)
 {
-    return market_list;
+    return json_incref(market_list);
 }
 
 json_t *get_market_info_list(void)
 {
-    return market_info;
+    return json_incref(market_info);
 }
 
 dict_t *get_market(void)

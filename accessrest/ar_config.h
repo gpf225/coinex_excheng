@@ -57,6 +57,7 @@ struct settings {
     alert_cfg           alert;
     http_svr_cfg        svr;
     int                 deal_max;
+    int                 kline_max;
 
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
