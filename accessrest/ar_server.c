@@ -7,7 +7,6 @@
 # include "ar_market.h"
 # include "ar_ticker.h"
 # include "ar_deals.h"
-# include "ar_state.h"
 
 static http_svr *svr;
 static rpc_clt *listener;
@@ -129,8 +128,8 @@ static int check_depth_cache(nw_ses *ses, sds key, uint32_t cmd, int limit)
 
     json_t *result = json_object();
     json_object_set_new(result, "code", json_integer(0));
-    
-    if (cmd == CMD_ORDER_DEPTH) {
+
+    if (cmd == CMD_CACHE_DEPTH) {
         json_t *result_depth = pack_depth_result(cache->result, limit);
         json_object_set_new(result, "data", result_depth);
     } else {
@@ -216,63 +215,27 @@ static int on_ping(nw_ses *ses, dict_t *params)
 
 int on_market_list(nw_ses *ses, dict_t *params)
 {
-    static json_t *save_result = NULL;
-    static double save_time = 0;
-
-    if (ses == NULL && params == NULL) {
-        if (save_result != NULL) {
-            json_decref(save_result);
-            save_result = NULL;
-        }
-        return 0;
-    }
-
-    if (save_result && (current_timestamp() - save_time < settings.cache_timeout))
-        return reply_json(ses, save_result);
-
-    if (save_result) {
-        json_decref(save_result);
-        save_result = NULL;
-    }
-
-    save_time = current_timestamp();
-    save_result = get_market_list();
-
-    if (save_result == NULL)
+    json_t *data = get_market_list();
+    if (data == NULL) {
         return reply_internal_error(ses);
+    }
 
-    reply_json(ses, save_result);
+    reply_json(ses, data);
+    json_decref(data);
+
     return 0;
 }
 
 int on_market_info(nw_ses *ses, dict_t *params)
 {
-    static json_t *save_result = NULL;
-    static double save_time = 0;
-
-    if (ses == NULL && params == NULL) {
-        if (save_result != NULL) {
-            json_decref(save_result);
-            save_result = NULL;
-        }
-        return 0;
-    }
-
-    if (save_result && (current_timestamp() - save_time < settings.cache_timeout))
-        return reply_json(ses, save_result);
-
-    if (save_result) {
-        json_decref(save_result);
-        save_result = NULL;
-    }
-
-    save_time = current_timestamp();
-    save_result = get_market_info_list();
-
-    if (save_result == NULL)
+    json_t *data = get_market_info_list();
+    if (data == NULL) {
         return reply_internal_error(ses);
+    }
 
-    reply_json(ses, save_result);
+    reply_json(ses, data);
+    json_decref(data);
+
     return 0;
 }
 
@@ -358,7 +321,7 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     if (entry) {
         limit = atoi(entry->val);
         if (!is_good_limit(limit)) {
-            limit = 20;
+            return reply_invalid_params(ses);
         }
     }
 
@@ -439,6 +402,7 @@ static int on_market_deals(nw_ses *ses, dict_t *params)
     }
 
     direct_deals_result(ses, market, limit, last_id);
+
     return 0;
 }
 
@@ -486,12 +450,16 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     char *market = entry->val;
     strtoupper(market);
 
-    int limit = 1000;
+    int limit = 100;
     entry = dict_find(params, "limit");
     if (entry) {
         limit = atoi(entry->val);
         if (limit <= 0) {
-            limit = 1000;
+            return reply_invalid_params(ses);
+        }
+
+        if (limit > settings.kline_max) {
+            limit = settings.kline_max;
         }
     }
 
@@ -710,6 +678,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             json_t *error = json_object_get(reply, "error");
             if (!error) {
                 reply_internal_error(state->ses);
+                goto clean;
             }
             if (!json_is_null(error)) {
                 const char *message = json_string_value(json_object_get(error, "message"));

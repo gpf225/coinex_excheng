@@ -57,6 +57,7 @@ struct settings {
     alert_cfg           alert;
     http_svr_cfg        svr;
     int                 deal_max;
+    int                 kline_max;
 
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
@@ -69,7 +70,6 @@ struct settings {
     double              backend_timeout;
     double              cache_timeout;
     double              market_interval;
-    double              state_interval;
     char                *market_url;
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;

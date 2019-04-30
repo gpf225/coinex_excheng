@@ -17,10 +17,6 @@ static dict_t *dict_session;
 static nw_timer timer;
 static rpc_svr *deals_svr;
 
-struct dict_deals_key {
-    char market[MARKET_NAME_MAX_LEN];
-};
-
 struct dict_deals_val {
     uint64_t last_id;
     list_t   *deals;
@@ -29,36 +25,6 @@ struct dict_deals_val {
 struct state_data {
     char     market[MARKET_NAME_MAX_LEN];
 };
-
-static uint32_t dict_deals_sub_hash_function(const void *key)
-{
-    const struct dict_deals_key *obj = key;
-    return dict_generic_hash_function(obj->market, strlen(obj->market));
-}
-
-static int dict_deals_sub_key_compare(const void *key1, const void *key2)
-{
-    const struct dict_deals_key *obj1 = key1;
-    const struct dict_deals_key *obj2 = key2;
-
-    if (strcmp(obj1->market, obj2->market) == 0) {
-        return 0;
-    } else {
-        return 1;
-    }
-}
-
-static void *dict_deals_sub_key_dup(const void *key)
-{
-    struct dict_deals_key *obj = malloc(sizeof(struct dict_deals_key));
-    memcpy(obj, key, sizeof(struct dict_deals_key));
-    return obj;
-}
-
-static void dict_deals_sub_key_free(void *key)
-{
-    free(key);
-}
 
 static void *dict_deals_sub_val_dup(const void *val)
 {
@@ -80,19 +46,10 @@ static void list_free(void *value)
     json_decref(value);
 }
 
-static dict_t* dict_create_deals_session(void)
-{
-    dict_types dt;
-    memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_ses_hash_func;
-    dt.key_compare   = dict_ses_hash_compare;
-
-    return dict_create(&dt, 16);
-}
-
 static void on_timeout(nw_state_entry *entry)
 {
-    log_error("state id: %u timeout", entry->id);
+    log_fatal("query timeout, state id: %u", entry->id);
+    profile_inc("marketprice_deals_timeout", 1);
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)
@@ -116,13 +73,24 @@ static int notify_message(nw_ses *ses, int command, json_t *message)
 
 static int deals_reply(const char *market, json_t *result)
 {
-    struct dict_deals_key key;
-    memset(&key, 0, sizeof(key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
+    dict_entry *entry = dict_find(dict_deals, market);
+    if (entry == NULL) {
+        struct dict_deals_val val;
+        memset(&val, 0, sizeof(val));
 
-    dict_entry *entry = dict_find(dict_deals, &key);
-    if (entry == NULL)
-        return -__LINE__;
+        list_type lt;
+        memset(&lt, 0, sizeof(lt));
+        lt.free = list_free;
+
+        val.deals = list_create(&lt);
+        if (val.deals == NULL)
+            return -__LINE__;
+
+        entry = dict_add(dict_deals, (char *)market, &val);
+        if (entry == NULL) {
+            return -__LINE__;
+        }
+    }
 
     struct dict_deals_val *obj = entry->val;
 
@@ -187,20 +155,23 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     bool is_error = false;
+    sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+    log_trace("reply from: %s, market: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), state->market, pkg->command, reply_str);
 
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
     if (error == NULL || !json_is_null(error) || result == NULL) {
-        sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
         log_error("error reply from: %s, market: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), state->market, pkg->command, reply_str);
-        sdsfree(reply_str);
         is_error = true;
     }
 
     switch (pkg->command) {
     case CMD_MARKET_DEALS:
         if (!is_error) {
+            profile_inc("deasl_reply_success", 1);
             deals_reply(state->market, result);
+        } else {
+            profile_inc("deasl_reply_fail", 1);
         }
         break;
 
@@ -210,6 +181,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     json_decref(reply);
+    sdsfree(reply_str);
     nw_state_del(state_context, pkg->sequence);
 }
 
@@ -217,7 +189,7 @@ static int deals_request(const char *market, uint64_t last_id)
 {
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
+    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN);
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
@@ -235,6 +207,7 @@ static int deals_request(const char *market, uint64_t last_id)
     rpc_clt_send(marketprice, &req_pkg);
     free(req_pkg.body);
     json_decref(params);
+    profile_inc("request_deals", 1);
 
     return 0;
 }
@@ -242,64 +215,27 @@ static int deals_request(const char *market, uint64_t last_id)
 static void on_timer(nw_timer *timer, void *privdata) 
 {
     dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(dict_deals);
+    dict_t *dict_market = get_market();
+    dict_iterator *iter = dict_get_iterator(dict_market);
 
     while ((entry = dict_next(iter)) != NULL) {
-        struct dict_deals_key *key = entry->key;
-        struct dict_deals_val *val = entry->val;
+        const char *market = entry->key;
 
-        log_trace("deal sub request, market: %s, last_id: %zd", key->market, val->last_id);
-        deals_request(key->market, val->last_id);
+        uint64_t last_id = 0;
+        entry = dict_find(dict_deals, market);
+        if (entry) {
+            struct dict_deals_val *deal_val = entry->val;
+            last_id = deal_val->last_id;
+        }
+        deals_request(market, last_id);
+        log_trace("deal sub request, market: %s, last_id: %zd", market, last_id);
     }
     dict_release_iterator(iter);
 }
 
-int add_deals_market(const char *market)
-{
-    log_info("deals subscribe, market: %s", market);
-    struct dict_deals_key key;
-    memset(&key, 0, sizeof(key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-
-    dict_entry *entry = dict_find(dict_deals, &key);
-    if (entry == NULL) {
-        struct dict_deals_val val;
-        memset(&val, 0, sizeof(val));
-
-        list_type lt;
-        memset(&lt, 0, sizeof(lt));
-        lt.free = list_free;
-
-        val.deals = list_create(&lt);
-        if (val.deals == NULL)
-            return -__LINE__;
-
-        entry = dict_add(dict_deals, &key, &val);
-        if (entry == NULL) {
-            return -__LINE__;
-        }
-    }
-
-    return 0;  
-}
-
-void delete_deals_market(const char *market)
-{
-    log_info("deals subscribe, market: %s", market);
-    struct dict_deals_key key;
-    memset(&key, 0, sizeof(key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-
-    dict_delete(dict_deals, &key);
-}
-
 static int send_market_deals(nw_ses *ses, const char *market)
 {
-    struct dict_deals_key key;
-    memset(&key, 0, sizeof(key));
-    strncpy(key.market, market, MARKET_NAME_MAX_LEN - 1);
-
-    dict_entry *entry = dict_find(dict_deals, &key);
+    dict_entry *entry = dict_find(dict_deals, market);
     if (entry == NULL)
         return -__LINE__;
     struct dict_deals_val *obj = entry->val;
@@ -331,8 +267,8 @@ static void send_full_deals(nw_ses *ses)
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_deals);
     while ((entry = dict_next(iter)) != NULL) {
-        struct dict_deals_key *key = entry->key;
-        send_market_deals(ses, key->market);
+        const char *market = entry->key;
+        send_market_deals(ses, market);
     }
     dict_release_iterator(iter);
 
@@ -348,7 +284,6 @@ static void svr_on_new_connection(nw_ses *ses)
 {
     dict_add(dict_session, ses, NULL);
     send_full_deals(ses);
-
     log_info("new connection: %s", nw_sock_human_addr(&ses->peer_addr));
 }
 
@@ -360,31 +295,24 @@ static void svr_on_connection_close(nw_ses *ses)
 
 int init_deals(void)
 {
-    // cli to marketprice
+    // marketprice
     rpc_clt_type ct;
     memset(&ct, 0, sizeof(ct));
     ct.on_connect = on_backend_connect;
     ct.on_recv_pkg = on_backend_recv_pkg;
 
     marketprice = rpc_clt_create(&settings.marketprice, &ct);
-    if (marketprice == NULL) {
-        log_stderr("rpc_clt_create failed");
+    if (marketprice == NULL)
         return -__LINE__;
-    }
-    if (rpc_clt_start(marketprice) < 0) {
-        log_stderr("rpc_clt_start failed");
+    if (rpc_clt_start(marketprice) < 0)
         return -__LINE__;
-    }
 
     nw_state_type st;
     memset(&st, 0, sizeof(st));
     st.on_timeout = on_timeout;
-
     state_context = nw_state_create(&st, sizeof(struct state_data));
-    if (state_context == NULL) {
-        log_stderr("nw_state_create failed");
+    if (state_context == NULL)
         return -__LINE__;
-    }
 
     // deals deals_svr
     rpc_svr_type type;
@@ -399,26 +327,28 @@ int init_deals(void)
     if (rpc_svr_start(deals_svr) < 0)
         return -__LINE__;
 
-    dict_session = dict_create_deals_session();
+    // sub session
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function = dict_ses_hash_func;
+    dt.key_compare   = dict_ses_hash_compare;
+    dict_session = dict_create(&dt, 32);
     if (dict_session == NULL)
         return -__LINE__;
 
-    dict_types dt;
+    // dict_deals
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function   = dict_deals_sub_hash_function;
-    dt.key_compare     = dict_deals_sub_key_compare;
-    dt.key_dup         = dict_deals_sub_key_dup;
-    dt.key_destructor  = dict_deals_sub_key_free;
+    dt.hash_function   = dict_str_hash_func;
+    dt.key_compare     = dict_str_compare;
+    dt.key_dup         = dict_str_dup;
+    dt.key_destructor  = dict_str_free;
     dt.val_dup         = dict_deals_sub_val_dup;
     dt.val_destructor  = dict_deals_sub_val_free;
-
     dict_deals = dict_create(&dt, 256);
-    if (dict_deals == NULL) {
-        log_stderr("dict_create failed");
+    if (dict_deals == NULL)
         return -__LINE__;
-    }
 
-    nw_timer_set(&timer, settings.sub_deals_interval, true, on_timer, NULL);
+    nw_timer_set(&timer, settings.interval_time, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;

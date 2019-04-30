@@ -69,8 +69,10 @@ int main(int argc, char *argv[])
         printf("process: %s exist\n", __process__);
         exit(EXIT_FAILURE);
     }
+    process_title_init(argc, argv);
 
     int ret;
+    char host[1024];
     ret = init_mpd();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init mpd fail: %d", ret);
@@ -87,39 +89,75 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init log fail: %d", ret);
     }
-
-    daemon(1, 1);
-    process_keepalive1(settings.debug);
-
     ret = init_market();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init market fail: %d", ret);
     }
+
+    // deals
+    int pid = fork();
+    if (pid < 0) {
+        error(EXIT_FAILURE, errno, "fork error");
+    } else if (pid == 0) {
+        snprintf(host, sizeof(host), "%s_deals", settings.alert.host);
+        profile_init(__process__, host);
+        process_title_set("%s_deals", __process__);
+
+        ret = init_deals();
+        if (ret < 0) {
+            error(EXIT_FAILURE, errno, "init deals fail: %d", ret);
+        }
+        daemon(1, 1);
+        process_keepalive();
+        goto run;
+    }
+
+    // state
+    pid = fork();
+    if (pid < 0) {
+        error(EXIT_FAILURE, errno, "fork error");
+    } else if (pid == 0) {
+        snprintf(host, sizeof(host), "%s_state", settings.alert.host);
+        profile_init(__process__, host);
+        process_title_set("%s_state", __process__);
+        dlog_set_no_shift(default_dlog);
+
+        ret = init_status();
+        if (ret < 0) {
+            error(EXIT_FAILURE, errno, "init state fail: %d", ret);
+        }
+        daemon(1, 1);
+        process_keepalive();
+        goto run;
+    }
+
+    // depth
+    snprintf(host, sizeof(host), "%s_depth", settings.alert.host);
+    profile_init(__process__, host);
+    process_title_set("%s_depth", __process__);
+    dlog_set_no_shift(default_dlog);
+
     ret = init_server();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
-    }
-    ret = init_deals();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init deals fail: %d", ret);
-    }
-    ret = init_status();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init state fail: %d", ret);
     }
     ret = init_depth();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init depth fail: %d", ret);
     }
-    ret = init_cache();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
-    }
     ret = init_filter();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init depth filter fail: %d", ret);
     }
+    ret = init_cache();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init cache fail: %d", ret);
+    }
 
+    daemon(1, 1);
+    process_keepalive();
+
+run:
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
     nw_timer_start(&cron_timer);
 

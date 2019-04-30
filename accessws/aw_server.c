@@ -18,7 +18,6 @@
 # include "aw_common.h"
 # include "aw_sub_user.h"
 # include "aw_state.h"
-# include "aw_market.h"
 
 static ws_svr *svr;
 static dict_t *method_map;
@@ -1112,7 +1111,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             if (pkg->command == CMD_CACHE_DEPTH) {
                 json_t *result = json_object_get(cache_result, "result");
                 json_t *reply_depth = pack_depth_result(result, state->depth_limit);
-                send_result(ses, state->request_id, reply_depth);
+                send_result(state->ses, state->request_id, reply_depth);
                 json_decref(reply_depth);
             } else {
                 char *message = json_dumps(cache_result, 0);

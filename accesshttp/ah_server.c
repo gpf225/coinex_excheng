@@ -297,54 +297,58 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     log_debug("recv pkg from: %s, cmd: %u, sequence: %u",
             nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence);
     nw_state_entry *entry = nw_state_get(state, pkg->sequence);
-    if (entry) {
-        struct state_info *info = entry->data;
-        if (info->ses->id == info->ses_id) {
-            log_trace("send response to: %s", nw_sock_human_addr(&info->ses->peer_addr));
+    if (entry == NULL)
+        return;
 
-            if (pkg->command == CMD_CACHE_DEPTH) {
-                json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
-                if (reply_json == NULL) {
-                    log_error("json_loadb fail");
-                    reply_internal_error(ses);
-                    nw_state_del(state, pkg->sequence);
-                    return;
+    struct state_info *info = entry->data;
+    if (info->ses->id != info->ses_id) {
+        nw_state_del(state, pkg->sequence);
+        return;
+    }
+
+    log_trace("send response to: %s", nw_sock_human_addr(&info->ses->peer_addr));
+    if (pkg->command == CMD_CACHE_DEPTH) {
+        json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
+        if (reply_json == NULL) {
+            log_error("json_loadb fail");
+            reply_internal_error(ses);
+            nw_state_del(state, pkg->sequence);
+            return;
+        }
+
+        json_t *cache_result = json_object_get(reply_json, "cache_result");
+        if (cache_result == NULL) { // error result, no cache_result
+            send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
+            profile_inc("success", 1);
+        } else {
+            json_t *result = json_object_get(cache_result, "result");
+            json_t *result_depth = pack_depth_result(result, info->depth_limit);
+
+            reply_message(info->ses, info->request_id, result_depth);
+            json_decref(result_depth);
+            profile_inc("success", 1);
+
+            if (info->cache_key) {
+                json_t *error = json_object_get(cache_result, "error");
+                json_t *result = json_object_get(cache_result, "result");
+
+                if (error && json_is_null(error) && result) {
+                    int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
+                    struct cache_val val;
+                    val.time_cache = current_millis() + ttl;
+                    val.result = result;
+                    json_incref(result);
+                    dict_replace_cache(info->cache_key, &val);
                 }
-
-                json_t *cache_result = json_object_get(reply_json, "cache_result");
-                if (cache_result == NULL) { // error result, no cache_result
-                    send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
-                    profile_inc("success", 1);
-                } else {
-                    json_t *result = json_object_get(cache_result, "result");
-                    json_t *result_depth = pack_depth_result(result, info->depth_limit);
-
-                    reply_message(info->ses, info->request_id, result_depth);
-                    json_decref(result_depth);
-                    profile_inc("success", 1);
-
-                    if (info->cache_key) {
-                        json_t *error = json_object_get(cache_result, "error");
-                        json_t *result = json_object_get(cache_result, "result");
-
-                        if (error && json_is_null(error) && result) {
-                            int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
-                            struct cache_val val;
-                            val.time_cache = current_millis() + ttl;
-                            val.result = result;
-                            json_incref(result);
-                            dict_replace_cache(info->cache_key, &val);
-                        }
-                    }
-                }
-                json_decref(reply_json);
-            } else {
-                send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
-                profile_inc("success", 1);
             }
         }
-        nw_state_del(state, pkg->sequence);
+        json_decref(reply_json);
+    } else {
+        send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
+        profile_inc("success", 1);
     }
+
+    nw_state_del(state, pkg->sequence);
 }
 
 static void on_listener_connect(nw_ses *ses, bool result)

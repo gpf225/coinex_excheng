@@ -7,7 +7,6 @@
 # include "aw_server.h"
 # include "aw_depth.h"
 # include "aw_state.h"
-# include "aw_market.h"
 
 static dict_t *dict_state;
 static dict_t *dict_session;
@@ -15,6 +14,7 @@ static dict_t *dict_session;
 static rpc_clt *cache_state;
 
 struct state_val {
+    int     id;
     json_t  *last;
     double  update_time;
 };
@@ -159,6 +159,9 @@ static void notify_state_update(void)
 // state update
 static int on_sub_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 {
+    static uint32_t update_id = 0;
+    update_id += 1;
+
     const size_t state_num = json_array_size(result_array);
     log_trace("state update, state_num: %zd", state_num);
 
@@ -176,8 +179,8 @@ static int on_sub_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
             continue;
         }
 
-        json_t *result = json_object_get(row, "result");
-        if (result == NULL) {
+        json_t *state = json_object_get(row, "state");
+        if (state == NULL) {
             sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
             log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
             sdsfree(reply_str);
@@ -189,38 +192,43 @@ static int on_sub_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
         if (entry == NULL) {
             struct state_val val;
             memset(&val, 0, sizeof(val));
-
-            val.update_time = current_timestamp();
-            val.last = result;
-            json_incref(result);
-
             entry = dict_add(dict_state, (char *)market, &val);
-            if (entry == NULL) {
-                log_fatal("dict_add fail");
-                return -__LINE__;
-            }
-        } else {
-            struct state_val *info = entry->val;
-            char *last_str = NULL;
-            if (info->last)
-                last_str = json_dumps(info->last, JSON_SORT_KEYS);
-            char *curr_str = json_dumps(result, JSON_SORT_KEYS);
-
-            if (info->last == NULL || strcmp(last_str, curr_str) != 0) {
-                if (info->last)
-                    json_decref(info->last);
-                info->last = result;
-                json_incref(result);
-                info->update_time = current_timestamp();
-            }
-
-            if (last_str != NULL)
-                free(last_str);
-            free(curr_str);
         }
+
+        struct state_val *info = entry->val;
+        info ->id = update_id;
+
+        char *last_str = NULL;
+        if (info->last)
+            last_str = json_dumps(info->last, JSON_SORT_KEYS);
+        char *curr_str = json_dumps(state, JSON_SORT_KEYS);
+
+        if (info->last == NULL || strcmp(last_str, curr_str) != 0) {
+            if (info->last)
+                json_decref(info->last);
+            info->last = state;
+            json_incref(state);
+            info->update_time = current_timestamp();
+        }
+
+        if (last_str != NULL)
+            free(last_str);
+        free(curr_str);
     }
 
+    dict_entry *entry = NULL;
+    dict_iterator *iter = dict_get_iterator(dict_state);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct state_val *info = entry->val;
+        if (info->id != update_id) {
+            dict_delete(dict_state, entry->key);
+            log_info("del market state: %s", (char *)entry->key);
+        }
+    }
+    dict_release_iterator(iter);
+
     notify_state_update();
+
     return 0;
 }
 
@@ -376,8 +384,11 @@ int state_subscribe(nw_ses *ses, json_t *market_list)
         const char *name = json_string_value(json_array_get(market_list, i));
         if (name == NULL)
             continue;
+
         if (market_exists(name)) {
             list_add_node_tail(list, (char *)name);
+        } else {
+            log_info("market: %s not exist", name);
         }
     }
     dict_add(dict_session, ses, list);
@@ -450,3 +461,9 @@ size_t state_subscribe_number(void)
 {
     return dict_size(dict_session);
 }
+
+bool market_exists(const char *market)
+{
+    return (dict_find(dict_state, market) != NULL);
+}
+

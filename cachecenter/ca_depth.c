@@ -30,7 +30,6 @@ struct dict_depth_sub_val {
 struct state_data {
     char      market[MARKET_NAME_MAX_LEN];
     char      interval[INTERVAL_MAX_LEN];
-    int       limit;
 };
 
 static uint32_t dict_depth_hash_func(const void *key)
@@ -86,8 +85,8 @@ static dict_t* dict_create_depth_session(void)
 static void depth_set_key(struct dict_depth_key *key, const char *market, const char *interval)
 {
     memset(key, 0, sizeof(struct dict_depth_key));
-    strncpy(key->market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(key->interval, interval, INTERVAL_MAX_LEN - 1);
+    sstrncpy(key->market, market, MARKET_NAME_MAX_LEN);
+    sstrncpy(key->interval, interval, INTERVAL_MAX_LEN);
 }
 
 static void remove_depth_filter(const char *market, const char *interval)
@@ -99,14 +98,15 @@ static void remove_depth_filter(const char *market, const char *interval)
 
 static void on_timeout(nw_state_entry *entry)
 {
-    log_error("state id: %u timeout", entry->id);
     struct state_data *state = entry->data;
+    log_fatal("query timeout, state id: %u", entry->id);
     remove_depth_filter(state->market, state->interval);
 
     sds key = sdsempty();
     key = sdscatprintf(key, "%s_%s", state->market, state->interval);
     delete_filter_queue(key);
     sdsfree(key);
+    profile_inc("matchengine_depth_timeout", 1);
 }
 
 static int notify_message(nw_ses *ses, int command, json_t *message)
@@ -206,13 +206,13 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const c
     key = sdscatprintf(key, "depth_%s_%s", market, interval);
 
     uint64_t now = current_millis();
-    struct dict_cache_val *cache = get_cache(key, settings.cache_timeout);
+    struct dict_cache_val *cache = get_cache(key, settings.interval_time * 1000);
     if (cache == NULL) {
         sdsfree(key);
         return false;
     }
 
-    int ttl = cache->time + settings.cache_timeout - now;
+    int ttl = cache->time + settings.interval_time * 1000 - now;
 
     json_t *new_result = json_object();
     json_object_set_new(new_result, "ttl", json_integer(ttl));
@@ -226,6 +226,7 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const c
     reply_json(ses, pkg, new_result);
     json_decref(new_result);
     sdsfree(key);
+    profile_inc("hit_depth_cache", 1);
 
     return true;
 }
@@ -287,6 +288,9 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             cache_key = sdscatprintf(cache_key, "depth_%s_%s", state->market, state->interval);
             add_cache(cache_key, result);
             sdsfree(cache_key);
+            profile_inc("depth_reply_success", 1);
+        } else {
+            profile_inc("depth_reply_fail", 1);
         }
 
         break;
@@ -301,7 +305,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     nw_state_del(state_context, pkg->sequence);
 }
 
-int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, const char *interval)
+int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval)
 {
     if (ses != NULL && process_cache(ses, pkg, market, interval)) {
         return 0;
@@ -310,7 +314,7 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, cons
     if (ses != NULL) {
         sds key = sdsempty();
         key = sdscatprintf(key, "%s_%s", market, interval);
-        add_filter_queue(key, limit, ses, pkg);
+        add_filter_queue(key, ses, pkg);
         sdsfree(key);
     }
 
@@ -326,9 +330,8 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, cons
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    strncpy(state->market, market, MARKET_NAME_MAX_LEN - 1);
-    strncpy(state->interval, interval, INTERVAL_MAX_LEN - 1);
-    state->limit = limit;
+    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN);
+    sstrncpy(state->interval, interval, INTERVAL_MAX_LEN);
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
@@ -349,6 +352,7 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, int limit, cons
     rpc_clt_send(matchengine, &req_pkg);
     free(req_pkg.body);
     json_decref(params);
+    profile_inc("request_depth", 1);
 
     return 0;
 }
@@ -368,7 +372,7 @@ static void on_timer(nw_timer *timer, void *privdata)
         }
 
         log_trace("depth sub request, market: %s, interval: %s", key->market, key->interval);
-        depth_request(NULL, NULL, key->market, settings.depth_limit_max, key->interval);
+        depth_request(NULL, NULL, key->market, key->interval);
     }
     dict_release_iterator(iter);
 }
@@ -440,24 +444,18 @@ int init_depth(void)
     ct.on_recv_pkg = on_backend_recv_pkg;
 
     matchengine = rpc_clt_create(&settings.matchengine, &ct);
-    if (matchengine == NULL) {
-        log_stderr("rpc_clt_create failed");
+    if (matchengine == NULL)
         return -__LINE__;
-    }
-    if (rpc_clt_start(matchengine) < 0) {
-        log_stderr("rpc_clt_start failed");
+    if (rpc_clt_start(matchengine) < 0)
         return -__LINE__;
-    }
 
     nw_state_type st;
     memset(&st, 0, sizeof(st));
     st.on_timeout = on_timeout;
 
     state_context = nw_state_create(&st, sizeof(struct state_data));
-    if (state_context == NULL) {
-        log_stderr("nw_state_create failed");
+    if (state_context == NULL)
         return -__LINE__;
-    }
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
@@ -469,10 +467,8 @@ int init_depth(void)
     dt.val_destructor  = dict_depth_sub_val_free;
 
     dict_depth_sub = dict_create(&dt, 512);
-    if (dict_depth_sub == NULL) {
-        log_stderr("dict_create failed");
+    if (dict_depth_sub == NULL)
         return -__LINE__;
-    }
 
     memset(&dt, 0, sizeof(dt));
     dt.hash_function  = dict_depth_hash_func;
@@ -481,13 +477,17 @@ int init_depth(void)
     dt.key_destructor = dict_depth_key_free;
 
     dict_filter = dict_create(&dt, 128);
-    if (dict_filter == NULL) {
+    if (dict_filter == NULL)
         return -__LINE__;
-    }
 
-    nw_timer_set(&timer, settings.sub_depth_interval, true, on_timer, NULL);
+    nw_timer_set(&timer, settings.interval_time, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;
+}
+
+int depth_subscribe_number(void)
+{
+    return dict_size(dict_depth_sub);
 }
 

@@ -53,7 +53,7 @@ static void on_cache_clear_timer(nw_timer *timer, void *privdata)
         struct dict_cache_val *val = entry->val;
         uint64_t now = current_millis();
 
-        if (now - val->time > settings.cache_timeout)
+        if (now - val->time > settings.interval_time * 1000)
             dict_delete(dict_cache, entry->key);
     }
     dict_release_iterator(iter);

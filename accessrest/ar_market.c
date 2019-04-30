@@ -15,6 +15,8 @@ static const long HTTP_TIMEOUT = 2000L;
 static dict_t *dict_market = NULL;
 static nw_job *job = NULL;
 static nw_timer market_update_timer;
+static json_t *market_list = NULL;
+static json_t *market_info = NULL;
 
 struct market_val {
     int     id;
@@ -127,15 +129,48 @@ static json_t* get_market_item(const char *market_name, json_t *market_info)
     return market_item;
 }
 
-static int load_markets(json_t *market_infos)
+static void update_market_info_list(void)
 {
-    bool market_update = false;
+    json_t *info = json_object();
+
+    dict_entry *entry = NULL;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct market_val *val = entry->val;
+        const char *market_name = entry->key;
+        json_object_set(info, market_name, val->info);
+    }
+    dict_release_iterator(iter);
+
+    if (market_info != NULL)
+        json_decref(market_info);
+    market_info = info;
+}
+
+static void update_market_list(void)
+{
+    json_t *list = json_array();
+
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        json_array_append_new(list, json_string(entry->key));
+    }
+    dict_release_iterator(iter);
+
+    if (market_list != NULL)
+        json_decref(market_list);
+    market_list = list;
+}
+
+static int load_markets(json_t *result)
+{
     static uint32_t update_id = 0;
     update_id += 1;
 
-    const size_t market_num = json_array_size(market_infos);
+    const size_t market_num = json_array_size(result);
     for (size_t i = 0; i < market_num; ++i) {
-        json_t *row = json_array_get(market_infos, i);
+        json_t *row = json_array_get(result, i);
         if (!json_is_object(row)) {
             return -__LINE__;
         }
@@ -158,7 +193,6 @@ static int load_markets(json_t *market_infos)
             val.id = update_id;
             val.info = market_item;
             dict_add(dict_market, (char *)market_name, &val);
-            market_update = true;
             log_info("add market info: %s", market_name);
         } else {
             struct market_val *info = entry->val;
@@ -176,16 +210,13 @@ static int load_markets(json_t *market_infos)
         struct market_val *info = entry->val;
         if (info->id != update_id) {
             dict_delete(dict_market, entry->key);
-            market_update = true;
             log_info("del market info: %s", (char *)entry->key);
         }
     }
     dict_release_iterator(iter);
 
-    if (market_update) {
-        on_market_list(NULL, NULL);
-        on_market_info(NULL, NULL);
-    }
+    update_market_list();
+    update_market_info_list();
 
     return 0;
 }
@@ -309,20 +340,14 @@ int init_market(void)
     return 0;
 }
 
+json_t *get_market_list(void)
+{
+    return json_incref(market_list);
+}
+
 json_t *get_market_info_list(void)
 {
-    json_t *info_list = json_object();
-
-    dict_entry *entry = NULL;
-    dict_iterator *iter = dict_get_iterator(dict_market);
-    while ((entry = dict_next(iter)) != NULL) {
-        struct market_val *val = entry->val;
-        const char *market_name = entry->key;
-        json_object_set(info_list, market_name, val->info);
-    }
-    dict_release_iterator(iter);
-    
-    return info_list;
+    return json_incref(market_info);
 }
 
 dict_t *get_market(void)
@@ -330,23 +355,8 @@ dict_t *get_market(void)
     return dict_market;
 }
 
-json_t *get_market_list(void)
-{
-    json_t *data = json_array();
-
-    dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(dict_market);
-    while ((entry = dict_next(iter)) != NULL) {
-        json_array_append_new(data, json_string(entry->key));
-    }
-    dict_release_iterator(iter);
-
-    return data;
-}
-
 bool market_exist(const char *market)
 {
     return dict_find(dict_market, market) != NULL;
 }
-
 

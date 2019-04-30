@@ -10,7 +10,7 @@
         "num": 10
     },
     "alert": {
-        "host": "cache",
+        "host": "cachecenter",
         "addr": "127.0.0.1:4444"
     },
     "svr": {
@@ -39,12 +39,8 @@
         ],
         "max_pkg_size": 2000000
     },
-    "backend_timeout": 5.0,
-    "sub_depth_interval": 1,
-    "sub_status_interval": 0.5,
-    "sub_deals_interval": 0.5,
-    "depth_limit_max": 50,
-    "cache_timeout": 500,
+    "backend_timeout": 0.1,
+    "interval_time": 1.0,
     "depth_merge": ["0", "0.00000001", "0.0000001", "0.000001", "0.00001", "0.0001", "0.001", "0.01", "0.1", "1", "10", "100"]
 }
 
