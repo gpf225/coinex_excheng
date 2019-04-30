@@ -1940,7 +1940,7 @@ int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, u
 
     if (real) {
         order_t *order = malloc(sizeof(order_t));
-        memset(order, 0, sizeof(order_t))
+        memset(order, 0, sizeof(order_t));
         order->id        = 0;
         order->user_id   = 0;
         push_deal_message(update_time, deal_id, market, side, order, order, real_price, amount, deal, market->money, mpd_zero, market->stock, mpd_zero);
