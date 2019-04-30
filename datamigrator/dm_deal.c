@@ -29,14 +29,14 @@ static int insert_into_new_db(uint32_t user_id, MYSQL_RES *result, size_t num_ro
         MYSQL_ROW row = mysql_fetch_row(result);
 
         if (sdslen(sql) == 0) {
-            sql = sdscatprintf(sql, "INSERT INTO `user_deal_history_%u` (`time`, `user_id`, `market`, `deal_id`, `order_id`, `deal_order_id`, "
+            sql = sdscatprintf(sql, "INSERT INTO `user_deal_history_%u` (`time`, `user_id`, `deal_user_id`, `market`, `deal_id`, `order_id`, `deal_order_id`, "
                     "`side`, `role`, `price`, `amount`, `deal`, `fee`, `deal_fee`, `fee_asset`, `deal_fee_asset`) VALUES ", hash);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
 
-        sql = sdscatprintf(sql, "('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
-            row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[11], row[12], row[13], str_not_null(row[14]) ? row[14] : "", str_not_null(row[15]) ? row[15] : "");
+        sql = sdscatprintf(sql, "('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",
+            row[1], row[2], "0", row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[11], row[12], row[13], str_not_null(row[14]) ? row[14] : "", str_not_null(row[15]) ? row[15] : "");
         if (i == num_rows - 1) {
             *last_id = to_long(row[0]);
         }

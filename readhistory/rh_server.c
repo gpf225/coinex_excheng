@@ -189,6 +189,12 @@ invalid_argument:
     rsp->code = 1;
     rsp->message = sdsnew("invalid argument");
 
+    char *params_str = json_dumps(params, 0); 
+    if (params_str != NULL) {
+        log_error("invalid_argument: %s", params_str);
+        free(params_str);
+    }
+
     return 0;
 }
 
@@ -232,6 +238,12 @@ static int on_cmd_order_history(MYSQL *conn, json_t *params, struct job_reply *r
 invalid_argument:
     rsp->code = 1;
     rsp->message = sdsnew("invalid argument");
+
+    char *params_str = json_dumps(params, 0); 
+    if (params_str != NULL) {
+        log_error("invalid_argument: %s", params_str);
+        free(params_str);
+    }
 
     return 0;
 }
@@ -277,6 +289,12 @@ invalid_argument:
     rsp->code = 1;
     rsp->message = sdsnew("invalid argument");
 
+    char *params_str = json_dumps(params, 0); 
+    if (params_str != NULL) {
+        log_error("invalid_argument: %s", params_str);
+        free(params_str);
+    }
+
     return 0;
 }
 
@@ -313,6 +331,12 @@ invalid_argument:
     rsp->code = 1;
     rsp->message = sdsnew("invalid argument");
 
+    char *params_str = json_dumps(params, 0); 
+    if (params_str != NULL) {
+        log_error("invalid_argument: %s", params_str);
+        free(params_str);
+    }
+
     return 0;
 }
 
@@ -338,6 +362,12 @@ static int on_cmd_order_detail(MYSQL *conn, json_t *params, struct job_reply *rs
 invalid_argument:
     rsp->code = 1;
     rsp->message = sdsnew("invalid argument");
+
+    char *params_str = json_dumps(params, 0); 
+    if (params_str != NULL) {
+        log_error("invalid_argument: %s", params_str);
+        free(params_str);
+    }
 
     return 0;
 }
@@ -382,6 +412,12 @@ static int on_cmd_user_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
 invalid_argument:
     rsp->code = 1;
     rsp->message = sdsnew("invalid argument");
+
+    char *params_str = json_dumps(params, 0); 
+    if (params_str != NULL) {
+        log_error("invalid_argument: %s", params_str);
+        free(params_str);
+    }
 
     return 0;
 }
