@@ -10,7 +10,6 @@
 # include "me_update.h"
 # include "me_trade.h"
 # include "me_persist.h"
-# include "me_history.h"
 # include "me_message.h"
 # include "me_reader.h"
 # include "me_writer.h"
@@ -157,10 +156,6 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init oper log fail: %d", ret);
     }
-    ret = init_history();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init history fail: %d", ret);
-    }
     ret = init_message();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init message fail: %d", ret);
@@ -186,7 +181,6 @@ run:
 
     if (need_release) {
         fini_message();
-        fini_history();
         fini_operlog();
     }
 

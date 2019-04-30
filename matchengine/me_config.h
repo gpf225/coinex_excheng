@@ -84,7 +84,6 @@ struct settings {
     rpc_svr_cfg         svr;
     cli_svr_cfg         cli;
     mysql_cfg           db_log;
-    mysql_cfg           db_history;
 
     size_t              asset_num;
     struct asset        *assets;
@@ -97,9 +96,7 @@ struct settings {
     char                *brokers;
     int                 slice_interval;
     int                 slice_keeptime;
-    int                 history_thread;
     int                 depth_merge_max;
-    int                 history_mode;
     double              cache_timeout;
 
     char               *usdc_assets[32];
