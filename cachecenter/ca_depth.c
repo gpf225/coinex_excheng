@@ -365,9 +365,8 @@ static void on_timer(nw_timer *timer, void *privdata)
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_depth_key *key = entry->key;
         struct dict_depth_sub_val *val = entry->val;
-
         if (dict_size(val->sessions) == 0) {
-            log_info("detph sessions num is 0, market: %s", key->market);
+            dict_delete(dict_depth_sub, entry->key);
             continue;
         }
 

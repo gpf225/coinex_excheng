@@ -101,7 +101,7 @@ static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
 
     if (!market_exist(market)) {
-        log_error("market not exist, market: %s", market);
+        log_debug("market not exist, market: %s", market);
         recv_str = sdsnewlen(pkg->body, pkg->body_size);
         goto error;
     }
@@ -266,6 +266,7 @@ int init_server(void)
         return -__LINE__;
 
     nw_timer_set(&timer, 60, true, on_timer, NULL);
+    nw_timer_start(&timer);
 
     return 0;
 }
