@@ -402,8 +402,9 @@ static int on_method_depth_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
         return send_error_invalid_argument(ses, id);
 
     const char *market = json_string_value(json_array_get(params, 0));
-    if (!market_exists(market))
+    if (market == NULL || !market_exists(market)) {
         return send_error_invalid_argument(ses, id);
+    }
 
     int limit = json_integer_value(json_array_get(params, 1));
     const char *interval = json_string_value(json_array_get(params, 2));
