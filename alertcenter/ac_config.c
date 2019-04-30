@@ -25,12 +25,12 @@ static int do_load_config(json_t *root)
         printf("load svr config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_redis_sentinel(root, "redis", &settings.redis);
+    ret = load_cfg_redis(root, "redis", &settings.redis);
     if (ret < 0) {
         printf("load redis config fail: %d\n", ret);
         return -__LINE__;
     }
-
+    
     return 0;
 }
 

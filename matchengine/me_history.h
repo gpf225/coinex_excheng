@@ -8,19 +8,11 @@
 
 # include "me_market.h"
 
-int init_history(void);
-int fini_history(void);
-
 int append_order_history(order_t *order);
 int append_stop_history(stop_t *stop, int status);
 int append_order_deal_history(double t, uint64_t deal_id, order_t *ask, int ask_role, order_t *bid, int bid_role,
         mpd_t *price, mpd_t *amount, mpd_t *deal, const char *ask_fee_asset, mpd_t *ask_fee, const char *bid_fee_asset, mpd_t *bid_fee);
 int append_user_balance_history(double t, uint32_t user_id, const char *asset, const char *business, mpd_t *change, const char *detail);
-
-bool is_history_block(void);
-sds history_status(sds reply);
-
-json_t *get_order_finished(uint64_t order_id);
 
 # endif
 

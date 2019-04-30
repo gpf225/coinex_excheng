@@ -169,11 +169,6 @@ static int read_config_from_json(json_t *root)
         printf("load log db config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_mysql(root, "db_history", &settings.db_history);
-    if (ret < 0) {
-        printf("load history db config fail: %d\n", ret);
-        return -__LINE__;
-    }
     ret = read_cfg_str(root, "asset_url", &settings.asset_url, NULL);
     if (ret < 0) {
         printf("load asset url config fail: %d\n", ret);
@@ -199,11 +194,6 @@ static int read_config_from_json(json_t *root)
         printf("load slice_keeptime fail: %d", ret);
         return -__LINE__;
     }
-    ret = read_cfg_int(root, "history_thread", &settings.history_thread, false, 10);
-    if (ret < 0) {
-        printf("load history_thread fail: %d", ret);
-        return -__LINE__;
-    }
     ret = read_cfg_int(root, "depth_merge_max", &settings.depth_merge_max, false, 1000);
     if (ret < 0) {
         printf("load depth_merge_max fail: %d", ret);
@@ -216,12 +206,10 @@ static int read_config_from_json(json_t *root)
     }
 
     ERR_RET_LN(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.1));
-    ERR_RET_LN(read_cfg_int(root, "history_mode", &settings.history_mode, true, 0));
-    if (settings.history_mode < HISTORY_MODE_DIRECT || settings.history_mode > HISTORY_MODE_DOUBLE) {
-        printf("invalid history_mode: %d", settings.history_mode);
-        return -__LINE__;
-    }
 
+    ERR_RET(read_cfg_real(root, "order_fini_keeptime", &settings.order_fini_keeptime, false, 300.0));
+    ERR_RET(read_cfg_real(root, "worker_timeout", &settings.worker_timeout, false, 1.0));
+    ERR_RET(read_cfg_int(root, "reader_num", &settings.reader_num, false, 2));
     return 0;
 }
 

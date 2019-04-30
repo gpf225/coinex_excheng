@@ -105,6 +105,8 @@ int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop);
 int market_put_order(market_t *m, order_t *order);
 int market_put_stop(market_t *m, stop_t *stop);
 
+int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, uint32_t side);
+
 skiplist_t *market_get_order_list(market_t *m, uint32_t user_id);
 skiplist_t *market_get_stop_list(market_t *m, uint32_t user_id);
 
@@ -112,6 +114,9 @@ int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t 
         size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value, mpd_t *last);
 
 sds market_status(sds reply);
+
+json_t *market_get_fini_order(uint64_t order_id);
+int market_set_reader();
 
 # endif
 

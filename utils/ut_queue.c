@@ -342,8 +342,22 @@ uint32_t queue_num(queue_t *queue)
     return head->mem_num;
 }
 
+uint32_t queue_left(queue_t *queue)
+{
+    if (!queue)
+        return -__LINE__;
+
+    volatile struct queue_head *head = queue->memory;
+    assert(head->magic == MAGIC_NUM);
+
+    return head->mem_size - head->mem_use;
+}
+
 int queue_stat(queue_t *queue, uint32_t *mem_num, uint32_t *mem_size)
 {
+    if (!queue)
+        return -__LINE__;
+
     volatile struct queue_head *head = queue->memory;
     assert(head->magic == MAGIC_NUM);
 

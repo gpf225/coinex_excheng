@@ -29,7 +29,7 @@ struct settings {
     process_cfg         process;
     log_cfg             log;
     nw_svr_cfg          svr;
-    redis_sentinel_cfg  redis;
+    redis_cfg           redis;
 };
 
 extern struct settings settings;

@@ -17,19 +17,13 @@
         "bind": "tcp@0.0.0.0:7316",
         "max_pkg_size": 10240
     },
-    "cli": "tcp@127.0.0.1:7317",
+    "cli": "tcp@127.0.0.1:8316",
     "db_log": {
         "host": "localhost",
         "user": "root",
         "pass": "shit",
         "name": "trade_log"
-    },
-    "db_history": {
-        "host": "localhost",
-        "user": "root",
-        "pass": "shit",
-        "name": "trade_history"
-    },
+    },   
     "asset_url":  "http://120.78.203.98:8000/internal/exchange/account/asset",
     "market_url": "http://120.78.203.98:8000/internal/exchange/market/list",
     "brokers": "127.0.0.1:9092",
@@ -37,5 +31,7 @@
     "slice_keeptime": 259200,
     "depth_merge_max": 800,
     "usdc_assets": ["TUSD", "PAX", "GUSD"],
-    "history_mode": 3
+    "reader_num": 4,
+    "worker_timeout": 1.0,
+    "order_fini_keeptime": 5
 }

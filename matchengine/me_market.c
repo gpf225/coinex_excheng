@@ -13,11 +13,14 @@
 
 static dict_t *dict_user_orders;
 static dict_t *dict_user_stops;
+static dict_t *dict_fini_orders;
 
 uint64_t order_id_start;
 uint64_t deals_id_start;
 
-static nw_timer timer;
+static nw_timer timer_status;
+static nw_timer timer_fini_order;
+static bool is_reader;
 
 struct dict_user_key {
     uint32_t    user_id;
@@ -85,6 +88,11 @@ static void *dict_order_key_dup(const void *key)
 static void dict_order_key_free(void *key)
 {
     free(key);
+}
+
+static void dict_order_value_free(void *value)
+{
+    json_decref((json_t *)value);
 }
 
 static int order_match_compare(const void *value1, const void *value2)
@@ -248,6 +256,15 @@ json_t *get_stop_info(stop_t *stop)
     return info;
 }
 
+static int append_fini_order(order_t *order)
+{
+    json_t *order_info = get_order_info(order);
+    json_object_set_new(order_info, "finished", json_true());
+    struct dict_order_key order_key = { .order_id = order->id };
+    dict_add(dict_fini_orders, &order_key, order_info);
+    return 0;
+}
+
 static int put_order(market_t *m, order_t *order)
 {
     if (order->type != MARKET_ORDER_TYPE_LIMIT)
@@ -370,12 +387,14 @@ static int finish_order(bool real, market_t *m, order_t *order)
         }
     }
 
-    if (real) {
-        if (mpd_cmp(order->deal_stock, mpd_zero, &mpd_ctx) > 0) {
+    if (mpd_cmp(order->deal_stock, mpd_zero, &mpd_ctx) > 0) {
+        if (real) {
             int ret = append_order_history(order);
             if (ret < 0) {
                 log_fatal("append_order_history fail: %d, order: %"PRIu64"", ret, order->id);
             }
+        } else if (is_reader) {
+            append_fini_order(order);
         }
     }
 
@@ -506,9 +525,24 @@ static void status_report(void)
     profile_set("pending_users", dict_size(dict_user_orders));
 }
 
-static void on_timer(nw_timer *timer, void *privdata)
+static void on_timer_status(nw_timer *timer, void *privdata)
 {
     status_report();
+}
+
+static void on_timer_fini_order(nw_timer *timer, void *privdata)
+{
+    double now = current_timestamp();
+    dict_iterator *iter = dict_get_iterator(dict_fini_orders);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        json_t *order = entry->val;
+        double update_time = json_real_value(json_object_get(order, "mtime"));
+        if (now - update_time > settings.order_fini_keeptime) {
+            dict_delete(dict_fini_orders, entry->key);
+        }
+    }
+    dict_release_iterator(iter);
 }
 
 int init_market(void)
@@ -529,8 +563,9 @@ int init_market(void)
     if (dict_user_stops == NULL)
         return -__LINE__;
 
-    nw_timer_set(&timer, 60, true, on_timer, NULL);
-    nw_timer_start(&timer);
+    is_reader = false;
+    nw_timer_set(&timer_status, 60, true, on_timer_status, NULL);
+    nw_timer_start(&timer_status);
 
     return 0;
 }
@@ -1196,6 +1231,8 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             if (result) {
                 *result = get_order_info(order);
             }
+        } else if (is_reader) {
+            append_fini_order(order);
         }
         order_free(order);
     } else {
@@ -1674,6 +1711,8 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         if (result) {
             *result = get_order_info(order);
         }
+    } else if (is_reader) {
+        append_fini_order(order);
     }
 
     order_free(order);
@@ -1832,6 +1871,93 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t si
     return 0;
 }
 
+int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, uint32_t side)
+{
+    // get ask_price_1
+    mpd_t *ask_price_1 = NULL;
+    skiplist_iter *iter = skiplist_get_iterator(market->asks);
+    if (iter != NULL) {
+        skiplist_node *node = skiplist_next(iter);
+        if (node != NULL) {
+            order_t *order = node->value;
+            ask_price_1 = mpd_new(&mpd_ctx);
+            mpd_copy(ask_price_1, order->price, &mpd_ctx);
+        }
+        skiplist_release_iterator(iter);
+    } else {
+        return -__LINE__;
+    }
+
+    // get bid_price_1
+    mpd_t *bid_price_1 = NULL;
+    iter = skiplist_get_iterator(market->bids);
+    if (iter != NULL) {
+        skiplist_node *node = skiplist_next(iter);
+        if (node != NULL) {
+            order_t *order = node->value;
+            bid_price_1 = mpd_new(&mpd_ctx);
+            mpd_copy(bid_price_1, order->price, &mpd_ctx);
+        }
+        skiplist_release_iterator(iter);
+    } else {
+        if (ask_price_1 != NULL)
+            mpd_del(ask_price_1);
+        return -__LINE__;
+    }
+
+    mpd_t *deal_min_gear = mpd_new(&mpd_ctx);
+    mpd_set_i32(deal_min_gear, -market->money_prec, &mpd_ctx);
+    mpd_pow(deal_min_gear, mpd_ten, deal_min_gear, &mpd_ctx);
+
+    if (ask_price_1 != NULL && bid_price_1 != NULL) {
+        mpd_t *ask_bid_sub = mpd_new(&mpd_ctx);
+        mpd_sub(ask_bid_sub, ask_price_1, bid_price_1, &mpd_ctx);
+        if (mpd_cmp(deal_min_gear, ask_bid_sub, &mpd_ctx) == 0) {
+            mpd_del(ask_bid_sub);
+            mpd_del(deal_min_gear);
+
+            if (ask_price_1 != NULL)
+                mpd_del(ask_price_1);
+            if (bid_price_1 != NULL)
+                mpd_del(bid_price_1);
+            return -1;
+        }
+        mpd_del(ask_bid_sub);
+    }
+
+    mpd_t *real_price = mpd_qncopy(price);
+    if (ask_price_1 != NULL && mpd_cmp(price, ask_price_1, &mpd_ctx) >= 0) {
+        mpd_sub(real_price, ask_price_1, deal_min_gear, &mpd_ctx);
+    } else if (bid_price_1 != NULL && mpd_cmp(price, bid_price_1, &mpd_ctx) <= 0){
+        mpd_add(real_price, bid_price_1, deal_min_gear, &mpd_ctx);
+    }
+
+    mpd_t *deal = mpd_new(&mpd_ctx);
+    mpd_mul(deal, real_price, amount, &mpd_ctx);
+
+    uint64_t deal_id = ++deals_id_start;
+    double update_time = current_timestamp();
+
+    if (real) {
+        order_t *order = malloc(sizeof(order_t));
+        memset(order, 0, sizeof(order_t))
+        order->id        = 0;
+        order->user_id   = 0;
+        push_deal_message(update_time, deal_id, market, side, order, order, real_price, amount, deal, market->money, mpd_zero, market->stock, mpd_zero);
+        free(order);
+    }
+    
+    mpd_del(deal);
+    mpd_del(real_price);
+    mpd_del(deal_min_gear);
+    if (bid_price_1 != NULL)
+        mpd_del(bid_price_1);
+    if (ask_price_1 != NULL)
+        mpd_del(ask_price_1);
+
+    return 0;
+}
+
 int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
 {
     if (real) {
@@ -1926,3 +2052,39 @@ sds market_status(sds reply)
     return reply;
 }
 
+json_t *market_get_fini_order(uint64_t order_id)
+{
+    if (!is_reader)
+        return NULL;
+
+    struct dict_order_key order_key = { .order_id = order_id };
+    dict_entry *entry = dict_find(dict_fini_orders, &order_key);
+    if (entry) {
+        json_t *order = entry->val;
+        json_incref(order);
+        return order;
+    }
+    return NULL;
+}
+
+int market_set_reader()
+{
+    is_reader = true;
+    dict_types types_order;
+    memset(&types_order, 0, sizeof(types_order));
+    types_order.hash_function  = dict_order_hash_function;
+    types_order.key_compare    = dict_order_key_compare;
+    types_order.key_dup        = dict_order_key_dup;
+    types_order.key_destructor = dict_order_key_free;
+    types_order.val_destructor = dict_order_value_free;
+
+    dict_fini_orders = dict_create(&types_order, 1024);
+    if (dict_fini_orders == NULL) {
+        return -__LINE__;
+    }
+
+    nw_timer_set(&timer_fini_order, 0.5, true, on_timer_fini_order, NULL);
+    nw_timer_start(&timer_fini_order);
+
+    return 0;
+}

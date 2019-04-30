@@ -55,6 +55,9 @@ uint32_t queue_len(queue_t *queue);
 /* return queue unit num */
 uint32_t queue_num(queue_t *queue);
 
+/* return queue mem left */
+uint32_t queue_left(queue_t *queue);
+
 /* get queue stat */
 int queue_stat(queue_t *queue, uint32_t *mem_num, uint32_t *mem_size);
 
