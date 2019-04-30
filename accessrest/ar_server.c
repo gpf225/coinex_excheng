@@ -128,8 +128,8 @@ static int check_depth_cache(nw_ses *ses, sds key, uint32_t cmd, int limit)
 
     json_t *result = json_object();
     json_object_set_new(result, "code", json_integer(0));
-    
-    if (cmd == CMD_ORDER_DEPTH) {
+
+    if (cmd == CMD_CACHE_DEPTH) {
         json_t *result_depth = pack_depth_result(cache->result, limit);
         json_object_set_new(result, "data", result_depth);
     } else {
@@ -221,7 +221,6 @@ int on_market_list(nw_ses *ses, dict_t *params)
     }
 
     reply_json(ses, data);
-    json_decref(data);
 
     return 0;
 }
@@ -234,7 +233,6 @@ int on_market_info(nw_ses *ses, dict_t *params)
     }
 
     reply_json(ses, data);
-    json_decref(data);
 
     return 0;
 }
@@ -254,7 +252,6 @@ static int on_market_ticker(nw_ses *ses, dict_t *params)
     }
 
     reply_json(ses, data);
-    json_decref(data);
 
     return 0;
 }
@@ -267,7 +264,6 @@ static int on_market_ticker_all(nw_ses *ses, dict_t *params)
     }
 
     reply_json(ses, data);
-    json_decref(data);
 
     return 0;
 }
