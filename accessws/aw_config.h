@@ -68,7 +68,7 @@ struct settings {
     rpc_clt_cfg         marketprice;
     rpc_clt_cfg         readhistory;
 
-    rpc_clt_cfg         cache;
+    rpc_clt_cfg         cachecenter;
     rpc_clt_cfg         cache_deals;
     rpc_clt_cfg         cache_state;
 
@@ -84,7 +84,6 @@ struct settings {
     char                *sign_url;
     char                *accesshttp;
     double              backend_timeout;
-    double              cache_timeout;
     double              kline_interval;
 
     depth_limit_cfg     depth_limit;

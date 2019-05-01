@@ -252,7 +252,7 @@ static json_t *get_depth_diff(json_t *first, json_t *second, uint32_t limit)
     return diff;
 }
 
-static void cache_send_request(int command, json_t *params)
+static void send_cache_request(int command, json_t *params)
 {
     if (!rpc_clt_connected(cache))
         return ;
@@ -278,7 +278,7 @@ static void send_depth_subscribe(struct depth_key *key)
     json_array_append_new(params, json_string(key->market));
     json_array_append_new(params, json_string(key->interval));
 
-    cache_send_request(CMD_CACHE_DEPTH_SUBSCRIBE, params);   
+    send_cache_request(CMD_CACHE_DEPTH_SUBSCRIBE, params);
     json_decref(params);
     return;
 }
@@ -289,7 +289,7 @@ static void send_depth_unsubscribe(struct depth_key *key)
     json_array_append_new(params, json_string(key->market));
     json_array_append_new(params, json_string(key->interval));
 
-    cache_send_request(CMD_CACHE_DEPTH_UNSUBSCRIBE, params);   
+    send_cache_request(CMD_CACHE_DEPTH_UNSUBSCRIBE, params);
     json_decref(params);
 
     return;
@@ -385,8 +385,8 @@ static int on_order_depth_reply(json_t *result)
     const char *market = json_string_value(json_object_get(result, "market"));
     const char *interval = json_string_value(json_object_get(result, "interval"));
     int ttl = json_integer_value(json_object_get(result, "ttl"));
-
     json_t *depth_data = json_object_get(result, "data");
+
     if (market == NULL || interval == NULL || depth_data == NULL) {
         char *str = json_dumps(result, 0); 
         log_error("depth reply error, result: %s", str);
@@ -394,7 +394,8 @@ static int on_order_depth_reply(json_t *result)
         return -__LINE__;
     }
 
-    set_sub_depth_cache(depth_data, market, interval, ttl);
+    if (ttl > 0)
+        update_depth_cache(depth_data, market, interval, ttl);
     for (int i = 0; i < settings.depth_limit.count; ++i)
         notify_depth(market, interval, settings.depth_limit.limit[i], depth_data);
 
@@ -496,7 +497,7 @@ int init_depth(void)
     ct.on_connect = on_backend_connect;
     ct.on_recv_pkg = on_backend_recv_pkg;
 
-    cache = rpc_clt_create(&settings.cache, &ct);
+    cache = rpc_clt_create(&settings.cachecenter, &ct);
     if (cache == NULL)
         return -__LINE__;
     if (rpc_clt_start(cache) < 0)
@@ -600,5 +601,4 @@ size_t depth_subscribe_number(void)
 
     return count;
 }
-
 
