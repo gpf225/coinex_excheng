@@ -51,7 +51,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_int(root, "hour_max", &settings.hour_max, false, 24 * 365 * 3));
     ERR_RET_LN(read_cfg_int(root, "kline_max", &settings.kline_max, false, 1000));
     ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 4));
-    ERR_RET_LN(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.5));
+    ERR_RET_LN(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.4));
     ERR_RET_LN(read_cfg_real(root, "worker_timeout", &settings.worker_timeout, false, 0.5));
     ERR_RET_LN(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
 
