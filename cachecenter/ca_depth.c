@@ -112,6 +112,7 @@ static int notify_message(nw_ses *ses, int command, json_t *message)
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
     pkg.command = command;
+    pkg.pkg_type = RPC_PKG_TYPE_PUSH;
 
     return reply_result(ses, &pkg, message);
 }

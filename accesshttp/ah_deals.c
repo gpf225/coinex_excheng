@@ -61,23 +61,15 @@ static json_t *pack_deals_result(list_t *deals, uint32_t limit, int64_t last_id)
 {
     int count = 0;
     json_t *result = json_array();
-    list_iter *iter = list_get_iterator(deals, LIST_START_HEAD);
+
     list_node *node;
+    list_iter *iter = list_get_iterator(deals, LIST_START_HEAD);
     while ((node = list_next(iter)) != NULL) {
         json_t *deal = node->value;
-        uint64_t id = json_integer_value(json_object_get(deal, "id"));
-        if (id <= last_id) {
+        if (last_id && json_integer_value(json_object_get(deal, "id")) <= last_id) {
             break;
         }
-
-        json_t *item = json_object();
-        json_object_set(item, "id", json_object_get(deal, "id"));
-        json_object_set(item, "time", json_object_get(deal, "time"));
-        json_object_set(item, "type", json_object_get(deal, "type"));
-        json_object_set(item, "price", json_object_get(deal, "price"));
-        json_object_set(item, "amount", json_object_get(deal, "amount"));
-        json_array_append_new(result, item);
-
+        json_array_append(result, deal);
         count += 1;
         if (count == limit) {
             break;
@@ -137,7 +129,6 @@ static int on_sub_deals_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 
     for (size_t i = array_size; i > 0; --i) {
         json_t *deal = json_array_get(result, i - 1);
-
         uint64_t id = json_integer_value(json_object_get(deal, "id"));
         if (id > obj->last_id) {
             json_incref(deal);

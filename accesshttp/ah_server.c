@@ -207,7 +207,6 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         info->ses_id = ses->id;
         info->request_id = json_integer_value(id);
         info->cache_key = key;
-
         if (req->cmd == CMD_CACHE_DEPTH) {
             info->depth_limit = json_integer_value(json_array_get(params, 1));
         }

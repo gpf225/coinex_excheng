@@ -1124,8 +1124,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             goto end;
 
         struct cache_val val;
-        double now = current_millis();
-        val.time_cache = now + ttl;
+        val.time_cache = current_millis() + ttl;
         val.result = result;
         json_incref(result);
         dict_replace(backend_cache, state->cache_key, &val);

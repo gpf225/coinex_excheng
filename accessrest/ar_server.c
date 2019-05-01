@@ -136,9 +136,7 @@ static int check_depth_cache(nw_ses *ses, sds key, int limit)
         return 0;
 
     struct cache_val *cache = entry->val;
-    uint64_t now = current_millis();
-
-    if (now >= cache->time_cache) {
+    if (current_millis() >= cache->time_cache) {
         dict_delete(backend_cache, key);
         return 0;
     }
@@ -656,7 +654,12 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
     if (entry == NULL)
         return;
+
     struct state_data *state = entry->data;
+    if (!state->ses || state->ses->id != state->ses_id) {
+        nw_state_del(state_context, pkg->sequence);
+        return;
+    }
 
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (!reply) {
@@ -685,9 +688,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         goto clean;
     }
 
-    if (state->ses && state->ses->id == state->ses_id) {
-        reply_json(state->ses, result);
-    }
+    reply_json(state->ses, result);
 
     if (state->cache_key) {
         int ttl = json_integer_value(json_object_get(reply, "ttl"));
@@ -708,13 +709,11 @@ clean:
 
 static void on_timer(nw_timer *timer, void *privdata)
 {
+    double now = current_millis();
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(backend_cache);
-
     while ((entry = dict_next(iter)) != NULL) {
         struct cache_val *val = entry->val;
-        double now = current_millis();
-
         if (now > val->time_cache)
             dict_delete(backend_cache, entry->key);
     }
