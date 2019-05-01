@@ -24,6 +24,7 @@ struct dict_depth_key {
 struct dict_depth_sub_val {
     dict_t  *sessions; 
     json_t  *last;
+    uint64_t time;
 };
 
 struct state_data {
@@ -154,11 +155,13 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     if (val->last != NULL)
         json_decref(val->last);
     val->last = result;
+    val->time = current_millis();
     json_incref(val->last);
 
     json_t *reply = json_object();
     json_object_set_new(reply, "market", json_string(market));
     json_object_set_new(reply, "interval", json_string(interval));
+    json_object_set_new(reply, "ttl", json_integer(settings.interval_time * 1000));
     json_object_set    (reply, "data", result);
 
     size_t count = 0;
@@ -175,11 +178,12 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     return 0;
 }
 
-static int depth_send_last(nw_ses *ses, json_t *data, const char *market, const char *interval)
+static int depth_send_last(nw_ses *ses, json_t *data, const char *market, const char *interval, uint64_t ttl)
 {
     json_t *reply = json_object();
     json_object_set_new(reply, "market", json_string(market));
     json_object_set_new(reply, "interval", json_string(interval));
+    json_object_set_new(reply, "ttl", json_integer_value(ttl));
     json_object_set    (reply, "data", data);
     notify_message(ses, CMD_CACHE_DEPTH_UPDATE, reply);
     json_decref(reply);
@@ -197,7 +201,7 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const c
         return false;
     }
 
-    int ttl = cache->time + settings.interval_time * 1000 - now;
+    uint64_t ttl = cache->time + settings.interval_time * 1000 - now;
 
     json_t *reply = json_object();
     json_object_set_new(reply, "error", json_null());
@@ -362,7 +366,13 @@ int depth_subscribe(nw_ses *ses, const char *market, const char *interval)
     struct dict_depth_sub_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
     if (obj->last) {
-        depth_send_last(ses, obj->last, market, interval);
+        uint64_t now = current_millis();
+        if (now < (obj->time + settings.interval_time * 1000)) {
+            uint64_t ttl = obj->time + settings.interval_time * 1000 - now;
+            depth_send_last(ses, obj->last, market, interval, ttl);
+        } else {
+            depth_send_last(ses, obj->last, market, interval, 0);
+        }
     }
 
     return 0;
