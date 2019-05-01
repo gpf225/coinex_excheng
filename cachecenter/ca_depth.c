@@ -164,15 +164,17 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     json_object_set_new(reply, "ttl", json_integer(settings.interval_time * 1000));
     json_object_set    (reply, "data", result);
 
+    char *message = json_dumps(reply, 0);
+    json_decref(reply);
+
     size_t count = 0;
     dict_iterator *iter = dict_get_iterator(val->sessions);
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
-        notify_message(ses, CMD_CACHE_DEPTH_UPDATE, reply);
+        push_data(ses, CMD_CACHE_DEPTH_UPDATE, message, strlen(message));
         count += 1;
     }
     dict_release_iterator(iter);
-    json_decref(reply);
     profile_inc("depth_notify", count);
 
     return 0;
@@ -183,7 +185,7 @@ static int depth_send_last(nw_ses *ses, json_t *data, const char *market, const 
     json_t *reply = json_object();
     json_object_set_new(reply, "market", json_string(market));
     json_object_set_new(reply, "interval", json_string(interval));
-    json_object_set_new(reply, "ttl", json_integer_value(ttl));
+    json_object_set_new(reply, "ttl", json_integer(ttl));
     json_object_set    (reply, "data", data);
     notify_message(ses, CMD_CACHE_DEPTH_UPDATE, reply);
     json_decref(reply);

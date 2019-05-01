@@ -73,7 +73,7 @@ json_t *pack_depth_result(json_t *result, uint32_t limit)
     return new_result;
 }
 
-void dict_replace_cache(sds cache_key, struct cache_val *val)
+void replace_cache(sds cache_key, struct cache_val *val)
 {
     dict_replace(backend_cache, cache_key, val);
 }
@@ -168,3 +168,4 @@ int init_cache(void)
 
     return 0;
 }
+

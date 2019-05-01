@@ -380,7 +380,7 @@ static int notify_depth(const char *market, const char *interval, uint32_t limit
     return 0;
 }
 
-static int on_order_depth_reply(json_t *result)
+static int on_order_depth_update(json_t *result)
 {
     const char *market = json_string_value(json_object_get(result, "market"));
     const char *interval = json_string_value(json_object_get(result, "interval"));
@@ -436,9 +436,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
-    json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
-    if (error == NULL || !json_is_null(error) || result == NULL) {
+    if (result == NULL) {
         sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
         log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
         sdsfree(reply_str);
@@ -449,10 +448,10 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     int ret;
     switch (pkg->command) {
     case CMD_CACHE_DEPTH_UPDATE:
-        ret = on_order_depth_reply(result);
+        ret = on_order_depth_update(result);
         if (ret < 0) {
             sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-            log_error("on_order_depth_reply fail: %d, reply: %s", ret, reply_str);
+            log_error("on_order_depth_update fail: %d, reply: %s", ret, reply_str);
             sdsfree(reply_str);
         }
         break;

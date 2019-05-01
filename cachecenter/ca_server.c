@@ -14,6 +14,17 @@
 static rpc_svr *svr;
 static nw_timer timer;
 
+int push_data(nw_ses *ses, uint32_t command, char *data, size_t len)
+{
+    rpc_pkg reply;
+    memset(&reply, 0, sizeof(reply));
+    reply.command = command;
+    reply.pkg_type = RPC_PKG_TYPE_PUSH;
+    reply.body = data;
+    reply.body_size = len;
+    return rpc_send(ses, &reply);
+}
+
 int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
     char *message_data;

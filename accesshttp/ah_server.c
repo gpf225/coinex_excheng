@@ -18,7 +18,7 @@ static rpc_clt *matchengine;
 static rpc_clt *marketprice;
 static rpc_clt *readhistory;
 static rpc_clt *monitorcenter;
-static rpc_clt *cache;
+static rpc_clt *cachecenter;
 
 struct state_info {
     nw_ses  *ses;
@@ -175,7 +175,6 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             uint32_t limit = json_integer_value(json_array_get(params, 1));
             const char *interval = json_string_value(json_array_get(params, 2));
 
-            // check cache
             key = sdsempty();
             key = sdscatprintf(key, "%u-%s-%s", req->cmd, market, interval);
 
@@ -307,47 +306,31 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     log_trace("send response to: %s", nw_sock_human_addr(&info->ses->peer_addr));
-    if (pkg->command == CMD_CACHE_DEPTH) {
-        json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
-        if (reply_json == NULL) {
-            log_error("json_loadb fail");
-            reply_internal_error(ses);
-            nw_state_del(state, pkg->sequence);
-            return;
-        }
+    send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
+    profile_inc("success", 1);
 
-        json_t *cache_result = json_object_get(reply_json, "cache_result");
-        if (cache_result == NULL) { // error result, no cache_result
-            send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
-            profile_inc("success", 1);
-        } else {
-            json_t *result = json_object_get(cache_result, "result");
-            json_t *result_depth = pack_depth_result(result, info->depth_limit);
+    json_t *reply = NULL;
+    if (info->cache_key) {
+        reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
+        if (reply == NULL)
+            goto end;
+        json_t *result = json_object_get(reply, "result");
+        if (!result || json_is_null(result))
+            goto end;
+        uint64_t ttl = json_integer_value(json_object_get(reply, "ttl"));
+        if (ttl == 0)
+            goto end;
 
-            reply_message(info->ses, info->request_id, result_depth);
-            json_decref(result_depth);
-            profile_inc("success", 1);
-
-            if (info->cache_key) {
-                json_t *error = json_object_get(cache_result, "error");
-                json_t *result = json_object_get(cache_result, "result");
-
-                if (error && json_is_null(error) && result) {
-                    int ttl = json_integer_value(json_object_get(reply_json, "ttl"));
-                    struct cache_val val;
-                    val.time_cache = current_millis() + ttl;
-                    val.result = result;
-                    json_incref(result);
-                    dict_replace_cache(info->cache_key, &val);
-                }
-            }
-        }
-        json_decref(reply_json);
-    } else {
-        send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
-        profile_inc("success", 1);
+        struct cache_val val;
+        val.time_cache = current_millis() + ttl;
+        val.result = result;
+        json_incref(result);
+        replace_cache(info->cache_key, &val);
     }
 
+end:
+    if (reply)
+        json_decref(reply);
     nw_state_del(state, pkg->sequence);
 }
 
@@ -426,7 +409,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.put_market", matchengine, CMD_ORDER_PUT_MARKET));
     ERR_RET_LN(add_handler("order.cancel", matchengine, CMD_ORDER_CANCEL));
     ERR_RET_LN(add_handler("order.book", matchengine, CMD_ORDER_BOOK));
-    ERR_RET_LN(add_handler("order.depth", cache, CMD_CACHE_DEPTH));
+    ERR_RET_LN(add_handler("order.depth", cachecenter, CMD_CACHE_DEPTH));
     ERR_RET_LN(add_handler("order.pending", matchengine, CMD_ORDER_PENDING));
     ERR_RET_LN(add_handler("order.pending_detail", matchengine, CMD_ORDER_PENDING_DETAIL));
     ERR_RET_LN(add_handler("order.deals", readhistory, CMD_ORDER_DEALS));
@@ -519,10 +502,10 @@ int init_server(void)
     if (rpc_clt_start(monitorcenter) < 0)
         return -__LINE__;
 
-    cache = rpc_clt_create(&settings.cache, &ct);
-    if (cache == NULL)
+    cachecenter = rpc_clt_create(&settings.cachecenter, &ct);
+    if (cachecenter == NULL)
         return -__LINE__;
-    if (rpc_clt_start(cache) < 0)
+    if (rpc_clt_start(cachecenter) < 0)
         return -__LINE__;
 
     svr = http_svr_create(&settings.svr, on_http_request);

@@ -1099,7 +1099,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence);
     nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
     if (entry == NULL) {
-        log_fatal("state_context sequence is not equal");
         return;
     }
 
@@ -1114,7 +1113,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     json_t *reply = NULL;
 	if (state->cache_key) {
-        json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
+        reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
         if (reply == NULL)
             goto end;
         json_t *result = json_object_get(reply, "result");
