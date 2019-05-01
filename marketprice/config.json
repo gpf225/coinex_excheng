@@ -17,18 +17,13 @@
         "bind": "tcp@0.0.0.0:7416",
         "max_pkg_size": 10240
     },
-    "cli": "tcp@127.0.0.1:7417",
     "deals": {
         "brokers": "127.0.0.1:9092",
-        "topic": "deals",
-        "partition": 0
+        "topic": "deals"
     },
     "redis": {
         "host": "127.0.0.1",
-        "port": 6386,
-        "password": "",
-        "timeout": 3000,
-        "db": 0
+        "port": 6379
     },
     "accesshttp": "http://127.0.0.1:8080",
     "worker_num": 4

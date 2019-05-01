@@ -423,7 +423,7 @@ int load_cfg_redis(json_t *root, const char *key, redis_cfg *cfg)
     ERR_RET(read_cfg_str(node, "host", &cfg->host, NULL));
     ERR_RET(read_cfg_int(node, "port", &cfg->port, true, 0));
     ERR_RET(read_cfg_int(node, "db", &cfg->db, false, 0));
-    ERR_RET(read_cfg_str(node, "password", &cfg->password, NULL));
+    ERR_RET(read_cfg_str(node, "password", &cfg->password, ""));
     ERR_RET(read_cfg_uint32(node, "timeout", &cfg->timeout, false, 3000));
     return 0;
 }
