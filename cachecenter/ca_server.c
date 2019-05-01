@@ -22,9 +22,6 @@ int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
     } else {
         message_data = json_dumps(json, 0);
     }
-    if (message_data == NULL) {
-        return -__LINE__;
-    }
     log_trace("connection: %s send: %s", nw_sock_human_addr(&ses->peer_addr), message_data);
 
     rpc_pkg reply;
@@ -57,7 +54,7 @@ int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
 
 int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
 {
-    profile_inc("invalid_argument", 1);
+    profile_inc("error_invalid_argument", 1);
     return reply_error(ses, pkg, 1, "invalid argument");
 }
 
@@ -99,9 +96,8 @@ static int on_method_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         recv_str = sdsnewlen(pkg->body, pkg->body_size);
         goto error;
     }
-
     if (!market_exist(market)) {
-        log_debug("market not exist, market: %s", market);
+        log_error("market not exist, market: %s", market);
         recv_str = sdsnewlen(pkg->body, pkg->body_size);
         goto error;
     }
@@ -141,14 +137,7 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         log_error("market not exist, market: %s", market);
     }
 
-    depth_unsubscribe(ses, market, interval);
-    int ret = depth_subscribe(ses, market, interval);
-    if (ret != 0) {
-        log_error("depth_subscribe fail, market: %s, interval: %s", market, interval);
-        reply_error_internal_error(ses, pkg);
-        return ret;
-    }
-
+    depth_subscribe(ses, market, interval);
     return 0;
 
 error:
@@ -187,7 +176,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     json_t *params = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (params == NULL || !json_is_array(params)) {
         sds hex = hexdump(pkg->body, pkg->body_size);
-        log_error("connection: %s, cmd: %u decode params fail, params data: \n%s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
+        log_fatal("connection: %s, cmd: %u decode params fail, params data: \n%s", nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
         sdsfree(hex);
         return ;
     }
@@ -239,9 +228,8 @@ static void svr_on_new_connection(nw_ses *ses)
 static void svr_on_connection_close(nw_ses *ses)
 {
     log_info("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
-
     depth_unsubscribe_all(ses);
-    remove_all_filter(ses);
+    clear_ses_filter(ses);
 }
 
 static void on_timer(nw_timer *timer, void *privdata)

@@ -92,9 +92,11 @@ static void on_timeout(nw_state_entry *entry)
         notify_state();
     }
 
-    char str[100] = {0};
-    sprintf(str, "timeout_command_%u", state->cmd);
-    profile_inc(str, 1);
+    if (state->cmd == CMD_ORDER_DEPTH) {
+        profile_inc("query_depth_timeout", 1);
+    } else if (state->cmd == CMD_MARKET_STATUS) {
+        profile_inc("query_state_timeout", 1);
+    }
 
     return;
 }
@@ -206,9 +208,9 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
      case CMD_ORDER_DEPTH:
         if (!is_error) {
             order_depth_reply(state->market, result);
-            profile_inc("depth1_reply_success", 1);
+            profile_inc("depth_reply_success", 1);
         } else {
-            profile_inc("depth1_reply_error", 1);
+            profile_inc("depth_reply_error", 1);
         }
         break;
     default:
@@ -279,7 +281,7 @@ static int query_market_depth(const char *market)
             nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
     json_decref(params);
-    profile_inc("request_depth_1", 1);
+    profile_inc("request_depth", 1);
 
     return 0;
 }
