@@ -44,6 +44,7 @@ static void sendto_writer(nw_ses *ses, rpc_pkg *pkg)
     }
 
     sendto_clt_pkg(writer_clt, ses, pkg);
+    profile_inc("access_to_write", 1);
 }
 
 static void sendto_reader(nw_ses *ses, rpc_pkg *pkg, const char *market, uint64_t user_order_id)
@@ -65,6 +66,9 @@ static void sendto_reader(nw_ses *ses, rpc_pkg *pkg, const char *market, uint64_
     }
 
     sendto_clt_pkg(reader_clt_arr[reader_id], ses, pkg);
+    char str[100];
+    snprintf(str, sizeof(str), "access_to_reader_%d", reader_id);
+    profile_inc(str, 1);
 }
 
 static void sendto_all(nw_ses *ses, rpc_pkg *pkg)
