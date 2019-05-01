@@ -50,27 +50,53 @@ static void dict_order_value_free(void *value)
 
 int main(void)
 {
-    dict_types types_order;
-    memset(&types_order, 0, sizeof(dict_types));
-    types_order.hash_function  = dict_order_hash_function;
-    types_order.key_compare    = dict_order_key_compare;
-    types_order.key_dup        = dict_order_key_dup;
-    types_order.key_destructor = dict_order_key_free;
-    types_order.val_destructor = dict_order_value_free;
-
-    dict_t *dict_order = dict_create(&types_order, 1024);
-    if (dict_order == 0) {
-        return -__LINE__;
+    char *filename = "./marketlist.json";
+    json_error_t error;
+    json_t *data_obj = json_load_file(filename, 0, &error);
+    if (data_obj == NULL) {
+        printf("json_load_file from: %s fail: %s in line: %d", filename, error.text, error.line);
+        return 0;
     }
 
+    int marketcount = 0;
+    int sum[8] = {0};
+    json_t *market_list = json_object_get(data_obj, "data");
+    const char *key;
+    json_t *val;
+    json_object_foreach(market_list, key, val) {
+        uint32_t hash = dict_generic_hash_function(key, strlen(key));
+        int reader_id = hash % 8;
+        if (reader_id == 6) {
+            printf("%s\n", key);
+        }
+        sum[reader_id]++;
+        marketcount++;
+    }    
+    json_decref(market_list);
+
     /*
-    json_t *order_info = get_order_info();
-    json_object_set_new(order_info, "finished", json_true());
-    dict_entry *entry = dict_add(dict_order, &order_info->id, order_info);
-    json_t *order_info2 = entry->val;
-    char *data = json_dumps(order_info2, JSON_INDENT(4));
-    log_info("add finished order info: %s",  data);
-    free(data);
+    json_t *market_list = json_object_get(data_obj, "data");
+    size_t marketcount = json_array_size(market_list);
+    printf("marketcount: %ld\n", marketcount);
+
+    
+    for (int i = 0; i < marketcount; i++) {
+        json_t *item = json_array_get(market_list, i);
+        const char *market = json_string_value(json_object_get(item, "name"));
+        uint32_t hash = dict_generic_hash_function(market, strlen(market));
+        int reader_id = hash % 8;
+        if (reader_id == 6) {
+            printf("%s\n", market);
+        }
+        sum[reader_id]++;
+    }
+    json_decref(market_list);
     */
+
+    for (int i = 0; i < 8; i++) {
+        printf("%d: %d\n", i, sum[i]);
+    }
+    printf("marketcount: %d\n", marketcount);
+    return 0;
 }
 

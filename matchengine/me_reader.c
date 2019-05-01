@@ -1105,6 +1105,7 @@ static void on_message(void *data, uint32_t size)
     }
     
     free(detail_str);
+    json_decref(detail);
 }
 
 static int init_queue()
