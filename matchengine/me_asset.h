@@ -3,8 +3,8 @@
  *     History: zhoumugui@viabtc.com, 2019/01/28, create
  */
 
-# ifndef _ME_ASSET_BACKUP_H_
-# define _ME_ASSET_BACKUP_H_
+# ifndef _ME_ASSET_H_
+# define _ME_ASSET_H_
 
 # include "me_config.h"
 

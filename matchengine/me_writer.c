@@ -11,7 +11,7 @@
 # include "me_operlog.h"
 # include "me_history.h"
 # include "me_message.h"
-# include "me_asset_backup.h"
+# include "me_asset.h"
 # include "me_persist.h"
 # include "ut_queue.h"
 # include "me_writer.h"
