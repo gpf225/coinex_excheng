@@ -270,10 +270,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str);
         sdsfree(reply_str);
         is_error = true;
-
-        struct dict_depth_key key;
-        depth_set_key(&key, state->market, state->interval);  
-        dict_delete(dict_depth_sub, &key);
         profile_inc("depth_reply_fail", 1);
     } else {
         profile_inc("depth_reply_success", 1);
@@ -346,7 +342,7 @@ static void on_timer(nw_timer *timer, void *privdata)
             continue;
         }
         if (!market_exist(key->market)) {
-            log_info("depth sub, market: %s not exist", key->market);
+            dict_delete(dict_depth_sub, entry->key);
             continue;
         }
 
