@@ -271,6 +271,49 @@ static void dict_val_free(void *val)
     free(val);
 }
 
+static int send_depth_http_response(struct state_info *state, rpc_pkg *pkg)
+{
+    int ret = 0;
+    json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
+    if (!reply_json) {
+        reply_internal_error(state->ses);
+        goto clean;
+    }
+
+    json_t *error = json_object_get(reply_json, "error");
+    if (!error) {
+        reply_internal_error(state->ses);
+        goto clean;
+    }
+    if (!json_is_null(error)) {
+        send_http_response_simple(state->ses, 200, pkg->body, pkg->body_size);  
+        goto clean;
+    }
+
+    json_t *result = json_object_get(reply_json, "result");
+    if (!result) {
+        reply_internal_error(state->ses);
+        goto clean;
+    }
+
+    json_t *data = pack_depth_result(result, state->depth_limit);
+    json_t *reply = json_object();
+    json_object_set_new(reply, "error", json_null());
+    json_object_set    (reply, "result", data);
+    json_object_set_new(reply, "id", json_integer(state->request_id));
+
+    char *reply_str = json_dumps(reply, 0);
+    ret = send_http_response_simple(state->ses, 200, reply_str, strlen(reply_str));
+    free(reply_str);
+    json_decref(reply);
+
+clean:
+    if (reply_json)
+        json_decref(reply_json);
+
+    return ret;
+}
+
 static void on_state_timeout(nw_state_entry *entry)
 {
     log_error("state id: %u timeout", entry->id);
@@ -305,8 +348,13 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     log_trace("send response to: %s", nw_sock_human_addr(&info->ses->peer_addr));
-    send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
     profile_inc("success", 1);
+
+    if (pkg->command == CMD_CACHE_DEPTH) {
+        send_depth_http_response(info, pkg);
+    } else {
+        send_http_response_simple(info->ses, 200, pkg->body, pkg->body_size);
+    }
 
     json_t *reply = NULL;
     if (info->cache_key) {

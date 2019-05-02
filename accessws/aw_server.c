@@ -1083,6 +1083,41 @@ static int init_svr(void)
     return 0;
 }
 
+static int ws_send_depth(struct state_data *state, rpc_pkg *pkg, sds message)
+{
+    int ret = 0;
+    json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
+    if (!reply_json) {
+        ret = send_error_internal_error(state->ses, state->request_id);
+        goto clean;
+    }
+
+    json_t *error = json_object_get(reply_json, "error");
+    if (!error) {
+        ret = send_error_internal_error(state->ses, state->request_id);
+        goto clean;
+    }
+    if (!json_is_null(error)) {
+        ret = ws_send_text(state->ses, message);
+        goto clean;
+    }
+
+    json_t *result = json_object_get(reply_json, "result");
+    if (!result) {
+        ret = send_error_internal_error(state->ses, state->request_id);
+        goto clean;
+    }
+
+    json_t *reply_depth = pack_depth_result(result, state->depth_limit);
+    ret = send_result(state->ses, state->request_id, reply_depth);
+    json_decref(reply_depth);
+
+clean:
+    if (reply_json)
+        json_decref(reply_json);
+    return ret;
+}
+
 static void on_backend_connect(nw_ses *ses, bool result)
 {
     rpc_clt *clt = ses->privdata;
@@ -1106,7 +1141,12 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     if (state->ses->id == state->ses_id) {
         sds message = sdsnewlen(pkg->body, pkg->body_size);
         log_trace("send response to: %"PRIu64", size: %zu, message: %s", state->ses->id, sdslen(message), message);
-        ws_send_text(state->ses, message);
+
+        if (pkg->command == CMD_CACHE_DEPTH) {
+            ws_send_depth(state, pkg, message);
+        } else {
+            ws_send_text(state->ses, message);
+        }
         sdsfree(message);
         profile_inc("success", 1);
     }

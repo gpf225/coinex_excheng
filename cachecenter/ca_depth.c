@@ -89,22 +89,21 @@ static void depth_set_key(struct dict_depth_key *key, const char *market, const 
     sstrncpy(key->interval, interval, INTERVAL_MAX_LEN);
 }
 
+static sds get_depth_key(const char *market, const char *interval)
+{
+    sds key = sdsempty();
+    return sdscatprintf(key, "depth_%s_%s", market, interval);
+}
+
 static void on_timeout(nw_state_entry *entry)
 {
     profile_inc("query_depth_timeout", 1);
     struct state_data *state = entry->data;
     log_fatal("query timeout, state id: %u", entry->id);
 
-    sds filter_key = sdsempty();
-    filter_key = sdscatprintf(filter_key, "depth_%s_%s", state->market, state->interval);
+    sds filter_key = get_depth_key(state->market, state->interval);
     delete_filter_queue(filter_key);
     sdsfree(filter_key);
-}
-
-static sds get_depth_key(const char *market, const char *interval)
-{
-    sds key = sdsempty();
-    return sdscatprintf(key, "depth_%s_%s", market, interval);
 }
 
 static int notify_message(nw_ses *ses, int command, json_t *message)
@@ -133,6 +132,9 @@ static bool is_json_equal(json_t *old, json_t *new)
 
 static bool is_depth_equal(json_t *last, json_t *now)
 {
+    if (!last || !now)
+        return false;
+
     if (!is_json_equal(json_object_get(last, "asks"), json_object_get(now, "asks")))
         return false;
     if (!is_json_equal(json_object_get(last, "bids"), json_object_get(now, "bids")))
@@ -159,11 +161,16 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     val->time = current_millis();
     json_incref(val->last);
 
+    json_t *result_body = json_object();
+    json_object_set_new(result_body, "market", json_string(market));
+    json_object_set_new(result_body, "interval", json_string(interval));
+    json_object_set_new(result_body, "ttl", json_integer(settings.interval_time * 1000));
+    json_object_set    (result_body, "data", result);
+
     json_t *reply = json_object();
-    json_object_set_new(reply, "market", json_string(market));
-    json_object_set_new(reply, "interval", json_string(interval));
-    json_object_set_new(reply, "ttl", json_integer(settings.interval_time * 1000));
-    json_object_set    (reply, "data", result);
+    json_object_set_new(reply, "error", json_null());
+    json_object_set_new(reply, "result", result_body);
+    json_object_set_new(reply, "id", json_integer(0));
 
     char *message = json_dumps(reply, 0);
     json_decref(reply);
@@ -176,6 +183,7 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
         count += 1;
     }
     dict_release_iterator(iter);
+    free(message);
     profile_inc("depth_notify", count);
 
     return 0;
@@ -261,6 +269,10 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
                 nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str);
         sdsfree(reply_str);
         is_error = true;
+
+        struct dict_depth_key key;
+        depth_set_key(&key, state->market, state->interval);  
+        dict_delete(dict_depth_sub, &key);
         profile_inc("depth_reply_fail", 1);
     } else {
         profile_inc("depth_reply_success", 1);
@@ -272,8 +284,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         depth_sub_reply(state->market, state->interval, result);
     }
 
-    json_decref(reply);
     add_cache(filter_key, result);
+    json_decref(reply);
     sdsfree(filter_key);
     nw_state_del(state_context, pkg->sequence);
 }
@@ -285,8 +297,7 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
             return 0;
         }
 
-        sds filter_key = sdsempty();
-        filter_key = sdscatprintf(filter_key, "depth_%s_%s", market, interval);
+        sds filter_key = get_depth_key(market, interval);
         int ret = add_filter_queue(filter_key, ses, pkg);
         sdsfree(filter_key);
         if (ret > 0) {
@@ -334,7 +345,7 @@ static void on_timer(nw_timer *timer, void *privdata)
             continue;
         }
         if (!market_exist(key->market)) {
-            dict_delete(dict_depth_sub, entry->key);
+            log_info("depth sub, market: %s not exist", key->market);
             continue;
         }
 

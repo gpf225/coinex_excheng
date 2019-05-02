@@ -101,7 +101,7 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, sds *cache_key)
         return false;
     }
 
-    reply_result(ses, pkg, cache->result, now - cache->time);
+    reply_result(ses, pkg, cache->result, cache->time + settings.cache_timeout - now);
     sdsfree(key);
     profile_inc("hit_cache", 1);
 
