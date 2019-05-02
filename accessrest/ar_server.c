@@ -69,11 +69,6 @@ static void cache_dict_val_free(void *val)
     free(val);
 }
 
-static void dict_replace_cache(sds cache_key, struct cache_val *val)
-{
-    dict_replace(backend_cache, cache_key, val);
-}
-
 static json_t *generate_depth_data(json_t *array, int limit) 
 {
     if (array == NULL)
@@ -719,7 +714,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             val.time_cache = current_millis() + ttl;
             val.result = result;
             json_incref(result);
-            dict_replace_cache(state->cache_key, &val);
+            dict_replace(backend_cache, state->cache_key, &val);
         }
     }
 

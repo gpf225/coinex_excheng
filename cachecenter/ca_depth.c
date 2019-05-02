@@ -173,13 +173,14 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     json_object_set_new(reply, "id", json_integer(0));
 
     char *message = json_dumps(reply, 0);
+    size_t message_len = strlen(message);
     json_decref(reply);
 
     size_t count = 0;
     dict_iterator *iter = dict_get_iterator(val->sessions);
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
-        push_data(ses, CMD_CACHE_DEPTH_UPDATE, message, strlen(message));
+        push_data(ses, CMD_CACHE_DEPTH_UPDATE, message, message_len);
         count += 1;
     }
     dict_release_iterator(iter);
