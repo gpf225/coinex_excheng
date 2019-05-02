@@ -96,7 +96,7 @@ int send_error_invalid_argument_depth(nw_ses *ses, uint64_t id, const char *mark
 int send_error_subscribe_depth_failed(nw_ses *ses, uint64_t id, const char *market, int limit, const char *interval)
 {
     profile_inc("error_internal_error", 1);
-    
+
     const char *interval_ = (interval != NULL) ? interval : "null";
     sds msg = sdsempty();
     msg = sdscatprintf(msg, "internal error: subscribe market:%s limit:%d interval:%s failed, please try again later", market, limit, interval_);
@@ -437,7 +437,7 @@ static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_
     if (sub_size == 0) {
         return send_error_invalid_argument(ses, id);
     }
-    
+
     depth_unsubscribe(ses);
     for (size_t i = 0; i < sub_size; ++i) {
         json_t *item = json_array_get(params, i);
@@ -452,7 +452,7 @@ static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_
             depth_unsubscribe(ses);
             return send_error_invalid_argument_depth(ses, id, market, limit, interval);
         }
-        
+
         int ret = depth_subscribe(ses, market, limit, interval);
         if (ret < 0) {
             depth_unsubscribe(ses);
@@ -471,7 +471,7 @@ static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_
         }
         depth_send_clean(ses, market, limit, interval);
     }
-    
+
     return 0;
 }
 
@@ -847,7 +847,7 @@ static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_in
     if (sub_users == NULL) {
         return send_error_require_auth_sub(ses, id);
     }
-    
+
     asset_unsubscribe_sub(ses);
     asset_subscribe_sub(ses, sub_users);
     json_decref(sub_users);
@@ -1112,7 +1112,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     json_t *reply = NULL;
-	if (state->cache_key) {
+    if (state->cache_key) {
         reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
         if (reply == NULL)
             goto end;

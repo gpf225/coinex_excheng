@@ -89,22 +89,21 @@ static void depth_set_key(struct dict_depth_key *key, const char *market, const 
     sstrncpy(key->interval, interval, INTERVAL_MAX_LEN);
 }
 
+static sds get_depth_key(const char *market, const char *interval)
+{
+    sds key = sdsempty();
+    return sdscatprintf(key, "depth_%s_%s", market, interval);
+}
+
 static void on_timeout(nw_state_entry *entry)
 {
     profile_inc("query_depth_timeout", 1);
     struct state_data *state = entry->data;
     log_fatal("query timeout, state id: %u", entry->id);
 
-    sds filter_key = sdsempty();
-    filter_key = sdscatprintf(filter_key, "depth_%s_%s", state->market, state->interval);
+    sds filter_key = get_depth_key(state->market, state->interval);
     delete_filter_queue(filter_key);
     sdsfree(filter_key);
-}
-
-static sds get_depth_key(const char *market, const char *interval)
-{
-    sds key = sdsempty();
-    return sdscatprintf(key, "depth_%s_%s", market, interval);
 }
 
 static int notify_message(nw_ses *ses, int command, json_t *message)
@@ -166,13 +165,14 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     json_object_set    (reply, "data", result);
 
     char *message = json_dumps(reply, 0);
+    size_t message_len = strlen(message);
     json_decref(reply);
 
     size_t count = 0;
     dict_iterator *iter = dict_get_iterator(val->sessions);
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
-        push_data(ses, CMD_CACHE_DEPTH_UPDATE, message, strlen(message));
+        push_data(ses, CMD_CACHE_DEPTH_UPDATE, message, message_len);
         count += 1;
     }
     dict_release_iterator(iter);
@@ -285,8 +285,7 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
             return 0;
         }
 
-        sds filter_key = sdsempty();
-        filter_key = sdscatprintf(filter_key, "depth_%s_%s", market, interval);
+        sds filter_key = get_depth_key(market, interval);
         int ret = add_filter_queue(filter_key, ses, pkg);
         sdsfree(filter_key);
         if (ret > 0) {

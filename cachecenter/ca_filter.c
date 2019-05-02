@@ -179,10 +179,7 @@ void clear_ses_filter(nw_ses *ses)
     dict_iterator *iter = dict_get_iterator(dict_filter);
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_filter_val *val = entry->val;
-        entry = dict_find(val->dict_filter_session, ses);
-        if (entry != NULL) {
-            dict_delete(val->dict_filter_session, ses);
-        }
+        dict_delete(val->dict_filter_session, ses);
     }
     dict_release_iterator(iter);
 }
