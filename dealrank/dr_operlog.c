@@ -235,5 +235,3 @@ int fini_operlog(void)
     return 0;
 }
 
-
-

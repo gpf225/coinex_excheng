@@ -21,8 +21,8 @@ static dict_t *dict_market;
 static dict_t *dict_fee;
 
 struct dict_market_key {
-    char        market[MARKET_NAME_MAX_LEN];
-    char        stock[STOCK_NAME_MAX_LEN];
+    char market[MARKET_NAME_MAX_LEN];
+    char stock[STOCK_NAME_MAX_LEN];
 };
 
 struct dict_market_val {
@@ -31,7 +31,7 @@ struct dict_market_val {
 };
 
 struct dict_minute_val {
-    dict_t     *dict_user;
+    dict_t *dict_user;
 };
 
 struct dict_user_key {
@@ -39,15 +39,15 @@ struct dict_user_key {
 };
 
 struct dict_user_val {
-    char        *volume_bid;
-    char        *volume_ask;
-    char        *deal_bid;
-    char        *deal_ask;
-    char        *volume_taker_bid;
-    char        *volume_taker_ask;
-    uint32_t    trade_num_taker_ask;
-    uint32_t    trade_num_taker_bid;
-    uint32_t    trade_num_total; 
+    char     *volume_bid;
+    char     *volume_ask;
+    char     *deal_bid;
+    char     *deal_ask;
+    char     *volume_taker_bid;
+    char     *volume_taker_ask;
+    uint32_t trade_num_taker_ask;
+    uint32_t trade_num_taker_bid;
+    uint32_t trade_num_total; 
 };
 
 struct dict_fee_val {
@@ -569,7 +569,7 @@ static int update_user_val(bool is_taker, dict_t *dict_user, uint32_t user_id, i
             log_fatal("dict_add fail");
             return -__LINE__;
         }
-    } else { // add up
+    } else {
         if (side == MARKET_TRADE_SIDE_SELL) {
             mpd_t *ask_volume_old   = decimal(p_user_val->volume_ask, 0);
             mpd_t *ask_volume_total = mpd_qncopy(mpd_zero);
@@ -896,30 +896,27 @@ static int get_user_data(dict_t *save_dict_user, time_t start, time_t end, const
         skiplist_node *node;
 
         skiplist_iter *iter = skiplist_get_iterator(market_val->minute_list);
-        if (iter != NULL) {
-            while ((node = skiplist_next(iter)) != NULL) {
-                time_t *p_minute = node->value;
-                time_t minute = *p_minute;
-                if (minute > end)
-                    break;
+        while ((node = skiplist_next(iter)) != NULL) {
+            time_t *p_minute = node->value;
+            time_t minute = *p_minute;
+            if (minute > end)
+                break;
 
-                if (minute <= end && minute >= start) {
-                    entry = dict_find(market_val->dict_minute, &minute);
-                    if (entry != NULL) {
-                        struct dict_minute_val *minute_val = entry->val;
-                        int ret = count_dict_user_data(minute_val->dict_user, save_dict_user, data_type);
-                        if (ret != 0) {
-                            log_fatal("count_dict_user_data fail, ret: %d", ret);
-                            skiplist_release_iterator(iter);
-                            return -__LINE__;
-                        }
-                    }
+            if (minute <= end && minute >= start) {
+                entry = dict_find(market_val->dict_minute, &minute);
+                if (entry == NULL)
+                    continue;
+
+                struct dict_minute_val *minute_val = entry->val;
+                int ret = count_dict_user_data(minute_val->dict_user, save_dict_user, data_type);
+                if (ret != 0) {
+                    log_fatal("count_dict_user_data fail, ret: %d", ret);
+                    skiplist_release_iterator(iter);
+                    return -__LINE__;
                 }
             }
-            skiplist_release_iterator(iter);    
-        } else {
-            log_error("minute_list is null");
         }
+        skiplist_release_iterator(iter);    
     }
 
     return 0;
@@ -992,7 +989,7 @@ static int dump_to_db_day(const char *market, const char *stock, time_t start)
     return 0;
 }
 
-static int store_to_top_skiplist(dict_t *save_dict_user, const char *market, skiplist_t *top_list, int data_type)
+static int store_to_top_skiplist(dict_t *save_dict_user, skiplist_t *top_list, int data_type)
 {
     dict_entry *entry;
     dict_iterator *iter_dict = dict_get_iterator(save_dict_user);
@@ -1121,32 +1118,8 @@ static int store_to_top_skiplist(dict_t *save_dict_user, const char *market, ski
     return 0;
 }
 
-int deal_top_data(json_t **result, time_t start, time_t end, const char *market, int data_type, int top_num)
+static int deal_rank_process(json_t **result, dict_t *save_dict_user, int data_type, int top_num)
 {
-    log_info("start: %zd, end: %zd, markt: %s, data_type: %d, top_num: %d", start, end, market, data_type, top_num);
-    dict_t *save_dict_user = create_user_dict();;
-    if (save_dict_user == NULL) {
-        log_fatal("create_user_dict fail");
-        return -__LINE__;
-    }
-
-    int ret = get_user_data(save_dict_user, start, end, market, data_type);
-    if (ret != 0) {
-        log_error("get_user_data fail, ret: %d", ret);
-        dict_release(save_dict_user);
-        return ret;
-    }
-    log_info("save_dict_user size: %d", dict_size(save_dict_user));
-
-    if (dict_size(save_dict_user) == 0) {
-        *result = json_object();
-        json_object_set_new(*result, "market", json_string(market));
-        json_t *sort_array_obj = json_array();
-        json_object_set_new(*result, "sort", sort_array_obj);
-        dict_release(save_dict_user);
-        return 0;
-    }
-
     skiplist_t *top_list;
     if (data_type == TYPE_TAKER_ASK_TRADE_NUM || data_type == TYPE_TAKER_BID_TRADE_NUM || data_type == TYPE_TAKER_TOTAL_TRADE_NUM) {
         top_list = create_sort_integer_list();
@@ -1154,7 +1127,7 @@ int deal_top_data(json_t **result, time_t start, time_t end, const char *market,
         top_list = create_sort_mpd_list();
     }
 
-    ret = store_to_top_skiplist(save_dict_user, market, top_list, data_type);
+    int ret = store_to_top_skiplist(save_dict_user, top_list, data_type);
     if (ret != 0) {
         log_error("store_to_top_skiplist fail, ret: %d", ret);
         skiplist_release(top_list);
@@ -1162,11 +1135,8 @@ int deal_top_data(json_t **result, time_t start, time_t end, const char *market,
         return ret;
     }
 
-    *result = json_object();
-    json_t *sort_array_obj = json_array();
-    json_object_set_new(*result, "market", json_string(market));
-
     int total = 0;
+    json_t *sort_array_obj = json_array();
     skiplist_node *node;
 
     skiplist_iter *iter_top = skiplist_get_iterator(top_list);
@@ -1191,11 +1161,42 @@ int deal_top_data(json_t **result, time_t start, time_t end, const char *market,
     }
     skiplist_release_iterator(iter_top);
 
+    *result = json_object();
     json_object_set_new(*result, "sort", sort_array_obj);
     skiplist_release(top_list);
-    dict_release(save_dict_user);
 
     return 0;
+}
+
+int deal_top_market(json_t **result, time_t start, time_t end, const char *market, int data_type, int top_num)
+{
+    log_info("start: %zd, end: %zd, market: %s, data_type: %d, top_num: %d", start, end, market, data_type, top_num);
+    dict_t *save_dict_user = create_user_dict();;
+    if (save_dict_user == NULL) {
+        log_fatal("create_user_dict fail");
+        return -__LINE__;
+    }
+
+    int ret = get_user_data(save_dict_user, start, end, market, data_type);
+    if (ret != 0) {
+        log_error("get_user_data fail, ret: %d", ret);
+        dict_release(save_dict_user);
+        return ret;
+    }
+    log_info("save_dict_user size: %d", dict_size(save_dict_user));
+
+    if (dict_size(save_dict_user) == 0) {
+        *result = json_object();
+        json_t *sort_array_obj = json_array();
+        json_object_set_new(*result, "sort", sort_array_obj);
+        dict_release(save_dict_user);
+        return 0;
+    }
+
+    ret = deal_rank_process(result, save_dict_user, data_type, top_num);
+    dict_release(save_dict_user);
+
+    return ret;
 }
 
 void clear_fee_dict(void)

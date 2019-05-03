@@ -75,9 +75,9 @@ static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     return ret;
 }
 
-static int on_cmd_deal_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+static int on_cmd_deal_rank_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 6)
+    if (json_array_size(params) != 5)
         return reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_string(json_array_get(params, 0)))
@@ -86,24 +86,24 @@ static int on_cmd_deal_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!market)
         return reply_error_invalid_argument(ses, pkg);
 
+    if (!json_is_integer(json_array_get(params, 1)))
+        return reply_error_invalid_argument(ses, pkg);
+    time_t start = json_integer_value(json_array_get(params, 1));
+
     if (!json_is_integer(json_array_get(params, 2)))
         return reply_error_invalid_argument(ses, pkg);
-    time_t start = json_integer_value(json_array_get(params, 2));
+    time_t end = json_integer_value(json_array_get(params, 2));
 
     if (!json_is_integer(json_array_get(params, 3)))
         return reply_error_invalid_argument(ses, pkg);
-    time_t end = json_integer_value(json_array_get(params, 3));
+    uint32_t data_type = json_integer_value(json_array_get(params, 3));
 
     if (!json_is_integer(json_array_get(params, 4)))
         return reply_error_invalid_argument(ses, pkg);
-    uint32_t data_type = json_integer_value(json_array_get(params, 4));
-
-    if (!json_is_integer(json_array_get(params, 5)))
-        return reply_error_invalid_argument(ses, pkg);
-    uint32_t top_num = json_integer_value(json_array_get(params, 5));
+    uint32_t top_num = json_integer_value(json_array_get(params, 4));
 
     json_t *result = NULL; 
-    int ret = deal_top_data(&result, start, end, market, data_type, top_num);
+    int ret = deal_top_market(&result, start, end, market, data_type, top_num);
 
     if (ret == -1) {
         return reply_error(ses, pkg, 10, "time invalid");
@@ -128,11 +128,11 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     int ret;
     switch (pkg->command) {
-    case CMD_DEAL_RANK:
-        profile_inc("cmd_market_status", 1);
-        ret = on_cmd_deal_rank(ses, pkg, params);
+    case CMD_DEAL_RANK_MARKET:
+        profile_inc("cmd_deal_rank_market", 1);
+        ret = on_cmd_deal_rank_market(ses, pkg, params);
         if (ret < 0) {
-            log_error("on_cmd_deal_rank %s fail: %d", params_str, ret);
+            log_error("on_cmd_deal_rank_market %s fail: %d", params_str, ret);
         }
         break;
     default:
