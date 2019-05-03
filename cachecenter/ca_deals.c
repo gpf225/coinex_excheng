@@ -48,8 +48,8 @@ static void list_free(void *value)
 
 static void on_timeout(nw_state_entry *entry)
 {
-    log_fatal("query timeout, state id: %u", entry->id);
-    profile_inc("marketprice_deals_timeout", 1);
+    log_error("query timeout, state id: %u", entry->id);
+    profile_inc("query_deals_timeout", 1);
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)
@@ -138,13 +138,16 @@ static int deals_reply(const char *market, json_t *result)
 
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
-    nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry == NULL) {
-        log_error("nw_state_get get null");
+    if (pkg->command != CMD_MARKET_DEALS) {
+        log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
         return;
     }
 
+    nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
+    if (entry == NULL)
+        return;
     struct state_data *state = entry->data;
+
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
         sds hex = hexdump(pkg->body, pkg->body_size);
@@ -165,19 +168,11 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         is_error = true;
     }
 
-    switch (pkg->command) {
-    case CMD_MARKET_DEALS:
-        if (!is_error) {
-            profile_inc("deasl_reply_success", 1);
-            deals_reply(state->market, result);
-        } else {
-            profile_inc("deasl_reply_fail", 1);
-        }
-        break;
-
-    default:
-        log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
-        break;
+    if (!is_error) {
+        profile_inc("deasl_reply_success", 1);
+        deals_reply(state->market, result);
+    } else {
+        profile_inc("deasl_reply_fail", 1);
     }
 
     json_decref(reply);

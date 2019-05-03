@@ -63,7 +63,7 @@ struct settings {
     int                 worker_num;
     int                 deal_max;
 
-    rpc_clt_cfg         cache;
+    rpc_clt_cfg         cachecenter;
     rpc_clt_cfg         cache_deals;
     rpc_clt_cfg         cache_state;
 

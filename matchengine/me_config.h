@@ -24,6 +24,7 @@
 
 # include "ut_log.h"
 # include "ut_sds.h"
+# include "ut_title.h"
 # include "ut_cli.h"
 # include "ut_misc.h"
 # include "ut_list.h"
@@ -53,6 +54,12 @@
 # define HISTORY_MODE_KAFKA     2
 # define HISTORY_MODE_DOUBLE    3
 
+# define QUEUE_MEM_SIZE         500000
+# define QUEUE_MEM_MIN          100000
+# define QUEUE_SHMKEY_START     0x16120802
+# define QUEUE_NAME             "matchengine_queue"
+# define QUEUE_PIPE_PATH        "/tmp/matchengine_queue_pipe"
+
 struct asset {
     char                *name;
     int                 prec_save;
@@ -77,7 +84,6 @@ struct settings {
     rpc_svr_cfg         svr;
     cli_svr_cfg         cli;
     mysql_cfg           db_log;
-    mysql_cfg           db_history;
 
     size_t              asset_num;
     struct asset        *assets;
@@ -90,13 +96,14 @@ struct settings {
     char                *brokers;
     int                 slice_interval;
     int                 slice_keeptime;
-    int                 history_thread;
     int                 depth_merge_max;
-    int                 history_mode;
     double              cache_timeout;
 
     char               *usdc_assets[32];
     int                 usdc_assets_num;
+    int                 reader_num;
+    double              worker_timeout;
+    double              order_fini_keeptime;
 };
 
 extern struct settings settings;

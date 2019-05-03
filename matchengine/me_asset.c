@@ -3,7 +3,7 @@
  *     History: zhoumugui@viabtc.com, 2019/01/28, create
  */
 
-# include "me_asset_backup.h"
+# include "me_asset.h"
 # include "me_dump.h"
 
 static int asset_backup(sds table)
@@ -48,7 +48,7 @@ int make_asset_backup(json_t *params)
 
     asset_backup(table);
     sdsfree(table);
-    profile_inc_real("asset_backup_success", 1);
     exit(0);
     return 0;
 }
+

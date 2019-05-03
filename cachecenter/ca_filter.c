@@ -4,7 +4,6 @@
  */
 
 # include "ca_filter.h"
-# include "ca_depth.h"
 # include "ca_server.h"
 
 static dict_t *dict_filter;
@@ -14,7 +13,7 @@ struct dict_filter_val {
 };
 
 struct filter_list_item {
-    rpc_pkg   pkg;
+    rpc_pkg pkg;
 };
 
 static uint32_t dict_sds_hash_function(const void *key)
@@ -92,6 +91,7 @@ static list_t *create_item_list(void)
 
 int add_filter_queue(sds key, nw_ses *ses, rpc_pkg *pkg)
 {
+    int exist = 0;
     dict_entry *entry = dict_find(dict_filter, key);
     if (entry == NULL) {
         struct dict_filter_val val;
@@ -100,11 +100,12 @@ int add_filter_queue(sds key, nw_ses *ses, rpc_pkg *pkg)
         if (val.dict_filter_session == NULL) {
             return -__LINE__;
         }
-
         entry = dict_add(dict_filter, key, &val);
         if (entry == NULL) {
             return -__LINE__;
         }
+    } else {
+        exist = 1;
     }
 
     struct dict_filter_val *val = entry->val;
@@ -114,7 +115,6 @@ int add_filter_queue(sds key, nw_ses *ses, rpc_pkg *pkg)
         if (list == NULL) {
             return -__LINE__;
         }
-
         entry = dict_add(val->dict_filter_session, ses, list);
         if (entry == NULL) {
             return -__LINE__;
@@ -128,61 +128,33 @@ int add_filter_queue(sds key, nw_ses *ses, rpc_pkg *pkg)
 
     list_add_node_tail(list, &item);
 
-    return 0;
-}
-
-int remove_all_filter(nw_ses *ses)
-{
-    dict_entry *entry = NULL;
-    dict_iterator *iter = dict_get_iterator(dict_filter);
-    while ((entry = dict_next(iter)) != NULL) {
-        struct dict_filter_val *val = entry->val;
-        entry = dict_find(val->dict_filter_session, ses);
-        if (entry != NULL) {
-            dict_delete(val->dict_filter_session, ses);
-        }
-    }
-    dict_release_iterator(iter);
-
-    return 0;
+    return exist;
 }
 
 void delete_filter_queue(sds key)
 {
-    dict_entry *entry = dict_find(dict_filter, key);
-    if (entry != NULL) {
-        dict_delete(dict_filter, entry->key);
-    }
+    dict_delete(dict_filter, key);
 }
 
 static void reply_to_ses(bool is_error, json_t *reply, nw_ses *ses, list_t *list)
 {
+    json_t *result = json_object();
+    json_object_set(result, "error", json_object_get(reply, "error"));
+    json_object_set(result, "result", json_object_get(reply, "result"));
+    if (!is_error) {
+        json_object_set_new(result, "ttl", json_integer(settings.interval_time * 1000));
+    }
+
     list_node *node = NULL;
     list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
     while ((node = list_next(iter)) != NULL) {
         struct filter_list_item *item = node->value;
-
-        json_t *result = json_object();
-        json_object_set    (result, "error", json_object_get(reply, "error"));
-        json_object_set    (result, "result", json_object_get(reply, "result"));
         json_object_set_new(result, "id", json_integer(item->pkg.req_id));
-
-        json_t *new_result = result;
-        if (!is_error) {
-            new_result = json_object();
-            json_object_set_new(new_result, "ttl", json_integer(settings.interval_time * 1000));
-            json_object_set_new(new_result, "cache_result", result);
-        }
-
-        int ret = reply_json(ses, &item->pkg, new_result);
-        if (ret != 0) {
-            log_error("send_result fail: ret: %d", ret);
-        }
-        json_decref(new_result);  
+        reply_json(ses, &item->pkg, result);
     }
     list_release_iterator(iter);
 
-    return;
+    json_decref(result);
 }
 
 void reply_filter_message(sds key, bool is_error, json_t *reply)
@@ -195,15 +167,21 @@ void reply_filter_message(sds key, bool is_error, json_t *reply)
     struct dict_filter_val *val = entry->val;
     dict_iterator *iter = dict_get_iterator(val->dict_filter_session);
     while ((entry = dict_next(iter)) != NULL) {
-        nw_ses *ses = entry->key;
-        list_t *list = entry->val;
-        reply_to_ses(is_error, reply, ses, list);
+        reply_to_ses(is_error, reply, entry->key, entry->val);
     }
     dict_release_iterator(iter);
-
     dict_delete(dict_filter, key);
+}
 
-    return;
+void clear_ses_filter(nw_ses *ses)
+{
+    dict_entry *entry = NULL;
+    dict_iterator *iter = dict_get_iterator(dict_filter);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct dict_filter_val *val = entry->val;
+        dict_delete(val->dict_filter_session, ses);
+    }
+    dict_release_iterator(iter);
 }
 
 int init_filter(void)

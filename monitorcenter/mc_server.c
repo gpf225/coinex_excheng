@@ -140,7 +140,7 @@ void *redis_query(const char *format, ...)
             log_info("redis connection lost, try connect");
             redis_store = redis_connect(&settings.redis);
             if (redis_store == NULL) {
-                log_error("redis_sentinel_connect_master fail");
+                log_error("redis_connect fail");
                 break;
             }
         }

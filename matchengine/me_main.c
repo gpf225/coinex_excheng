@@ -10,10 +10,10 @@
 # include "me_update.h"
 # include "me_trade.h"
 # include "me_persist.h"
-# include "me_history.h"
 # include "me_message.h"
-# include "me_cli.h"
-# include "me_server.h"
+# include "me_reader.h"
+# include "me_writer.h"
+# include "me_access.h"
 
 const char *__process__ = "matchengine";
 const char *__version__ = "0.1.0";
@@ -71,7 +71,9 @@ int main(int argc, char *argv[])
         printf("process: %s exist\n", __process__);
         exit(EXIT_FAILURE);
     }
+    process_title_init(argc, argv);
 
+    bool need_release = false;
     int ret;
     ret = init_mpd();
     if (ret < 0) {
@@ -105,39 +107,70 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init market fail: %d", ret);
     }
+    ret = init_from_db();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init from db fail: %d", ret);
+    }
 
+    int pid;
+    pid = fork();
+    if (pid < 0) {
+        error(EXIT_FAILURE, errno, "fork error");
+    } else if (pid == 0) {
+        process_title_set("%s_access", __process__);
+        daemon(1, 1);
+        init_signal();
+
+        sleep(1);
+        ret = init_access();
+        if (ret < 0) {
+            error(EXIT_FAILURE, errno, "init access fail: %d", ret);
+        }
+
+        goto run;
+    }
+
+    for (int i = 0; i < settings.reader_num; ++i) {
+        pid = fork();
+        if (pid < 0) {
+            error(EXIT_FAILURE, errno, "fork error");
+        } else if (pid != 0) {
+            process_title_set("%s_reader_%d", __process__, i);
+            daemon(1, 1);
+            init_signal();
+
+            ret = init_reader(i);
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init reader %d fail: %d", i, ret);
+            }
+            goto run;
+        }
+    }
+
+    process_title_set("%s_writer", __process__);
     daemon(1, 1);
-    process_keepalive();
+    init_signal();
 
+    need_release = true;
     ret = init_operlog();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init oper log fail: %d", ret);
-    }
-    ret = init_history();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init history fail: %d", ret);
     }
     ret = init_message();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init message fail: %d", ret);
     }
-    ret = init_from_db();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init from db fail: %d", ret);
-    }
     ret = init_persist();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init persist fail: %d", ret);
     }
-    ret = init_cli();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init cli fail: %d", ret);
-    }
-    ret = init_server();
+
+    ret = init_writer();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
     }
 
+run:
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
     nw_timer_start(&cron_timer);
 
@@ -146,9 +179,10 @@ int main(int argc, char *argv[])
     nw_loop_run();
     log_vip("server stop");
 
-    fini_message();
-    fini_history();
-    fini_operlog();
+    if (need_release) {
+        fini_message();
+        fini_operlog();
+    }
 
     return 0;
 }

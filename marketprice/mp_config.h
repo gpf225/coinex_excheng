@@ -45,7 +45,6 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
-    cli_svr_cfg         cli;
     kafka_consumer_cfg  deals;
     redis_cfg           redis;
     int                 sec_max;

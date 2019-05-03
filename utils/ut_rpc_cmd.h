@@ -72,4 +72,7 @@
 // dealrank
 # define CMD_DEAL_RANK                   701
 
+// matchengine push
+# define CMD_REDER_ERROR                801
+
 # endif

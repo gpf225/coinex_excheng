@@ -82,9 +82,9 @@ static int read_config_from_json(json_t *root)
         printf("load readhistory clt config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_rpc_clt(root, "cache", &settings.cache);
+    ret = load_cfg_rpc_clt(root, "cachecenter", &settings.cachecenter);
     if (ret < 0) {
-        printf("load cache clt config fail: %d\n", ret);
+        printf("load cachecenter clt config fail: %d\n", ret);
         return -__LINE__;
     }
     ret = load_cfg_rpc_clt(root, "cache_deals", &settings.cache_deals);
@@ -124,7 +124,6 @@ static int read_config_from_json(json_t *root)
     ERR_RET(read_cfg_str(root, "sign_url", &settings.sign_url, NULL));
     ERR_RET(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
     ERR_RET(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
-    ERR_RET(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.5));
     ERR_RET(read_cfg_real(root, "kline_interval", &settings.kline_interval, false, 0.5));
     ERR_RET(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
     

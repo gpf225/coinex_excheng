@@ -51,7 +51,7 @@ static void dict_state_val_free(void *val)
 }
 
 // state update
-static int on_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
+static int on_sub_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 {
     log_trace("state update");
     const size_t state_num = json_array_size(result_array);
@@ -135,7 +135,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     switch (pkg->command) {
     case CMD_CACHE_STATUS_UPDATE:
-        on_state_update(result, ses, pkg);
+        on_sub_state_update(result, ses, pkg);
         break;
     default:
         break;

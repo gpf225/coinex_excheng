@@ -19,9 +19,6 @@
     },
     "redis": {
         "host": "127.0.0.1",
-        "port": 6386,
-        "password": "",
-        "timeout": 3000,
-        "db": 0
+        "port": 6379
     }
 }
