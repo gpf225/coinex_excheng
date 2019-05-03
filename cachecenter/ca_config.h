@@ -62,6 +62,7 @@ struct settings {
     double              interval_time;
     int                 depth_limit_max;
     int                 deal_max;
+    int                 worker_num;
 };
 
 extern struct settings settings;

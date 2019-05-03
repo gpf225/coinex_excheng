@@ -62,9 +62,12 @@ struct settings {
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
 
-    rpc_clt_cfg         cache;
     rpc_clt_cfg         cache_deals;
     rpc_clt_cfg         cache_state;
+
+    char               *cachecenter_host;
+    int                 cachecenter_port;
+    int                 cachecenter_worker_num;
 
     int                 worker_num;
     double              backend_timeout;

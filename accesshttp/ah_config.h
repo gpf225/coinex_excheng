@@ -63,7 +63,10 @@ struct settings {
     int                 worker_num;
     int                 deal_max;
 
-    rpc_clt_cfg         cachecenter;
+    char               *cachecenter_host;
+    int                 cachecenter_port;
+    int                 cachecenter_worker_num;
+
     rpc_clt_cfg         cache_deals;
     rpc_clt_cfg         cache_state;
 
