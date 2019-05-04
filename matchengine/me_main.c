@@ -120,6 +120,7 @@ int main(int argc, char *argv[])
         process_title_set("%s_access", __process__);
         daemon(1, 1);
         init_signal();
+        dlog_set_no_shift(default_dlog);
 
         sleep(1);
         ret = init_access();
@@ -138,6 +139,7 @@ int main(int argc, char *argv[])
             process_title_set("%s_reader_%d", __process__, i);
             daemon(1, 1);
             init_signal();
+            dlog_set_no_shift(default_dlog);
 
             ret = init_reader(i);
             if (ret < 0) {
