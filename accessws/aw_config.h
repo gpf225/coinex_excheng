@@ -68,9 +68,12 @@ struct settings {
     rpc_clt_cfg         marketprice;
     rpc_clt_cfg         readhistory;
 
-    rpc_clt_cfg         cachecenter;
     rpc_clt_cfg         cache_deals;
     rpc_clt_cfg         cache_state;
+
+    char               *cachecenter_host;
+    int                 cachecenter_port;
+    int                 cachecenter_worker_num;
 
     kafka_consumer_cfg  deals;
     kafka_consumer_cfg  stops;

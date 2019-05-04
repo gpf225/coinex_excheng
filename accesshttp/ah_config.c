@@ -86,11 +86,6 @@ static int read_config_from_json(json_t *root)
         printf("load monitorcenter clt config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_rpc_clt(root, "cachecenter", &settings.cachecenter);
-    if (ret < 0) {
-        printf("load cachecenter clt config fail: %d\n", ret);
-        return -__LINE__;
-    }
     ret = load_cfg_rpc_clt(root, "cache_deals", &settings.cache_deals);
     if (ret < 0) {
         printf("load cache_deals clt config fail: %d\n", ret);
@@ -100,6 +95,10 @@ static int read_config_from_json(json_t *root)
         printf("load cache_state clt config fail: %d\n", ret);
         return -__LINE__;
     }
+
+    ERR_RET_LN(read_cfg_str(root, "cachecenter_host", &settings.cachecenter_host, NULL));
+    ERR_RET_LN(read_cfg_int(root, "cachecenter_port", &settings.cachecenter_port, true, 0));
+    ERR_RET_LN(read_cfg_int(root, "cachecenter_worker_num", &settings.cachecenter_worker_num, true, 0));
 
     ERR_RET(read_cfg_real(root, "timeout", &settings.timeout, false, 5.0));
     ERR_RET(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));

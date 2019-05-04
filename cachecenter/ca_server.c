@@ -250,8 +250,15 @@ static void on_timer(nw_timer *timer, void *privdata)
     log_info("depth subscribe count: %zu", count);
 }
 
-int init_server(void)
+int init_server(int worker_id)
 {
+    if (settings.svr.bind_count != 1)
+        return -__LINE__;
+    nw_svr_bind *bind_arr = settings.svr.bind_arr;
+    if (bind_arr->addr.family != AF_INET)
+        return -__LINE__;
+    bind_arr->addr.in.sin_port = htons(ntohs(bind_arr->addr.in.sin_port) + worker_id);
+
     rpc_svr_type type;
     memset(&type, 0, sizeof(type));
     type.on_recv_pkg = svr_on_recv_pkg;

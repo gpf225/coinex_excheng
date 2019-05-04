@@ -43,14 +43,6 @@
         ],
         "max_pkg_size": 2000000
     },
-    "cachecenter": {
-        "name": "cachecenter",
-        "addr": [
-            "tcp@127.0.0.1:7801"
-        ],
-        "max_pkg_size": 2000000,
-        "heartbeat_timeout": 30
-    },
     "cache_deals": {
         "name": "cache_deals",
         "addr": [
@@ -87,6 +79,9 @@
         "topic": "balances",
         "partition": 0
     },
+    "cachecenter_host": "127.0.0.1",
+    "cachecenter_port": 7810,
+    "cachecenter_worker_num": 4,
     "backend_timeout": 1.0,
     "auth_url": "http://192.168.0.6:8000/internal/exchange/user/auth",
     "auth_sub_url": "http://192.168.0.6:8000/internal/exchange/sub_account/auth",
