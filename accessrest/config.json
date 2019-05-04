@@ -36,14 +36,6 @@
         ],
         "max_pkg_size": 2000000
     },
-    "cache": {
-        "name": "cache",
-        "addr": [
-            "tcp@127.0.0.1:7801"
-        ],
-        "max_pkg_size": 2000000,
-        "heartbeat_timeout": 30
-    },
     "cache_deals": {
         "name": "cache_deals",
         "addr": [
@@ -60,6 +52,9 @@
         "max_pkg_size": 2000000,
         "heartbeat_timeout": 30
     },
+    "cachecenter_host": "127.0.0.1",
+    "cachecenter_port": 7810,
+    "cachecenter_worker_num": 4,
     "worker_num": 2,
     "backend_timeout": 1.0,
     "market_url": "http://120.78.203.98:8000/internal/exchange/market/list",

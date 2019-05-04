@@ -272,7 +272,7 @@ static rpc_clt *init_clt(char *name, int port_offset)
     memcpy(cfg.addr_arr, &settings.svr.bind_arr->addr, sizeof(nw_addr_t));
     cfg.addr_arr->in.sin_port = htons(ntohs(cfg.addr_arr->in.sin_port) + port_offset);
     cfg.sock_type = settings.svr.bind_arr->sock_type;
-    cfg.max_pkg_size = 1000 * 1000;
+    cfg.max_pkg_size = 1024 * 1024;
 
     rpc_clt_type ct;
     memset(&ct, 0, sizeof(ct));

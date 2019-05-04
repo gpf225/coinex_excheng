@@ -17,7 +17,7 @@ static nw_timer timer;
 
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
-static rpc_clt *cache;
+static rpc_clt **cachecenter_clt_arr;
 
 struct state_data {
     nw_ses      *ses;
@@ -326,6 +326,12 @@ static bool is_good_merge(const char *merge_str)
     return false;
 }
 
+static rpc_clt *get_cache_clt(const char *market)
+{
+    uint32_t hash = dict_generic_hash_function(market, strlen(market));
+    return cachecenter_clt_arr[hash % settings.cachecenter_worker_num];
+}
+
 static int on_market_depth(nw_ses *ses, dict_t *params)
 {
     dict_entry *entry;
@@ -361,7 +367,8 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
         return 0;
     }
 
-    if (!rpc_clt_connected(cache)) {
+    rpc_clt *clt = get_cache_clt(market);
+    if (!rpc_clt_connected(clt)) {
         sdsfree(cache_key);
         return reply_internal_error(ses);
     }
@@ -387,9 +394,9 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     pkg.body_size = strlen(pkg.body);
 
     state->cmd = pkg.command;
-    rpc_clt_send(cache, &pkg);
+    rpc_clt_send(clt, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(cache)), pkg.command, pkg.sequence, (char *)pkg.body);
+            nw_sock_human_addr(rpc_clt_peer_addr(clt)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
     json_decref(query_params);
 
@@ -737,6 +744,34 @@ static void on_timer(nw_timer *timer, void *privdata)
     dict_release_iterator(iter);
 }
 
+static int init_cache_backend(rpc_clt_type *ct)
+{
+    cachecenter_clt_arr = malloc(sizeof(void *) * settings.cachecenter_worker_num);
+    for (int i = 0; i < settings.cachecenter_worker_num; ++i) {
+        char clt_name[100];
+        snprintf(clt_name, sizeof(clt_name), "cachecenter_%d", i);
+        char clt_addr[100];
+        snprintf(clt_addr, sizeof(clt_addr), "tcp@%s:%d", settings.cachecenter_host, settings.cachecenter_port + i);
+
+        rpc_clt_cfg cfg;
+        memset(&cfg, 0, sizeof(cfg));
+        cfg.name = clt_name;
+        cfg.addr_count = 1;
+        cfg.addr_arr = malloc(sizeof(nw_addr_t));
+        if (nw_sock_cfg_parse(clt_addr, &cfg.addr_arr[0], &cfg.sock_type) < 0)
+            return -__LINE__;
+        cfg.max_pkg_size = 1024 * 1024;
+
+        cachecenter_clt_arr[i] = rpc_clt_create(&cfg, ct);
+        if (cachecenter_clt_arr[i] == NULL)
+            return -__LINE__;
+        if (rpc_clt_start(cachecenter_clt_arr[i]) < 0)
+            return -__LINE__;
+    }
+
+    return 0;
+}
+
 static int init_backend(void)
 {
     rpc_clt_type ct;
@@ -756,10 +791,7 @@ static int init_backend(void)
     if (rpc_clt_start(marketprice) < 0)
         return -__LINE__;
 
-    cache = rpc_clt_create(&settings.cache, &ct);
-    if (cache == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(cache) < 0)
+    if (init_cache_backend(&ct) < 0)
         return -__LINE__;
 
     dict_types dt;

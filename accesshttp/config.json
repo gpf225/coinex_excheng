@@ -49,14 +49,6 @@
         ],
         "max_pkg_size": 2000000
     },
-    "cachecenter": {
-        "name": "cachecenter",
-        "addr": [
-            "tcp@127.0.0.1:7801"
-        ],
-        "max_pkg_size": 2000000,
-        "heartbeat_timeout": 30
-    },
     "cache_deals": {
         "name": "cache_deals",
         "addr": [
@@ -73,6 +65,9 @@
         "max_pkg_size": 2000000,
         "heartbeat_timeout": 30
     },
+    "cachecenter_host": "127.0.0.1",
+    "cachecenter_port": 7810,
+    "cachecenter_worker_num": 4,
     "depth_limit": [1, 5, 10, 20, 30, 50],
     "depth_merge": ["0", "0.0000000001", "0.000000001", "0.00000001", "0.0000001", "0.000001", "0.00001", "0.0001", "0.001", "0.01", "0.1", "1", "10", "100"]
 }

@@ -11,7 +11,7 @@
 
 static dict_t *dict_depth_sub; 
 static dict_t *dict_depth_sub_counter; 
-static rpc_clt *cache;
+static rpc_clt **cachecenter_clt_arr;
 
 struct depth_key {
     char     market[MARKET_NAME_MAX_LEN];
@@ -252,47 +252,35 @@ static json_t *get_depth_diff(json_t *first, json_t *second, uint32_t limit)
     return diff;
 }
 
-static void send_cache_request(int command, json_t *params)
+static rpc_clt *get_depth_clt(const char *market)
 {
-    if (!rpc_clt_connected(cache))
-        return ;
+    uint32_t hash = dict_generic_hash_function(market, strlen(market));
+    return cachecenter_clt_arr[hash % settings.cachecenter_worker_num];
+}
 
-    static uint32_t sequence = 0;
+static int send_depth_request(int command, struct depth_key *key)
+{
+    rpc_clt *clt = get_depth_clt(key->market);
+    if (!rpc_clt_connected(clt))
+        return -__LINE__;
+
+    json_t *params = json_array();
+    json_array_append_new(params, json_string(key->market));
+    json_array_append_new(params, json_string(key->interval));
+
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
     pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
     pkg.command   = command;
-    pkg.sequence  = ++sequence;
     pkg.body      = json_dumps(params, 0);
     pkg.body_size = strlen(pkg.body);
 
-    rpc_clt_send(cache, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s", nw_sock_human_addr(rpc_clt_peer_addr(cache)), pkg.command, pkg.sequence, (char *)pkg.body);
+    rpc_clt_send(clt, &pkg);
+    log_trace("send request to %s, cmd: %u, params: %s", clt->name, pkg.command, (char *)pkg.body);
     free(pkg.body);
-    return;
-}
-
-static void send_depth_subscribe(struct depth_key *key)
-{
-    json_t *params = json_array();
-    json_array_append_new(params, json_string(key->market));
-    json_array_append_new(params, json_string(key->interval));
-
-    send_cache_request(CMD_CACHE_DEPTH_SUBSCRIBE, params);
-    json_decref(params);
-    return;
-}
-
-static void send_depth_unsubscribe(struct depth_key *key)
-{
-    json_t *params = json_array();
-    json_array_append_new(params, json_string(key->market));
-    json_array_append_new(params, json_string(key->interval));
-
-    send_cache_request(CMD_CACHE_DEPTH_UNSUBSCRIBE, params);
     json_decref(params);
 
-    return;
+    return 0;
 }
 
 static int broadcast_update(const char *market, dict_t *sessions, bool clean, json_t *result)
@@ -410,7 +398,7 @@ static void re_subscribe_depth(void)
         struct depth_key *key = entry->key;
         struct depth_sub_counter *val = entry->val;
         if (val->count > 0)
-            send_depth_subscribe(key);
+            send_depth_request(CMD_CACHE_DEPTH_SUBSCRIBE, key);
     }
     dict_release_iterator(iter);
 }
@@ -496,11 +484,28 @@ int init_depth(void)
     ct.on_connect = on_backend_connect;
     ct.on_recv_pkg = on_backend_recv_pkg;
 
-    cache = rpc_clt_create(&settings.cachecenter, &ct);
-    if (cache == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(cache) < 0)
-        return -__LINE__;
+    cachecenter_clt_arr = malloc(sizeof(void *) * settings.cachecenter_worker_num);
+    for (int i = 0; i < settings.cachecenter_worker_num; ++i) {
+        char clt_name[100];
+        snprintf(clt_name, sizeof(clt_name), "cachecenter_%d", i);
+        char clt_addr[100];
+        snprintf(clt_addr, sizeof(clt_addr), "tcp@%s:%d", settings.cachecenter_host, settings.cachecenter_port + i);
+
+        rpc_clt_cfg cfg;
+        memset(&cfg, 0, sizeof(cfg));
+        cfg.name = clt_name;
+        cfg.addr_count = 1;
+        cfg.addr_arr = malloc(sizeof(nw_addr_t));
+        if (nw_sock_cfg_parse(clt_addr, &cfg.addr_arr[0], &cfg.sock_type) < 0)
+            return -__LINE__;
+        cfg.max_pkg_size = 1024 * 1024;
+
+        cachecenter_clt_arr[i] = rpc_clt_create(&cfg, &ct);
+        if (cachecenter_clt_arr[i] == NULL)
+            return -__LINE__;
+        if (rpc_clt_start(cachecenter_clt_arr[i]) < 0)
+            return -__LINE__;
+    }
 
     return 0;
 }
@@ -538,7 +543,7 @@ int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char 
     dict_add(obj->sessions, ses, NULL);
     int count = depth_sub_counter_inc(market, interval);
     if (count == 1) {
-        send_depth_subscribe(&key);
+        ERR_RET(send_depth_request(CMD_CACHE_DEPTH_SUBSCRIBE, &key));
     }
     return 0;  
 }
@@ -552,8 +557,9 @@ int depth_unsubscribe(nw_ses *ses)
         if (dict_delete(obj->sessions, ses) == 1) {
             struct depth_key *key = entry->key;
             int count = depth_sub_counter_dec(key->market, key->interval);
-            if (count == 0)
-                send_depth_unsubscribe(key);
+            if (count == 0) {
+                ERR_RET(send_depth_request(CMD_CACHE_DEPTH_UNSUBSCRIBE, key));
+            }
         }
     }
     dict_release_iterator(iter);

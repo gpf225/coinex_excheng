@@ -6,7 +6,7 @@
 # ifndef _RH_SERVER_H_
 # define _RH_SERVER_H_
 
-int init_server(void);
+int init_server(int worker_id);
 
 int push_data(nw_ses *ses, uint32_t command, char *data, size_t len);
 int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json);

@@ -18,7 +18,7 @@ static rpc_clt *matchengine;
 static rpc_clt *marketprice;
 static rpc_clt *readhistory;
 static rpc_clt *monitorcenter;
-static rpc_clt *cachecenter;
+static rpc_clt **cachecenter_clt_arr;
 
 struct state_info {
     nw_ses  *ses;
@@ -126,6 +126,12 @@ static int check_depth_param(json_t *params)
     return 0;
 }
 
+static rpc_clt *get_cache_clt(const char *market)
+{
+    uint32_t hash = dict_generic_hash_function(market, strlen(market));
+    return cachecenter_clt_arr[hash % settings.cachecenter_worker_num];
+}
+
 static int on_http_request(nw_ses *ses, http_request_t *request)
 {
     log_trace("new http request, url: %s, method: %u", request->url, request->method);
@@ -184,6 +190,8 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
                 json_decref(body);
                 return 0;
             }
+
+            req->clt = get_cache_clt(market);
         } else if (req->cmd == CMD_MARKET_DEALS) {
             direct_deals_reply(ses, params, json_integer_value(id));
             json_decref(body);
@@ -456,7 +464,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.put_market", matchengine, CMD_ORDER_PUT_MARKET));
     ERR_RET_LN(add_handler("order.cancel", matchengine, CMD_ORDER_CANCEL));
     ERR_RET_LN(add_handler("order.book", matchengine, CMD_ORDER_BOOK));
-    ERR_RET_LN(add_handler("order.depth", cachecenter, CMD_CACHE_DEPTH));
+    ERR_RET_LN(add_handler("order.depth", NULL, CMD_CACHE_DEPTH));
     ERR_RET_LN(add_handler("order.pending", matchengine, CMD_ORDER_PENDING));
     ERR_RET_LN(add_handler("order.pending_detail", matchengine, CMD_ORDER_PENDING_DETAIL));
     ERR_RET_LN(add_handler("order.deals", readhistory, CMD_ORDER_DEALS));
@@ -497,6 +505,34 @@ static void on_release(nw_state_entry *entry)
     struct state_info *state = entry->data;
     if (state->cache_key)
         sdsfree(state->cache_key);
+}
+
+static int init_cache_backend(rpc_clt_type *ct)
+{
+    cachecenter_clt_arr = malloc(sizeof(void *) * settings.cachecenter_worker_num);
+    for (int i = 0; i < settings.cachecenter_worker_num; ++i) {
+        char clt_name[100];
+        snprintf(clt_name, sizeof(clt_name), "cachecenter_%d", i);
+        char clt_addr[100];
+        snprintf(clt_addr, sizeof(clt_addr), "tcp@%s:%d", settings.cachecenter_host, settings.cachecenter_port + i);
+
+        rpc_clt_cfg cfg;
+        memset(&cfg, 0, sizeof(cfg));
+        cfg.name = clt_name;
+        cfg.addr_count = 1;
+        cfg.addr_arr = malloc(sizeof(nw_addr_t));
+        if (nw_sock_cfg_parse(clt_addr, &cfg.addr_arr[0], &cfg.sock_type) < 0)
+            return -__LINE__;
+        cfg.max_pkg_size = 1024 * 1024;
+
+        cachecenter_clt_arr[i] = rpc_clt_create(&cfg, ct);
+        if (cachecenter_clt_arr[i] == NULL)
+            return -__LINE__;
+        if (rpc_clt_start(cachecenter_clt_arr[i]) < 0)
+            return -__LINE__;
+    }
+
+    return 0;
 }
 
 int init_server(void)
@@ -549,10 +585,7 @@ int init_server(void)
     if (rpc_clt_start(monitorcenter) < 0)
         return -__LINE__;
 
-    cachecenter = rpc_clt_create(&settings.cachecenter, &ct);
-    if (cachecenter == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(cachecenter) < 0)
+    if (init_cache_backend(&ct) < 0)
         return -__LINE__;
 
     svr = http_svr_create(&settings.svr, on_http_request);
