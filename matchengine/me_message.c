@@ -357,6 +357,10 @@ sds message_status(sds reply)
     reply = sdscatprintf(reply, "message stops pending: %lu\n", list_stops->len);
     reply = sdscatprintf(reply, "message orders pending: %lu\n", list_orders->len);
     reply = sdscatprintf(reply, "message balances pending: %lu\n", list_balances->len);
+    reply = sdscatprintf(reply, "message his_deals pending: %lu\n", list_his_deals->len);
+    reply = sdscatprintf(reply, "message his_stops pending: %lu\n", list_his_stops->len);
+    reply = sdscatprintf(reply, "message his_orders pending: %lu\n", list_his_orders->len);
+    reply = sdscatprintf(reply, "message his_balances pending: %lu\n", list_his_balances->len);
     return reply;
 }
 
