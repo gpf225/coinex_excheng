@@ -46,12 +46,10 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
-    cli_svr_cfg         cli;
-    mysql_cfg           db_history;
+    mysql_cfg           db_summary;
     kafka_consumer_cfg  deals;
+    kafka_consumer_cfg  orders;
     int                 keep_day;
-    int                 prec;
-    int                 interval_minute;
 };
 
 extern struct settings settings;

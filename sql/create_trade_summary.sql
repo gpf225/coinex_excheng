@@ -55,3 +55,11 @@ CREATE TABLE `coin_trade_summary` (
     INDEX `idx_stock_date` (`stock_asset`, `trade_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+CREATE TABLE `dump_history` (
+    `id`                    INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    `time`                  BIGINT NOT NULL,
+    `trade_date`            DATE NOT NULL,
+    `deals_offset`          BIGINT NOT NULL,
+    `orders_offset`         BIGINT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
