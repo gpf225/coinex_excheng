@@ -69,7 +69,7 @@
 # define CMD_CACHE_DEPTH_UNSUBSCRIBE    507
 
 // dealrank
-# define CMD_DEAL_RANK                  701
+# define CMD_TRADE_RANK                  701
 
 // matchengine push
 # define CMD_REDER_ERROR                801

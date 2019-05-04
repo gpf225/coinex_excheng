@@ -128,7 +128,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     int ret;
     switch (pkg->command) {
-    case CMD_DEAL_RANK_MARKET:
+    case CMD_TRADE_RANK:
         profile_inc("cmd_deal_rank_market", 1);
         ret = on_cmd_deal_rank_market(ses, pkg, params);
         if (ret < 0) {
