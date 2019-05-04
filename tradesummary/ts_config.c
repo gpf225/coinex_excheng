@@ -50,8 +50,13 @@ static int read_config_from_json(json_t *root)
         printf("load kafka orders config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_redis(root, "redis", &settings.redis);
+    if (ret < 0) {
+        printf("load redis deals config fail: %d\n", ret);
+        return -__LINE__;
+    }
 
-    ERR_RET_LN(read_cfg_int(root, "keep_day", &settings.keep_day, false, 14));
+    ERR_RET_LN(read_cfg_int(root, "keep_days", &settings.keep_days, false, 3));
 
     return 0;
 }

@@ -12,18 +12,6 @@
 int init_message(void);
 int fini_message(void);
 
-enum {
-    ORDER_EVENT_PUT     = 1,
-    ORDER_EVENT_UPDATE  = 2,
-    ORDER_EVENT_FINISH  = 3,
-};
-
-enum {
-    STOP_EVENT_PUT      = 1,
-    STOP_EVENT_ACTIVE   = 2,
-    STOP_EVENT_CANCEL   = 3,
-};
-
 int push_balance_message(double t, uint32_t user_id, const char *asset, const char *business, mpd_t *change, mpd_t *result);
 int push_order_message(uint32_t event, order_t *order, market_t *market);
 int push_stop_message(uint32_t event, stop_t *stop, market_t *market, int status);

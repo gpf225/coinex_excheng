@@ -49,7 +49,8 @@ struct settings {
     mysql_cfg           db_summary;
     kafka_consumer_cfg  deals;
     kafka_consumer_cfg  orders;
-    int                 keep_day;
+    redis_cfg           redis;
+    int                 keep_days;
 };
 
 extern struct settings settings;
