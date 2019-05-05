@@ -170,12 +170,12 @@ cleanup:
 
 static void report_offset(kafka_consumer_t *consumer, int64_t current_offset)
 {
-    int64_t low = 0;
     int64_t high = 0;
-    if (kafka_query_offset(consumer, &low, &high) < 0) {
+    if (kafka_query_offset(consumer, NULL, &high) < 0) {
         log_error("kafka_query_offset %s fail", consumer->topic);
     } else {
-        log_info("hightest offset: %"PRIi64", currently: %"PRIi64", gap: %"PRIi64, high, current_offset, high - current_offset);
+        log_info("topic: %s hightest offset: %"PRIi64", currently: %"PRIi64", gap: %"PRIi64, \
+                consumer->topic, high, current_offset, high - current_offset);
     }
 }
 
