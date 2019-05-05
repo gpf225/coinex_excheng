@@ -6,8 +6,13 @@
 # include "ts_config.h"
 # include "ts_message.h"
 
+static nw_timer timer;
+
 static kafka_consumer_t *kafka_deals;
 static kafka_consumer_t *kafka_orders;
+
+static int64_t kafka_deals_offset = 0;
+static int64_t kafka_orders_offset = 0;
 
 static int set_message_offset(const char *topic, time_t when, int64_t offset)
 {
@@ -106,6 +111,7 @@ static void on_deals_message(sds message, int64_t offset)
         set_message_offset("deals", time_hour, last_offset);
     last_message_hour = time_hour;
     last_offset = offset;
+    kafka_deals_offset = offset;
 
 cleanup:
     if (amount)
@@ -156,26 +162,51 @@ static void on_orders_message(sds message, int64_t offset)
         set_message_offset("orders", time_hour, last_offset);
     last_message_hour = time_hour;
     last_offset = offset;
+    kafka_orders_offset = offset;
 
 cleanup:
     json_decref(obj);
 }
 
+static void report_offset(kafka_consumer_t *consumer, int64_t current_offset)
+{
+    int64_t low = 0;
+    int64_t high = 0;
+    if (kafka_query_offset(consumer, &low, &high) < 0) {
+        log_error("kafka_query_offset %s fail", consumer->topic);
+    } else {
+        log_info("hightest offset: %"PRIi64", currently: %"PRIi64", gap: %"PRIi64, high, current_offset, high - current_offset);
+    }
+}
+
+static void on_timer(nw_timer *timer, void *privdata)
+{
+    report_offset(kafka_deals, kafka_deals_offset);
+    report_offset(kafka_orders, kafka_orders_offset);
+}
+
 int init_message(void)
 {
     int64_t deals_offset = get_message_offset("deals");
-    if (deals_offset > 0)
+    if (deals_offset > 0) {
+        log_info("deals start offset: %"PRIi64, deals_offset);
         settings.deals.offset = deals_offset + 1;
+    }
     kafka_deals = kafka_consumer_create(&settings.deals, on_deals_message);
     if (kafka_deals == NULL)
         return -__LINE__;
 
     int64_t orders_offset = get_message_offset("orders");
-    if (orders_offset > 0)
+    if (orders_offset > 0) {
+        log_info("orders start offset: %"PRIi64, deals_offset);
         settings.orders.offset = orders_offset + 1;
+    }
     kafka_orders = kafka_consumer_create(&settings.orders, on_orders_message);
     if (kafka_orders == NULL)
         return -__LINE__;
+
+    nw_timer_set(&timer, 5, true, on_timer, NULL);
+    nw_timer_start(&timer);
 
     return 0;
 }

@@ -121,6 +121,7 @@ kafka_consumer_t *kafka_consumer_create(kafka_consumer_cfg *cfg, kafka_message_c
     consumer->limit = cfg->limit;
 
     char errstr[1024];
+    consumer->topic = strdup(cfg->topic);
     consumer->partition = cfg->partition;
     consumer->conf = rd_kafka_conf_new();
     rd_kafka_conf_set_log_cb(consumer->conf, on_logger);
@@ -193,5 +194,12 @@ void kafka_consumer_release(kafka_consumer_t *consumer)
     if (consumer->rkt) {
         rd_kafka_topic_destroy(consumer->rkt);
     }
+}
+
+int kafka_query_offset(kafka_consumer_t *consumer, int64_t *low, int64_t *high)
+{
+    if (rd_kafka_query_watermark_offsets(consumer->rk, consumer->topic, consumer->partition, low, high, 100) != 0)
+        return -__LINE__;
+    return 0;
 }
 

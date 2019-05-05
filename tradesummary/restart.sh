@@ -1,5 +1,5 @@
 #!/bin/bash
 
-killall -s SIGQUIT dealrank.exe
+killall -s SIGQUIT tradesummary.exe
 sleep 1
-./dealrank.exe config.json
+./tradesummary.exe config.json
