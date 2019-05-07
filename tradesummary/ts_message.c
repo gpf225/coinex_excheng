@@ -6,13 +6,228 @@
 # include "ts_config.h"
 # include "ts_message.h"
 
-static nw_timer timer;
+static nw_timer dump_timer;
+static nw_timer clear_timer;
+static nw_timer report_timer;
+static dict_t *dict_market_info;
+
+struct market_info_val {
+    dict_t *daily_trade;
+    dict_t *users_detail;
+};
+
+struct fee_key {
+    uint32_t user_id;
+    char asset[ASSET_NAME_MAX_LEN];
+};
+
+struct user_key {
+    uint32_t user_id;
+};
+
+struct time_key {
+    time_t timestamp;
+};
+
+struct fee_val {
+    mpd_t *value;
+};
+
+struct daily_trade_val {
+    dict_t  *users_trade;
+    dict_t  *fees_detail;
+
+    mpd_t   *deal_amount;
+    mpd_t   *deal_volume;
+    mpd_t   *taker_buy_amount;
+    mpd_t   *taker_sell_amount;
+
+    int     deal_count;
+    int     taker_buy_count;
+    int     taker_sell_count;
+    int     limit_buy_order;
+    int     limit_sell_order;
+    int     market_buy_order;
+    int     market_sell_order;
+};
+
+struct users_trade_val {
+    mpd_t   *deal_amount;
+    mpd_t   *deal_volume;
+    mpd_t   *buy_amount;
+    mpd_t   *buy_volume;
+    mpd_t   *sell_amount;
+    mpd_t   *sell_volume;
+
+    int     deal_count;
+    int     deal_buy_count;
+    int     deal_sell_count;
+    int     limit_buy_order;
+    int     limit_sell_order;
+    int     market_buy_order;
+    int     market_sell_order;
+};
+
+struct user_detail_val {
+    mpd_t   *buy_amount;
+    mpd_t   *sell_amount;
+};
 
 static kafka_consumer_t *kafka_deals;
 static kafka_consumer_t *kafka_orders;
 
 static int64_t kafka_deals_offset = 0;
 static int64_t kafka_orders_offset = 0;
+
+// str key
+static uint32_t dict_str_key_hash_func(const void *key)
+{
+    return dict_generic_hash_function(key, strlen((char *)key));
+}
+
+static int dict_str_key_compare(const void *key1, const void *key2)
+{
+    return strcmp((char *)key1, (char *)key2);
+}
+
+static void *dict_str_key_dup(const void *key)
+{
+    return strdup((char *)key);
+}
+
+static void dict_str_key_free(void *key)
+{
+    free(key);
+}
+
+// fee key
+static uint32_t dict_fee_key_hash_func(const void *key)
+{
+    return dict_generic_hash_function(key, sizeof(struct fee_key));
+}
+
+static int dict_fee_key_compare(const void *key1, const void *key2)
+{
+    return memcmp(key1, key2, sizeof(struct fee_key));
+}
+
+static void *dict_fee_key_dup(const void *key)
+{
+    struct fee_key *obj = malloc(sizeof(struct fee_key));
+    memcpy(obj, key, sizeof(struct fee_key));
+    return obj;
+}
+
+static void dict_fee_key_free(void *key)
+{
+    free(key);
+}
+
+// user key
+static uint32_t dict_user_key_hash_func(const void *key)
+{
+    struct user_key *obj = (void *)key;
+    return obj->user_id;
+}
+
+static int dict_user_key_compare(const void *key1, const void *key2)
+{
+    struct user_key *obj1 = (void *)key1;
+    struct user_key *obj2 = (void *)key2;
+    return obj1->user_id == obj2->user_id;
+}
+
+static void *dict_user_key_dup(const void *key)
+{
+    struct user_key *obj = malloc(sizeof(struct user_key));
+    memcpy(obj, key, sizeof(struct user_key));
+    return obj;
+}
+
+static void dict_user_key_free(void *key)
+{
+    free(key);
+}
+
+// time key
+static uint32_t dict_time_key_hash_func(const void *key)
+{
+    return dict_generic_hash_function(key, sizeof(struct time_key));
+}
+
+static int dict_time_key_compare(const void *key1, const void *key2)
+{
+    return memcmp(key1, key2, sizeof(struct time_key));
+}
+
+static void *dict_time_key_dup(const void *key)
+{
+    struct time_key *obj = malloc(sizeof(struct time_key));
+    memcpy(obj, key, sizeof(struct time_key));
+    return obj;
+}
+
+static void dict_time_key_free(void *key)
+{
+    free(key);
+}
+
+// market info val
+static void dict_market_info_val_free(void *val)
+{
+    struct market_info_val *obj = val;
+    dict_release(obj->daily_trade);
+    dict_release(obj->users_detail);
+    free(obj);
+}
+
+// fee val
+static void dict_fee_val_free(void *val)
+{
+    struct fee_val *obj = val;
+    mpd_del(obj->value);
+    free(obj);
+}
+
+// daily trade val
+static void dict_daily_trade_val_free(void *val)
+{
+    struct daily_trade_val *obj = val;
+    dict_release(obj->users_trade);
+    mpd_del(obj->deal_amount);
+    mpd_del(obj->deal_volume);
+    mpd_del(obj->taker_buy_amount);
+    mpd_del(obj->taker_sell_amount);
+    free(obj);
+}
+
+// user trade val
+static void dict_users_trade_val_free(void *val)
+{
+    struct users_trade_val *obj = val;
+    mpd_del(obj->deal_amount);
+    mpd_del(obj->deal_volume);
+    mpd_del(obj->buy_amount);
+    mpd_del(obj->sell_amount);
+    mpd_del(obj->buy_volume);
+    mpd_del(obj->sell_volume);
+    free(obj);
+}
+
+// user dict val
+static void dict_user_detail_dict_free(void *val)
+{
+    dict_release(val);
+}
+
+// user detail val
+static void dict_user_detail_val_free(void *val)
+{
+    struct user_detail_val *obj = val;
+    mpd_del(obj->buy_amount);
+    mpd_del(obj->sell_amount);
+    free(obj);
+}
 
 static int set_message_offset(const char *topic, time_t when, int64_t offset)
 {
@@ -55,6 +270,254 @@ static int64_t get_message_offset(const char *topic)
     }
 
     redisFree(context);
+    return 0;
+}
+
+static struct market_info_val *get_market_info(char *market)
+{
+    dict_entry *entry = dict_find(dict_market_info, market);
+    if (entry)
+        return entry->val;
+
+    struct market_info_val *market_info = malloc(sizeof(struct market_info_val));
+    if (market_info == NULL)
+        return NULL;
+    memset(market_info, 0, sizeof(struct market_info_val));
+
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function    = dict_time_key_hash_func;
+    dt.key_compare      = dict_time_key_compare;
+    dt.key_dup          = dict_time_key_dup;
+    dt.key_destructor   = dict_time_key_free;
+    dt.val_destructor   = dict_daily_trade_val_free;
+    market_info->daily_trade = dict_create(&dt, 64);
+    if (market_info->daily_trade == NULL)
+        return NULL;
+
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function    = dict_time_key_hash_func;
+    dt.key_compare      = dict_time_key_compare;
+    dt.key_dup          = dict_time_key_dup;
+    dt.key_destructor   = dict_time_key_free;
+    dt.val_destructor   = dict_user_detail_dict_free;
+    market_info->users_detail = dict_create(&dt, 64);
+    if (market_info->users_detail == NULL)
+        return NULL;
+
+    dict_add(dict_market_info, market, market_info);
+    return market_info;
+}
+
+struct daily_trade_val *get_daily_trade_info(dict_t *dict, time_t timestamp)
+{
+    time_t day_start = timestamp / 8640 * 86400;
+    struct time_key key = { .timestamp = day_start };
+    dict_entry *entry = dict_find(dict, &key);
+    if (entry)
+        return entry->val;
+
+    struct daily_trade_val *trade_info = malloc(sizeof(struct daily_trade_val));
+    if (trade_info == NULL)
+        return NULL;
+    memset(trade_info, 0, sizeof(struct daily_trade_val));
+
+    trade_info->deal_amount         = mpd_qncopy(mpd_zero);
+    trade_info->deal_volume         = mpd_qncopy(mpd_zero);
+    trade_info->taker_buy_amount    = mpd_qncopy(mpd_zero);
+    trade_info->taker_sell_amount   = mpd_qncopy(mpd_zero);
+
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function    = dict_user_key_hash_func;
+    dt.key_compare      = dict_user_key_compare;
+    dt.key_dup          = dict_user_key_dup;
+    dt.key_destructor   = dict_user_key_free;
+    dt.val_destructor   = dict_users_trade_val_free;
+    trade_info->users_trade = dict_create(&dt, 1024);
+    if (trade_info->users_trade == NULL)
+        return NULL;
+
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function    = dict_fee_key_hash_func;
+    dt.key_compare      = dict_fee_key_compare;
+    dt.key_dup          = dict_fee_key_dup;
+    dt.key_destructor   = dict_fee_key_free;
+    dt.val_destructor   = dict_fee_val_free;
+    trade_info->fees_detail = dict_create(&dt, 1024);
+    if (trade_info->fees_detail == NULL)
+        return NULL;
+
+    dict_add(dict, &key, trade_info);
+    return trade_info;
+}
+
+struct users_trade_val *get_user_trade_info(dict_t *dict, uint32_t user_id)
+{
+    struct user_key key = { .user_id = user_id };
+    dict_entry *entry = dict_find(dict, &key);
+    if (entry != NULL) {
+        return entry->val;
+    }
+
+    struct users_trade_val *user_info = malloc(sizeof(struct users_trade_val));
+    memset(user_info, 0, sizeof(struct users_trade_val));
+
+    user_info->deal_amount = mpd_qncopy(mpd_zero);
+    user_info->deal_volume = mpd_qncopy(mpd_zero);
+    user_info->buy_amount  = mpd_qncopy(mpd_zero);
+    user_info->buy_volume  = mpd_qncopy(mpd_zero);
+    user_info->sell_amount = mpd_qncopy(mpd_zero);
+    user_info->sell_volume = mpd_qncopy(mpd_zero);
+
+    return user_info;
+}
+
+struct user_detail_val *get_user_detail_info(dict_t *dict, uint32_t user_id, time_t timestamp)
+{
+    dict_t *user_dict = NULL;
+    struct time_key tkey = { .timestamp = timestamp / 60 * 60 };
+    dict_entry *entry = dict_find(dict, &tkey);
+    if (entry != NULL) {
+        user_dict = entry->val;
+    } else {
+        dict_types dt;
+        memset(&dt, 0, sizeof(dt));
+        dt.hash_function    = dict_user_key_hash_func;
+        dt.key_compare      = dict_user_key_compare;
+        dt.key_dup          = dict_user_key_dup;
+        dt.key_destructor   = dict_user_key_free;
+        dt.val_destructor   = dict_user_detail_val_free;
+        user_dict = dict_create(&dt, 1024);
+        if (user_dict == NULL) {
+            return NULL;
+        }
+        dict_add(dict, &tkey, user_dict);
+    }
+
+    struct user_key ukey = { .user_id = user_id };
+    dict_find(user_dict, &ukey);
+    if (entry != NULL) {
+        return entry->val;
+    }
+
+    struct user_detail_val *user_detail = malloc(sizeof(struct user_detail_val));
+    if (user_detail == NULL)
+        return NULL;
+    memset(user_detail, 0, sizeof(struct user_detail_val));
+    user_detail->buy_amount  = mpd_qncopy(mpd_zero);
+    user_detail->sell_amount = mpd_qncopy(mpd_zero);
+    dict_add(user_dict, &ukey, user_detail);
+
+    return user_detail;
+}
+
+static int update_market_volume(struct daily_trade_val *trade_info, int side, mpd_t *amount, mpd_t *volume)
+{
+    trade_info->deal_count += 1;
+    mpd_add(trade_info->deal_amount, trade_info->deal_amount, amount, &mpd_ctx);
+    mpd_add(trade_info->deal_volume, trade_info->deal_volume, volume, &mpd_ctx);
+
+    if (side == MARKET_TRADE_SIDE_BUY) {
+        trade_info->taker_buy_count += 1;
+        mpd_add(trade_info->taker_buy_amount, trade_info->taker_buy_amount, amount, &mpd_ctx);
+    } else {
+        trade_info->taker_sell_count += 1;
+        mpd_add(trade_info->taker_sell_amount, trade_info->taker_sell_amount, amount, &mpd_ctx);
+    }
+
+    return 0;
+}
+
+static int update_user_volume(dict_t *users_trade, dict_t *users_detail, uint32_t user_id, time_t timestamp, int side, mpd_t *amount, mpd_t *volume)
+{
+    struct users_trade_val *user_info = get_user_trade_info(users_trade, user_id);
+    if (user_info == NULL)
+        return -__LINE__;
+
+    user_info->deal_count += 1;
+    mpd_add(user_info->deal_amount, user_info->deal_amount, amount, &mpd_ctx);
+    mpd_add(user_info->deal_volume, user_info->deal_volume, volume, &mpd_ctx);
+    if (side == MARKET_TRADE_SIDE_BUY) {
+        user_info->deal_buy_count += 1;
+        mpd_add(user_info->buy_amount, user_info->buy_amount, amount, &mpd_ctx);
+        mpd_add(user_info->buy_volume, user_info->buy_volume, volume, &mpd_ctx);
+    } else {
+        user_info->deal_sell_count += 1;
+        mpd_add(user_info->sell_amount, user_info->sell_amount, amount, &mpd_ctx);
+        mpd_add(user_info->sell_volume, user_info->sell_volume, volume, &mpd_ctx);
+    }
+
+    struct user_detail_val *user_detail = get_user_detail_info(users_detail, user_id, timestamp);
+    if (user_detail == NULL)
+        return -__LINE__;
+
+    if (side == MARKET_TRADE_SIDE_BUY) {
+        mpd_add(user_detail->buy_amount, user_detail->buy_amount, amount, &mpd_ctx);
+    } else {
+        mpd_add(user_detail->sell_amount, user_detail->sell_amount, amount, &mpd_ctx);
+    }
+
+    return 0;
+}
+
+static int update_fee(dict_t *fees_detail, uint32_t user_id, const char *asset, mpd_t *fee)
+{
+    struct fee_key key;
+    key.user_id = user_id;
+    strncpy(key.asset, asset, sizeof(ASSET_NAME_MAX_LEN));
+    dict_entry *entry = dict_find(fees_detail, &key);
+    if (entry == NULL) {
+        struct fee_val *val = malloc(sizeof(struct fee_val));
+        val->value = mpd_qncopy(fee);
+        entry = dict_add(fees_detail, &key, val);
+    } else {
+        struct fee_val *val = entry->val;
+        mpd_add(val->value, val->value, fee, &mpd_ctx);
+    }
+
+    return 0;
+}
+
+static int update_market_orders(struct daily_trade_val *trade_info, int order_type, int order_side)
+{
+    if (order_type == MARKET_ORDER_TYPE_LIMIT) {
+        if (order_side == MARKET_TRADE_SIDE_BUY) {
+            trade_info->limit_buy_order += 1;
+        } else {
+            trade_info->limit_sell_order += 1;
+        }
+    } else {
+        if (order_side == MARKET_TRADE_SIDE_BUY) {
+            trade_info->market_buy_order += 1;
+        } else {
+            trade_info->market_sell_order += 1;
+        }
+    }
+
+    return 0;
+}
+
+static int update_user_orders(dict_t *users_trade, uint32_t user_id, int order_type, int order_side)
+{
+    struct users_trade_val *user_info = get_user_trade_info(users_trade, user_id);
+    if (user_info == NULL)
+        return -__LINE__;
+
+    if (order_type == MARKET_ORDER_TYPE_LIMIT) {
+        if (order_side == MARKET_TRADE_SIDE_BUY) {
+            user_info->limit_buy_order += 1;
+        } else {
+            user_info->limit_sell_order += 1;
+        }
+    } else {
+        if (order_side == MARKET_TRADE_SIDE_BUY) {
+            user_info->market_buy_order += 1;
+        } else {
+            user_info->market_sell_order += 1;
+        }
+    }
+
     return 0;
 }
 
@@ -105,13 +568,33 @@ static void on_deals_message(sds message, int64_t offset)
         goto cleanup;
     }
 
-
     time_t time_hour = ((int)timestamp) / 3600 * 3600;
     if (last_message_hour != 0 && last_message_hour != time_hour)
         set_message_offset("deals", time_hour, last_offset);
     last_message_hour = time_hour;
     last_offset = offset;
     kafka_deals_offset = offset;
+
+    struct market_info_val *market_info = get_market_info((char *)market);
+    if (market_info == NULL) {
+        log_error("get_market_info: %s fail", market);
+        goto cleanup;
+    }
+    struct daily_trade_val *trade_info = get_daily_trade_info(market_info->daily_trade, (time_t)timestamp);
+    if (trade_info == NULL) {
+        log_error("get_daily_trade_info: %s fail", market);
+        goto cleanup;
+    }
+
+    update_market_volume(trade_info, side, amount, volume);
+    update_user_volume(trade_info->users_trade, market_info->users_detail, ask_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_SELL, amount, volume);
+    update_user_volume(trade_info->users_trade, market_info->users_detail, bid_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_BUY,  amount, volume);
+    if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
+        update_fee(trade_info->fees_detail, ask_user_id, ask_fee_asset, ask_fee);
+    }
+    if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
+        update_fee(trade_info->fees_detail, bid_user_id, bid_fee_asset, bid_fee);
+    }
 
 cleanup:
     if (amount)
@@ -148,11 +631,12 @@ static void on_orders_message(sds message, int64_t offset)
         goto cleanup;
     }
 
+    const char *market = json_string_value(json_object_get(order, "market"));
     double timestamp = json_real_value(json_object_get(order, "ctime"));
     uint32_t user_id = json_integer_value(json_object_get(order, "user"));
     uint32_t order_type = json_integer_value(json_object_get(order, "type"));
     uint32_t order_side = json_integer_value(json_object_get(order, "side"));
-    if (timestamp == 0 || user_id == 0 || order_type == 0 || order_side == 0) {
+    if (market == NULL || timestamp == 0 || user_id == 0 || order_type == 0 || order_side == 0) {
         log_error("invalid message: %s, offset: %"PRIi64, message, offset);
         goto cleanup;
     }
@@ -164,11 +648,159 @@ static void on_orders_message(sds message, int64_t offset)
     last_offset = offset;
     kafka_orders_offset = offset;
 
+    struct market_info_val *market_info = get_market_info((char *)market);
+    if (market_info == NULL) {
+        log_error("get_market_info: %s fail", market);
+        goto cleanup;
+    }
+    struct daily_trade_val *trade_info = get_daily_trade_info(market_info->daily_trade, (time_t)timestamp);
+    if (trade_info == NULL) {
+        log_error("get_daily_trade_info: %s fail", market);
+        goto cleanup;
+    }
+
+    update_market_orders(trade_info, order_type, order_side);
+    update_user_orders(trade_info->users_trade, user_id, order_type, order_side);
+
 cleanup:
     json_decref(obj);
 }
 
-static void report_offset(kafka_consumer_t *consumer, int64_t current_offset)
+static bool is_kafka_synced(void)
+{
+    int64_t deals_high_offset = 0;
+    int64_t orders_high_offset = 0;
+    if (kafka_query_offset(kafka_deals, NULL, &deals_high_offset) < 0)
+        return false;
+    if (kafka_query_offset(kafka_orders, NULL, &orders_high_offset) < 0)
+        return false;
+    if (deals_high_offset - kafka_deals_offset > 100)
+        return false;
+    if (orders_high_offset - kafka_orders_offset > 100)
+        return false;
+    return true;
+}
+
+static time_t get_yesterday_start_utc(void)
+{
+    time_t now = time(NULL);
+    now -= 86400;
+    struct tm *timeinfo = localtime(&now);
+    struct tm dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.tm_year = timeinfo->tm_year;
+    dt.tm_mon  = timeinfo->tm_mon;
+    dt.tm_mday = timeinfo->tm_mday;
+    time_t timestamp = mktime(&dt);
+    return timestamp + timeinfo->tm_gmtoff;
+}
+
+static time_t get_utc_time_from_date(const char *date)
+{
+    time_t now = time(NULL);
+    struct tm *timeinfo = localtime(&now);
+    int year = 0, mon = 0, mday = 0;
+    sscanf(date, "%d-%d-%d", &year, &mon, &mday);
+    struct tm dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.tm_year = year - 1900;
+    dt.tm_mon  = mon - 1;
+    dt.tm_mday = mday;
+    time_t timestamp = mktime(&dt);
+    return timestamp + timeinfo->tm_gmtoff;
+}
+
+static time_t get_last_dump_time(void)
+{
+    MYSQL *conn = mysql_connect(&settings.db_summary);
+    if (conn == NULL) {
+        log_error("connect mysql fail");
+        return -__LINE__;
+    }
+
+    sds sql = sdsempty();
+    sql = sdscatprintf(sql, "SELECT trade_date from dump_history order by trade_date desc limit 1");
+    log_trace("exec sql: %s", sql);
+    int ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        sdsfree(sql);
+        return -__LINE__;
+    }
+    sdsfree(sql);
+
+    time_t timestamp = 0;
+    MYSQL_RES *result = mysql_store_result(conn);
+    size_t num_rows = mysql_num_rows(result);
+    if (num_rows == 1) {
+        MYSQL_ROW row = mysql_fetch_row(result);
+        timestamp = get_utc_time_from_date(row[0]);
+    }
+    mysql_free_result(result);
+    mysql_close(conn);
+
+    return timestamp;
+}
+
+static int dump_to_db(time_t timestamp)
+{
+    return 0;
+}
+
+static void on_dump_timer(nw_timer *timer, void *privdata)
+{
+    if (!is_kafka_synced())
+        return;
+
+    time_t last_dump = get_last_dump_time();
+    time_t day_start = get_yesterday_start_utc();
+    log_info("last dump: %ld, today start: %ld", last_dump, day_start);
+    if (last_dump == day_start)
+        return;
+
+    int ret = dump_to_db(day_start);
+    if (ret < 0) {
+        log_error("dump_to_db %ld fail: %d", day_start, ret);
+    }
+}
+
+static void clear_market(struct market_info_val *market_info, time_t end)
+{
+    dict_entry *entry;
+    dict_iterator *iter;
+
+    iter = dict_get_iterator(market_info->daily_trade);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct time_key *key = entry->key;
+        if (key->timestamp < end) {
+            dict_delete(market_info->daily_trade, key);
+        }
+    }
+    dict_release_iterator(iter);
+
+    iter = dict_get_iterator(market_info->users_detail);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct time_key *key = entry->key;
+        if (key->timestamp < end) {
+            dict_delete(market_info->daily_trade, key);
+        }
+    }
+    dict_release_iterator(iter);
+}
+
+static void on_clear_timer(nw_timer *timer, void *privdata)
+{
+    time_t now = time(NULL);
+    time_t end = now / 86400 * 86400 - settings.keep_days;
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market_info);
+    while ((entry = dict_next(iter)) != NULL) {
+        clear_market(entry->val, end);
+    }
+    dict_release_iterator(iter);
+}
+
+static void report_kafka_offset(kafka_consumer_t *consumer, int64_t current_offset)
 {
     int64_t high = 0;
     if (kafka_query_offset(consumer, NULL, &high) < 0) {
@@ -179,10 +811,10 @@ static void report_offset(kafka_consumer_t *consumer, int64_t current_offset)
     }
 }
 
-static void on_timer(nw_timer *timer, void *privdata)
+static void on_report_timer(nw_timer *timer, void *privdata)
 {
-    report_offset(kafka_deals, kafka_deals_offset);
-    report_offset(kafka_orders, kafka_orders_offset);
+    report_kafka_offset(kafka_deals, kafka_deals_offset);
+    report_kafka_offset(kafka_orders, kafka_orders_offset);
 }
 
 int init_message(void)
@@ -205,8 +837,26 @@ int init_message(void)
     if (kafka_orders == NULL)
         return -__LINE__;
 
-    nw_timer_set(&timer, 5, true, on_timer, NULL);
-    nw_timer_start(&timer);
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function    = dict_str_key_hash_func;
+    dt.key_compare      = dict_str_key_compare;
+    dt.key_dup          = dict_str_key_dup;
+    dt.key_destructor   = dict_str_key_free;
+    dt.val_destructor   = dict_market_info_val_free;
+
+    dict_market_info = dict_create(&dt, 64);
+    if (dict_market_info == NULL)
+        return -__LINE__;
+
+    nw_timer_set(&dump_timer, 600, true, on_dump_timer, NULL);
+    nw_timer_start(&dump_timer);
+
+    nw_timer_set(&clear_timer, 3600, true, on_clear_timer, NULL);
+    nw_timer_start(&clear_timer);
+
+    nw_timer_set(&report_timer, 10, true, on_report_timer, NULL);
+    nw_timer_start(&report_timer);
 
     return 0;
 }
