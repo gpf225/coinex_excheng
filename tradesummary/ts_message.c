@@ -81,6 +81,12 @@ struct user_detail_val {
     mpd_t   *sell_amount;
 };
 
+struct trade_rank_val {
+    uint32_t user_id;
+    mpd_t    *amount;
+    mpd_t    *amount_net;
+};
+
 // str key
 static uint32_t dict_str_key_hash_func(const void *key)
 {
@@ -229,6 +235,25 @@ static void dict_user_detail_val_free(void *val)
     mpd_del(obj->buy_amount);
     mpd_del(obj->sell_amount);
     free(obj);
+}
+
+// trade rank val
+static void trade_rank_val_free(void *val)
+{
+    struct trade_rank_val *obj = val;
+    mpd_del(obj->amount);
+    mpd_del(obj->amount_net);
+    free(obj);
+}
+
+// trade rank compare
+static int trade_rank_val_compare(const void *val1, const void *val2)
+{
+    const struct trade_rank_val *obj1 = val1;
+    const struct trade_rank_val *obj2 = val2;
+    if (mpd_cmp(obj1->amount_net, obj2->amount_net, &mpd_ctx) > 0)
+        return -1;
+    return 1;
 }
 
 static int set_message_offset(const char *topic, time_t when, int64_t offset)
@@ -1215,5 +1240,138 @@ int init_message(void)
     nw_timer_start(&report_timer);
 
     return 0;
+}
+
+static int update_trade_detail(dict_t *dict, time_t start_time, time_t end_time, const char *market_name)
+{
+    dict_entry *entry = dict_find(dict_market_info, market_name);
+    if (entry == NULL)
+        return 0;
+    struct market_info_val *market_info = entry->val;
+
+    for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60) {
+        struct time_key tkey = { .timestamp = timestamp };
+        entry = dict_find(market_info->users_detail, &tkey);
+        if (entry == NULL)
+            continue;
+
+        dict_t *user_dict = entry->val;
+        dict_iterator *iter = dict_get_iterator(user_dict);
+        while ((entry = dict_next(iter)) != NULL) {
+            struct user_key *ukey = entry->key;
+            struct user_detail_val *user_detail = entry->val;
+
+            dict_entry *result = dict_find(dict, ukey);
+            if (result == NULL) {
+                struct user_detail_val *detail = malloc(sizeof(struct user_detail_val));
+                memset(detail, 0, sizeof(struct user_detail_val));
+                detail->buy_amount  = mpd_qncopy(mpd_zero);
+                detail->sell_amount = mpd_qncopy(mpd_zero);
+                result = dict_add(dict, ukey, detail);
+            }
+
+            struct user_detail_val *user_total = result->val;
+            mpd_add(user_total->buy_amount, user_total->buy_amount, user_detail->buy_amount, &mpd_ctx);
+            mpd_add(user_total->sell_amount, user_total->sell_amount, user_detail->sell_amount, &mpd_ctx);
+        }
+        dict_release_iterator(iter);
+    }
+
+    return 0;
+}
+
+json_t *get_trade_rank(json_t *market_list, time_t start_time, time_t end_time)
+{
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function    = dict_user_key_hash_func;
+    dt.key_compare      = dict_user_key_compare;
+    dt.key_dup          = dict_user_key_dup;
+    dt.key_destructor   = dict_user_key_free;
+    dt.val_destructor   = dict_user_detail_val_free;
+
+    dict_t *dict = dict_create(&dt, 1024);
+    if (dict == NULL)
+        return NULL;
+
+    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+        const char *market_name = json_string_value(json_array_get(market_list, i));
+        update_trade_detail(dict, start_time, end_time, market_name);
+    }
+
+    skiplist_type st;
+    memset(&st, 0, sizeof(st));
+    st.free = trade_rank_val_free;
+    st.compare = trade_rank_val_compare;
+
+    skiplist_t *buy_list = skiplist_create(&st);
+    skiplist_t *sell_list = skiplist_create(&st);
+
+    dict_entry *entry;
+    dict_iterator *diter = dict_get_iterator(dict);
+    while ((entry = dict_next(diter)) != NULL) {
+        struct user_key *ukey = entry->key;
+        struct user_detail_val *user_detail = entry->val;
+
+        struct trade_rank_val *rank_detail = malloc(sizeof(struct trade_rank_val));
+        rank_detail->user_id = ukey->user_id;
+        rank_detail->amount = mpd_qncopy(mpd_zero);
+        rank_detail->amount_net = mpd_qncopy(mpd_zero);
+        mpd_add(rank_detail->amount, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
+        if (mpd_cmp(user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx) >= 0) {
+            mpd_sub(rank_detail->amount_net, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
+            skiplist_insert(buy_list, rank_detail);
+        } else {
+            mpd_sub(rank_detail->amount_net, user_detail->sell_amount, user_detail->buy_amount, &mpd_ctx);
+            skiplist_insert(sell_list, rank_detail);
+        }
+    }
+    dict_release_iterator(diter);
+    dict_release(dict);
+
+    skiplist_node *node;
+    skiplist_iter *siter;
+    size_t count;
+    size_t reply_limit = 500;
+
+    count = 0;
+    json_t *net_buy = json_array();
+    siter = skiplist_get_iterator(buy_list);
+    while ((node = skiplist_next(siter)) != NULL) {
+        struct trade_rank_val *val = node->value;
+        json_t *item = json_object();
+        json_object_set_new_mpd(item, "total", val->amount);
+        json_object_set_new_mpd(item, "net", val->amount_net);
+        json_array_append_new(net_buy, item);
+
+        count += 1;
+        if (count >= reply_limit)
+            break;
+    }
+    skiplist_release_iterator(siter);
+
+    count = 0;
+    json_t *net_sell = json_array();
+    siter = skiplist_get_iterator(sell_list);
+    while ((node = skiplist_next(siter)) != NULL) {
+        struct trade_rank_val *val = node->value;
+        json_t *item = json_object();
+        json_object_set_new_mpd(item, "total", val->amount);
+        json_object_set_new_mpd(item, "net", val->amount_net);
+        json_array_append_new(net_sell, item);
+
+        count += 1;
+        if (count >= reply_limit)
+            break;
+    }
+    skiplist_release_iterator(siter);
+    skiplist_release(buy_list);
+    skiplist_release(sell_list);
+
+    json_t *result = json_object();
+    json_object_set_new(result, "buy", net_buy);
+    json_object_set_new(result, "sell", net_sell);
+
+    return result;
 }
 

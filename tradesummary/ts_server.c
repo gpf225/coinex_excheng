@@ -5,6 +5,7 @@
 
 # include "ts_config.h"
 # include "ts_server.h"
+# include "ts_message.h"
 
 static rpc_svr *svr;
 
@@ -75,7 +76,33 @@ static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
 
 static int on_cmd_trade_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    return 0;
+    if (json_array_size(params) != 3)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // market list
+    json_t *market_list = json_array_get(params, 0);
+    if (!json_is_array(market_list))
+        return reply_error_invalid_argument(ses, pkg);
+    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+        if (!json_is_string(json_array_get(market_list, i)))
+            return reply_error_invalid_argument(ses, pkg);
+    }
+
+    // start time
+    time_t now = time(NULL);
+    time_t start_time = json_integer_value(json_array_get(params, 1));
+    time_t end_time = json_integer_value(json_array_get(params, 2));
+    if (end_time > now)
+        end_time = now;
+    if (start_time <= 0 || end_time <= 0 || start_time > end_time)
+        return reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = get_trade_rank(market_list, start_time, end_time);
+    if (result == NULL)
+        return reply_error_internal_error(ses, pkg);
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
 }
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
