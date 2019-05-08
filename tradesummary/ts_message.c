@@ -681,10 +681,9 @@ static bool is_kafka_synced(void)
     return true;
 }
 
-static time_t get_yesterday_start_utc(void)
+static time_t get_today_start_utc(void)
 {
     time_t now = time(NULL);
-    now -= 86400;
     struct tm *timeinfo = localtime(&now);
     struct tm dt;
     memset(&dt, 0, sizeof(dt));
@@ -744,23 +743,25 @@ static time_t get_last_dump_time(void)
 
 static int dump_to_db(time_t timestamp)
 {
+    log_info("dump: %ld", timestamp);
     return 0;
 }
 
 static void on_dump_timer(nw_timer *timer, void *privdata)
 {
+    time_t now = time(NULL);
+    if (now % 600 >= 60)
+        return;
     if (!is_kafka_synced())
         return;
 
     time_t last_dump = get_last_dump_time();
-    time_t day_start = get_yesterday_start_utc();
-    log_info("last dump: %ld, today start: %ld", last_dump, day_start);
-    if (last_dump == day_start)
-        return;
-
-    int ret = dump_to_db(day_start);
-    if (ret < 0) {
-        log_error("dump_to_db %ld fail: %d", day_start, ret);
+    time_t day_start = get_today_start_utc() - 86400;
+    for (time_t timestamp = last_dump + 86400; timestamp <= day_start; timestamp += 86400) {
+        int ret = dump_to_db(timestamp);
+        if (ret < 0) {
+            log_error("dump_to_db %ld fail: %d", timestamp, ret);
+        }
     }
 }
 
@@ -849,7 +850,7 @@ int init_message(void)
     if (dict_market_info == NULL)
         return -__LINE__;
 
-    nw_timer_set(&dump_timer, 600, true, on_dump_timer, NULL);
+    nw_timer_set(&dump_timer, 60, true, on_dump_timer, NULL);
     nw_timer_start(&dump_timer);
 
     nw_timer_set(&clear_timer, 3600, true, on_clear_timer, NULL);
