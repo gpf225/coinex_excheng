@@ -57,6 +57,7 @@ static int read_config_from_json(json_t *root)
     }
 
     ERR_RET_LN(read_cfg_int(root, "keep_days", &settings.keep_days, false, 3));
+    ERR_RET_LN(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
 
     return 0;
 }

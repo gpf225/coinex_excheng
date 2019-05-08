@@ -1,5 +1,5 @@
-# ifndef _MP_CONFIG_H_
-# define _MP_CONFIG_H_
+# ifndef _TS_CONFIG_H_
+# define _TS_CONFIG_H_
 
 # include <math.h>
 # include <stdio.h>
@@ -50,6 +50,7 @@ struct settings {
     kafka_consumer_cfg  orders;
     redis_cfg           redis;
     int                 keep_days;
+    char                *accesshttp;
 };
 
 extern struct settings settings;
