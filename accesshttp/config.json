@@ -65,6 +65,13 @@
         "max_pkg_size": 2000000,
         "heartbeat_timeout": 30
     },
+    "tradesummary": {
+        "name": "tradesummary",
+        "addr": [
+            "tcp@127.0.0.1:7519"
+        ],
+        "max_pkg_size": 2000000
+    },
     "cachecenter_host": "127.0.0.1",
     "cachecenter_port": 7810,
     "cachecenter_worker_num": 4,

@@ -7,6 +7,19 @@
 # ifndef _UT_DEFINE_H_
 # define _UT_DEFINE_H_
 
+enum {
+    ORDER_EVENT_PUT     = 1,
+    ORDER_EVENT_UPDATE  = 2,
+    ORDER_EVENT_FINISH  = 3,
+    ORDER_EVENT_FILL    = 4,
+};
+
+enum {
+    STOP_EVENT_PUT      = 1,
+    STOP_EVENT_ACTIVE   = 2,
+    STOP_EVENT_CANCEL   = 3,
+};
+
 # define MARKET_ORDER_TYPE_LIMIT    1
 # define MARKET_ORDER_TYPE_MARKET   2
 

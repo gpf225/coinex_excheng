@@ -1,5 +1,5 @@
-# ifndef _MP_CONFIG_H_
-# define _MP_CONFIG_H_
+# ifndef _TS_CONFIG_H_
+# define _TS_CONFIG_H_
 
 # include <math.h>
 # include <stdio.h>
@@ -37,8 +37,7 @@
 # include "ut_skiplist.h"
 
 # define MARKET_NAME_MAX_LEN   16
-# define STOCK_NAME_MAX_LEN    8
-
+# define ASSET_NAME_MAX_LEN    8
 
 struct settings {
     bool                debug;
@@ -46,12 +45,12 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
-    cli_svr_cfg         cli;
-    mysql_cfg           db_history;
+    mysql_cfg           db_summary;
     kafka_consumer_cfg  deals;
-    int                 keep_day;
-    int                 prec;
-    int                 interval_minute;
+    kafka_consumer_cfg  orders;
+    redis_cfg           redis;
+    int                 keep_days;
+    char                *accesshttp;
 };
 
 extern struct settings settings;
