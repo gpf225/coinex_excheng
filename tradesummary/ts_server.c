@@ -92,10 +92,12 @@ static int on_cmd_trade_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     time_t now = time(NULL);
     time_t start_time = json_integer_value(json_array_get(params, 1));
     time_t end_time = json_integer_value(json_array_get(params, 2));
-    if (end_time > now)
-        end_time = now;
     if (start_time <= 0 || end_time <= 0 || start_time > end_time)
         return reply_error_invalid_argument(ses, pkg);
+    if (start_time < now - settings.keep_days * 86400)
+        start_time = now - settings.keep_days * 86400;
+    if (end_time > now)
+        end_time = now;
 
     json_t *result = get_trade_rank(market_list, start_time, end_time);
     if (result == NULL)
