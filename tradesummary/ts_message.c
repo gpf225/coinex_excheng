@@ -1128,10 +1128,12 @@ static void dump_summary(time_t last_dump, time_t day_start)
         int ret = dump_to_db(timestamp);
         if (ret < 0) {
             log_error("dump_to_db %ld fail: %d", timestamp, ret);
+            exit(0);
+        } else {
+            profile_inc_real("dump_success", 1);
         }
     }
 
-    profile_inc_real("dump_success", 1);
     exit(0);
 }
 
