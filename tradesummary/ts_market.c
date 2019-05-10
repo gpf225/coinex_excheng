@@ -57,7 +57,7 @@ json_t *get_market_dict(void)
     json_t *r = json_object_get(reply, "result");
     result = json_object();
     for (size_t i = 0; i < json_array_size(r); ++i) {
-        json_t *item = json_array_get(result, i);
+        json_t *item = json_array_get(r, i);
         json_t *attr = json_object();
         json_object_set(attr, "stock", json_object_get(item, "stock"));
         json_object_set(attr, "money", json_object_get(item, "money"));
