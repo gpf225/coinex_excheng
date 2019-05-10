@@ -11,7 +11,6 @@ enum {
     ORDER_EVENT_PUT     = 1,
     ORDER_EVENT_UPDATE  = 2,
     ORDER_EVENT_FINISH  = 3,
-    ORDER_EVENT_FILL    = 4,
 };
 
 enum {

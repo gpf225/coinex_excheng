@@ -202,6 +202,7 @@ static void dict_daily_trade_val_free(void *val)
 {
     struct daily_trade_val *obj = val;
     dict_release(obj->users_trade);
+    dict_release(obj->fees_detail);
     mpd_del(obj->deal_amount);
     mpd_del(obj->deal_volume);
     mpd_del(obj->taker_buy_amount);
@@ -618,6 +619,7 @@ static void on_deals_message(sds message, int64_t offset)
     update_market_volume(trade_info, side, amount, volume);
     update_user_volume(trade_info->users_trade, market_info->users_detail, ask_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_SELL, amount, volume);
     update_user_volume(trade_info->users_trade, market_info->users_detail, bid_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_BUY,  amount, volume);
+
     if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
         update_fee(trade_info->fees_detail, ask_user_id, ask_fee_asset, ask_fee);
     }
@@ -639,6 +641,7 @@ cleanup:
 
 static void on_orders_message(sds message, int64_t offset)
 {
+    static int64_t max_order_id;
     static time_t  last_message_hour;
 
     log_trace("deals message: %s, offset: %"PRIi64, message, offset);
@@ -650,17 +653,26 @@ static void on_orders_message(sds message, int64_t offset)
 
     kafka_orders_offset = offset;
 
-    int event = json_integer_value(json_object_get(obj, "event"));
-    if (event != ORDER_EVENT_PUT && event != ORDER_EVENT_FILL) {
-        json_decref(obj);
-        return;
-    }
-
     json_t *order = json_object_get(obj, "order");
     if (order == NULL) {
         log_error("invalid message: %s, offset: %"PRIi64, message, offset);
         goto cleanup;
     }
+    int64_t order_id = json_integer_value(json_object_get(order, "id"));
+
+    int event = json_integer_value(json_object_get(obj, "event"));
+    if (event != ORDER_EVENT_PUT && event != ORDER_EVENT_FINISH) {
+        json_decref(obj);
+        return;
+    }
+
+    if (event == ORDER_EVENT_FINISH) {
+        if (order_id <= max_order_id || max_order_id == 0) {
+            json_decref(obj);
+            return;
+        }
+    }
+    max_order_id = order_id;
 
     const char *market = json_string_value(json_object_get(order, "market"));
     double timestamp = json_real_value(json_object_get(order, "ctime"));
@@ -840,7 +852,10 @@ static int dump_market_info(MYSQL *conn, const char *market_name, const char *st
     dict_iterator *iter = dict_get_iterator(trade_info->users_trade);
     while ((entry = dict_next(iter)) != NULL) {
         struct user_key *ukey = entry->key;
-        json_array_append_new(user_list, json_integer(ukey->user_id));
+        struct users_trade_val *val = entry->val;
+        if (mpd_cmp(val->deal_volume, mpd_zero, &mpd_ctx) > 0) {
+            json_array_append_new(user_list, json_integer(ukey->user_id));
+        }
     }
     dict_release_iterator(iter);
 

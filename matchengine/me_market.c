@@ -1227,7 +1227,6 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             if (ret < 0) {
                 log_fatal("append_order_history fail: %d, order: %"PRIu64"", ret, order->id);
             }
-            push_order_message(ORDER_EVENT_FILL, order, m);
             push_order_message(ORDER_EVENT_FINISH, order, m);
             if (result) {
                 *result = get_order_info(order);
@@ -1708,7 +1707,6 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         if (ret < 0) {
             log_fatal("append_order_history fail: %d, order: %"PRIu64"", ret, order->id);
         }
-        push_order_message(ORDER_EVENT_FILL, order, m);
         push_order_message(ORDER_EVENT_FINISH, order, m);
         if (result) {
             *result = get_order_info(order);
