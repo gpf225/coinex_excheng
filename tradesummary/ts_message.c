@@ -492,9 +492,8 @@ static int update_user_volume(dict_t *users_trade, dict_t *users_detail, uint32_
 static int update_fee(dict_t *fees_detail, uint32_t user_id, const char *asset, mpd_t *fee)
 {
     struct fee_key key;
-    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
-    sstrncpy(key.asset, asset, sizeof(ASSET_NAME_MAX_LEN));
+    strncpy(key.asset, asset, sizeof(ASSET_NAME_MAX_LEN));
 
     dict_entry *entry = dict_find(fees_detail, &key);
     if (entry == NULL) {
@@ -1146,16 +1145,7 @@ static void on_dump_timer(nw_timer *timer, void *privdata)
 
     time_t last_dump = get_last_dump_time();
     if (last_dump == 0) {
-        static time_t last_day;
-        if (last_day == 0) {
-            last_day = get_today_start_utc();
-        }
-
-        time_t now_day = get_today_start_utc();
-        if (last_day != now_day) {
-            dump_summary(last_day - 86400, now_day - 86400);
-        }
-        return;
+        last_dump = get_today_start_utc() - 86400 * 2;
     }
 
     time_t day_start = get_today_start_utc() - 86400;
