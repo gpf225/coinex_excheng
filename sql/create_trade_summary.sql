@@ -66,6 +66,6 @@ CREATE TABLE `dump_history` (
     `id`                    INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `time`                  BIGINT NOT NULL,
     `trade_date`            DATE NOT NULL,
-    INDEX `idx_date` (`trade_date`),
+    INDEX `idx_date` (`trade_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
