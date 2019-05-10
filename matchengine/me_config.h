@@ -60,22 +60,6 @@
 # define QUEUE_NAME             "matchengine_queue"
 # define QUEUE_PIPE_PATH        "/tmp/matchengine_queue_pipe"
 
-struct asset {
-    char                *name;
-    int                 prec_save;
-    int                 prec_show;
-};
-
-struct market {
-    char                *name;
-    char                *stock;
-    char                *money;
-    int                 fee_prec;
-    int                 stock_prec;
-    int                 money_prec;
-    mpd_t               *min_amount;
-};
-
 struct settings {
     bool                debug;
     process_cfg         process;
@@ -85,23 +69,23 @@ struct settings {
     cli_svr_cfg         cli;
     mysql_cfg           db_log;
 
-    size_t              asset_num;
-    struct asset        *assets;
     char                *asset_url;
+    json_t              *asset_cfg;
 
-    size_t              market_num;
-    struct market       *markets;
     char                *market_url;
+    json_t              *market_cfg;
 
     char                *brokers;
     int                 slice_interval;
     int                 slice_keeptime;
     int                 depth_merge_max;
-    double              cache_timeout;
 
     char               *usdc_assets[32];
     int                 usdc_assets_num;
+
+    int                 fee_prec;
     int                 reader_num;
+    double              cache_timeout;
     double              worker_timeout;
     double              order_fini_keeptime;
 };
@@ -109,6 +93,7 @@ struct settings {
 extern struct settings settings;
 
 int init_config(const char *path);
+
 int update_asset_config(void);
 int update_market_config(void);
 

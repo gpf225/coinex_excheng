@@ -4,6 +4,7 @@
  */
 
 # include "me_config.h"
+# include "me_asset.h"
 # include "me_balance.h"
 # include "me_update.h"
 # include "me_market.h"
@@ -790,7 +791,7 @@ static int on_cmd_update_asset_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     ret = update_asset_config();
     if (ret < 0)
         return reply_error_internal_error(ses, pkg);
-    ret = update_balance();
+    ret = update_asset();
     if (ret < 0)
         return reply_error_internal_error(ses, pkg);
     log_info("update asset config success!");

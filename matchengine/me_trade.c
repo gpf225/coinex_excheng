@@ -6,7 +6,7 @@
 # include "me_config.h"
 # include "me_trade.h"
 
-static dict_t *dict_market;
+dict_t *dict_market;
 static nw_timer timer;
 
 static uint32_t market_dict_hash_function(const void *key)
@@ -60,17 +60,18 @@ int init_trade(void)
     if (dict_market == NULL)
         return -__LINE__;
 
-    for (size_t i = 0; i < settings.market_num; ++i) {
-        log_stderr("create market: %s", settings.markets[i].name);
-        market_t *m = market_create(&settings.markets[i]);
+    for (size_t i = 0; i < json_array_size(settings.market_cfg); ++i) {
+        json_t *item = json_array_get(settings.market_cfg, i);
+        const char *market_name = json_string_value(json_object_get(item, "name"));
+        log_stderr("create market: %s", market_name);
+        market_t *m = market_create(item);
         if (m == NULL) {
-            log_stderr("create market: %s fail, stock: %s, money: %s, fee_prec: %d, stock_prec: %d, money_prec: %d",
-                    settings.markets[i].name, settings.markets[i].stock, settings.markets[i].money,
-                    settings.markets[i].fee_prec, settings.markets[i].stock_prec, settings.markets[i].money_prec);
+            char *item_string = json_dumps(item, 0);
+            log_stderr("create market: %s, config: %s fail", market_name, item_string);
+            free(item_string);
             return -__LINE__;
         }
-
-        dict_add(dict_market, settings.markets[i].name, m);
+        dict_add(dict_market, (char *)market_name, m);
     }
 
     nw_timer_set(&timer, 60, true, on_timer, NULL);
@@ -81,15 +82,29 @@ int init_trade(void)
 
 int update_trade(void)
 {
-    for (size_t i = 0; i < settings.market_num; ++i) {
-        dict_entry *entry = dict_find(dict_market, settings.markets[i].name);
+    for (size_t i = 0; i < json_array_size(settings.market_cfg); ++i) {
+        json_t *item = json_array_get(settings.market_cfg, i);
+        const char *market_name = json_string_value(json_object_get(item, "name"));
+        dict_entry *entry = dict_find(dict_market, market_name);
         if (!entry) {
-            market_t *m = market_create(&settings.markets[i]);
-            if (m == NULL)
+            log_info("create market: %s", market_name);
+            market_t *m = market_create(item);
+            if (m == NULL) {
+                char *item_string = json_dumps(item, 0);
+                log_error("create market: %s, config: %s fail", market_name, item_string);
+                free(item_string);
                 return -__LINE__;
-            dict_add(dict_market, settings.markets[i].name, m);
+            }
+            dict_add(dict_market, (char *)market_name, m);
         } else {
-            market_update(entry->val, &settings.markets[i]);
+            market_t *m = entry->val;
+            int ret = market_update(m, item);
+            if (ret < 0) {
+                char *item_string = json_dumps(item, 0);
+                log_error("update market: %s, config: %s fail", market_name, item_string);
+                free(item_string);
+                return -__LINE__;
+            }
         }
     }
 

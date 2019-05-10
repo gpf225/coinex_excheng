@@ -570,26 +570,47 @@ int init_market(void)
     return 0;
 }
 
-market_t *market_create(struct market *conf)
+market_t *market_create(json_t *conf)
 {
-    if (!asset_exist(conf->stock) || !asset_exist(conf->money))
+    const char *name = json_string_value(json_object_get(conf, "name"));
+    if (name == NULL)
         return NULL;
-    if (conf->stock_prec + conf->money_prec > asset_prec(conf->money))
+
+    mpd_t *min_amount = NULL;
+    if (read_cfg_mpd(conf, "min_amount", &min_amount, NULL) < 0)
         return NULL;
-    if (conf->stock_prec + conf->fee_prec > asset_prec(conf->stock))
+
+    json_t *stock = json_object_get(conf, "stock");
+    json_t *money = json_object_get(conf, "money");
+    const char *stock_name = json_string_value(json_object_get(stock, "name"));
+    const char *money_name = json_string_value(json_object_get(money, "name"));
+    if (stock_name == NULL || money_name == NULL)
         return NULL;
-    if (conf->money_prec + conf->fee_prec > asset_prec(conf->money))
+
+    int stock_prec, money_prec;
+    if (read_cfg_int(stock, "prec", &stock_prec, true, 0) < 0)
+        return NULL;
+    if (read_cfg_int(money, "prec", &money_prec, true, 0) < 0)
+        return NULL;
+
+    if (!asset_exist(stock_name) || !asset_exist(money_name))
+        return NULL;
+    if (stock_prec + money_prec > asset_prec(money_name))
+        return NULL;
+    if (stock_prec + settings.fee_prec > asset_prec(stock_name))
+        return NULL;
+    if (money_prec + settings.fee_prec > asset_prec(money_name))
         return NULL;
 
     market_t *m = malloc(sizeof(market_t));
     memset(m, 0, sizeof(market_t));
-    m->name             = strdup(conf->name);
-    m->stock            = strdup(conf->stock);
-    m->money            = strdup(conf->money);
-    m->stock_prec       = conf->stock_prec;
-    m->money_prec       = conf->money_prec;
-    m->fee_prec         = conf->fee_prec;
-    m->min_amount       = mpd_qncopy(conf->min_amount);
+    m->name             = strdup(name);
+    m->stock            = strdup(stock_name);
+    m->money            = strdup(money_name);
+    m->stock_prec       = stock_prec;
+    m->money_prec       = money_prec;
+    m->fee_prec         = settings.fee_prec;
+    m->min_amount       = min_amount;
     m->last             = mpd_qncopy(mpd_zero);
 
     dict_types dt;
@@ -638,9 +659,13 @@ market_t *market_create(struct market *conf)
     return m;
 }
 
-int market_update(market_t *m, struct market *conf)
+int market_update(market_t *m, json_t *conf)
 {
-    mpd_copy(m->min_amount, conf->min_amount, &mpd_ctx); 
+    mpd_t *min_amount = NULL;
+    ERR_RET_LN(read_cfg_mpd(conf, "min_amount", &min_amount, NULL));
+    mpd_copy(m->min_amount, min_amount, &mpd_ctx); 
+    mpd_del(min_amount);
+
     return 0;
 }
 

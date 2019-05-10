@@ -105,9 +105,9 @@ static int process_orders_message(json_t *msg)
 
     asset_on_update(user_id, stock);
     asset_on_update(user_id, money);
-    
     asset_on_update_sub(user_id, stock);
     asset_on_update_sub(user_id, money);
+
     if (fee_asset && strcmp(fee_asset, stock) != 0 && strcmp(fee_asset, money) != 0) {
         asset_on_update(user_id, fee_asset);
         asset_on_update_sub(user_id, fee_asset);

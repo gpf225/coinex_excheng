@@ -78,8 +78,8 @@ typedef struct stop_t {
 
 int init_market(void);
 
-market_t *market_create(struct market *conf);
-int market_update(market_t *m, struct market *conf);
+market_t *market_create(json_t *conf);
+int market_update(market_t *m, json_t *conf);
 
 int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount,
         mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount);

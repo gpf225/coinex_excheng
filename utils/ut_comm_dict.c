@@ -3,6 +3,7 @@
  *     History: yang@haipo.me, 2018/01/01, create
  */
 
+# include <stdlib.h>
 # include <string.h>
 # include "ut_comm_dict.h"
 
@@ -47,5 +48,45 @@ size_t uint32_set_num(dict_t *set)
 void uint32_set_release(dict_t *set)
 {
     dict_release(set);
+}
+
+uint32_t str_dict_hash_function(const void *key)
+{
+    return dict_generic_hash_function(key, strlen(key));
+}
+
+void *str_dict_key_dup(const void *key)
+{
+    return strdup(key);
+}
+
+int str_dict_key_compare(const void *key1, const void *key2)
+{
+    return strcmp(key1, key2);
+}
+
+void str_dict_key_free(void *key)
+{
+    free(key);
+}
+
+uint32_t sds_dict_hash_function(const void *key)
+{
+    return dict_generic_hash_function(key, sdslen((sds)key));
+}
+
+void *sds_dict_key_dup(const void *key)
+{
+    return sdsdup((sds)key);
+}
+
+int sds_dict_key_compare(const void *key1, const void *key2)
+{
+    return sdscmp((sds)key1, (sds)key2);
+}
+
+void sds_dict_key_free(void *key)
+{
+    sdsfree((sds)key);
 }
 

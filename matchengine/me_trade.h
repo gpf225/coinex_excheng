@@ -8,6 +8,8 @@
 
 # include "me_market.h"
 
+extern dict_t *dict_market;
+
 int init_trade(void);
 int update_trade(void);
 

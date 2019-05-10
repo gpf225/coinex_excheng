@@ -101,13 +101,11 @@ int dump_stops(MYSQL *conn, const char *table)
     }
     sdsfree(sql);
 
-    for (int i = 0; i < settings.market_num; ++i) {
-        market_t *market = get_market(settings.markets[i].name);
-        if (market == NULL) {
-            return -__LINE__;
-        }
-        int ret;
-        ret = dump_stops_list(conn, table, market->stop_asks);
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        market_t *market = entry->val;
+        int ret = dump_stops_list(conn, table, market->stop_asks);
         if (ret < 0) {
             log_error("dump market: %s asks stops list fail: %d", market->name, ret);
             return -__LINE__;
@@ -118,6 +116,7 @@ int dump_stops(MYSQL *conn, const char *table)
             return -__LINE__;
         }
     }
+    dict_release_iterator(iter);
 
     return 0;
 }
@@ -208,13 +207,11 @@ int dump_orders(MYSQL *conn, const char *table)
     }
     sdsfree(sql);
 
-    for (int i = 0; i < settings.market_num; ++i) {
-        market_t *market = get_market(settings.markets[i].name);
-        if (market == NULL) {
-            return -__LINE__;
-        }
-        int ret;
-        ret = dump_orders_list(conn, table, market->asks);
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        market_t *market = entry->val;
+        int ret = dump_orders_list(conn, table, market->asks);
         if (ret < 0) {
             log_error("dump market: %s asks orders list fail: %d", market->name, ret);
             return -__LINE__;
@@ -225,6 +222,7 @@ int dump_orders(MYSQL *conn, const char *table)
             return -__LINE__;
         }
     }
+    dict_release_iterator(iter);
 
     return 0;
 }
