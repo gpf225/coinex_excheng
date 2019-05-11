@@ -37,7 +37,7 @@
 # include "ut_skiplist.h"
 
 # define MARKET_NAME_MAX_LEN   16
-# define ASSET_NAME_MAX_LEN    8
+# define ASSET_NAME_MAX_LEN    16
 
 struct settings {
     bool                debug;

@@ -493,8 +493,9 @@ static int update_user_volume(dict_t *users_trade, dict_t *users_detail, uint32_
 static int update_fee(dict_t *fees_detail, uint32_t user_id, const char *asset, mpd_t *fee)
 {
     struct fee_key key;
+    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
-    strncpy(key.asset, asset, sizeof(ASSET_NAME_MAX_LEN));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
 
     dict_entry *entry = dict_find(fees_detail, &key);
     if (entry == NULL) {
