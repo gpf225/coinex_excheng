@@ -3,7 +3,7 @@
  *     History: ouxiangyang, 2019/03/27, create
  */
 
-# include "dr_config.h"
+# include "ts_config.h"
 
 struct settings settings;
 
@@ -35,7 +35,7 @@ static int read_config_from_json(json_t *root)
         printf("load svr config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_mysql(root, "db_history", &settings.db_history);
+    ret = load_cfg_mysql(root, "db_summary", &settings.db_summary);
     if (ret < 0) {
         printf("load history db config fail: %d\n", ret);
         return -__LINE__;
@@ -45,10 +45,19 @@ static int read_config_from_json(json_t *root)
         printf("load kafka deals config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_kafka_consumer(root, "orders", &settings.orders);
+    if (ret < 0) {
+        printf("load kafka orders config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_redis(root, "redis", &settings.redis);
+    if (ret < 0) {
+        printf("load redis deals config fail: %d\n", ret);
+        return -__LINE__;
+    }
 
-    ERR_RET_LN(read_cfg_int(root, "keep_day", &settings.keep_day, false, 14));
-    ERR_RET_LN(read_cfg_int(root, "prec", &settings.prec, false, 8));
-    ERR_RET_LN(read_cfg_int(root, "interval_minute", &settings.interval_minute, false, 5));
+    ERR_RET_LN(read_cfg_int(root, "keep_days", &settings.keep_days, false, 3));
+    ERR_RET_LN(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
 
     return 0;
 }

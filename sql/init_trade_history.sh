@@ -86,8 +86,3 @@ else
     echo "drop:   drop all databases created in command create, if you want to drop database, please see this script and copy the drop option"
 fi
 
-
-
-
-
-

@@ -3,10 +3,9 @@
  *     History: ouxiangyang, 2019/03/27, create
  */
 
-# include "dr_config.h"
-# include "dr_server.h"
-# include "dr_message.h"
-# include "dr_deal.h"
+# include "ts_config.h"
+# include "ts_server.h"
+# include "ts_message.h"
 
 static rpc_svr *svr;
 
@@ -75,44 +74,35 @@ static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     return ret;
 }
 
-static int on_cmd_deal_rank_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+static int on_cmd_trade_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 5)
+    if (json_array_size(params) != 3)
         return reply_error_invalid_argument(ses, pkg);
 
-    if (!json_is_string(json_array_get(params, 0)))
+    // market list
+    json_t *market_list = json_array_get(params, 0);
+    if (!json_is_array(market_list))
         return reply_error_invalid_argument(ses, pkg);
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (!market)
-        return reply_error_invalid_argument(ses, pkg);
-
-    if (!json_is_integer(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
-    time_t start = json_integer_value(json_array_get(params, 1));
-
-    if (!json_is_integer(json_array_get(params, 2)))
-        return reply_error_invalid_argument(ses, pkg);
-    time_t end = json_integer_value(json_array_get(params, 2));
-
-    if (!json_is_integer(json_array_get(params, 3)))
-        return reply_error_invalid_argument(ses, pkg);
-    uint32_t data_type = json_integer_value(json_array_get(params, 3));
-
-    if (!json_is_integer(json_array_get(params, 4)))
-        return reply_error_invalid_argument(ses, pkg);
-    uint32_t top_num = json_integer_value(json_array_get(params, 4));
-
-    json_t *result = NULL; 
-    int ret = deal_top_market(&result, start, end, market, data_type, top_num);
-
-    if (ret == -1) {
-        return reply_error(ses, pkg, 10, "time invalid");
-    } else if (ret < 0) {
-        log_fatal("deal_top_data fail: %d", ret);
-        return reply_error_internal_error(ses, pkg);
+    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+        if (!json_is_string(json_array_get(market_list, i)))
+            return reply_error_invalid_argument(ses, pkg);
     }
 
-    ret = reply_result(ses, pkg, result);
+    // start time
+    time_t now = time(NULL);
+    time_t start_time = json_integer_value(json_array_get(params, 1));
+    time_t end_time = json_integer_value(json_array_get(params, 2));
+    if (start_time <= 0 || end_time <= 0 || start_time > end_time)
+        return reply_error_invalid_argument(ses, pkg);
+    if (start_time < now - settings.keep_days * 86400)
+        start_time = now - settings.keep_days * 86400;
+    if (end_time > now)
+        end_time = now;
+
+    json_t *result = get_trade_rank(market_list, start_time, end_time);
+    if (result == NULL)
+        return reply_error_internal_error(ses, pkg);
+    int ret = reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -128,11 +118,11 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     int ret;
     switch (pkg->command) {
-    case CMD_DEAL_RANK_MARKET:
-        profile_inc("cmd_deal_rank_market", 1);
-        ret = on_cmd_deal_rank_market(ses, pkg, params);
+    case CMD_TRADE_RANK:
+        profile_inc("cmd_trade_rank", 1);
+        ret = on_cmd_trade_rank(ses, pkg, params);
         if (ret < 0) {
-            log_error("on_cmd_deal_rank_market %s fail: %d", params_str, ret);
+            log_error("on_cmd_trade_rank %s fail: %d", params_str, ret);
         }
         break;
     default:
@@ -183,3 +173,4 @@ int init_server(void)
 
     return 0;
 }
+

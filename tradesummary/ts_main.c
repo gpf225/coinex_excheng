@@ -3,16 +3,11 @@
  *     History: ouxiangyang, 2019/03/27, create
  */
 
-# include "dr_config.h"
-# include "dr_server.h"
-# include "dr_message.h"
-# include "dr_deal.h"
-# include "dr_history.h"
-# include "dr_operlog.h"
-# include "dr_fee_rate.h"
-# include "dr_load.h"
+# include "ts_config.h"
+# include "ts_server.h"
+# include "ts_message.h"
 
-const char *__process__ = "dealrank";
+const char *__process__ = "tradesummary";
 const char *__version__ = "0.1.0";
 
 nw_timer cron_timer;
@@ -90,39 +85,14 @@ int main(int argc, char *argv[])
     daemon(1, 1);
     process_keepalive();
 
-    ret = init_server();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init server fail: %d", ret);
-    }
-
-    ret = init_history();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init history fail: %d", ret);
-    }
-
-    ret = init_deal();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init store fail: %d", ret);
-    }
-
     ret = init_message();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init message fail: %d", ret);
     }
 
-    ret = init_fee_rate();
+    ret = init_server();
     if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init fee_rate fail: %d", ret);
-    }
-
-    ret = init_load_db();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init load_db fail: %d", ret);
-    }
-
-    ret = init_operlog();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init oper_log fail: %d", ret);
+        error(EXIT_FAILURE, errno, "init server fail: %d", ret);
     }
 
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
@@ -132,9 +102,6 @@ int main(int argc, char *argv[])
     log_stderr("server start");
     nw_loop_run();
     log_vip("server stop");
-
-    fini_operlog();
-    fini_history();
 
     return 0;
 }

@@ -59,6 +59,7 @@ struct settings {
     rpc_clt_cfg         marketprice;
     rpc_clt_cfg         readhistory;
     rpc_clt_cfg         monitorcenter;
+    rpc_clt_cfg         tradesummary;
     double              timeout;
     int                 worker_num;
     int                 deal_max;
