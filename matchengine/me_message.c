@@ -285,7 +285,9 @@ int push_deal_message(double t, uint64_t id, market_t *market, int side, order_t
     json_object_set_new(message, "ask_id", json_integer(ask->id));
     json_object_set_new(message, "bid_id", json_integer(bid->id));
     json_object_set_new(message, "ask_user_id", json_integer(ask->user_id));
+    json_object_set_new(message, "ask_account", json_integer(ask->account));
     json_object_set_new(message, "bid_user_id", json_integer(bid->user_id));
+    json_object_set_new(message, "bid_account", json_integer(bid->account));
     json_object_set_new(message, "ask_fee_asset", json_string(ask_fee_asset));
     json_object_set_new(message, "bid_fee_asset", json_string(bid_fee_asset));
     json_object_set_new_mpd(message, "price", price);

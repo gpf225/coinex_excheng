@@ -31,15 +31,20 @@ static void market_dict_key_free(void *key)
 
 static void status_report(void)
 {
-    size_t count = 0;
+    size_t pending_orders_count = 0;
+    size_t pending_stops_count  = 0;
+
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
         market_t *market = entry->val;
-        count += dict_size(market->orders);
+        pending_orders_count += dict_size(market->orders);
+        pending_stops_count  += dict_size(market->stops);
     }
     dict_release_iterator(iter);
-    profile_set("pending_orders", count);
+
+    profile_set("pending_orders", pending_orders_count);
+    profile_set("pending_stops",  pending_stops_count);
 }
 
 static void on_timer(nw_timer *timer, void *privdata)
@@ -150,7 +155,7 @@ mpd_t *get_fee_price(market_t *m, const char *asset)
     }
     
     char name[100];
-    if (strcmp(asset, "CET") == 0) {
+    if (strcmp(asset, SYSTEM_FEE_TOKEN) == 0) {
         if (need_convert(m->money)) {
             snprintf(name, sizeof(name), "%s%s", asset, "USDC");
         } else {
@@ -163,6 +168,7 @@ mpd_t *get_fee_price(market_t *m, const char *asset)
     market_t *m_fee = get_market(name);
     if (m_fee == NULL)
         return NULL;
+
     return m_fee->last;
 }
 

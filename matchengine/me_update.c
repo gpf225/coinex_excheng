@@ -86,8 +86,8 @@ int update_user_balance(bool real, uint32_t user_id, const char *asset, const ch
     struct update_key key;
     memset(&key, 0, sizeof(key));
     key.user_id = user_id;
-    strncpy(key.asset, asset, sizeof(key.asset));
-    strncpy(key.business, business, sizeof(key.business));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
+    sstrncpy(key.business, business, sizeof(key.business));
     key.business_id = business_id;
 
     dict_entry *entry = dict_find(dict_update, &key);
@@ -138,7 +138,7 @@ int update_user_lock(bool real, uint32_t user_id, const char *asset, const char 
     memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     snprintf(key.asset, sizeof(key.asset), "%s_LOCK", asset);
-    strncpy(key.business, business, sizeof(key.business));
+    sstrncpy(key.business, business, sizeof(key.business));
     key.business_id = business_id;
 
     dict_entry *entry = dict_find(dict_update, &key);
@@ -169,7 +169,7 @@ int update_user_unlock(bool real, uint32_t user_id, const char *asset, const cha
     memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     snprintf(key.asset, sizeof(key.asset), "%s_UNLOCK", asset);
-    strncpy(key.business, business, sizeof(key.business));
+    sstrncpy(key.business, business, sizeof(key.business));
     key.business_id = business_id;
 
     dict_entry *entry = dict_find(dict_update, &key);
@@ -199,8 +199,8 @@ int update_add(uint32_t user_id, const char *asset, const char *business, uint64
     struct update_key key;
     memset(&key, 0, sizeof(key));
     key.user_id = user_id;
-    strncpy(key.asset, asset, sizeof(key.asset));
-    strncpy(key.business, business, sizeof(key.business));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
+    sstrncpy(key.business, business, sizeof(key.business));
     key.business_id = business_id;
 
     struct update_val val = { .create_time = create_time };

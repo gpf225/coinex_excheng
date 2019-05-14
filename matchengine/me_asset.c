@@ -139,6 +139,14 @@ int update_asset(void)
     return 0;
 }
 
+bool account_exist(uint32_t account)
+{
+    dict_entry *entry = dict_find(dict_asset, (void *)(uintptr_t)account);
+    if (entry == NULL)
+        return false;
+    return true;
+}
+
 bool asset_exist(uint32_t account, const char *asset)
 {
     dict_entry *entry = dict_find(dict_asset, (void *)(uintptr_t)account);

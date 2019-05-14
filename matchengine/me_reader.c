@@ -721,8 +721,8 @@ static int on_cmd_order_detail(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
     uint64_t order_id = json_integer_value(json_array_get(params, 1));
 
-    order_t *order = market_get_order(market, order_id);
     json_t *result = NULL;
+    order_t *order = market_get_order(market, order_id);
     if (order == NULL) {
         result = json_null();
         result = market_get_fini_order(order_id);

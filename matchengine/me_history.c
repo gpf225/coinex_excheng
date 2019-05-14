@@ -16,7 +16,9 @@ static json_t* get_deals_json(double t, uint64_t deal_id, order_t *ask, int ask_
     json_object_set_new(obj, "market", json_string(ask->market));
     json_object_set_new(obj, "deal_id", json_integer(deal_id));
     json_object_set_new(obj, "ask_user_id", json_integer(ask->user_id));
+    json_object_set_new(obj, "ask_account", json_integer(ask->account));
     json_object_set_new(obj, "bid_user_id", json_integer(bid->user_id));
+    json_object_set_new(obj, "bid_account", json_integer(bid->account));
     json_object_set_new(obj, "ask_order_id", json_integer(ask->id));
     json_object_set_new(obj, "bid_order_id", json_integer(bid->id));
     json_object_set_new(obj, "ask_side", json_integer(ask->side));
@@ -35,11 +37,12 @@ static json_t* get_deals_json(double t, uint64_t deal_id, order_t *ask, int ask_
     return obj;
 }
 
-static json_t* get_balance_json(double t, uint32_t user_id, const char *asset, const char *business, mpd_t *change,  mpd_t *balance, const char *detail)
+static json_t* get_balance_json(double t, uint32_t user_id, uint32_t account, const char *asset, const char *business, mpd_t *change,  mpd_t *balance, const char *detail)
 {
     json_t *obj = json_object();
     json_object_set_new(obj, "time", json_real(t));
     json_object_set_new(obj, "user_id", json_integer(user_id));
+    json_object_set_new(obj, "account", json_integer(account));
     json_object_set_new(obj, "asset", json_string(asset));
     json_object_set_new(obj, "business", json_string(business));
     json_object_set_new_mpd(obj, "change", change);
@@ -74,10 +77,10 @@ int append_order_deal_history(double t, uint64_t deal_id, order_t *ask, int ask_
     return 0;
 }
 
-int append_user_balance_history(double t, uint32_t user_id, const char *asset, const char *business, mpd_t *change, const char *detail)
+int append_user_balance_history(double t, uint32_t user_id, uint32_t account, const char *asset, const char *business, mpd_t *change, const char *detail)
 {
-    mpd_t *balance = balance_total(user_id, asset);
-    json_t *obj = get_balance_json(t, user_id, asset, business, change, balance, detail);
+    mpd_t *balance = balance_total(user_id, account, asset);
+    json_t *obj = get_balance_json(t, user_id, account, asset, business, change, balance, detail);
     push_his_balance_message(obj);
     mpd_del(balance);
     json_decref(obj);

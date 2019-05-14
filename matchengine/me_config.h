@@ -60,6 +60,8 @@
 # define QUEUE_NAME             "matchengine_queue"
 # define QUEUE_PIPE_PATH        "/tmp/matchengine_queue_pipe"
 
+# define SYSTEM_FEE_TOKEN       "CET"
+
 struct settings {
     bool                debug;
     process_cfg         process;

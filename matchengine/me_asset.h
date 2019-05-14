@@ -12,6 +12,8 @@ struct asset_type {
 int init_asset(void);
 int update_asset(void);
 
+bool account_exist(uint32_t account);
+
 bool asset_exist(uint32_t account, const char *asset);
 struct asset_type *get_asset_type(uint32_t account, const char *asset);
 

@@ -140,8 +140,9 @@ mpd_t *balance_get(uint32_t user_id, uint32_t account, uint32_t type, const char
         return NULL;
 
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.type = type;
-    strncpy(key.asset, asset, sizeof(key.asset));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
 
     dict_entry *entry = dict_find(dict, &key);
     if (entry) {
@@ -158,8 +159,9 @@ void balance_del(uint32_t user_id, uint32_t account, uint32_t type, const char *
         return;
 
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.type = type;
-    strncpy(key.asset, asset, sizeof(key.asset));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
     dict_delete(dict, &key);
 
     dict_account_reset(user_id, account);
@@ -184,8 +186,9 @@ mpd_t *balance_set(uint32_t user_id, uint32_t account, uint32_t type, const char
         return NULL;
 
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.type = type;
-    strncpy(key.asset, asset, sizeof(key.asset));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
 
     mpd_t *result;
     dict_entry *entry;
@@ -219,8 +222,9 @@ mpd_t *balance_add(uint32_t user_id, uint32_t account, uint32_t type, const char
         return NULL;
 
     struct balance_key key;
+    memset(&key, 0, sizeof(key));
     key.type = type;
-    strncpy(key.asset, asset, sizeof(key.asset));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
 
     mpd_t *result;
     dict_entry *entry = dict_find(dict, &key);
@@ -347,7 +351,8 @@ mpd_t *balance_available(uint32_t user_id, uint32_t account, const char *asset)
         return balance;
 
     struct balance_key key;
-    strncpy(key.asset, asset, sizeof(key.asset));
+    memset(&key, 0, sizeof(key));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
 
     key.type = BALANCE_TYPE_AVAILABLE;
     dict_entry *entry = dict_find(dict, &key);
@@ -366,7 +371,8 @@ mpd_t *balance_frozen(uint32_t user_id, uint32_t account, const char *asset)
         return balance;
 
     struct balance_key key;
-    strncpy(key.asset, asset, sizeof(key.asset));
+    memset(&key, 0, sizeof(key));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
 
     key.type = BALANCE_TYPE_FROZEN;
     dict_entry *entry = dict_find(dict, &key);
@@ -391,7 +397,8 @@ mpd_t *balance_lock(uint32_t user_id, uint32_t account, const char *asset)
         return balance;
 
     struct balance_key key;
-    strncpy(key.asset, asset, sizeof(key.asset));
+    memset(&key, 0, sizeof(key));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
 
     key.type = BALANCE_TYPE_LOCK;
     dict_entry *entry = dict_find(dict, &key);
@@ -410,7 +417,8 @@ mpd_t *balance_total(uint32_t user_id, uint32_t account, const char *asset)
         return balance;
 
     struct balance_key key;
-    strncpy(key.asset, asset, sizeof(key.asset));
+    memset(&key, 0, sizeof(key));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
 
     key.type = BALANCE_TYPE_AVAILABLE;
     dict_entry *entry = dict_find(dict, &key);
