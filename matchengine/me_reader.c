@@ -877,6 +877,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         if (ret < 0) {
             log_error("on_cmd_asset_query %s fail: %d", params_str, ret);
         }
+        break;
     case CMD_ASSET_QUERY_LOCK:
         profile_inc("cmd_asset_query_lock", 1);
         ret = on_cmd_asset_query_lock(ses, pkg, params);
