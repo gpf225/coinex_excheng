@@ -3,6 +3,8 @@
 
 # include "me_config.h"
 
+extern dict_t *dict_asset;
+
 struct asset_type {
     int prec_save;
     int prec_show;
@@ -21,5 +23,6 @@ int asset_prec_save(uint32_t account, const char *asset);
 int asset_prec_show(uint32_t account, const char *asset);
 
 int make_asset_backup(json_t *params);
+json_t *get_asset_config(void);
 
 # endif

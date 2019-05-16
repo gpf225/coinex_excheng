@@ -7,7 +7,7 @@
 # include "me_dump.h"
 # include "ut_comm_dict.h"
 
-static dict_t *dict_asset;
+dict_t *dict_asset;
 
 static void *asset_dict_val_dup(const void *val)
 {
@@ -224,5 +224,37 @@ int make_asset_backup(json_t *params)
     sdsfree(table);
     exit(0);
     return 0;
+}
+
+json_t *get_asset_config(void)
+{
+    json_t *result = json_object();
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_asset);
+    while ((entry = dict_next(iter)) != NULL) {
+        uint32_t account = (uintptr_t)entry->key;
+        dict_t *dict_account = entry->val;
+
+        json_t *account_info = json_object();
+        dict_entry *entry_account;
+        dict_iterator *iter_account = dict_get_iterator(dict_account);
+        while ((entry_account = dict_next(iter_account)) != NULL) {
+            const char *name = entry_account->key;
+            struct asset_type *type = entry_account->val;
+
+            json_t *info = json_object();
+            json_object_set_new(info, "prec_show", json_integer(type->prec_show));
+            json_object_set_new(info, "prec_save", json_integer(type->prec_save));
+            json_object_set_new(account_info, name, info);
+        }
+        dict_release_iterator(iter_account);
+
+        char account_str[20];
+        snprintf(account_str, sizeof(account_str), "%u", account);
+        json_object_set_new(result, account_str, account_info);
+    }
+    dict_release_iterator(iter);
+
+    return result;
 }
 

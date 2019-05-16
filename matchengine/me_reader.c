@@ -7,10 +7,12 @@
 # include "me_update.h"
 # include "me_market.h"
 # include "me_trade.h"
+# include "me_asset.h"
 # include "me_reader.h"
 # include "me_reply.h"
 # include "me_load.h"
 # include "ut_queue.h"
+# include "ut_comm_dict.h"
 
 static rpc_svr *svr;
 static cli_svr *svrcli;
@@ -58,26 +60,6 @@ static int add_cache(sds cache_key, json_t *result)
     return 0;
 }
 
-static uint32_t cache_dict_hash_function(const void *key)
-{
-    return dict_generic_hash_function(key, sdslen((sds)key));
-}
-
-static int cache_dict_key_compare(const void *key1, const void *key2)
-{
-    return sdscmp((sds)key1, (sds)key2);
-}
-
-static void *cache_dict_key_dup(const void *key)
-{
-    return sdsdup((const sds)key);
-}
-
-static void cache_dict_key_free(void *key)
-{
-    sdsfree(key);
-}
-
 static void *cache_dict_val_dup(const void *val)
 {
     struct cache_val *obj = malloc(sizeof(struct cache_val));
@@ -101,10 +83,10 @@ static int init_cache()
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = cache_dict_hash_function;
-    dt.key_compare    = cache_dict_key_compare;
-    dt.key_dup        = cache_dict_key_dup;
-    dt.key_destructor = cache_dict_key_free;
+    dt.hash_function  = sds_dict_hash_function;
+    dt.key_compare    = sds_dict_key_compare;
+    dt.key_dup        = sds_dict_key_dup;
+    dt.key_destructor = sds_dict_key_free;
     dt.val_dup        = cache_dict_val_dup;
     dt.val_destructor = cache_dict_val_free;
 
@@ -129,13 +111,9 @@ static void svr_on_connection_close(nw_ses *ses)
 
 static int on_cmd_asset_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    json_t *result = json_array();
-    for (int i = 0; i < settings.asset_num; ++i) {
-        json_t *asset = json_object();
-        json_object_set_new(asset, "name", json_string(settings.assets[i].name));
-        json_object_set_new(asset, "prec", json_integer(settings.assets[i].prec_show));
-        json_array_append_new(result, asset);
-    }
+    json_t *result = get_asset_config();
+    if (result == NULL)
+        return reply_error_internal_error(ses, pkg);
 
     int ret = reply_result(ses, pkg, result);
     json_decref(result);
@@ -144,68 +122,40 @@ static int on_cmd_asset_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    size_t request_size = json_array_size(params);
-    if (request_size == 0)
+    if (json_array_size(params) < 2)
         return reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_integer(json_array_get(params, 0)))
         return reply_error_invalid_argument(ses, pkg);
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
-    if (user_id == 0)
+
+    if (!json_is_integer(json_array_get(params, 1)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+    if (!account_exist(account))
         return reply_error_invalid_argument(ses, pkg);
 
-    json_t *result = json_object();
-    if (request_size == 1) {
-        for (size_t i = 0; i < settings.asset_num; ++i) {
-            const char *asset = settings.assets[i].name;
-            json_t *unit = json_object();
-            int prec_save = asset_prec(asset);
-            int prec_show = asset_prec_show(asset);
+    json_t *result = balance_query_list(user_id, account, params);
+    if (result == NULL)
+        return reply_error_internal_error(ses, pkg);
 
-            mpd_t *available = balance_available(user_id, asset);
-            if (prec_save != prec_show) {
-                mpd_rescale(available, available, -prec_show, &mpd_ctx);
-            }
-            json_object_set_new_mpd(unit, "available", available);
-            mpd_del(available);
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
 
-            mpd_t *frozen = balance_frozen(user_id, asset);
-            if (prec_save != prec_show) {
-                mpd_rescale(frozen, frozen, -prec_show, &mpd_ctx);
-            }
-            json_object_set_new_mpd(unit, "frozen", frozen);
-            mpd_del(frozen);
+static int on_cmd_asset_query_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return reply_error_invalid_argument(ses, pkg);
 
-            json_object_set_new(result, asset, unit);
-        }
-    } else {
-        for (size_t i = 1; i < request_size; ++i) {
-            const char *asset = json_string_value(json_array_get(params, i));
-            if (!asset || !asset_exist(asset)) {
-                json_decref(result);
-                return reply_error_invalid_argument(ses, pkg);
-            }
-            json_t *unit = json_object();
-            int prec_save = asset_prec(asset);
-            int prec_show = asset_prec_show(asset);
+    if (!json_is_integer(json_array_get(params, 0)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
-            mpd_t *available = balance_available(user_id, asset);
-            if (prec_save != prec_show) {
-                mpd_rescale(available, available, -prec_show, &mpd_ctx);
-            }
-            json_object_set_new_mpd(unit, "available", available);
-            mpd_del(available);
-
-            mpd_t *frozen = balance_frozen(user_id, asset);
-            if (prec_save != prec_show) {
-                mpd_rescale(frozen, frozen, -prec_show, &mpd_ctx);
-            }
-            json_object_set_new_mpd(unit, "frozen", frozen);
-            mpd_del(frozen);
-
-            json_object_set_new(result, asset, unit);
-        }
-    }
+    json_t *result = balance_query_all(user_id);
+    if (result == NULL)
+        return reply_error_internal_error(ses, pkg);
 
     int ret = reply_result(ses, pkg, result);
     json_decref(result);
@@ -214,50 +164,22 @@ static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    size_t request_size = json_array_size(params);
-    if (request_size == 0)
+    if (json_array_size(params) < 2)
         return reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_integer(json_array_get(params, 0)))
         return reply_error_invalid_argument(ses, pkg);
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
-    if (user_id == 0)
+
+    if (!json_is_integer(json_array_get(params, 1)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+    if (!account_exist(account))
         return reply_error_invalid_argument(ses, pkg);
 
-    json_t *result = json_object();
-    if (request_size == 1) {
-        for (size_t i = 0; i < settings.asset_num; ++i) {
-            const char *asset = settings.assets[i].name;
-            int prec_save = asset_prec(asset);
-            int prec_show = asset_prec_show(asset);
-
-            mpd_t *lock = balance_lock(user_id, asset);
-            if (prec_save != prec_show) {
-                mpd_rescale(lock, lock, -prec_show, &mpd_ctx);
-            }
-            if (mpd_cmp(lock, mpd_zero, &mpd_ctx) > 0) {
-                json_object_set_new_mpd(result, asset, lock);
-            }
-            mpd_del(lock);
-        }
-    } else {
-        for (size_t i = 1; i < request_size; ++i) {
-            const char *asset = json_string_value(json_array_get(params, i));
-            if (!asset || !asset_exist(asset)) {
-                json_decref(result);
-                return reply_error_invalid_argument(ses, pkg);
-            }
-            int prec_save = asset_prec(asset);
-            int prec_show = asset_prec_show(asset);
-
-            mpd_t *lock = balance_lock(user_id, asset);
-            if (prec_save != prec_show) {
-                mpd_rescale(lock, lock, -prec_show, &mpd_ctx);
-            }
-            json_object_set_new_mpd(result, asset, lock);
-            mpd_del(lock);
-        }
-    }
+    json_t *result = balance_query_lock_list(user_id, account, params);
+    if (result == NULL)
+        return reply_error_internal_error(ses, pkg);
 
     int ret = reply_result(ses, pkg, result);
     json_decref(result);
@@ -266,7 +188,7 @@ static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 5)
+    if (json_array_size(params) != 6)
         return reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -274,31 +196,36 @@ static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
+    // account 
+    if (!json_is_integer(json_array_get(params, 1)))
+        return reply_error_invalid_argument(ses, pkg);
+    int account = json_integer_value(json_array_get(params, 1));
+
     // market
     market_t *market = NULL;
-    if (json_is_string(json_array_get(params, 1))) {
-        const char *market_name = json_string_value(json_array_get(params, 1));
+    if (json_is_string(json_array_get(params, 2))) {
+        const char *market_name = json_string_value(json_array_get(params, 2));
         market = get_market(market_name);
         if (market == NULL)
             return reply_error_invalid_argument(ses, pkg);
     }
 
     // side
-    if (!json_is_integer(json_array_get(params, 2)))
+    if (!json_is_integer(json_array_get(params, 3)))
         return reply_error_invalid_argument(ses, pkg);
-    uint32_t side = json_integer_value(json_array_get(params, 2));
+    uint32_t side = json_integer_value(json_array_get(params, 3));
     if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
         return reply_error_invalid_argument(ses, pkg);
 
     // offset
-    if (!json_is_integer(json_array_get(params, 3)))
-        return reply_error_invalid_argument(ses, pkg);
-    size_t offset = json_integer_value(json_array_get(params, 3));
-
-    // limit
     if (!json_is_integer(json_array_get(params, 4)))
         return reply_error_invalid_argument(ses, pkg);
-    size_t limit = json_integer_value(json_array_get(params, 4));
+    size_t offset = json_integer_value(json_array_get(params, 4));
+
+    // limit
+    if (!json_is_integer(json_array_get(params, 5)))
+        return reply_error_invalid_argument(ses, pkg);
+    size_t limit = json_integer_value(json_array_get(params, 5));
     if (limit > ORDER_LIST_MAX_LEN)
         return reply_error_invalid_argument(ses, pkg);
 
@@ -307,7 +234,7 @@ static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     json_object_set_new(result, "offset", json_integer(offset));
 
     json_t *orders = json_array();
-    skiplist_t *order_list = market_get_order_list(market, user_id);
+    skiplist_t *order_list = get_user_order_list(market, user_id, account);
     if (order_list == NULL) {
         json_object_set_new(result, "total", json_integer(0));
     } else {
@@ -739,7 +666,7 @@ static int on_cmd_order_detail(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 5)
+    if (json_array_size(params) != 6)
         return reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -747,31 +674,36 @@ static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
+    // account 
+    if (!json_is_integer(json_array_get(params, 1)))
+        return reply_error_invalid_argument(ses, pkg);
+    int account = json_integer_value(json_array_get(params, 1));
+
     // market
     market_t *market = NULL;
-    if (json_is_string(json_array_get(params, 1))) {
-        const char *market_name = json_string_value(json_array_get(params, 1));
+    if (json_is_string(json_array_get(params, 2))) {
+        const char *market_name = json_string_value(json_array_get(params, 2));
         market = get_market(market_name);
         if (market == NULL)
             return reply_error_invalid_argument(ses, pkg);
     }
 
     // side
-    if (!json_is_integer(json_array_get(params, 2)))
+    if (!json_is_integer(json_array_get(params, 3)))
         return reply_error_invalid_argument(ses, pkg);
-    uint32_t side = json_integer_value(json_array_get(params, 2));
+    uint32_t side = json_integer_value(json_array_get(params, 3));
     if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
         return reply_error_invalid_argument(ses, pkg);
 
     // offset
-    if (!json_is_integer(json_array_get(params, 3)))
-        return reply_error_invalid_argument(ses, pkg);
-    size_t offset = json_integer_value(json_array_get(params, 3));
-
-    // limit
     if (!json_is_integer(json_array_get(params, 4)))
         return reply_error_invalid_argument(ses, pkg);
-    size_t limit = json_integer_value(json_array_get(params, 4));
+    size_t offset = json_integer_value(json_array_get(params, 4));
+
+    // limit
+    if (!json_is_integer(json_array_get(params, 5)))
+        return reply_error_invalid_argument(ses, pkg);
+    size_t limit = json_integer_value(json_array_get(params, 5));
     if (limit > ORDER_LIST_MAX_LEN)
         return reply_error_invalid_argument(ses, pkg);
 
@@ -780,7 +712,7 @@ static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     json_object_set_new(result, "offset", json_integer(offset));
 
     json_t *stops = json_array();
-    skiplist_t *stop_list = market_get_stop_list(market, user_id);
+    skiplist_t *stop_list = get_user_order_list(market, user_id, account);
     if (stop_list == NULL) {
         json_object_set_new(result, "total", json_integer(0));
     } else {
@@ -810,18 +742,9 @@ static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_market_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    json_t *result = json_array();
-    for (int i = 0; i < settings.market_num; ++i) {
-        json_t *market = json_object();
-        json_object_set_new(market, "name", json_string(settings.markets[i].name));
-        json_object_set_new(market, "stock", json_string(settings.markets[i].stock));
-        json_object_set_new(market, "money", json_string(settings.markets[i].money));
-        json_object_set_new(market, "fee_prec", json_integer(settings.markets[i].fee_prec));
-        json_object_set_new(market, "stock_prec", json_integer(settings.markets[i].stock_prec));
-        json_object_set_new(market, "money_prec", json_integer(settings.markets[i].money_prec));
-        json_object_set_new_mpd(market, "min_amount", settings.markets[i].min_amount);
-        json_array_append_new(result, market);
-    }
+    json_t *result = get_market_config();
+    if (result == NULL)
+        return reply_error_internal_error(ses, pkg);
 
     int ret = reply_result(ses, pkg, result);
     json_decref(result);
@@ -834,7 +757,7 @@ static int on_cmd_update_asset_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     ret = update_asset_config();
     if (ret < 0)
         return reply_error_internal_error(ses, pkg);
-    ret = update_balance();
+    ret = update_asset();
     if (ret < 0)
         return reply_error_internal_error(ses, pkg);
     log_info("update asset config success!");
@@ -877,6 +800,14 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         if (ret < 0) {
             log_error("on_cmd_asset_query %s fail: %d", params_str, ret);
         }
+        break;
+    case CMD_ASSET_QUERY_ALL:
+        profile_inc("cmd_asset_query_all", 1);
+        ret = on_cmd_asset_query_all(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_query_all %s fail: %d", params_str, ret);
+        }
+        break;
     case CMD_ASSET_QUERY_LOCK:
         profile_inc("cmd_asset_query_lock", 1);
         ret = on_cmd_asset_query_lock(ses, pkg, params);
@@ -1004,42 +935,31 @@ static sds queue_status(sds reply)
 
 static sds on_cmd_unfreeze(const char *cmd, int argc, sds *argv)
 {
-    if (argc != 3) {
-        sds reply = sdsempty();
-        return sdscatprintf(reply, "usage: %s user_id asset amount\n", cmd);
+    sds reply = sdsempty();
+    if (argc != 4) {
+        return sdscatprintf(reply, "usage: %s user_id account asset amount\n", cmd);
     }
 
     uint32_t user_id = strtoul(argv[0], NULL, 0);
-    if (user_id <= 0) {
-        return sdsnew("failed, user_id error\n");
+    uint32_t account = strtoul(argv[1], NULL, 0);
+    const char *asset = argv[2];
+    int prec = asset_prec_show(account, asset);
+    if (prec < 0) {
+        return sdscatprintf(reply, "failed, asset not exist\n");
     }
 
-    char *asset = strdup(argv[1]);
-    if (!asset) {
-        return sdsnew("failed, asset error\n");
-    }
-    if (!asset_exist(asset)) {
-        free(asset);
-        return sdsnew("failed, asset not exist\n");
-    }
-
-    mpd_t *amount = decimal(argv[2], asset_prec(asset));
+    mpd_t *amount = decimal(argv[3], prec);
     if (!amount) {
-        free(asset);
-        return sdsnew("failed, amount error\n");
+        return sdscatprintf(reply, "failed, amount invalid\n");
     }
 
-    mpd_t *frozen = balance_unfreeze(user_id, BALANCE_TYPE_FROZEN, asset, amount);
+    mpd_t *frozen = balance_unfreeze(user_id, account, BALANCE_TYPE_FROZEN, asset, amount);
     if (!frozen) {
-        free(asset);
         mpd_del(amount);
-        sds reply = sdsempty();
         return sdscatprintf(reply, "unfreeze failed, user_id: %d\n", user_id);
     }
 
-    free(asset);
     mpd_del(amount);
-    sds reply = sdsempty();
     return sdscatprintf(reply, "unfreeze success, user_id: %d\n", user_id);
 }
 
@@ -1166,3 +1086,4 @@ int init_reader(int id)
     
     return 0;
 }
+

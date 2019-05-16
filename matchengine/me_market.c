@@ -171,15 +171,17 @@ static void order_free(order_t *order)
 
 static void stop_free(stop_t *stop)
 {
-    mpd_del(stop->fee_discount);
     mpd_del(stop->stop_price);
     mpd_del(stop->price);
     mpd_del(stop->amount);
     mpd_del(stop->taker_fee);
     mpd_del(stop->maker_fee);
+    mpd_del(stop->fee_discount);
+
     free(stop->market);
     free(stop->source);
-    free(stop->fee_asset);
+    if (stop->fee_asset)
+        free(stop->fee_asset);
 
     free(stop);
 }
@@ -229,7 +231,6 @@ json_t *get_stop_info(stop_t *stop)
     json_object_set_new(info, "mtime", json_real(stop->update_time));
     json_object_set_new(info, "market", json_string(stop->market));
     json_object_set_new(info, "source", json_string(stop->source));
-    json_object_set_new(info, "fee_asset", json_string(stop->fee_asset));
 
     json_object_set_new_mpd(info, "stop_price", stop->stop_price);
     json_object_set_new_mpd(info, "price", stop->price);
@@ -237,6 +238,12 @@ json_t *get_stop_info(stop_t *stop)
     json_object_set_new_mpd(info, "taker_fee", stop->taker_fee);
     json_object_set_new_mpd(info, "maker_fee", stop->maker_fee);
     json_object_set_new_mpd(info, "fee_discount", stop->fee_discount);
+
+    if (stop->fee_asset) {
+        json_object_set_new(info, "fee_asset", json_string(stop->fee_asset));
+    } else {
+        json_object_set_new(info, "fee_asset", json_null());
+    }
 
     return info;
 }
@@ -1813,7 +1820,6 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t acc
     stop->account       = account;
     stop->market        = strdup(m->name);
     stop->source        = strdup(source);
-    stop->fee_asset     = strdup(fee_asset);
     stop->fee_discount  = mpd_new(&mpd_ctx);
     stop->stop_price    = mpd_new(&mpd_ctx);
     stop->price         = mpd_new(&mpd_ctx);
@@ -1826,10 +1832,14 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t acc
     mpd_copy(stop->amount, amount, &mpd_ctx);
     mpd_copy(stop->taker_fee, taker_fee, &mpd_ctx);
     mpd_copy(stop->maker_fee, maker_fee, &mpd_ctx);
-    if (fee_discount) {
-        mpd_copy(stop->fee_discount, fee_discount, &mpd_ctx);
-    } else {
-        mpd_copy(stop->fee_discount, mpd_one, &mpd_ctx);
+    mpd_copy(stop->fee_discount, mpd_zero, &mpd_ctx);
+    if (fee_asset && strlen(fee_asset) > 0) {
+        stop->fee_asset = strdup(fee_asset);
+        if (fee_discount) {
+            mpd_copy(stop->fee_discount, fee_discount, &mpd_ctx);
+        } else {
+            mpd_copy(stop->fee_discount, mpd_one, &mpd_ctx);
+        }
     }
 
     int ret = put_stop(m, stop);
@@ -1884,7 +1894,6 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t ac
     stop->account       = account;
     stop->market        = strdup(m->name);
     stop->source        = strdup(source);
-    stop->fee_asset     = strdup(fee_asset);
     stop->fee_discount  = mpd_new(&mpd_ctx);
     stop->stop_price    = mpd_new(&mpd_ctx);
     stop->price         = mpd_new(&mpd_ctx);
@@ -1897,10 +1906,14 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t ac
     mpd_copy(stop->amount, amount, &mpd_ctx);
     mpd_copy(stop->taker_fee, taker_fee, &mpd_ctx);
     mpd_copy(stop->maker_fee, mpd_zero, &mpd_ctx);
-    if (fee_discount) {
-        mpd_copy(stop->fee_discount, fee_discount, &mpd_ctx);
-    } else {
-        mpd_copy(stop->fee_discount, mpd_one, &mpd_ctx);
+    mpd_copy(stop->fee_discount, mpd_zero, &mpd_ctx);
+    if (fee_asset && strlen(fee_asset) > 0) {
+        stop->fee_asset = strdup(fee_asset);
+        if (fee_discount) {
+            mpd_copy(stop->fee_discount, fee_discount, &mpd_ctx);
+        } else {
+            mpd_copy(stop->fee_discount, mpd_one, &mpd_ctx);
+        }
     }
 
     int ret = put_stop(m, stop);

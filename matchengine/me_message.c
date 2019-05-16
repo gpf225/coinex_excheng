@@ -223,11 +223,12 @@ static int push_message(char *message, rd_kafka_topic_t *topic, list_t *list)
     return 0;
 }
 
-int push_balance_message(double t, uint32_t user_id, const char *asset, const char *business, mpd_t *change, mpd_t *result)
+int push_balance_message(double t, uint32_t user_id, uint32_t account, const char *asset, const char *business, mpd_t *change, mpd_t *result)
 {
     json_t *message = json_object();
     json_object_set_new(message, "timestamp", json_real(t));
     json_object_set_new(message, "user_id", json_integer(user_id));
+    json_object_set_new(message, "account", json_integer(account));
     json_object_set_new(message, "asset", json_string(asset));
     json_object_set_new(message, "business", json_string(business));
     json_object_set_new_mpd(message, "change", change);

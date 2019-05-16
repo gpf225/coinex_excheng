@@ -81,11 +81,12 @@ int init_update(void)
     return 0;
 }
 
-int update_user_balance(bool real, uint32_t user_id, const char *asset, const char *business, uint64_t business_id, mpd_t *change, json_t *detail)
+int update_user_balance(bool real, uint32_t user_id, uint32_t account, const char *asset, const char *business, uint64_t business_id, mpd_t *change, json_t *detail)
 {
     struct update_key key;
     memset(&key, 0, sizeof(key));
     key.user_id = user_id;
+    key.account = account;
     sstrncpy(key.asset, asset, sizeof(key.asset));
     sstrncpy(key.business, business, sizeof(key.business));
     key.business_id = business_id;
@@ -99,19 +100,19 @@ int update_user_balance(bool real, uint32_t user_id, const char *asset, const ch
     mpd_t *abs_change = mpd_new(&mpd_ctx);
     mpd_abs(abs_change, change, &mpd_ctx);
     if (mpd_cmp(change, mpd_zero, &mpd_ctx) >= 0) {
-        result = balance_add(user_id, BALANCE_TYPE_AVAILABLE, asset, abs_change);
+        result = balance_add(user_id, account, BALANCE_TYPE_AVAILABLE, asset, abs_change);
         if (result == NULL) {
             mpd_del(abs_change);
             return -2;
         }
-        result = balance_reset(user_id, asset);
+        result = balance_reset(user_id, account, asset);
     } else {
-        result = balance_sub(user_id, BALANCE_TYPE_AVAILABLE, asset, abs_change);
+        result = balance_sub(user_id, account, BALANCE_TYPE_AVAILABLE, asset, abs_change);
         if (result == NULL) {
             mpd_del(abs_change);
             return -2;
         }
-        result = balance_reset(user_id, asset);
+        result = balance_reset(user_id, account, asset);
     }
     mpd_del(abs_change);
     if (result == NULL)
@@ -124,19 +125,20 @@ int update_user_balance(bool real, uint32_t user_id, const char *asset, const ch
         double now = current_timestamp();
         json_object_set_new(detail, "id", json_integer(business_id));
         char *detail_str = json_dumps(detail, 0);
-        append_user_balance_history(now, user_id, asset, business, change, detail_str);
+        append_user_balance_history(now, user_id, account, asset, business, change, detail_str);
         free(detail_str);
-        push_balance_message(now, user_id, asset, business, change, result);
+        push_balance_message(now, user_id, account, asset, business, change, result);
     }
 
     return 0;
 }
 
-int update_user_lock(bool real, uint32_t user_id, const char *asset, const char *business, uint64_t business_id, mpd_t *amount)
+int update_user_lock(bool real, uint32_t user_id, uint32_t account, const char *asset, const char *business, uint64_t business_id, mpd_t *amount)
 {
     struct update_key key;
     memset(&key, 0, sizeof(key));
     key.user_id = user_id;
+    key.account = account;
     snprintf(key.asset, sizeof(key.asset), "%s_LOCK", asset);
     sstrncpy(key.business, business, sizeof(key.business));
     key.business_id = business_id;
@@ -146,7 +148,7 @@ int update_user_lock(bool real, uint32_t user_id, const char *asset, const char 
         return -1;
     }
 
-    if (balance_freeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+    if (balance_freeze(user_id, account, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
         return -2;
     }
 
@@ -154,20 +156,21 @@ int update_user_lock(bool real, uint32_t user_id, const char *asset, const char 
     dict_add(dict_update, &key, &val);
 
     if (real) {
-        mpd_t *result = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
+        mpd_t *result = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, asset);
         if (result == NULL)
             result = mpd_zero;
-        push_balance_message(current_timestamp(), user_id, asset, business, amount, result);
+        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, result);
     }
 
     return 0;
 }
 
-int update_user_unlock(bool real, uint32_t user_id, const char *asset, const char *business, uint64_t business_id, mpd_t *amount)
+int update_user_unlock(bool real, uint32_t user_id, uint32_t account, const char *asset, const char *business, uint64_t business_id, mpd_t *amount)
 {
     struct update_key key;
     memset(&key, 0, sizeof(key));
     key.user_id = user_id;
+    key.account = account;
     snprintf(key.asset, sizeof(key.asset), "%s_UNLOCK", asset);
     sstrncpy(key.business, business, sizeof(key.business));
     key.business_id = business_id;
@@ -177,7 +180,7 @@ int update_user_unlock(bool real, uint32_t user_id, const char *asset, const cha
         return -1;
     }
 
-    if (balance_unfreeze(user_id, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
+    if (balance_unfreeze(user_id, account, BALANCE_TYPE_LOCK, asset, amount) == NULL) {
         return -2;
     }
 
@@ -185,20 +188,21 @@ int update_user_unlock(bool real, uint32_t user_id, const char *asset, const cha
     dict_add(dict_update, &key, &val);
 
     if (real) {
-        mpd_t *result = balance_get(user_id, BALANCE_TYPE_AVAILABLE, asset);
+        mpd_t *result = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, asset);
         if (result == NULL)
             result = mpd_zero;
-        push_balance_message(current_timestamp(), user_id, asset, business, amount, result);
+        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, result);
     }
 
     return 0;
 }
 
-int update_add(uint32_t user_id, const char *asset, const char *business, uint64_t business_id, double create_time)
+int update_add(uint32_t user_id, uint32_t account, const char *asset, const char *business, uint64_t business_id, double create_time)
 {
     struct update_key key;
     memset(&key, 0, sizeof(key));
     key.user_id = user_id;
+    key.account = account;
     sstrncpy(key.asset, asset, sizeof(key.asset));
     sstrncpy(key.business, business, sizeof(key.business));
     key.business_id = business_id;

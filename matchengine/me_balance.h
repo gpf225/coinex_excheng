@@ -36,5 +36,9 @@ mpd_t *balance_frozen(uint32_t user_id, uint32_t account, const char *asset);
 mpd_t *balance_lock(uint32_t user_id, uint32_t account, const char *asset);
 mpd_t *balance_total(uint32_t user_id, uint32_t account, const char *asset);
 
+json_t *balance_query_list(uint32_t user_id, uint32_t account, json_t *params);
+json_t *balance_query_lock_list(uint32_t user_id, uint32_t account, json_t *params);
+json_t *balance_query_all(uint32_t user_id);
+
 # endif
 

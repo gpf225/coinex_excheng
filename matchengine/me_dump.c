@@ -31,15 +31,15 @@ static int dump_stops_list(MYSQL *conn, const char *table, skiplist_t *list)
     while ((node = skiplist_next(iter)) != NULL) {
         stop_t *stop = node->value;
         if (index == 0) {
-            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, `source`, "
-                    "`fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`) VALUES ", table);
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `account`, `market`, "
+                    "`source`, `fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
 
-        sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, '%s', '%s', '%s', ",
+        sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, %u, '%s', '%s', '%s', ",
                 stop->id, stop->type, stop->side, stop->create_time, stop->update_time,
-                stop->user_id, stop->market, stop->source, stop->fee_asset);
+                stop->user_id, stop->account, stop->market, stop->source, stop->fee_asset ? stop->fee_asset : "");
         sql = sql_append_mpd(sql, stop->fee_discount, true);
         sql = sql_append_mpd(sql, stop->stop_price, true);
         sql = sql_append_mpd(sql, stop->price, true);
@@ -132,14 +132,14 @@ static int dump_orders_list(MYSQL *conn, const char *table, skiplist_t *list)
     while ((node = skiplist_next(iter)) != NULL) {
         order_t *order = node->value;
         if (index == 0) {
-            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, `source`, `fee_asset`, `fee_discount`, "
-                    "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee`, `asset_fee`) VALUES ", table);
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `account`, `market`, `source`, `fee_asset`, "
+                    "`fee_discount`, `price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee`, `asset_fee`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
 
-        sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, '%s', '%s', '%s', ",
-                order->id, order->type, order->side, order->create_time, order->update_time, order->user_id,
+        sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, %u, '%s', '%s', '%s', ",
+                order->id, order->type, order->side, order->create_time, order->update_time, order->user_id, order->account,
                 order->market, order->source, order->fee_asset ? order->fee_asset : "");
         sql = sql_append_mpd(sql, order->fee_discount, true);
         sql = sql_append_mpd(sql, order->price, true);
@@ -233,34 +233,52 @@ static int dump_balance_dict(MYSQL *conn, const char *table, dict_t *dict)
 
     size_t insert_limit = 1000;
     size_t index = 0;
-    dict_iterator *iter = dict_get_iterator(dict);
+
     dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict);
     while ((entry = dict_next(iter)) != NULL) {
-        struct balance_key *key = entry->key;
-        mpd_t *balance = entry->val;
-        if (index == 0) {
-            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `user_id`, `asset`, `t`, `balance`) VALUES ", table);
-        } else {
-            sql = sdscatprintf(sql, ", ");
-        }
+        uint32_t user_id = (uintptr_t)entry->key;
+        dict_t *dict_user = entry->val;
 
-        sql = sdscatprintf(sql, "(NULL, %u, '%s', %u, ", key->user_id, key->asset, key->type);
-        sql = sql_append_mpd(sql, balance, false);
-        sql = sdscatprintf(sql, ")");
+        dict_entry *entry_user;
+        dict_iterator *iter_user = dict_get_iterator(dict_user);
+        while ((entry_user = dict_next(iter_user)) != NULL) {
+            uint32_t account = (uintptr_t)entry_user->key;
+            dict_t *dict_account = entry_user->val;
 
-        index += 1;
-        if (index == insert_limit) {
-            log_trace("exec sql: %s", sql);
-            int ret = mysql_real_query(conn, sql, sdslen(sql));
-            if (ret < 0) {
-                log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
-                dict_release_iterator(iter);
-                sdsfree(sql);
-                return -__LINE__;
+            dict_entry *entry_account;
+            dict_iterator *iter_account = dict_get_iterator(dict_account);
+            while ((entry_account = dict_next(iter_account)) != NULL) {
+                struct balance_key *key = entry_account->key;
+                mpd_t *balance = entry_account->val;
+
+                if (index == 0) {
+                    sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `user_id`, `account`, `asset`, `t`, `balance`) VALUES ", table);
+                } else {
+                    sql = sdscatprintf(sql, ", ");
+                }
+
+                sql = sdscatprintf(sql, "(NULL, %u, %u, '%s', %u, ", user_id, account, key->asset, key->type);
+                sql = sql_append_mpd(sql, balance, false);
+                sql = sdscatprintf(sql, ")");
+
+                index += 1;
+                if (index == insert_limit) {
+                    log_trace("exec sql: %s", sql);
+                    int ret = mysql_real_query(conn, sql, sdslen(sql));
+                    if (ret < 0) {
+                        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+                        dict_release_iterator(iter);
+                        sdsfree(sql);
+                        return -__LINE__;
+                    }
+                    sdsclear(sql);
+                    index = 0;
+                }
             }
-            sdsclear(sql);
-            index = 0;
+            dict_release_iterator(iter_account);
         }
+        dict_release_iterator(iter_user);
     }
     dict_release_iterator(iter);
 
@@ -322,11 +340,11 @@ static int dump_update_dict(MYSQL *conn, const char *table, dict_t *dict)
         struct update_key *key = entry->key;
         struct update_val *val = entry->val;
         if (index == 0) {
-            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `create_time`, `user_id`, `asset`, `business`, `business_id`) VALUES ", table);
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `create_time`, `user_id`, `account`, `asset`, `business`, `business_id`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
-        sql = sdscatprintf(sql, "(NULL, %f, %u, '%s', '%s', %"PRIu64")", val->create_time, key->user_id, key->asset, key->business, key->business_id);
+        sql = sdscatprintf(sql, "(NULL, %f, %u, %u, '%s', '%s', %"PRIu64")", val->create_time, key->user_id, key->account, key->asset, key->business, key->business_id);
 
         index += 1;
         if (index == insert_limit) {

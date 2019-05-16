@@ -172,3 +172,25 @@ mpd_t *get_fee_price(market_t *m, const char *asset)
     return m_fee->last;
 }
 
+json_t *get_market_config(void)
+{
+    json_t *result = json_array();
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        market_t *m = entry->val;
+        json_t *info = json_object();
+        json_object_set_new(info, "name", json_string(m->name));
+        json_object_set_new(info, "stock", json_string(m->stock));
+        json_object_set_new(info, "money", json_string(m->money));
+        json_object_set_new(info, "fee_prec", json_integer(m->fee_prec));
+        json_object_set_new(info, "stock_prec", json_integer(m->stock_prec));
+        json_object_set_new(info, "money_prec", json_integer(m->money_prec));
+        json_object_set_new_mpd(info, "min_amount", m->min_amount);
+        json_array_append_new(result, info);
+    }
+    dict_release_iterator(iter);
+
+    return result;
+}
+

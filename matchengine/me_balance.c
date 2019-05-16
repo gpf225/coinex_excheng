@@ -441,3 +441,162 @@ mpd_t *balance_total(uint32_t user_id, uint32_t account, const char *asset)
     return balance;
 }
 
+json_t *balance_query_list(uint32_t user_id, uint32_t account, json_t *params)
+{
+    json_t *result = json_object();
+    size_t array_size = json_array_size(params);
+    if (array_size == 2) {
+        dict_entry *entry = dict_find(dict_asset, (void *)(uintptr_t)account);
+        if (entry == NULL)
+            return NULL;
+
+        dict_iterator *iter = dict_get_iterator(entry->val);
+        while ((entry = dict_next(iter)) != NULL) {
+            const char *asset = entry->key;
+            const struct asset_type *type = entry->val;
+
+            json_t *unit = json_object();
+            mpd_t *available = balance_available(user_id, account, asset);
+            if (type->prec_save != type->prec_show) {
+                mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
+            }
+            json_object_set_new_mpd(unit, "available", available);
+            mpd_del(available);
+
+            mpd_t *frozen = balance_frozen(user_id, account, asset);
+            if (type->prec_save != type->prec_show) {
+                mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
+            }
+            json_object_set_new_mpd(unit, "frozen", frozen);
+            mpd_del(frozen);
+            json_object_set_new(result, asset, unit);
+        }
+        dict_release_iterator(iter);
+    } else {
+        for (size_t i = 2; i < array_size; ++i) {
+            const char *asset = json_string_value(json_array_get(params, i));
+            if (asset == NULL)
+                continue;
+            struct asset_type *type = get_asset_type(account, asset);
+            if (type == NULL)
+                continue;
+
+            json_t *unit = json_object();
+            mpd_t *available = balance_available(user_id, account, asset);
+            if (type->prec_save != type->prec_show) {
+                mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
+            }
+            json_object_set_new_mpd(unit, "available", available);
+            mpd_del(available);
+
+            mpd_t *frozen = balance_frozen(user_id, account, asset);
+            if (type->prec_save != type->prec_show) {
+                mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
+            }
+            json_object_set_new_mpd(unit, "frozen", frozen);
+            mpd_del(frozen);
+            json_object_set_new(result, asset, unit);
+        }
+    }
+
+    return result;
+}
+
+json_t *balance_query_lock_list(uint32_t user_id, uint32_t account, json_t *params)
+{
+    json_t *result = json_object();
+    size_t array_size = json_array_size(params);
+    if (array_size == 2) {
+        dict_entry *entry = dict_find(dict_asset, (void *)(uintptr_t)account);
+        if (entry == NULL)
+            return NULL;
+
+        dict_iterator *iter = dict_get_iterator(entry->val);
+        while ((entry = dict_next(iter)) != NULL) {
+            const char *asset = entry->key;
+            const struct asset_type *type = entry->val;
+
+            mpd_t *lock = balance_lock(user_id, account, asset);
+            if (type->prec_save != type->prec_show) {
+                mpd_rescale(lock, lock, -type->prec_show, &mpd_ctx);
+            }
+            if (mpd_cmp(lock, mpd_zero, &mpd_ctx) > 0) {
+                json_object_set_new_mpd(result, asset, lock);
+            }
+            mpd_del(lock);
+        }
+        dict_release_iterator(iter);
+    } else {
+        for (size_t i = 2; i < array_size; ++i) {
+            const char *asset = json_string_value(json_array_get(params, i));
+            if (asset == NULL)
+                continue;
+            struct asset_type *type = get_asset_type(account, asset);
+            if (type == NULL)
+                continue;
+
+            mpd_t *lock = balance_lock(user_id, account, asset);
+            if (type->prec_save != type->prec_show) {
+                mpd_rescale(lock, lock, -type->prec_show, &mpd_ctx);
+            }
+            if (mpd_cmp(lock, mpd_zero, &mpd_ctx) > 0) {
+                json_object_set_new_mpd(result, asset, lock);
+            }
+            mpd_del(lock);
+        }
+    }
+
+    return result;
+}
+
+json_t *balance_query_all(uint32_t user_id)
+{
+    json_t *result = json_object();
+    dict_entry *entry = dict_find(dict_balance, (void *)(uintptr_t)user_id);
+    if (entry == NULL)
+        return result;
+
+    dict_t *dict_user = entry->val;
+    dict_iterator *iter = dict_get_iterator(dict_user);
+    while ((entry = dict_next(iter)) != NULL) {
+        uint32_t account = (uintptr_t)entry->key;
+        dict_t *dict_account = entry->val;
+
+        json_t *account_info = json_object();
+        dict_entry *entry_account;
+        dict_iterator *iter_account = dict_get_iterator(dict_account);
+        while ((entry_account = dict_next(iter_account)) != NULL) {
+            const struct balance_key *key = entry_account->key;
+            if (json_object_get(account_info, key->asset) != NULL)
+                continue;
+            struct asset_type *type = get_asset_type(account, key->asset);
+            if (type == NULL)
+                continue;
+
+            json_t *unit = json_object();
+            mpd_t *available = balance_available(user_id, account, key->asset);
+            if (type->prec_save != type->prec_show) {
+                mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
+            }
+            json_object_set_new_mpd(unit, "available", available);
+            mpd_del(available);
+
+            mpd_t *frozen = balance_frozen(user_id, account, key->asset);
+            if (type->prec_save != type->prec_show) {
+                mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
+            }
+            json_object_set_new_mpd(unit, "frozen", frozen);
+            mpd_del(frozen);
+            json_object_set_new(account_info, key->asset, unit);
+        }
+        dict_release_iterator(iter_account);
+
+        char account_str[20];
+        snprintf(account_str, sizeof(account_str), "%u", account);
+        json_object_set_new(result, account_str, account_info);
+    }
+    dict_release_iterator(iter);
+
+    return result;
+}
+
