@@ -316,6 +316,7 @@ int asset_on_update_sub(uint32_t user_id, const char *asset)
 
     json_t *trade_params = json_array();
     json_array_append_new(trade_params, json_integer(user_id));
+    json_array_append_new(trade_params, json_integer(0)); // sub account only show default account
     json_array_append_new(trade_params, json_string(asset));
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);

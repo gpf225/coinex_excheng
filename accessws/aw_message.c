@@ -95,6 +95,7 @@ static int process_orders_message(json_t *msg)
         return -__LINE__;
 
     uint32_t user_id = json_integer_value(json_object_get(order, "user"));
+    uint32_t account = json_integer_value(json_object_get(order, "account"));
     const char *stock = json_string_value(json_object_get(msg, "stock"));
     const char *money = json_string_value(json_object_get(msg, "money"));
     const char *fee_asset = json_string_value(json_object_get(order, "fee_asset"));
@@ -103,14 +104,18 @@ static int process_orders_message(json_t *msg)
 
     order_on_update(user_id, event, order);
 
-    asset_on_update(user_id, stock);
-    asset_on_update(user_id, money);
-    asset_on_update_sub(user_id, stock);
-    asset_on_update_sub(user_id, money);
+    asset_on_update(user_id, account, stock);
+    asset_on_update(user_id, account, money);
+    if (account == 0) {
+        asset_on_update_sub(user_id, stock);
+        asset_on_update_sub(user_id, money);
+    }
 
     if (fee_asset && strcmp(fee_asset, stock) != 0 && strcmp(fee_asset, money) != 0) {
-        asset_on_update(user_id, fee_asset);
-        asset_on_update_sub(user_id, fee_asset);
+        asset_on_update(user_id, account, fee_asset);
+        if (account == 0) {
+            asset_on_update_sub(user_id, fee_asset);
+        }
     }
 
     return 0;
@@ -137,13 +142,16 @@ static void on_orders_message(sds message, int64_t offset)
 static int process_balances_message(json_t *msg)
 {
     uint32_t user_id = json_integer_value(json_object_get(msg, "user_id"));
+    uint32_t account = json_integer_value(json_object_get(msg, "account"));
     const char *asset = json_string_value(json_object_get(msg, "asset"));
     if (user_id == 0 || asset == NULL) {
         return -__LINE__;
     }
 
-    asset_on_update(user_id, asset);
-    asset_on_update_sub(user_id, asset);
+    asset_on_update(user_id, account, asset);
+    if (account == 0) {
+        asset_on_update_sub(user_id, asset);
+    }
 
     return 0;
 }
