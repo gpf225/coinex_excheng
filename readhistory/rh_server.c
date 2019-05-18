@@ -27,14 +27,14 @@ struct job_reply {
     json_t  *result;
 };
 
-typedef struct mysql_connection {
+struct mysql_connection {
     MYSQL **connections;
     int size;
-}mysql_connection;
+};
 
-static mysql_connection* mysql_connection_create(void)
+static struct mysql_connection* mysql_connection_create(void)
 {
-    mysql_connection *val = malloc(sizeof(struct mysql_connection));
+    struct mysql_connection *val = malloc(sizeof(struct mysql_connection));
     if (val == NULL) {
         return NULL;
     }
@@ -60,7 +60,7 @@ static mysql_connection* mysql_connection_create(void)
     return val;
 }
 
-static void mysql_connection_release(mysql_connection *val)
+static void mysql_connection_release(struct mysql_connection *val)
 {
     for (int i = 0; i < val->size; ++i) {
         mysql_close(val->connections[i]);
@@ -69,7 +69,7 @@ static void mysql_connection_release(mysql_connection *val)
     free(val);
 }
 
-static MYSQL* mysql_connection_get(mysql_connection *val, uint32_t user_id)
+static MYSQL* mysql_connection_get(struct mysql_connection *val, uint32_t user_id)
 {
     uint32_t no = (user_id % (val->size * HISTORY_HASH_NUM)) / HISTORY_HASH_NUM;
     return val->connections[no];
@@ -425,7 +425,7 @@ invalid_argument:
 static void on_job(nw_job_entry *entry, void *privdata)
 {
     struct job_request *req = entry->request;
-    mysql_connection *val = privdata;
+    struct mysql_connection *val = privdata;
     MYSQL *conn = mysql_connection_get(val, req->user_id);
     struct job_reply *rsp = malloc(sizeof(struct job_reply));
     entry->reply = rsp;
