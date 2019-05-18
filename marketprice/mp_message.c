@@ -686,7 +686,7 @@ static int flush_offset(redisContext *context, int64_t offset)
 
 static int flush_last(redisContext *context, const char *market, mpd_t *last)
 {
-    char *last_str = mpd_to_sci(last, 0);
+    char *last_str = mpd_format(last, "f", &mpd_ctx);
     if (last_str == NULL)
         return -__LINE__;
     redisReply *reply = redisCmd(context, "SET k:%s:last %s", market, last_str);
