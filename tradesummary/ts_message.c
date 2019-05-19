@@ -837,7 +837,7 @@ cleanup:
 
 static sds sql_append_mpd(sds sql, mpd_t *val, bool comma)
 {
-    char *str = mpd_format(val, "f", &mpd_ctx);
+    char *str = mpd_to_sci(val, 0);
     sql = sdscatprintf(sql, "'%s'", str);
     if (comma) {
         sql = sdscatprintf(sql, ", ");

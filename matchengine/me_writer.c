@@ -20,6 +20,7 @@
 static rpc_svr *svr;
 static cli_svr *svrcli;
 static queue_t *queue_writers;
+static mpd_t *mpd_maximum;
 
 static int push_operlog(const char *method, json_t *params)
 {
@@ -1203,6 +1204,9 @@ static int init_queue()
 
 int init_writer()
 {
+    mpd_maximum = mpd_new(&mpd_ctx);
+    mpd_set_string(mpd_maximum, "1000000000000", &mpd_ctx);
+
     int ret;
     ret = init_queue();
     if (ret < 0) {
