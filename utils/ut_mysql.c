@@ -35,7 +35,7 @@ bool is_table_exists(MYSQL *conn, const char *table)
     sql = sdscatprintf(sql, "SHOW TABLES LIKE '%s'", table);
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret < 0) {
+    if (ret != 0) {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
         return false;
