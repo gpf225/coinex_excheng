@@ -837,7 +837,7 @@ cleanup:
 
 static sds sql_append_mpd(sds sql, mpd_t *val, bool comma)
 {
-    char *str = mpd_to_sci(val, 0);
+    char *str = mpd_format(val, "f", &mpd_ctx);
     sql = sdscatprintf(sql, "'%s'", str);
     if (comma) {
         sql = sdscatprintf(sql, ", ");
@@ -881,7 +881,7 @@ static int dump_market_info(MYSQL *conn, const char *market_name, const char *st
 
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret < 0) {
+    if (ret != 0) {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         ret = -__LINE__;
     }
@@ -1077,7 +1077,7 @@ static int update_dump_history(MYSQL *conn, time_t timestamp)
     sql = sdscatprintf(sql, "INSERT INTO `dump_history` (`id`, `time`, `trade_date`) VALUES (NULL, %ld, '%s')", time(NULL), get_utc_date_from_time(timestamp, "%Y-%m-%d"));
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret < 0) {
+    if (ret != 0) {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
         return -__LINE__;

@@ -11,7 +11,7 @@
 
 static sds sql_append_mpd(sds sql, mpd_t *val, bool comma)
 {
-    char *str = mpd_to_sci(val, 0);
+    char *str = mpd_format(val, "f", &mpd_ctx);
     sql = sdscatprintf(sql, "'%s'", str);
     if (comma) {
         sql = sdscatprintf(sql, ", ");
@@ -52,7 +52,7 @@ static int dump_stops_list(MYSQL *conn, const char *table, skiplist_t *list)
         if (index == insert_limit) {
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
-            if (ret < 0) {
+            if (ret != 0) {
                 log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
                 skiplist_release_iterator(iter);
                 sdsfree(sql);
@@ -67,7 +67,7 @@ static int dump_stops_list(MYSQL *conn, const char *table, skiplist_t *list)
     if (index > 0) {
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret < 0) {
+        if (ret != 0) {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             sdsfree(sql);
             return -__LINE__;
@@ -159,7 +159,7 @@ static int dump_orders_list(MYSQL *conn, const char *table, skiplist_t *list)
         if (index == insert_limit) {
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
-            if (ret < 0) {
+            if (ret != 0) {
                 log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
                 skiplist_release_iterator(iter);
                 sdsfree(sql);
@@ -174,7 +174,7 @@ static int dump_orders_list(MYSQL *conn, const char *table, skiplist_t *list)
     if (index > 0) {
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret < 0) {
+        if (ret != 0) {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             sdsfree(sql);
             return -__LINE__;
@@ -254,7 +254,7 @@ static int dump_balance_dict(MYSQL *conn, const char *table, dict_t *dict)
         if (index == insert_limit) {
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
-            if (ret < 0) {
+            if (ret != 0) {
                 log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
                 dict_release_iterator(iter);
                 sdsfree(sql);
@@ -269,7 +269,7 @@ static int dump_balance_dict(MYSQL *conn, const char *table, dict_t *dict)
     if (index > 0) {
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret < 0) {
+        if (ret != 0) {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             sdsfree(sql);
             return -__LINE__;
@@ -334,7 +334,7 @@ static int dump_update_dict(MYSQL *conn, const char *table, dict_t *dict)
         if (index == insert_limit) {
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
-            if (ret < 0) {
+            if (ret != 0) {
                 log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
                 dict_release_iterator(iter);
                 sdsfree(sql);
@@ -349,7 +349,7 @@ static int dump_update_dict(MYSQL *conn, const char *table, dict_t *dict)
     if (index > 0) {
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret < 0) {
+        if (ret != 0) {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             sdsfree(sql);
             return -__LINE__;

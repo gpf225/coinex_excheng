@@ -14,6 +14,7 @@ extern mpd_context_t mpd_ctx;
 extern mpd_t *mpd_one;
 extern mpd_t *mpd_ten;
 extern mpd_t *mpd_zero;
+extern mpd_t *mpd_infinity;
 
 int init_mpd(void);
 mpd_t *decimal(const char *str, int prec);

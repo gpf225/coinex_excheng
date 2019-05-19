@@ -10,6 +10,7 @@ mpd_context_t mpd_ctx;
 mpd_t *mpd_one;
 mpd_t *mpd_ten;
 mpd_t *mpd_zero;
+mpd_t *mpd_infinity;
 
 int init_mpd(void)
 {
@@ -22,6 +23,8 @@ int init_mpd(void)
     mpd_set_string(mpd_ten, "10", &mpd_ctx);
     mpd_zero = mpd_new(&mpd_ctx);
     mpd_set_string(mpd_zero, "0", &mpd_ctx);
+    mpd_infinity = mpd_new(&mpd_ctx);
+    mpd_set_string(mpd_infinity, "1000000000000", &mpd_ctx);
 
     return 0;
 }
