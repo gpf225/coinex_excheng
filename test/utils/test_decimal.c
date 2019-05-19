@@ -25,7 +25,8 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        printf("%s\n", strmpd(value));
+        char buf[1024];
+        printf("%s\n", strmpd(buf, sizeof(buf), value));
         mpd_del(value);
     }
 

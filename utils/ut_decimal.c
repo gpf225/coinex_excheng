@@ -66,12 +66,11 @@ char *rstripzero(char *str)
     return str;
 }
 
-char *strmpd(const mpd_t *value)
+char *strmpd(char *buf, size_t buf_size, const mpd_t *value)
 {
-    static char buf[1024];
     char *str = mpd_format(value, "f", &mpd_ctx);
     buf[0] = 0;
-    strncat(buf, str, sizeof(buf) - 1);
+    strncat(buf, str, buf_size - 1);
     free(str);
     return buf;
 }
