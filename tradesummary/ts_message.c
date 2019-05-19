@@ -975,7 +975,7 @@ static int dump_fee_dict_info(MYSQL *conn, const char *market_name, time_t times
     sql = sdscatprintf(sql, "CREATE TABLE IF NOT EXISTS `%s` LIKE `user_fee_summary_example`", table);
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret < 0) {
+    if (ret != 0) {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
         return -__LINE__;

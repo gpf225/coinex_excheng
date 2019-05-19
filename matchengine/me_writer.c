@@ -266,7 +266,7 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!json_is_string(json_array_get(params, 4)))
         goto invalid_argument;
     price = decimal(json_string_value(json_array_get(params, 4)), market->money_prec);
-    if (price == NULL || mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(price, mpd_infinity, &mpd_ctx) >= 0)
+    if (price == NULL || mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(price, mpd_maximum, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // taker fee
@@ -545,14 +545,14 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!json_is_string(json_array_get(params, 4)))
         goto invalid_argument;
     stop_price = decimal(json_string_value(json_array_get(params, 4)), market->money_prec);
-    if (stop_price == NULL || mpd_cmp(stop_price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(stop_price, mpd_infinity, &mpd_ctx) >= 0)
+    if (stop_price == NULL || mpd_cmp(stop_price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(stop_price, mpd_maximum, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // price 
     if (!json_is_string(json_array_get(params, 5)))
         goto invalid_argument;
     price = decimal(json_string_value(json_array_get(params, 5)), market->money_prec);
-    if (price == NULL || mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(price, mpd_infinity, &mpd_ctx) >= 0)
+    if (price == NULL || mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(price, mpd_maximum, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // taker fee
@@ -673,7 +673,7 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!json_is_string(json_array_get(params, 4)))
         goto invalid_argument;
     stop_price = decimal(json_string_value(json_array_get(params, 4)), market->money_prec);
-    if (stop_price == NULL || mpd_cmp(stop_price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(stop_price, mpd_infinity, &mpd_ctx) >= 0)
+    if (stop_price == NULL || mpd_cmp(stop_price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(stop_price, mpd_maximum, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // taker fee
@@ -837,7 +837,7 @@ static int on_cmd_self_market_deal(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!json_is_string(json_array_get(params, 2)))
         goto invalid_argument;
     price = decimal(json_string_value(json_array_get(params, 2)), market->money_prec);
-    if (price == NULL || mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(price, mpd_infinity, &mpd_ctx) >= 0)
+    if (price == NULL || mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(price, mpd_maximum, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // side
