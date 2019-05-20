@@ -105,7 +105,7 @@ void dlog_syslog(const char *fmt, ...);
 /* log stack backtrace */
 void dlog_backtrace(dlog_t *log);
 
-/* check log, helog write log to file as soon as possible */
+/* check log, help write log to file as soon as possible */
 void dlog_check(dlog_t *log, struct timeval *tv);
 void dlog_check_all(void);
 
