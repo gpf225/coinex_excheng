@@ -105,8 +105,7 @@ int nw_sock_set_mode(nw_addr_t *addr, mode_t mode)
 int nw_sock_peer_addr(int sockfd, nw_addr_t *addr)
 {
     addr->addrlen = sizeof(addr->un);
-    if (getpeername(sockfd, NW_SOCKADDR(addr), &addr->addrlen) == 0)
-    {
+    if (getpeername(sockfd, NW_SOCKADDR(addr), &addr->addrlen) == 0) {
         addr->family = NW_SOCKADDR(addr)->sa_family;
         return 0;
     }
@@ -116,8 +115,7 @@ int nw_sock_peer_addr(int sockfd, nw_addr_t *addr)
 int nw_sock_host_addr(int sockfd, nw_addr_t *addr)
 {
     addr->addrlen = sizeof(addr->un);
-    if (getsockname(sockfd, NW_SOCKADDR(addr), &addr->addrlen) == 0)
-    {
+    if (getsockname(sockfd, NW_SOCKADDR(addr), &addr->addrlen) == 0) {
         addr->family = NW_SOCKADDR(addr)->sa_family;
         return 0;
     }
@@ -148,7 +146,7 @@ static int nw_sock_addr_fill_inet(nw_addr_t *addr, const char *host, const char 
     return 0;
 }
 
-int nw_sock_addr_fill_unix(nw_addr_t *addr, const char* unix_path)
+static int nw_sock_addr_fill_unix(nw_addr_t *addr, const char* unix_path)
 {
     size_t pathlen = strlen(unix_path);
     if (pathlen >= sizeof(addr->un.sun_path)) {

@@ -4,22 +4,31 @@
  */
 
 # include <stdio.h>
+# include <string.h>
+
 # include "ut_decimal.h"
-# include "ut_misc.h"
 
 int main(int argc, char *argv[])
 {
     init_mpd();
-    mpd_t *a = decimal("100.12345678", 0);
-    mpd_t *b = decimal("200.12345678", 0);
-    mpd_t *c = mpd_new(&mpd_ctx);
 
-    double start = current_timestamp();
-    for (int i = 0; i < 1000000; ++i) {
-        mpd_add(c, a, b, &mpd_ctx);
+    char *line = NULL;
+    size_t buf_size = 0;
+    while (getline(&line, &buf_size, stdin) != -1) {
+        size_t len = strlen(line);
+        if (len && line[len - 1] == '\n')
+            line[--len] = 0;
+
+        mpd_t *value = decimal(line, 0);
+        if (value == NULL) {
+            printf("not decimal\n");
+            continue;
+        }
+
+        char buf[1024];
+        printf("%s\n", strmpd(buf, sizeof(buf), value));
+        mpd_del(value);
     }
-    double end = current_timestamp();
-    printf("%f\n", end - start);
 
     return 0;
 }
