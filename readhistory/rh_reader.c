@@ -7,7 +7,7 @@
 # include "rh_reader.h"
 # include "ut_decimal.h"
 
-json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id,
+json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id, uint32_t account,
         const char *asset, const char *business, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
@@ -33,6 +33,8 @@ json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id,
     if (end_time) {
         sql = sdscatprintf(sql, " AND `time` < %"PRIu64, end_time);
     }
+
+    sql = sdscatprintf(sql, " AND `account` = %u", account);
 
     sql = sdscatprintf(sql, " ORDER BY `time` DESC, `id` DESC");
     if (offset) {
@@ -79,7 +81,7 @@ json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id,
     return records;
 }
 
-json_t *get_user_order_history(MYSQL *conn, uint32_t user_id,
+json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, uint32_t account, 
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
@@ -102,6 +104,8 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id,
     if (end_time) {
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
     }
+
+    sql = sdscatprintf(sql, " AND `account` = %u", account);
 
     sql = sdscatprintf(sql, " ORDER BY `create_time` DESC, `order_id` DESC");
     if (offset) {
@@ -134,6 +138,7 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id,
         json_object_set_new(record, "ftime", json_real(ftime));
         uint32_t user_id = strtoul(row[3], NULL, 0);
         json_object_set_new(record, "user", json_integer(user_id));
+        json_object_set_new(record, "account", json_integer(account));
         json_object_set_new(record, "market", json_string(row[4]));
         json_object_set_new(record, "source", json_string(row[5]));
         uint32_t type = atoi(row[6]);
@@ -158,7 +163,7 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id,
     return records;
 }
 
-json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id,
+json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, uint32_t account, 
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
@@ -184,6 +189,8 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id,
     if (end_time) {
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
     }
+
+    sql = sdscatprintf(sql, " AND `account` = %u", account);
 
     sql = sdscatprintf(sql, " ORDER BY `order_id` DESC");
     if (offset) {
@@ -216,6 +223,7 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id,
         json_object_set_new(record, "ftime", json_real(ftime));
         uint32_t user_id = strtoul(row[3], NULL, 0);
         json_object_set_new(record, "user", json_integer(user_id));
+        json_object_set_new(record, "account", json_integer(account));
         json_object_set_new(record, "market", json_string(row[4]));
         json_object_set_new(record, "source", json_string(row[5]));
         uint32_t type = atoi(row[6]);
@@ -239,7 +247,7 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id,
     return records;
 }
 
-json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id,
+json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, uint32_t account, 
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
@@ -262,6 +270,8 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id,
     if (end_time) {
         sql = sdscatprintf(sql, " AND `time` < %"PRIu64, end_time);
     }
+
+    sql = sdscatprintf(sql, " AND `account` = %u", account);
 
     sql = sdscatprintf(sql, " ORDER BY `time` DESC, `id` DESC");
     if (offset) {
@@ -290,6 +300,7 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id,
         json_object_set_new(record, "time", json_real(timestamp));
         uint32_t user_id = strtoul(row[1], NULL, 0);
         json_object_set_new(record, "user", json_integer(user_id));
+        json_object_set_new(record, "account", json_integer(account));
         uint32_t deal_user_id = strtoul(row[2], NULL, 0);
         json_object_set_new(record, "deal_user", json_integer(deal_user_id));
         uint64_t deal_id = strtoull(row[3], NULL, 0);
@@ -314,12 +325,12 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id,
     return records;
 }
 
-json_t *get_order_detail(MYSQL *conn, uint32_t user_id, uint64_t order_id)
+json_t *get_order_detail(MYSQL *conn, uint32_t user_id, uint32_t account, uint64_t order_id)
 {
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `market`, `source`, `t`, `side`, `price`, `amount`, "
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
-            "FROM `order_history_%u` WHERE `user_id` = '%u' AND `order_id` = %"PRIu64, user_id % HISTORY_HASH_NUM, user_id, order_id);
+            "FROM `order_history_%u` WHERE `user_id` = '%u' AND `order_id` = %"PRIu64" AND `account` = '%u'", user_id % HISTORY_HASH_NUM, user_id, order_id, account);
 
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -347,6 +358,7 @@ json_t *get_order_detail(MYSQL *conn, uint32_t user_id, uint64_t order_id)
     json_object_set_new(detail, "ftime", json_real(ftime));
     //uint32_t user_id = strtoul(row[3], NULL, 0);
     json_object_set_new(detail, "user", json_integer(user_id));
+    json_object_set_new(detail, "account", json_integer(account));
     json_object_set_new(detail, "market", json_string(row[4]));
     json_object_set_new(detail, "source", json_string(row[5]));
     uint32_t type = atoi(row[6]);
@@ -368,11 +380,11 @@ json_t *get_order_detail(MYSQL *conn, uint32_t user_id, uint64_t order_id)
     return detail;
 }
 
-json_t *get_order_deals(MYSQL *conn, uint32_t user_id, uint64_t order_id, size_t offset, size_t limit)
+json_t *get_order_deals(MYSQL *conn, uint32_t user_id, uint32_t account, uint64_t order_id, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `deal_user_id`, `deal_id`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset`, `deal_order_id` "
-            "FROM `user_deal_history_%u` where `user_id` = '%u' AND `order_id` = %"PRIu64" ORDER BY `id` DESC", user_id % HISTORY_HASH_NUM, user_id, order_id);
+            "FROM `user_deal_history_%u` where `user_id` = '%u' AND `order_id` = %"PRIu64" AND `account` = '%u' ORDER BY `id` DESC", user_id % HISTORY_HASH_NUM, user_id, order_id, account);
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
@@ -399,6 +411,7 @@ json_t *get_order_deals(MYSQL *conn, uint32_t user_id, uint64_t order_id, size_t
         json_object_set_new(record, "time", json_real(timestamp));
         uint32_t user_id = strtoul(row[1], NULL, 0);
         json_object_set_new(record, "user", json_integer(user_id));
+        json_object_set_new(record, "account", json_integer(account));
         uint32_t deal_user_id = strtoul(row[2], NULL, 0);
         json_object_set_new(record, "deal_user", json_integer(deal_user_id));
         uint64_t deal_id = strtoull(row[3], NULL, 0);

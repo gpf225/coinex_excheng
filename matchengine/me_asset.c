@@ -67,6 +67,8 @@ int init_asset(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
+    dt.hash_function  = uint32_dict_hash_func;
+    dt.key_compare    = uint32_dict_key_compare;
     dt.val_destructor = dict_free;
 
     dict_asset = dict_create(&dt, 64);
@@ -96,8 +98,19 @@ static int update_account(uint32_t account, dict_t *dict, json_t *assets)
     const char *key;
     json_t *asset;
     json_object_foreach(assets, key, asset) {
-        if (dict_find(dict, key))
+        dict_entry *entry = dict_find(dict, key);
+        if (entry) {
+            struct asset_type *type = entry->val;
+            int prec_save;
+            int prec_show;
+            ERR_RET_LN(read_cfg_int(asset, "prec_save", &prec_save, false, type->prec_save));
+            ERR_RET_LN(read_cfg_int(asset, "prec_show", &prec_show, false, type->prec_show));
+
+            if (type->prec_save < prec_save)
+                type->prec_save = prec_save;
+            type->prec_show = prec_show;
             continue;
+        }
 
         struct asset_type at;
         ERR_RET_LN(read_cfg_int(asset, "prec_save", &at.prec_save, true, 0));

@@ -712,7 +712,7 @@ static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     json_object_set_new(result, "offset", json_integer(offset));
 
     json_t *stops = json_array();
-    skiplist_t *stop_list = get_user_order_list(market, user_id, account);
+    skiplist_t *stop_list = get_user_stop_list(market, user_id, account);
     if (stop_list == NULL) {
         json_object_set_new(result, "total", json_integer(0));
     } else {

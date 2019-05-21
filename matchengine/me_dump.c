@@ -268,6 +268,8 @@ static int dump_balance_dict(MYSQL *conn, const char *table, dict_t *dict)
                     int ret = mysql_real_query(conn, sql, sdslen(sql));
                     if (ret < 0) {
                         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+                        dict_release_iterator(iter_account);
+                        dict_release_iterator(iter_user);
                         dict_release_iterator(iter);
                         sdsfree(sql);
                         return -__LINE__;

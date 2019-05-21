@@ -137,7 +137,6 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_int(root, "slice_keeptime", &settings.slice_keeptime, false, 86400 * 3));
     ERR_RET_LN(read_cfg_int(root, "depth_merge_max", &settings.depth_merge_max, false, 1000));
 
-    ERR_RET_LN(read_cfg_int(root, "fee_prec", &settings.fee_prec, false, 4));
     ERR_RET_LN(read_cfg_int(root, "reader_num", &settings.reader_num, false, 2));
     ERR_RET_LN(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.1));
     ERR_RET_LN(read_cfg_real(root, "order_fini_keeptime", &settings.order_fini_keeptime, false, 300.0));
@@ -164,6 +163,7 @@ int update_market_config(void)
         return -__LINE__;
     if (settings.market_cfg)
         json_decref(settings.market_cfg);
+    settings.market_cfg = data;
     return 0;
 }
 

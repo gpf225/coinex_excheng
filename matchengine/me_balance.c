@@ -52,6 +52,8 @@ int init_balance()
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.val_destructor = dict_free;
+    dt.key_compare    = uint32_dict_key_compare;
+    dt.val_destructor = dict_free;
 
     dict_balance = dict_create(&dt, 1024);
     if (dict_balance == NULL)
@@ -66,6 +68,8 @@ static dict_t *dict_account_init(uint32_t user_id, uint32_t account)
     if (entry == NULL) {
         dict_types dt;
         memset(&dt, 0, sizeof(dt));
+        dt.hash_function  = uint32_dict_hash_func;
+        dt.key_compare    = uint32_dict_key_compare;
         dt.val_destructor = dict_free;
 
         dict_t *dict = dict_create(&dt, 16);
@@ -92,8 +96,10 @@ static dict_t *dict_account_init(uint32_t user_id, uint32_t account)
         if (dict == NULL)
             return NULL;
         entry = dict_add(dict_user, (void *)(uintptr_t)account, dict);
-        if (entry == NULL)
+        if (entry == NULL) {
+            dict_release(dict);
             return NULL;
+        }
     }
 
     return entry->val;

@@ -287,6 +287,8 @@ static int user_order_list_insert(dict_t *dict, uint32_t user_id, uint32_t accou
 
         dict_types dt;
         memset(&dt, 0, sizeof(dt));
+        dt.hash_function  = uint32_dict_hash_func;
+        dt.key_compare    = uint32_dict_key_compare;
         dt.val_destructor = dict_skiplist_val_free;
         val.accounts = dict_create(&dt, 16);
         if (val.accounts == NULL)
@@ -528,6 +530,8 @@ int init_market(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
+    dt.hash_function    = uint32_dict_hash_func;
+    dt.key_compare      = uint32_dict_key_compare;
     dt.val_dup          = dict_user_val_dup;
     dt.val_destructor   = dict_user_val_free;
 
@@ -553,7 +557,11 @@ market_t *market_create(json_t *conf)
         return NULL;
 
     mpd_t *min_amount = NULL;
+    int fee_prec;
+
     if (read_cfg_mpd(conf, "min_amount", &min_amount, NULL) < 0)
+        return NULL;
+    if (read_cfg_int(conf, "fee_prec", &fee_prec, false, 4) < 0)
         return NULL;
 
     json_t *stock = json_object_get(conf, "stock");
@@ -573,6 +581,10 @@ market_t *market_create(json_t *conf)
         return NULL;
     if (stock_prec + money_prec > asset_prec_save(0, money_name))
         return NULL;
+    if (stock_prec + fee_prec > asset_prec_save(0, stock_name))
+        return NULL;
+    if (money_prec + fee_prec > asset_prec_save(0, money_name))
+        return NULL;
 
     market_t *m = malloc(sizeof(market_t));
     memset(m, 0, sizeof(market_t));
@@ -581,12 +593,14 @@ market_t *market_create(json_t *conf)
     m->money            = strdup(money_name);
     m->stock_prec       = stock_prec;
     m->money_prec       = money_prec;
-    m->fee_prec         = settings.fee_prec;
+    m->fee_prec         = fee_prec;
     m->min_amount       = min_amount;
     m->last             = mpd_qncopy(mpd_zero);
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
+    dt.hash_function    = uint32_dict_hash_func;
+    dt.key_compare      = uint32_dict_key_compare;
     dt.val_dup          = dict_user_val_dup;
     dt.val_destructor   = dict_user_val_free;
 
@@ -1220,8 +1234,10 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     if (fee_asset && strlen(fee_asset) > 0) {
         order->fee_asset = strdup(fee_asset);
         order->fee_price = get_fee_price(m, fee_asset);
-        if (order->fee_price == NULL)
+        if (order->fee_price == NULL) {
+            order_free(order);
             return -__LINE__;
+        }
         if (fee_discount) {
             mpd_copy(order->fee_discount, fee_discount, &mpd_ctx);
         } else {
@@ -1730,8 +1746,10 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
     if (fee_asset && strlen(fee_asset) > 0) {
         order->fee_asset = strdup(fee_asset);
         order->fee_price = get_fee_price(m, fee_asset);
-        if (order->fee_price == NULL)
+        if (order->fee_price == NULL) {
+            order_free(order);            
             return -__LINE__;
+        }
         if (fee_discount) {
             mpd_copy(order->fee_discount, fee_discount, &mpd_ctx);
         } else {
