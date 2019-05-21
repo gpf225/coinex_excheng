@@ -162,9 +162,7 @@ static int on_cmd_market_last(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (last == NULL)
         return reply_error_internal_error(ses, pkg);
 
-    char *last_str = mpd_to_sci(last, 0);
-    json_t *result = json_string(last_str);
-    free(last_str);
+    json_t *result = json_string_mpd(last);
 
     int ret = reply_result(ses, pkg, result, settings.cache_timeout);
     json_decref(result);
