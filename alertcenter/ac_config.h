@@ -26,6 +26,7 @@
 # include "ut_config.h"
 
 struct settings {
+    bool                debug;
     process_cfg         process;
     log_cfg             log;
     nw_svr_cfg          svr;

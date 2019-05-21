@@ -378,7 +378,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             goto end;
 
         struct cache_val val;
-        val.time_cache = current_millis() + ttl;
+        val.time_cache = current_millisecond() + ttl;
         val.result = result;
         json_incref(result);
         replace_cache(info->cache_key, &val);

@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 
     process_title_set("%s_listener", __process__);
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive(settings.debug);
     dlog_set_no_shift(default_dlog);
 
     ret = init_listener();
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 
 server:
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive(settings.debug);
 
     ret = init_deals();
     if (ret < 0) {

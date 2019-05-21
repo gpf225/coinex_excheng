@@ -50,8 +50,13 @@ int process_exist(const char *fmt, ...)
     return 0;
 }
 
-int process_keepalive(void)
+int process_keepalive(bool debug)
 {
+    if (debug) {
+        init_signal();
+        return 0;
+    }
+
     while (true) {
         int pid = fork();
         if (pid < 0) {
@@ -91,14 +96,6 @@ int process_keepalive(void)
     }
 
     return -1;
-}
-int process_keepalive1(bool debug)
-{
-    if (debug) {
-        init_signal();
-        return 0;
-    }
-    return process_keepalive();
 }
 
 int set_core_limit(size_t limit)
@@ -246,7 +243,7 @@ double current_timestamp(void)
     return (double)tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
-uint64_t current_millis(void)
+uint64_t current_millisecond(void)
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -262,6 +259,18 @@ char *strftimestamp(time_t t)
     return str;
 }
 
+int urandom(void *buf, size_t size)
+{
+    int fd = open("/dev/urandom", O_RDONLY);
+    if (fd < 0)
+        return -1;
+    int n = read(fd, buf, size);
+    if (n < 0)
+        return -1;
+    close(fd);
+    return n;
+}
+
 char *human_number(double num)
 {
     static char str[20];
@@ -275,15 +284,6 @@ char *human_number(double num)
     }
     snprintf(str, sizeof(str), "%.3fP", num);
     return str;
-}
-
-double to_fixed(double val, int num)
-{
-    double multiplier = 1.0;
-    for (int i = 0; i < num; ++i) {
-        multiplier *= 10;
-    }
-    return round(val * multiplier) / multiplier;
 }
 
 void reverse_mem(char *mem, size_t len)
@@ -324,35 +324,12 @@ void strclearblank(char *str)
     str[pos] = '\0';
 }
 
-int urandom(void *buf, size_t size)
-{
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0)
-        return -1;
-    int n = read(fd, buf, size);
-    if (n < 0)
-        return -1;
-    close(fd);
-    return n;
-}
-
 char *sstrncpy(char *dest, const char *src, size_t n)
 {
     if (n == 0)
         return dest;
     dest[0] = 0;
     return strncat(dest, src, n - 1);
-}
-
-time_t get_timezone_offset(void)
-{
-    time_t timestamp = 0;
-    struct tm *timeinfo = localtime(&timestamp);
-    if (timeinfo->tm_mday == 1) {
-        return -timeinfo->tm_hour * 3600;
-    } else {
-        return (24 - timeinfo->tm_hour) * 3600;
-    }
 }
 
 time_t get_day_start(time_t timestamp)
@@ -366,13 +343,61 @@ time_t get_day_start(time_t timestamp)
     return mktime(&dtm);
 }
 
-time_t get_month_start(int tm_year, int tm_mon)
+time_t get_month_start(time_t timestamp)
 {
-    struct tm mtm;
-    memset(&mtm, 0, sizeof(mtm));
-    mtm.tm_year = tm_year;
-    mtm.tm_mon  = tm_mon;
-    mtm.tm_mday = 1;
-    return mktime(&mtm);
+    struct tm *timeinfo = localtime(&timestamp);
+    struct tm dtm;
+    memset(&dtm, 0, sizeof(dtm));
+    dtm.tm_year = timeinfo->tm_year;
+    dtm.tm_mon  = timeinfo->tm_mon;
+    dtm.tm_mday = 1;
+    return mktime(&dtm);
+}
+
+time_t get_year_start(time_t timestamp)
+{
+    struct tm *timeinfo = localtime(&timestamp);
+    struct tm dtm;
+    memset(&dtm, 0, sizeof(dtm));
+    dtm.tm_year = timeinfo->tm_year;
+    dtm.tm_mon  = 0;
+    dtm.tm_mday = 1;
+    return mktime(&dtm);
+}
+
+time_t get_utc_day_start(time_t timestamp)
+{
+    struct tm *timeinfo = localtime(&timestamp);
+    struct tm dtm;
+    memset(&dtm, 0, sizeof(dtm));
+    dtm.tm_year = timeinfo->tm_year;
+    dtm.tm_mon  = timeinfo->tm_mon;
+    dtm.tm_mday = timeinfo->tm_mday;
+    time_t result = mktime(&dtm);
+    return result + timeinfo->tm_gmtoff;
+}
+
+time_t get_utc_month_start(time_t timestamp)
+{
+    struct tm *timeinfo = localtime(&timestamp);
+    struct tm dtm;
+    memset(&dtm, 0, sizeof(dtm));
+    dtm.tm_year = timeinfo->tm_year;
+    dtm.tm_mon  = timeinfo->tm_mon;
+    dtm.tm_mday = 1;
+    time_t result = mktime(&dtm);
+    return result + timeinfo->tm_gmtoff;
+}
+
+time_t get_utc_year_start(time_t timestamp)
+{
+    struct tm *timeinfo = localtime(&timestamp);
+    struct tm dtm;
+    memset(&dtm, 0, sizeof(dtm));
+    dtm.tm_year = timeinfo->tm_year;
+    dtm.tm_mon  = 0;
+    dtm.tm_mday = 1;
+    time_t result = mktime(&dtm);
+    return result + timeinfo->tm_gmtoff;
 }
 

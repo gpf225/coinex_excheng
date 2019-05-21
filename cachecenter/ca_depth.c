@@ -158,7 +158,7 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     if (val->last != NULL)
         json_decref(val->last);
     val->last = result;
-    val->time = current_millis();
+    val->time = current_millisecond();
     json_incref(val->last);
 
     json_t *result_body = json_object();
@@ -206,7 +206,7 @@ static int depth_send_last(nw_ses *ses, json_t *data, const char *market, const 
 static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval)
 {
     sds cache_key = get_depth_key(market, interval);
-    uint64_t now = current_millis();
+    uint64_t now = current_millisecond();
     struct dict_cache_val *cache = get_cache(cache_key, settings.interval_time * 1000);
     if (cache == NULL) {
         sdsfree(cache_key);
@@ -377,7 +377,7 @@ int depth_subscribe(nw_ses *ses, const char *market, const char *interval)
     struct dict_depth_sub_val *obj = entry->val;
     dict_add(obj->sessions, ses, NULL);
     if (obj->last) {
-        uint64_t now = current_millis();
+        uint64_t now = current_millisecond();
         if (now < (obj->time + settings.interval_time * 1000)) {
             uint64_t ttl = obj->time + settings.interval_time * 1000 - now;
             depth_send_last(ses, obj->last, market, interval, ttl);

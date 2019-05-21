@@ -1158,7 +1158,7 @@ json_t *get_market_kline_hour(const char *market, time_t start, time_t end, int 
     time_t start_min = now / 3600 * 3600 - settings.hour_max * 3600;
     if (start < start_min)
         start = start_min;
-    time_t base = get_day_start(start);
+    time_t base = start / 86400 * 86400;
     while ((base + interval) <= start)
         base += interval;
     start = base;
@@ -1280,6 +1280,16 @@ json_t *get_market_kline_week(const char *market, time_t start, time_t end, int 
     return result;
 }
 
+static time_t get_this_month(int tm_year, int tm_mon)
+{
+    struct tm mtm;
+    memset(&mtm, 0, sizeof(mtm));
+    mtm.tm_year = tm_year;
+    mtm.tm_mon  = tm_mon;
+    mtm.tm_mday = 1;
+    return mktime(&mtm);
+}
+
 static time_t get_next_month(int *tm_year, int *tm_mon)
 {
     if (*tm_mon == 11) {
@@ -1306,7 +1316,7 @@ json_t *get_market_kline_month(const char *market, time_t start, time_t end, int
     struct tm *timeinfo = localtime(&start);
     int tm_year = timeinfo->tm_year;
     int tm_mon  = timeinfo->tm_mon;
-    time_t mon_start = get_month_start(tm_year, tm_mon);
+    time_t mon_start = get_this_month(tm_year, tm_mon);
 
     struct kline_info *kbefor = get_last_kline(info->day, mon_start - 86400, start - 86400 * 30, 86400);
     struct kline_info *klast = kbefor;

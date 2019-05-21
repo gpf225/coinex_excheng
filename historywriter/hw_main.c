@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
     }
 
     daemon(1, 1);
-    process_keepalive1(settings.debug);
+    process_keepalive(settings.debug);
 
     ret = init_persist();
     if (ret < 0) {

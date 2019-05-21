@@ -51,6 +51,7 @@ typedef struct depth_merge_cfg {
 } depth_merge_cfg;
 
 struct settings {
+    bool                debug;
     process_cfg         process;
     log_cfg             log;
     alert_cfg           alert;
