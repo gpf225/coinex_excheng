@@ -10,6 +10,11 @@ struct settings settings;
 static int do_load_config(json_t *root)
 {
     int ret;
+    ret = read_cfg_bool(root, "debug", &settings.debug, false, false);
+    if (ret < 0) {
+        printf("read debug config fail: %d\n", ret);
+        return -__LINE__;
+    }
     ret = load_cfg_process(root, "process", &settings.process);
     if (ret < 0) {
         printf("load process config fail: %d\n", ret);

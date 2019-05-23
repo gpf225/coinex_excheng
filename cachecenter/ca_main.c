@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
         dlog_set_no_shift(default_dlog);
 
         daemon(1, 1);
-        process_keepalive();
+        process_keepalive(settings.debug);
 
         ret = init_market();
         if (ret < 0) {
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
         dlog_set_no_shift(default_dlog);
 
         daemon(1, 1);
-        process_keepalive();
+        process_keepalive(settings.debug);
 
         ret = init_market();
         if (ret < 0) {
@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
     // worker
     process_title_set("%s_worker_%d", __process__, worker_id);
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive(settings.debug);
 
     ret = init_market();
     if (ret < 0) {

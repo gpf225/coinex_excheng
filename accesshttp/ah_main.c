@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
         } else if (pid == 0) {
             process_title_set("%s_worker_%d", __process__, i);
             daemon(1, 1);
-            process_keepalive();
+            process_keepalive(settings.debug);
             if (i != 0) {
                 dlog_set_no_shift(default_dlog);
             }
@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
 
     process_title_set("%s_listener", __process__);
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive(settings.debug);
 
     ret = init_listener();
     if (ret < 0) {

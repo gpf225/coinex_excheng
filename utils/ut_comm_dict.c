@@ -7,12 +7,12 @@
 # include <string.h>
 # include "ut_comm_dict.h"
 
-static uint32_t uint32_set_hash_function(const void *key)
+uint32_t uint32_dict_hash_func(const void *key)
 {
     return (uint32_t)(uintptr_t)key;
 }
 
-static int uint32_set_key_compare(const void *key1, const void *key2)
+int uint32_dict_key_compare(const void *key1, const void *key2)
 {
     return key1 == key2 ? 0 : 1;
 }
@@ -21,8 +21,8 @@ dict_t *uint32_set_create(void)
 {
     dict_types type;
     memset(&type, 0, sizeof(type));
-    type.hash_function = uint32_set_hash_function;
-    type.key_compare = uint32_set_key_compare;
+    type.hash_function = uint32_dict_hash_func;
+    type.key_compare = uint32_dict_key_compare;
 
     return dict_create(&type, 64);
 }
@@ -90,12 +90,3 @@ void sds_dict_key_free(void *key)
     sdsfree((sds)key);
 }
 
-uint32_t uint32_dict_hash_func(const void *key)
-{
-    return (uintptr_t)key;
-}
-
-int uint32_dict_key_compare(const void *key1, const void *key2)
-{
-    return (uintptr_t)key1 == (uintptr_t)key2 ? 0 : 1;
-}

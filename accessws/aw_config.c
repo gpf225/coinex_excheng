@@ -46,6 +46,11 @@ static int read_depth_merge_cfg(json_t *root, const char *key)
 static int read_config_from_json(json_t *root)
 {
     int ret;
+    ret = read_cfg_bool(root, "debug", &settings.debug, false, true);
+    if (ret < 0) {
+        printf("load debug config fail: %d\n", ret);
+        return -__LINE__;
+    }
     ret = load_cfg_process(root, "process", &settings.process);
     if (ret < 0) {
         printf("load process config fail: %d\n", ret);
@@ -128,7 +133,6 @@ static int read_config_from_json(json_t *root)
     
     ERR_RET_LN(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET_LN(read_depth_merge_cfg(root, "depth_merge"));
-    ERR_RET_LN(read_cfg_bool(root, "debug", &settings.debug, false, true));
 
     return 0;
 }

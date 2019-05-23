@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
         } else if (pid != 0) {
             process_title_set("marketprice_worker_%d", i);
             daemon(1, 1);
-            process_keepalive();
+            process_keepalive(settings.debug);
 
             ret = init_message(i);
             if (ret < 0) {
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 
     process_title_set("marketprice_access");
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive(settings.debug);
 
     ret = init_access();
     if (ret < 0) {

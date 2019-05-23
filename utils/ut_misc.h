@@ -14,8 +14,7 @@
 # include "ut_log.h"
 
 int process_exist(const char *fmt, ...);
-int process_keepalive(void);
-int process_keepalive1(bool debug);
+int process_keepalive(bool debuf);
 
 int set_core_limit(size_t limit);
 int set_file_limit(size_t limit);
@@ -25,24 +24,25 @@ sds bin2hex(const void *mem, size_t len);
 sds hex2bin(const char *hex);
 
 double current_timestamp(void);
-uint64_t current_millis(void);
-
+uint64_t current_millisecond(void);
 char *strftimestamp(time_t t);
+
+int urandom(void *buf, size_t size);
 char *human_number(double num);
 
-double to_fixed(double val, int num);
 void reverse_mem(char *mem, size_t len);
-
 void strtolower(char *str);
 void strtoupper(char *str);
 void strclearblank(char *str);
 char *sstrncpy(char *dest, const char *src, size_t n);
 
-int urandom(void *buf, size_t size);
-
-time_t get_timezone_offset(void);
 time_t get_day_start(time_t timestamp);
-time_t get_month_start(int tm_year, int tm_mon);
+time_t get_month_start(time_t timestamp);
+time_t get_year_start(time_t timestamp);
+
+time_t get_utc_day_start(time_t timestamp);
+time_t get_utc_month_start(time_t timestamp);
+time_t get_utc_yearstart(time_t timestamp);
 
 # undef ERR_RET
 # define ERR_RET(x) do { \

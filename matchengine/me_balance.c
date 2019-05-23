@@ -131,10 +131,10 @@ static void dict_account_reset(uint32_t user_id, uint32_t account)
         return;
     dict_t *dict_account = entry->val;
 
-    if (dict_account->used == 0) {
+    if (dict_size(dict_account) == 0) {
         dict_delete(dict_user, (void *)(uintptr_t)account);
     }
-    if (dict_user->used == 0) {
+    if (dict_size(dict_user) == 0) {
         dict_delete(dict_balance, (void *)(uintptr_t)user_id);
     }
 }

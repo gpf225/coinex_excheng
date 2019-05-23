@@ -11,8 +11,8 @@ json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id, uint32_t account
         const char *asset, const char *business, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `user_id`, `account`, `time`, `asset`, `business`, `change`, `balance`, `detail` FROM `balance_history_%u` WHERE `user_id` = %u",
-            user_id % HISTORY_HASH_NUM, user_id);
+    sql = sdscatprintf(sql, "SELECT `user_id`, `account`, `time`, `asset`, `business`, `change`, `balance`, `detail` FROM `balance_history_%u` WHERE `user_id` = %u AND `account` = %u",
+            user_id % HISTORY_HASH_NUM, user_id, account);
 
     size_t asset_len = strlen(asset);
     if (asset_len > 0) {
@@ -33,7 +33,6 @@ json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id, uint32_t account
     if (end_time) {
         sql = sdscatprintf(sql, " AND `time` < %"PRIu64, end_time);
     }
-    sql = sdscatprintf(sql, " AND `account` = %u", account);
 
     sql = sdscatprintf(sql, " ORDER BY `time` DESC, `id` DESC");
     if (offset) {
@@ -92,6 +91,9 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
             "FROM `order_history_%u` WHERE `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
 
+    if (account >= 0) {
+        sql = sdscatprintf(sql, " AND `account` = %u", account);
+    }
     size_t market_len = strlen(market);
     if (market_len > 0) {
         char _market[2 * market_len + 1];
@@ -106,9 +108,6 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
     }
     if (end_time) {
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
-    }
-    if (account >= 0) {
-        sql = sdscatprintf(sql, " AND `account` = %u", account);
     }
 
     sql = sdscatprintf(sql, " ORDER BY `create_time` DESC, `order_id` DESC");
@@ -176,6 +175,9 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
             "`stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `fee_asset`, `fee_discount`, `status`"
             "FROM `stop_history_%u` WHERE `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
 
+    if (account >= 0) {
+        sql = sdscatprintf(sql, " AND `account` = %u", account);
+    }
     size_t market_len = strlen(market);
     if (market_len > 0) {
         char _market[2 * market_len + 1];
@@ -193,9 +195,6 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
     }
     if (end_time) {
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
-    }
-    if (account >= 0) {
-        sql = sdscatprintf(sql, " AND `account` = %u", account);
     }
 
     sql = sdscatprintf(sql, " ORDER BY `order_id` DESC");
@@ -261,6 +260,9 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
     sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `account`, `deal_user_id`, `deal_id`, `order_id`, `market`, `side`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset` "
             "FROM `user_deal_history_%u` where `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
 
+    if (account >= 0) {
+        sql = sdscatprintf(sql, " AND `account` = %u", account);
+    }
     size_t market_len = strlen(market);
     if (market_len > 0) {
         char _market[2 * market_len + 1];
@@ -276,9 +278,6 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
     }
     if (end_time) {
         sql = sdscatprintf(sql, " AND `time` < %"PRIu64, end_time);
-    }
-    if (account >= 0) {
-        sql = sdscatprintf(sql, " AND `account` = %u", account);
     }
 
     sql = sdscatprintf(sql, " ORDER BY `time` DESC, `id` DESC");

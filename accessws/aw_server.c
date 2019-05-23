@@ -223,7 +223,7 @@ static int check_cache(nw_ses *ses, uint64_t id, sds key)
         return 0;
 
     struct cache_val *cache = entry->val;
-    if (current_millis() >= cache->time_cache) {
+    if (current_millisecond() >= cache->time_cache) {
         dict_delete(backend_cache, key);
         return 0;
     }
@@ -247,7 +247,7 @@ static int check_depth_cache(nw_ses *ses, uint64_t id, sds key, int limit)
         return 0;
 
     struct cache_val *cache = entry->val;
-    if (current_millis() >= cache->time_cache) {
+    if (current_millisecond() >= cache->time_cache) {
         dict_delete(backend_cache, key);
         return 0;
     }
@@ -264,7 +264,7 @@ void update_depth_cache(json_t *data, const char *market, const char *interval, 
 {
     sds key = get_depth_cache_key(market, interval);
     struct cache_val val;
-    val.time_cache = current_millis() + ttl;
+    val.time_cache = current_millisecond() + ttl;
     val.result = data;
     json_incref(data);
     dict_replace(backend_cache, key, &val);
@@ -1324,7 +1324,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             goto end;
 
         struct cache_val val;
-        val.time_cache = current_millis() + ttl;
+        val.time_cache = current_millisecond() + ttl;
         val.result = result;
         json_incref(result);
         dict_replace(backend_cache, state->cache_key, &val);
@@ -1390,7 +1390,7 @@ static size_t get_online_user_count(void)
 
 static void on_timer(nw_timer *timer, void *privdata)
 {
-    double now = current_millis();
+    double now = current_millisecond();
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(backend_cache);
     while ((entry = dict_next(iter)) != NULL) {

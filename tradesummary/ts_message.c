@@ -723,19 +723,6 @@ static bool is_kafka_synced(void)
     return true;
 }
 
-static time_t get_today_start_utc(void)
-{
-    time_t now = time(NULL);
-    struct tm *timeinfo = localtime(&now);
-    struct tm dt;
-    memset(&dt, 0, sizeof(dt));
-    dt.tm_year = timeinfo->tm_year;
-    dt.tm_mon  = timeinfo->tm_mon;
-    dt.tm_mday = timeinfo->tm_mday;
-    time_t timestamp = mktime(&dt);
-    return timestamp + timeinfo->tm_gmtoff;
-}
-
 static time_t get_utc_time_from_date(const char *date)
 {
     time_t now = time(NULL);
@@ -1161,14 +1148,15 @@ static void on_dump_timer(nw_timer *timer, void *privdata)
     if (!is_kafka_synced())
         return;
 
+    time_t day_start = get_utc_day_start(now);
     time_t last_dump = get_last_dump_time();
     if (last_dump == 0) {
-        last_dump = get_today_start_utc() - 86400 * 2;
+        last_dump = day_start - 86400 * 2;
     }
 
-    time_t day_start = get_today_start_utc() - 86400;
-    if (last_dump != day_start) {
-        dump_summary(last_dump, day_start);
+    time_t last_day_start = day_start - 86400;
+    if (last_dump != last_day_start) {
+        dump_summary(last_dump, last_day_start);
     }
 }
 
