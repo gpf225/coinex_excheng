@@ -9,10 +9,9 @@ CREATE TABLE `balance_history_example` (
     `change`        DECIMAL(40,20) NOT NULL COMMENT "资产变更",  # 由原来8位变成20位
     `balance`       DECIMAL(40,20) NOT NULL COMMENT "变更后余额",
     `detail`        TEXT NOT NULL COMMENT "明细信息",
-    INDEX `idx_user_time` (`user_id`, `time`),
-    INDEX `idx_user_business_time` (`user_id`, `business`, `time`),
-    INDEX `idx_user_asset_business_time` (`user_id`, `asset`, `business`, `time`),
-    INDEX `idx_user_account_asset_business_time` (`user_id`, `asset`, `business`, `time`)
+    INDEX `idx_user_account_time` (`user_id`, `account`, `time`),
+    INDEX `idx_user_account_business_time` (`user_id`, `account`, `business`, `time`),
+    INDEX `idx_user_account_asset_business_time` (`user_id`, `account`, `asset`, `business`, `time`),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id
