@@ -340,7 +340,7 @@ static void user_order_list_delete(dict_t *dict, uint32_t user_id, uint32_t acco
 
     if (skiplist_len(account_list) == 0)
         dict_delete(obj->accounts, (void *)(uintptr_t)account);
-    if (obj->accounts->used == 0)
+    if (dict_size(obj->accounts) == 0)
         dict_delete(dict, (void *)(uintptr_t)user_id);
 }
 

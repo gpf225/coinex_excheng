@@ -51,7 +51,7 @@ int init_balance()
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.val_destructor = dict_free;
+    dt.hash_function  = uint32_dict_hash_func;
     dt.key_compare    = uint32_dict_key_compare;
     dt.val_destructor = dict_free;
 
@@ -131,10 +131,10 @@ static void dict_account_reset(uint32_t user_id, uint32_t account)
         return;
     dict_t *dict_account = entry->val;
 
-    if (dict_account->used == 0) {
+    if (dict_size(dict_account) == 0) {
         dict_delete(dict_user, (void *)(uintptr_t)account);
     }
-    if (dict_user->used == 0) {
+    if (dict_size(dict_user) == 0) {
         dict_delete(dict_balance, (void *)(uintptr_t)user_id);
     }
 }
