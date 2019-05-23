@@ -39,7 +39,6 @@
 # include "ut_rpc_cmd.h"
 # include "ut_ws_svr.h"
 # include "ut_comm_dict.h"
-# include "ut_rpc_reply.h"
 
 # define ASSET_NAME_MAX_LEN     16
 # define MARKET_NAME_MAX_LEN    16
@@ -59,6 +58,7 @@ typedef struct depth_merge_cfg {
 } depth_merge_cfg;
 
 struct settings {
+    bool                debug;
     process_cfg         process;
     log_cfg             log;
     alert_cfg           alert;
@@ -91,7 +91,6 @@ struct settings {
 
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;
-    bool debug;
     int                 deal_max;
 };
 

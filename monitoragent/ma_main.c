@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
     }
 
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive(settings.debug);
 
     ret = init_server();
     if (ret < 0) {

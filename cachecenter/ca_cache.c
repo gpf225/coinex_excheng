@@ -51,7 +51,7 @@ static void on_cache_clear_timer(nw_timer *timer, void *privdata)
 
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_cache_val *val = entry->val;
-        uint64_t now = current_millis();
+        uint64_t now = current_millisecond();
 
         if (now - val->time > settings.interval_time * 1000)
             dict_delete(dict_cache, entry->key);
@@ -62,7 +62,7 @@ static void on_cache_clear_timer(nw_timer *timer, void *privdata)
 int add_cache(sds cache_key, json_t *result)
 {
     struct dict_cache_val cache;
-    cache.time = current_millis();
+    cache.time = current_millisecond();
     cache.result = result;
     json_incref(result);
     dict_replace(dict_cache, cache_key, &cache);
@@ -77,7 +77,7 @@ struct dict_cache_val *get_cache(sds key, int cache_time)
         return NULL;
 
     struct dict_cache_val *cache = entry->val;
-    uint64_t now = current_millis();
+    uint64_t now = current_millisecond();
     if ((now - cache->time) >= cache_time) {
         dict_delete(dict_cache, key);
         return NULL;
