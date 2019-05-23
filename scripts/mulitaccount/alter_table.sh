@@ -39,7 +39,7 @@ function alter_history_table() {
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table user_deal_history_$i add account INT UNSIGNED NOT NULL COMMENT '用户账户ID';"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table user_deal_history_$i add deal_account INT UNSIGNED NOT NULL COMMENT '对手账户ID';"
 
-	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table balance_history_$i add INDEX idx_user_account_asset_business_time (user_id, asset, business, time);"
+	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table balance_history_$i add INDEX idx_user_account_asset_business_time (user_id, account, asset, business, time);"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table order_history_$i add INDEX idx_user_account_market_side_time (user_id, account, market, side, create_time);"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table stop_history_$i add INDEX idx_user_account_market_side_time (user_id, account, market, side, create_time);"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table user_deal_history_$i add INDEX idx_user_account_market_side_time (user_id, account, market, side, time);"
