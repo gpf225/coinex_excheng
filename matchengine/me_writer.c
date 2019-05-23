@@ -287,7 +287,7 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     // price 
     if (!json_is_string(json_array_get(params, 5)))
         goto invalid_argument;
-    price = decimal(json_string_value(json_array_get(params, 4)), market->money_prec);
+    price = decimal(json_string_value(json_array_get(params, 5)), market->money_prec);
     if (price == NULL || mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0 || mpd_cmp(price, mpd_maximum, &mpd_ctx) >= 0)
         goto invalid_argument;
 

@@ -354,9 +354,8 @@ static int on_cmd_order_detail(MYSQL *conn, json_t *params, struct job_reply *rs
     uint64_t order_id = json_integer_value(json_array_get(params, 1));
     if (order_id == 0)
         goto invalid_argument;
-    uint32_t account = json_integer_value(json_array_get(params, 2));
 
-    rsp->result = get_order_detail(conn, user_id, account, order_id);
+    rsp->result = get_order_detail(conn, user_id, order_id);
     if (rsp->result == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");

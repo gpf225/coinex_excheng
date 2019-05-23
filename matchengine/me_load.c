@@ -290,7 +290,7 @@ static int load_update_balance(json_t *params)
     // change
     if (!json_is_string(json_array_get(params, 5)))
         return -__LINE__;
-    mpd_t *change = decimal(json_string_value(json_array_get(params, 6)), prec);
+    mpd_t *change = decimal(json_string_value(json_array_get(params, 5)), prec);
     if (change == NULL)
         return -__LINE__;
 

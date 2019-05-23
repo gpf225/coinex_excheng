@@ -12,7 +12,7 @@ CREATE TABLE `balance_history_example` (
     INDEX `idx_user_time` (`user_id`, `time`),
     INDEX `idx_user_business_time` (`user_id`, `business`, `time`),
     INDEX `idx_user_asset_business_time` (`user_id`, `asset`, `business`, `time`),
-    INDEX `idx_user_account_asset_business_time` (`user_id`, `asset`, `business`, `time`)
+    INDEX `idx_user_account_asset_business_time` (`user_id`, `account`, `asset`, `business`, `time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id

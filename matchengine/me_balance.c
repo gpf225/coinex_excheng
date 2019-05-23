@@ -51,7 +51,7 @@ int init_balance()
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.val_destructor = dict_free;
+    dt.hash_function  = uint32_dict_hash_func;
     dt.key_compare    = uint32_dict_key_compare;
     dt.val_destructor = dict_free;
 
