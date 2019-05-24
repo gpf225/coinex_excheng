@@ -150,7 +150,7 @@ static void *on_job_init(void)
 
 static int on_cmd_balance_history(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 7)
+    if (json_array_size(params) != 8)
         goto invalid_argument;
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
@@ -201,13 +201,13 @@ invalid_argument:
 
 static int on_cmd_order_history(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 7)
+    if (json_array_size(params) != 8)
         goto invalid_argument;
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id == 0)
         goto invalid_argument;
-    uint32_t account = json_integer_value(json_array_get(params, 1));
+    int32_t account = json_integer_value(json_array_get(params, 1));
     const char *market = json_string_value(json_array_get(params, 2));
     if (market == NULL)
         goto invalid_argument;
@@ -252,13 +252,13 @@ invalid_argument:
 
 static int on_cmd_stop_history(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 7)
+    if (json_array_size(params) != 8)
         goto invalid_argument;
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id == 0)
         goto invalid_argument;
-    uint32_t account = json_integer_value(json_array_get(params, 1));
+    int32_t account = json_integer_value(json_array_get(params, 1));
     const char *market = json_string_value(json_array_get(params, 2));
     if (market == NULL)
         goto invalid_argument;
@@ -303,12 +303,12 @@ invalid_argument:
 
 static int on_cmd_order_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 4)
+    if (json_array_size(params) != 5)
         goto invalid_argument;
     uint64_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id == 0)
         goto invalid_argument;
-    uint32_t account = json_integer_value(json_array_get(params, 1));
+    int32_t account = json_integer_value(json_array_get(params, 1));
     uint64_t order_id = json_integer_value(json_array_get(params, 2));
     if (order_id == 0)
         goto invalid_argument;
@@ -378,13 +378,13 @@ invalid_argument:
 
 static int on_cmd_user_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 7)
+    if (json_array_size(params) != 8)
         goto invalid_argument;
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id == 0)
         goto invalid_argument;
-    uint32_t account = json_integer_value(json_array_get(params, 1));
+    int32_t account = json_integer_value(json_array_get(params, 1));
     const char *market = json_string_value(json_array_get(params, 2));
     if (market == NULL)
         goto invalid_argument;

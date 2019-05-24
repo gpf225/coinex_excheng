@@ -30,11 +30,12 @@ General error code:
 * method: `asset.update`
 * params:
 1. user_id: user ID, Integer
-2. asset: asset name, String
-3. business: business type, String
-4. business_id: business ID, Integer, but it will only succeed once with multiple operations of the same user_id, asset, business or business_id
-5. change: balance change, String, negative numbers for deduction
-6. detail: Json object, attached information
+2. account: account ID, Integer, 0 is compatible with the original
+3. asset: asset name, String
+4. business: business type, String
+5. business_id: business ID, Integer, but it will only succeed once with multiple operations of the same user_id, asset, business or business_id
+6. change: balance change, String, negative numbers for deduction
+7. detail: Json object, attached information
 * result: "success"
 * error code:
 10. repeat update
@@ -42,7 +43,7 @@ General error code:
 * example:
 
 ```
-"params": [1, "BTC", "deposit", 100, "1.2345"]
+"params": [1, 1, "BTC", "deposit", 100, "1.2345"]
 "result": "success"
 ```
 
@@ -50,10 +51,11 @@ General error code:
 * method: `asset.lock`
 * params:
 1. user_id: user ID, Integer
-2. asset: asset name, String
-3. business: business type, String
-4. business_id: business ID, Integer, but it will only succeed once with multiple operations of the same user_id, asset, business or business_id
-5. amount: amount, String
+2. account: account ID, Integer, 0 is compatible with the original
+3. asset: asset name, String
+4. business: business type, String
+5. business_id: business ID, Integer, but it will only succeed once with multiple operations of the same user_id, asset, business or business_id
+6. amount: amount, String
 * result: "success"
 * error code:
 10. repeat update
@@ -63,10 +65,11 @@ General error code:
 * method: `asset.unlock`
 * params:
 1. user_id: user ID, Integer
-2. asset: asset name, String
-3. business: business type, String
-4. business_id: business ID, Integer, but it will only succeed once with multiple operations of the same user_id, asset, business or business_id
-5. amount: amount, String
+2. account: account ID, Integer, 0 is compatible with the original
+3. asset: asset name, String
+4. business: business type, String
+5. business_id: business ID, Integer, but it will only succeed once with multiple operations of the same user_id, asset, business or business_id
+6. amount: amount, String
 * result: "success"
 * error code:
 10. repeat update
@@ -76,7 +79,26 @@ General error code:
 * method: `asset.query`
 * params:
 1. user_id
+2. account: account ID, Integer, 0 is compatible with the original
 asset list(optional, if no asset special, return all asset)
+* result:
+```
+{
+    "error": null,
+    "result": {
+        "BTC": {
+            "available": "250",
+            "frozen": "10"
+        }
+    },
+    "id": 1530261478813
+}
+```
+
+**Asset query all**
+* method: `asset.query_all`
+* params:
+1. user_id
 * result:
 ```
 {
@@ -95,6 +117,7 @@ asset list(optional, if no asset special, return all asset)
 * method: `asset.query_lock`
 * params:
 1. user_id: user ID, Integer
+2. account: account ID, Integer, 0 is compatible with the original
 asset list(optional, if no asset special, return all asset)
 * result:
 ```
@@ -128,12 +151,13 @@ asset list(optional, if no asset special, return all asset)
 * method: `asset.history`
 * params:
 1. user_id: user ID, Integer
-2. asset: asset name, which can be empty
-3. business: business, which can be empty
-3. start_time: start time, 0 for unlimited, Integer
-4. end_time: end time, 0 for unlimited, Integer
-5. offset: offset position, Integer
-6. limit: count limit, Integer
+2. account: account ID, Integer, 0 is compatible with the original
+3. asset: asset name, which can be empty
+4. business: business, which can be empty
+5. start_time: start time, 0 for unlimited, Integer
+6. end_time: end time, 0 for unlimited, Integer
+7. offset: offset position, Integer
+8. limit: count limit, Integer
 * result:
 ```
 {
@@ -158,35 +182,37 @@ asset list(optional, if no asset special, return all asset)
 * method: `order.put_limit`
 * params:
 1. user_id: user ID, Integer
-2. market: market name, String
-3. side: 1: sell, 2: buy, Integer
-4. amount: count, String
-5. price: price, String
-6. taker_fee_rate: String, taker fee
-7. maker_fee_rate: String, maker fee
-8. source: String, source, up to 30 bytes
-9. fee_asset: String, asset to use as fee
-10. fee_discount: String, 0~1
+2. account: account ID, Integer, 0 is compatible with the original
+3. market: market name, String
+4. side: 1: sell, 2: buy, Integer
+5. amount: count, String
+6. price: price, String
+7. taker_fee_rate: String, taker fee
+8. maker_fee_rate: String, maker fee
+9. source: String, source, up to 30 bytes
+10. fee_asset: String, asset to use as fee
+11. fee_discount: String, 0~1
 * result: order detail
 * error:
 10. balance not enough
 * example:
 
 ```
-params: [1, "BTCCNY", 1, "10", "8000", "0.002", "0.001"]
+params: [1, 0, "BTCCNY", 1, "10", "8000", "0.002", "0.001"]
 ```
 
 **Place market order**
 * method: `order.put_market`
 * params:
 1. user_id: user ID, Integer
-2. market: market name, String
-3. side: 1: sell, 2: buy, Integer
-4. amount: count or amount, String
-5. taker_fee_rate: taker fee
-6. source: String, source, up to 30 bytes
-7. fee_asset: String, asset to use as fee
-8. fee_discount: String, 0~1
+2. account: account ID, Integer, 0 is compatible with the original
+3. market: market name, String
+4. side: 1: sell, 2: buy, Integer
+5. amount: count or amount, String
+6. taker_fee_rate: taker fee
+7. source: String, source, up to 30 bytes
+8. fee_asset: String, asset to use as fee
+9. fee_discount: String, 0~1
 * result: order detail
 * error:
 10. balance not enough
@@ -231,14 +257,15 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `order.put_stop_market`
 * params:
 1. user_id: user ID, Integer
-2. market: market name, String
-3. side: 1: sell, 2: buy, Integer
-4. amount: count or amount, String
-5. stop_price: stop price
-6. taker_fee_rate: taker fee
-7. source: String, source, up to 30 bytes
-8. fee_asset: String, asset to use as fee
-9. fee_discount: String, 0~1
+2. account: account ID, Integer, 0 is compatible with the original
+3. market: market name, String
+4. side: 1: sell, 2: buy, Integer
+5. amount: count or amount, String
+6. stop_price: stop price
+7. taker_fee_rate: taker fee
+8. source: String, source, up to 30 bytes
+9. fee_asset: String, asset to use as fee
+10. fee_discount: String, 0~1
 * result: order detail
 * error:
 10. balance not enough
@@ -271,9 +298,10 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `order.deals`
 * params:
 1. user_id: user ID, Integer
-2. order_id: order ID, Integer
-3. offset
-4. limit
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. order_id: order ID, Integer
+4. offset
+5. limit
 * result:
 * example:
 
@@ -286,6 +314,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
             "id": Executed ID
             "time": timestamp
             "user": user ID
+            "account": account ID
             "role": role, 1：Maker, 2: Taker
             "amount": count
             "price": price
@@ -374,10 +403,11 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `order.pending`
 * params:
 1. user_id: user ID, Integer
-2. market: market name, String, Null for all market
-3. side: 0 no limit, 1 sell, 2 buy
-4. offset: offset, Integer
-5. limit: limit, Integer
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. market: market name, String, Null for all market
+4. side: 0 no limit, 1 sell, 2 buy
+5. offset: offset, Integer
+6. limit: limit, Integer
 * result:
 * example:
 
@@ -394,6 +424,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
             "mtime": 1492697636.238869,
             "market": "BTCCNY",
             "user": 2,
+            "account": account ID,
             "type": 1, // 1: limit order, 2：market order
             "side": 2, // 1：sell, 2：buy
             "amount": "1.0000".
@@ -414,10 +445,11 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `order.pending_stop`
 * params:
 1. user_id: user ID, Integer
-2. market: market name, String, Null for all market
-3. side: 0 no limit, 1 sell, 2 buy
-4. offset: offset, Integer
-5. limit: limit, Integer
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. market: market name, String, Null for all market
+4. side: 0 no limit, 1 sell, 2 buy
+5. offset: offset, Integer
+6. limit: limit, Integer
 * result:
 ```
 "result": {
@@ -426,18 +458,22 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
     "total": 1,
     "records": [
         {
-            "amount":"1"
-            "create_time": 15533301706,
-            "fee_asset": "",
-            "fee_discount": "1",
-            "maker_fee": "0.001",
-            "market": "BTCCNY",
-            "order_id": 49955751,
-            "order_type": "limit",
-            "price": "5.0020",
-            "stop_price": "5.0010",
-            "taker_fee": "0.001",
-            "type": "sell"
+        	  "id": 298,
+            "type": 2,
+            "side": 1,
+            "user": 553,
+            "account": 1,
+            "ctime": 1558680279.2318139,
+            "mtime": 1558680279.2318139,
+            "market": "BCHBTC",
+            "source": "outest",
+            "stop_price": "0.01800000",
+            "price": "0",
+            "amount": "1.00000000",
+            "taker_fee": "0.0010",
+            "maker_fee": "0",
+            "fee_discount": "0.9000",
+            "fee_asset": "CET"
         }
     ]
 }
@@ -470,6 +506,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
   "deal_fee": "0",
   "money_fee": "0", // quote coin fee only for bid order
   "user": 102,
+  "account": account ID,
   "asset_fee": "0.003",
   "deal_money": "0.0003",
   "finished": true // if order is finished
@@ -483,24 +520,26 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `order.finished`
 * params:
 1. user_id: user ID, Integer
-2. market: market name, String
-3. side: side, 0 for no limit, 1 for sell, 2 for buy
-4. start_time: start time, 0 for unlimited, Integer
-5. end_time: end time, 0 for unlimited, Integer
-6. offset: offset, Integer
-7. limit: limit, Integer
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. market: market name, String
+4. side: side, 0 for no limit, 1 for sell, 2 for buy
+5. start_time: start time, 0 for unlimited, Integer
+6. end_time: end time, 0 for unlimited, Integer
+7. offset: offset, Integer
+8. limit: limit, Integer
 * result:
 
 **Inquire executed stop orders**
 * method: `order.finished_stop`
 * params:
 1. user_id: user ID, Integer
-2. market: market name, String
-3. side: side, 0 for no limit, 1 for sell, 2 for buy
-4. start_time: start time, 0 for unlimited, Integer
-5. end_time: end time, 0 for unlimited, Integer
-6. offset: offset, Integer
-7. limit: limit, Integer
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. market: market name, String
+4. side: side, 0 for no limit, 1 for sell, 2 for buy
+5. start_time: start time, 0 for unlimited, Integer
+6. end_time: end time, 0 for unlimited, Integer
+7. offset: offset, Integer
+8. limit: limit, Integer
 * result:
 
 **Executed order details**
@@ -571,12 +610,13 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `market.user_deals`
 * params:
 1. user_id: user ID, Integer
-2. market: market name, String
-3. side: side, 0 for no limit, 1 for sell, 2 for buy
-4. start_time: start time, 0 for unlimited, Integer
-5. end_time: end time, 0 for unlimited, Integer
-6. offset: offset, Integer
-7. limit: limit, Integer
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. market: market name, String
+4. side: side, 0 for no limit, 1 for sell, 2 for buy
+5. start_time: start time, 0 for unlimited, Integer
+6. end_time: end time, 0 for unlimited, Integer
+7. offset: offset, Integer
+8. limit: limit, Integer
 * result:
 
 ```
@@ -589,6 +629,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
             "order_id": Order ID
             "time": timestamp
             "user": user ID
+            "account": account ID,
             "side": side, 1：sell, 2：buy
             "role": role, 1：Maker, 2: Taker
             "amount": count

@@ -175,12 +175,14 @@ General error code:
 **Acquire user latest executed list**
 * method: `deals.query_user`
 * params:
-1. market: market name, String
-2. side: side, 0 for no limit, 1 for sell, 2 for buy
-3. start_time: start time, 0 for unlimited, Integer
-4. end_time: end time, 0 for unlimited, Integer
-5. offset: offset, Integer
-6. limit: limit, Integer
+1. user_id: user ID, Integer
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. market: market name, String
+4. side: side, 0 for no limit, 1 for sell, 2 for buy
+5. start_time: start time, 0 for unlimited, Integer
+6. end_time: end time, 0 for unlimited, Integer
+7. offset: offset, Integer
+8. limit: limit, Integer
 
 **Latest order list subscription, if call after auth, will push user's deal**
 * method: `deals.subscribe`
@@ -261,6 +263,28 @@ General error code:
 4. limit: limit，Integer
 * result: see HTTP protocol
 
+**Unexecuted account order inquiry**
+* method: `order.account_query`
+* params:
+1. user_id: user ID, Integer
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. market: market name，String
+4. side: 0 no limit, 1 sell, 2 buy
+5. offset: offset，Integer
+6. limit: limit，Integer
+* result: see HTTP protocol
+
+**Unexecuted stop order inquiry**
+* method: `order.account_query_stop`
+* params:
+1. user_id: user ID, Integer
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. market: market name，String
+4. side: 0 no limit, 1 sell, 2 buy
+5. offset: offset，Integer
+6. limit: limit，Integer
+* result: see HTTP protocol
+
 **Order subscription**
 * method: `order.subscribe`
 * params: market list
@@ -296,6 +320,37 @@ General error code:
 * params: 
   1. sub user id,
   2. asset list, null for inquire all
+* result:
+
+```
+request:
+[469, ["CET", "BTC"]]
+
+response:
+{"BTC": {"available": "1.10000000","freeze": "9.90000000"}}
+```
+
+**Account Asset inquiry**
+* method: `asset.account_query`
+* params: 
+1. user_id: user ID, Integer
+2. account: account ID, Integer, 0 is compatible with the original
+3. asset list, null for inquire all
+* result:
+
+```
+request:
+[469, 0, ["CET", "BTC"]]
+
+response:
+{"BTC": {"available": "1.10000000","freeze": "9.90000000"}}
+```
+
+**All Account Asset inquiry**
+* method: `asset.account_query_all`
+* params: 
+1. user_id: user ID, Integer
+2. asset list, null for inquire all
 * result:
 
 ```
