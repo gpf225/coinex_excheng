@@ -33,6 +33,7 @@ function alter_history_table() {
 	do
 		for i in `seq 0 99`
 	    do
+	    	echo "database:$x  seq:$i"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table balance_history_$i add account INT UNSIGNED NOT NULL COMMENT '用户账户ID';"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table order_history_$i add account INT UNSIGNED NOT NULL COMMENT '用户账户ID';"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table stop_history_$i add account INT UNSIGNED NOT NULL COMMENT '用户账户ID';"
