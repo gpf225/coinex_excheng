@@ -392,7 +392,7 @@ json_t *get_order_detail(MYSQL *conn, uint32_t user_id, uint64_t order_id)
 json_t *get_order_deals(MYSQL *conn, uint32_t user_id, int32_t account, uint64_t order_id, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `deal_user_id`, `deal_id`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset`, `deal_order_id` "
+    sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `account`, `deal_user_id`, `deal_id`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset`, `deal_order_id` "
             "FROM `user_deal_history_%u` where `user_id` = '%u' AND `order_id` = %"PRIu64"", user_id % HISTORY_HASH_NUM, user_id, order_id);
     
     if(account >= 0){

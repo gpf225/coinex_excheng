@@ -25,6 +25,40 @@ General error code:
 **Asset list**
 * method: `asset.list`
 * params: none
+* result:
+```
+{
+	'id': 1, 
+	'result': {
+		'1': {
+			'BCH': {
+				'prec_show': 20,
+				'prec_save': 20
+			}, 
+			'BTC': {
+				'prec_show': 20, 
+				'prec_save': 20
+			}
+		}, 
+		'0': {
+			'NEO': {
+				'prec_show': 20, 
+				'prec_save': 20
+			}, 
+			'BCH': {
+				'prec_show': 20, 
+				'prec_save': 20
+			}, 
+			'SEER': {
+				'prec_show': 20, 
+				'prec_save': 20
+			}
+			...
+		}
+	}, 
+	'error': null
+}
+```
 
 **Asset change**
 * method: `asset.update`
@@ -102,14 +136,33 @@ asset list(optional, if no asset special, return all asset)
 * result:
 ```
 {
-    "error": null,
-    "result": {
-        "BTC": {
-            "available": "250",
-            "frozen": "10"
-        }
-    },
-    "id": 1530261478813
+	'id': 1, 
+	'result': {
+		'1': {
+			'BCH': {
+				'available': '990554.89473682', 
+				'frozen': '9445.10526318'
+			}, 
+			'BTC': {
+				'available': '92.919825', 'frozen': '7.08000000'
+			}
+		}, 
+		'0': { 
+		    'CET': {
+		        'available': '999900473.1500094689', 
+		        'frozen': '0'
+		    }, 
+		    'BCH': {
+		        'available': '1002000200.00000000', 
+		        'frozen': '0'
+		    },
+		    'BTC': {
+		        'available': '100.00000000', 
+		        'frozen': '0'
+		    }
+		}
+	}, 
+	'error': null
 }
 ```
 
@@ -139,11 +192,10 @@ asset list(optional, if no asset special, return all asset)
 {
     "error":null,
     "id": 1,
-    "result":
-    {
+    "result": {
         "table":"backup_asset_123213",
         "time":123213
-       }
+    }
 }
 ```
 
@@ -161,19 +213,21 @@ asset list(optional, if no asset special, return all asset)
 * result:
 ```
 {
-    "offset":
-    "limit":
-    "records": [
-        {
-            "time": timestamp,
-            "asset": asset,
-            "business": business,
-            "change": change,
-            "balance"：balance,
-            "detail": detail
-        }
-        ...
-    ]
+	'id': 1, 
+	'result': {
+		'records': [
+			{
+				'account': 1, 'business': 'trade', 'detail': {}, 'asset': 'BTC', 'time': 1558680350.414049, 'balance': '99.999825', 'change': 'trade', 'user': 553
+			}, 
+			{
+				'account': 1, 'business': 'trade', 'detail': {}, 'asset': 'BTC', 'time': 1558680350.414049, 'balance': '99.619825', 'change': 'trade', 'user': 553
+			}
+		], 
+		'limit': 100,
+		'offset': 0
+	},
+	'error': null
+}
 ```
 
 ## Trade API
@@ -306,24 +360,28 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * example:
 
 ```
-"result": {
-    "offset":
-    "limit":
-    "records": [
-        {
-            "id": Executed ID
-            "time": timestamp
-            "user": user ID
-            "account": account ID
-            "role": role, 1：Maker, 2: Taker
-            "amount": count
-            "price": price
-            "deal": order amount
-            "fee": fee
-            "deal_order_id": Counterpart transaction ID
-        }
-    ...
-    ]
+{
+	'id': 1, 
+	'result': {
+		'records': [{
+			'deal_user': 553,
+			'account': 1,
+			'fee': '2.25',
+			'deal': '0.05',
+			'price': '0.05',
+			'amount': '1',
+			'role': 1,
+			'user': 553,
+			'time': 1558610344.312309,
+			 'fee_asset': 'CET',
+			'deal_order_id': 198,
+			'id': 99
+		}],
+		'limit': 100,
+		'offset': 0
+	},
+	'error': null
+}
 ```
 
 **Order Book**
@@ -334,6 +392,41 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 3. offset:
 4. limit:
 * result:
+```
+{
+	'id': 1, 
+	'result': {
+	 	'total': 1, 
+	 	'limit': 100, 
+	 	'orders': [
+	 		{
+	 			'asset_fee': '741.59999998110000000000', 
+	 			'account': 1, 
+	 			'deal_fee': '0', 
+	 			'ctime': 1558680092.364266, 
+	 			'maker_fee': '0.0001', 
+	 			'price': '0.01900000', 
+	 			'deal_stock': '557.89473682', 
+	 			'fee_discount': '0.9000', 
+	 			'side': 1, 
+	 			'source': 'api', 
+	 			'amount': '10000.00000000', 
+	 			'user': 553, 
+	 			'mtime': 1558680350.414576, 
+	 			'fee_asset': 'CET', 
+	 			'deal_money': '16.4799999995800000', 
+	 			'left': '9442.10526318', 
+	 			'type': 1, 
+	 			'id': 292, 
+	 			'market': 'BCHBTC', 
+	 			'taker_fee': '0.0001'
+	 		}
+	 	], 
+	 	'offset': 0
+	}, 
+	'error': null
+}
+```
 
 **Stop Book**
 * method: `order.stop_book`
@@ -364,7 +457,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
    "maker_fee": "0.001",
    "ctime": 1.535383338231633E9,
    "id": 5,
-   "user": 102
+   "user": 102,
+   "account": 1 
   }]
  },
  "id": 1,
@@ -414,30 +508,37 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 ```
 "params": [1, "BTCCNY", 0, 100]"
 "result": {
-    "offset": 0,
-    "limit": 100,
-    "total": 1,
-    "records": [
-        {
-            "id": 2,
-            "ctime": 1492616173.355293,
-            "mtime": 1492697636.238869,
-            "market": "BTCCNY",
-            "user": 2,
-            "account": account ID,
-            "type": 1, // 1: limit order, 2：market order
-            "side": 2, // 1：sell, 2：buy
-            "amount": "1.0000".
-            "price": "7000.00",
-            "taker_fee": "0.0020",
-            "maker_fee": "0.0010",
-            "source": "web",
-            "deal_money": "6300.0000000000",
-            "deal_stock": "0.9000000000",
-            "deal_fee": "0.0009000000",
-            "money_fee": "0" // quote coin fee only for bid order
-        }
-    ]
+    'id': 1, 
+    'result': {
+    	'records': [
+    		{
+    	    	'asset_fee': '0',
+    			'account': 1,
+    			'deal_fee': '0',
+    			'ctime': 1558680350.41878,
+    			'maker_fee': '0.0001',
+    			'price': '0.01900000',
+    			'deal_stock': '0',
+    			'fee_discount': '0.9000',
+    			'side': 1, // 1：sell, 2：buy
+    			'source': 'api',
+    			'amount': '1.00000000',
+    			'user': 553,
+    			'mtime': 1558680350.41878,
+    			'fee_asset': 'CET',
+    			'deal_money': '0',
+    			'left': '1.00000000',
+    			'type': 1, // 1: limit order, 2：market order
+    			'id': 303,
+    			'market': 'BCHBTC',
+    			'taker_fee': '0.0001'
+    		}
+    	], 
+    	'total': 1,
+    	'limit': 100,
+    	'offset': 0
+    },
+    'error': null
 }
 ```
 
@@ -453,29 +554,33 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * result:
 ```
 "result": {
-    "offset": 0,
-    "limit": 100,
-    "total": 1,
-    "records": [
-        {
-        	  "id": 298,
-            "type": 2,
-            "side": 1,
-            "user": 553,
-            "account": 1,
-            "ctime": 1558680279.2318139,
-            "mtime": 1558680279.2318139,
-            "market": "BCHBTC",
-            "source": "outest",
-            "stop_price": "0.01800000",
-            "price": "0",
-            "amount": "1.00000000",
-            "taker_fee": "0.0010",
-            "maker_fee": "0",
-            "fee_discount": "0.9000",
-            "fee_asset": "CET"
-        }
-    ]
+	'id': 1,
+	'result': {
+		'records': [
+			{
+				'account': 1,
+				'fee_discount': '0.9000',
+				'stop_price': '0.01800000',
+				'ctime': 1558684047.573049,
+				'maker_fee': '0',
+				'price': '0',
+				'side': 1,
+				'source': 'api',
+				'amount': '1.00000000',
+				'user': 553,
+				'mtime': 1558684047.573049,
+				'fee_asset': 'CET',
+				'type': 2,
+				'id': 305,
+				'market': 'BCHBTC',
+				'taker_fee': '0.0010'
+			}
+		],
+		'total': 1,
+		'limit': 100,
+		'offset': 0
+	},
+	'error': null
 }
 ```
 
@@ -487,32 +592,30 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * result:
 ```
 {
- "result": {
-  "side": 1,
-  "amount": "3",
-  "taker_fee": "0.001",
-  "deal_stock": "3",
-  "source": "MoonTest",
-  "type": 1,
-  "mtime": 1.536209825549651E9,
-  "fee_asset": "CET",
-  "market": "CETBCH",
-  "fee_discount": "1",
-  "left": "0e-8",
-  "price": "0.0001",
-  "maker_fee": "0.001",
-  "ctime": 1.536209825526845E9,
-  "id": 93,
-  "deal_fee": "0",
-  "money_fee": "0", // quote coin fee only for bid order
-  "user": 102,
-  "account": account ID,
-  "asset_fee": "0.003",
-  "deal_money": "0.0003",
-  "finished": true // if order is finished
- },
- "id": 1,
- "error": null
+	'id': 1,
+	'result': {
+		'asset_fee': '741.59999998110000000000',
+		'account': 1,
+		'deal_fee': '0','c
+		'time': 1558680092.36317,
+		'maker_fee': '0.0001',
+		'price': '0.01900000',
+		'deal_stock': '557.89473682',
+		'fee_discount': '0.9000',
+		'side': 1,
+		'source': 'api',
+		'amount': '10000.00000000',
+		'user': 553,
+		'mtime': 1558680350.414576,
+		'fee_asset': 'CET',
+		'deal_money': '16.4799999995800000',
+		'left': '9442.10526318',
+		'type': 1,
+		'id': 292,
+		'market': 'BCHBTC',
+		'taker_fee': '0.0001'
+	},
+	'error': null
 }
 ```
 
@@ -528,6 +631,39 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 7. offset: offset, Integer
 8. limit: limit, Integer
 * result:
+```
+{
+	'id': 1,
+	'result': {
+		'records': [
+			{
+				'asset_fee': '1.8',
+				'account': 1,
+				'fee_discount': '0.9',
+				'ctime': 1558680071.197081,
+				'maker_fee': '0.0001',
+				'price': '0.019',
+				'deal_fee': '0',
+				'side': 1,
+				'source': 'api',
+				'amount': '1',
+				'ftime': 1558680071.197093,
+				'user': 553,
+				'deal_stock': '1',
+				'fee_asset': 'CET',
+				'deal_money': '0.04',
+				'type': 1,
+				'id': 290,
+				'market': 'BCHBTC',
+				'taker_fee': '0.0001'
+			}
+		],
+		'limit': 100,
+		'offset': 0
+	},
+	'error': null
+}
+```
 
 **Inquire executed stop orders**
 * method: `order.finished_stop`
@@ -541,6 +677,37 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 7. offset: offset, Integer
 8. limit: limit, Integer
 * result:
+```
+{
+	'id': 1,
+	'result': {
+		'records': [
+			{
+				'account': 1,
+				'fee_discount': '0.9000',
+				'stop_price': '0.01800000',
+				'ctime': 1558684047.573049,
+				'maker_fee': '0',
+				'price': '0',
+				'side': 1,
+				'source': 'api',
+				'amount': '1.00000000',
+				'user': 553,
+				'mtime': 1558684047.573049,
+				'fee_asset': 'CET',
+				'type': 2,
+				'id': 305,
+				'market': 'BCHBTC',
+				'taker_fee': '0.0010'
+			}
+		],
+		'total': 1,
+		'limit': 100,
+		'offset': 0
+	},
+	'error': null
+}
+```
 
 **Executed order details**
 * method: `order.finished_detail`
@@ -548,6 +715,33 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 1. user_id: user ID, Integer
 2. order_id: order ID, Integer
 * result:
+```
+{
+	'id': 1,
+	'result': {
+		'asset_fee': '0',
+		'account': 0,
+		'fee_discount': '0',
+		'ctime': 1558600893.818328,
+		'maker_fee': '0.0001',
+		'price': '0.05',
+		'deal_fee': '0.0001',
+		'side': 2,
+		'source': 'api',
+		'amount': '1',
+		'ftime': 1558600893.823128,
+		'user': 553,
+		'deal_stock': '1',
+		'fee_asset': '',
+		'deal_money': '0.05',
+		'type': 1,
+		'id': 1,
+		'market': 'BCHBTC',
+		'taker_fee': '0.0001'
+	},
+	'error': null
+}
+```
 
 ## Market API
 

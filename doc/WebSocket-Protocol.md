@@ -327,7 +327,16 @@ request:
 [469, ["CET", "BTC"]]
 
 response:
-{"BTC": {"available": "1.10000000","freeze": "9.90000000"}}
+{
+	"CET": {
+		"available": "1.10000000",
+		"freeze": "9.90000000"
+	},
+	"BTC": {
+		"available": "1.10000000",
+		"freeze": "9.90000000"
+	}
+}
 ```
 
 **Account Asset inquiry**
@@ -355,10 +364,39 @@ response:
 
 ```
 request:
-[469, ["CET", "BTC"]]
+[553]
 
 response:
-{"BTC": {"available": "1.10000000","freeze": "9.90000000"}}
+{
+	'id': 1, 
+	'result': {
+		'1': {
+			'BCH': {
+				'available': '990554.89473682', 
+				'frozen': '9445.10526318'
+			}, 
+			'BTC': {
+				'available': '92.919825', 'frozen': '7.08000000'
+			}
+		}, 
+		'0': { 
+		    'CET': {
+		        'available': '999900473.1500094689', 
+		        'frozen': '0'
+		    }, 
+		    'BCH': {
+		        'available': '1002000200.00000000', 
+		        'frozen': '0'
+		    },
+		    'BTC': {
+		        'available': '100.00000000', 
+		        'frozen': '0'
+		    }
+		    ...
+		}
+	}, 
+	'error': null
+}
 ```
 
 **Asset subscription**
