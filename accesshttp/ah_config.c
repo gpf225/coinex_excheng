@@ -81,6 +81,11 @@ static int read_config_from_json(json_t *root)
         printf("load marketprice clt config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_rpc_clt(root, "marketindex", &settings.marketindex);
+    if (ret < 0) {
+        printf("load marketindex clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
     ret = load_cfg_rpc_clt(root, "readhistory", &settings.readhistory);
     if (ret < 0) {
         printf("load readhistory clt config fail: %d\n", ret);

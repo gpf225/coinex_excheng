@@ -15,8 +15,9 @@ static dict_t *methods;
 static rpc_clt *listener;
 
 static rpc_clt *matchengine;
-static rpc_clt *tradesummary; 
 static rpc_clt *marketprice;
+static rpc_clt *marketindex;
+static rpc_clt *tradesummary; 
 static rpc_clt *readhistory;
 static rpc_clt *monitorcenter;
 static rpc_clt **cachecenter_clt_arr;
@@ -487,6 +488,9 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("market.user_deals", readhistory, CMD_MARKET_USER_DEALS));
     ERR_RET_LN(add_handler("market.self_deal", matchengine, CMD_MARKET_SELF_DEAL));
 
+    ERR_RET_LN(add_handler("index.list", marketindex, CMD_INDEX_LIST));
+    ERR_RET_LN(add_handler("index.query", marketindex, CMD_INDEX_QUERY));
+
     ERR_RET_LN(add_handler("monitor.inc", monitorcenter, CMD_MONITOR_INC));
     ERR_RET_LN(add_handler("monitor.set", monitorcenter, CMD_MONITOR_SET));
     ERR_RET_LN(add_handler("monitor.list_scope", monitorcenter, CMD_MONITOR_LIST_SCOPE));
@@ -497,6 +501,7 @@ static int init_methods_handler(void)
 
     ERR_RET_LN(add_handler("config.update_asset", matchengine, CMD_CONFIG_UPDATE_ASSET));
     ERR_RET_LN(add_handler("config.update_market", matchengine, CMD_CONFIG_UPDATE_MARKET));
+    ERR_RET_LN(add_handler("config.update_index", marketindex, CMD_CONFIG_UPDATE_INDEX));
 
     ERR_RET_LN(add_handler("trade.rank", tradesummary, CMD_TRADE_RANK));
 
@@ -574,6 +579,12 @@ int init_server(void)
     if (marketprice == NULL)
         return -__LINE__;
     if (rpc_clt_start(marketprice) < 0)
+        return -__LINE__;
+
+    marketindex = rpc_clt_create(&settings.marketindex, &ct);
+    if (marketindex == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(marketindex) < 0)
         return -__LINE__;
 
     tradesummary = rpc_clt_create(&settings.tradesummary, &ct);

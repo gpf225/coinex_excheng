@@ -83,12 +83,12 @@ json_t *json_string_mpd(const mpd_t *value)
     return result;
 }
 
-int json_object_set_new_mpd(json_t *obj, const char *key, mpd_t *value)
+int json_object_set_new_mpd(json_t *obj, const char *key, const mpd_t *value)
 {
     return json_object_set_new(obj, key, json_string_mpd(value));
 }
 
-int json_array_append_new_mpd(json_t *obj, mpd_t *value)
+int json_array_append_new_mpd(json_t *obj, const mpd_t *value)
 {
     return json_array_append_new(obj, json_string_mpd(value));
 }

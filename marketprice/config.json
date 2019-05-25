@@ -21,6 +21,10 @@
         "brokers": "127.0.0.1:9092",
         "topic": "deals"
     },
+    "indexs": {
+        "brokers": "127.0.0.1:9092",
+        "topic": "indexs"
+    },
     "redis": {
         "host": "127.0.0.1",
         "port": 6379

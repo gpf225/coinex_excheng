@@ -22,8 +22,8 @@ char *rstripzero(char *str);
 
 char *strmpd(char *buf, size_t buf_size, const mpd_t *value);
 json_t *json_string_mpd(const mpd_t *value);
-int json_object_set_new_mpd(json_t *obj, const char *key, mpd_t *value);
-int json_array_append_new_mpd(json_t *obj, mpd_t *value);
+int json_object_set_new_mpd(json_t *obj, const char *key, const mpd_t *value);
+int json_array_append_new_mpd(json_t *obj, const mpd_t *value);
 
 # endif
 

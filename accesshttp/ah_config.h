@@ -58,6 +58,7 @@ struct settings {
     http_svr_cfg        svr;
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
+    rpc_clt_cfg         marketindex;
     rpc_clt_cfg         readhistory;
     rpc_clt_cfg         monitorcenter;
     rpc_clt_cfg         tradesummary;

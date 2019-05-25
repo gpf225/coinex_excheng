@@ -1,0 +1,32 @@
+{
+    "debug": true,
+    "process": {
+        "file_limit": 1000000,
+        "core_limit": 1000000000
+    },
+    "log": {
+        "path":  "/var/log/trade/marketindex",
+        "flag":  "fatal,error,warn,info,debug,trace",
+        "shift": "day",
+        "num":   30
+    },
+    "alert": {
+        "host": "monitoragent",
+        "addr": "127.0.0.1:4444"
+    },
+    "svr": {
+        "bind": "tcp@0.0.0.0:7901",
+        "max_pkg_size": 10240
+    },
+    "db_log": {
+        "host": "127.0.0.1",
+        "user": "root",
+        "pass": "shit",
+        "name": "trade_log"
+    },
+    "brokers": "127.0.0.1:9092",
+    "index_url": "http://120.79.140.118:8000/internal/exchange/market/index/config",
+    "request_timeout": 3,
+    "update_interval": 10,
+    "expire_interval": 900
+}

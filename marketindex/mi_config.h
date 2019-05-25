@@ -1,10 +1,5 @@
-/*
- * Description: 
- *     History: yang@haipo.me, 2017/04/16, create
- */
-
-# ifndef _MP_CONFIG_H_
-# define _MP_CONFIG_H_
+# ifndef MI_CONFIG_H
+# define MI_CONFIG_H
 
 # include <math.h>
 # include <stdio.h>
@@ -20,24 +15,24 @@
 # include "nw_svr.h"
 # include "nw_clt.h"
 # include "nw_job.h"
-# include "nw_state.h"
 # include "nw_timer.h"
+# include "nw_state.h"
 
 # include "ut_log.h"
 # include "ut_sds.h"
 # include "ut_cli.h"
+# include "ut_mysql.h"
 # include "ut_misc.h"
-# include "ut_list.h"
-# include "ut_kafka.h"
-# include "ut_title.h"
 # include "ut_signal.h"
-# include "ut_config.h"
 # include "ut_define.h"
-# include "ut_profile.h"
-# include "ut_decimal.h"
+# include "ut_config.h"
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
+# include "ut_http_svr.h"
+# include "ut_profile.h"
+
+# define REQUEST_THREAD_COUNT   100
 
 struct settings {
     bool                debug;
@@ -45,22 +40,21 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
-    kafka_consumer_cfg  deals;
-    kafka_consumer_cfg  indexs;
-    redis_cfg           redis;
+    mysql_cfg           db_log;
 
-    int                 sec_max;
-    int                 min_max;
-    int                 hour_max;
-    int                 kline_max;
-    int                 worker_num;
-    double              cache_timeout;
-    double              worker_timeout;
-    char                *accesshttp;
+    char                *brokers;
+    char                *index_url;
+    json_t              *index_cfg;
+
+    int                 update_interval;
+    int                 expire_interval;
+    double              request_timeout;
 };
 
 extern struct settings settings;
+
 int init_config(const char *path);
+int update_index_config(void);
 
 # endif
 
