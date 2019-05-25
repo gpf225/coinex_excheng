@@ -6,21 +6,35 @@
 # ifndef _HW_CONFIG_H_
 # define _HW_CONFIG_H_
 
-# include "ut_config.h"
-# include "ut_misc.h"
-# include "ut_signal.h"
-# include "ut_log.h"
-# include "ut_profile.h"
-# include "ut_title.h"
-
+# include <math.h>
+# include <stdio.h>
+# include <error.h>
+# include <errno.h>
+# include <ctype.h>
+# include <string.h>
+# include <stdlib.h>
 # include <unistd.h>
+# include <assert.h>
+# include <inttypes.h>
 
-# define MAX_PENDING_HISTORY    50000
+# include "nw_svr.h"
+# include "nw_clt.h"
+# include "nw_job.h"
+# include "nw_timer.h"
+# include "nw_state.h"
 
-typedef struct ut_mysql_slice {
-    uint32_t count;
-    mysql_cfg *configs;
-}ut_mysql_slice;
+# include "ut_log.h"
+# include "ut_sds.h"
+# include "ut_cli.h"
+# include "ut_misc.h"
+# include "ut_list.h"
+# include "ut_kafka.h"
+# include "ut_mysql.h"
+# include "ut_signal.h"
+# include "ut_config.h"
+# include "ut_define.h"
+# include "ut_decimal.h"
+# include "ut_profile.h"
 
 struct settings {
     bool                debug;
@@ -29,16 +43,15 @@ struct settings {
     alert_cfg           alert;
     cli_svr_cfg         cli;
 
-    kafka_consumer_cfg  orders;
-    kafka_consumer_cfg  stops;
     kafka_consumer_cfg  deals;
+    kafka_consumer_cfg  stops;
+    kafka_consumer_cfg  orders;
     kafka_consumer_cfg  balances;
     
     redis_cfg           redis;
-    ut_mysql_slice      db_histories;
-
-    int                 worker_per_db;
-    double              flush_his_interval;
+    mysql_cfg           *db_histories;
+    int                 db_history_count;
+    int                 worker_num;
 };
 
 extern struct settings settings;

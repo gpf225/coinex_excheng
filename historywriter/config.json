@@ -14,9 +14,9 @@
         "addr": "127.0.0.1:4444"
     },
     "cli": "tcp@127.0.0.1:7821",
-    "his_orders": {
+    "his_deals": {
         "brokers": "127.0.0.1:9092",
-        "topic": "his_orders",
+        "topic": "his_deals",
         "partition": 0
     },
     "his_stops": {
@@ -24,60 +24,52 @@
         "topic": "his_stops",
         "partition": 0
     },
+    "his_orders": {
+        "brokers": "127.0.0.1:9092",
+        "topic": "his_orders",
+        "partition": 0
+    },
     "his_balances": {
         "brokers": "127.0.0.1:9092",
         "topic": "his_balances",
         "partition": 0
     },
-    "his_deals": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "his_deals",
-        "partition": 0
-    },
     "redis": {
         "host": "127.0.0.1",
-        "port": 6386,
-        "password": "",
-        "timeout": 3000,
-        "db": 0
+        "port": 6386
     },
-    "worker_per_db": 2,
-    "flush_his_interval": 0.5,
     "db_history": [
          {
             "host": "localhost",
             "user": "root",
             "pass": "shit",
-            "name": "trade_history_0",
-            "db"  : 0
+            "name": "trade_history_0"
         },
         {
             "host": "localhost",
             "user": "root",
             "pass": "shit",
-            "name": "trade_history_1",
-            "db"  : 1
+            "name": "trade_history_1"
         },
         {
             "host": "localhost",
             "user": "root",
             "pass": "shit",
-            "name": "trade_history_2",
-            "db"  : 2
+            "name": "trade_history_2"
         },
         {
             "host": "localhost",
             "user": "root",
             "pass": "shit",
-            "name": "trade_history_3",
-            "db"  : 3
+            "name": "trade_history_3"
         },
         {
             "host": "localhost",
             "user": "root",
             "pass": "shit",
-            "name": "trade_history_4",
-            "db"  : 4
+            "name": "trade_history_4"
         }
-    ]
+    ],
+    "worker_num": 50
 }
+

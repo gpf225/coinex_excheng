@@ -9,12 +9,12 @@
 # include "hw_config.h"
 
 int init_dispatcher(void);
+void fini_dispatcher(void);
 
-int dispatch_order(json_t *msg);
-int dispatch_stop(json_t *msg);
 int dispatch_deal(json_t *msg);
+int dispatch_stop(json_t *msg);
+int dispatch_order(json_t *msg);
 int dispatch_balance(json_t *msg);
-sds history_status(sds reply);
-int dump_hisotry(void);
 
 # endif
+

@@ -27,54 +27,6 @@ struct job_reply {
     json_t  *result;
 };
 
-struct mysql_connection {
-    MYSQL **connections;
-    int size;
-};
-
-static struct mysql_connection* mysql_connection_create(void)
-{
-    struct mysql_connection *val = malloc(sizeof(struct mysql_connection));
-    if (val == NULL) {
-        return NULL;
-    }
-    val->size = settings.db_histories.count;
-    val->connections = malloc(sizeof(MYSQL *) * val->size);
-    if (val->connections == NULL) {
-        free(val);
-        return NULL;
-    }
-
-    for (int i = 0; i < val->size; ++i) {
-        MYSQL *conn = mysql_connect(&settings.db_histories.configs[i]);
-        if (conn == NULL) {
-            for (int j = 0; j < i; ++j) {
-                mysql_close(val->connections[j]);
-            }
-            free(val->connections);
-            free(val);
-            return NULL;
-        }
-        val->connections[i] = conn;
-    }
-    return val;
-}
-
-static void mysql_connection_release(struct mysql_connection *val)
-{
-    for (int i = 0; i < val->size; ++i) {
-        mysql_close(val->connections[i]);
-    }
-    free(val->connections);
-    free(val);
-}
-
-static MYSQL* mysql_connection_get(struct mysql_connection *val, uint32_t user_id)
-{
-    uint32_t no = (user_id % (val->size * HISTORY_HASH_NUM)) / HISTORY_HASH_NUM;
-    return val->connections[no];
-}
-
 static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
     char *message_data;
@@ -141,11 +93,6 @@ static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     json_decref(reply);
 
     return ret;
-}
-
-static void *on_job_init(void)
-{
-    return mysql_connection_create();
 }
 
 static int on_cmd_balance_history(MYSQL *conn, json_t *params, struct job_reply *rsp)
@@ -427,17 +374,31 @@ invalid_argument:
     return 0;
 }
 
+static void *on_job_init(void)
+{
+    MYSQL **conn_array = calloc(sizeof(void *), settings.db_history_count);
+    for (int i = 0; i < settings.db_history_count; ++i) {
+        conn_array[i] = mysql_connect(&settings.db_histories[i]);
+        if (conn_array[i] == NULL)
+            return NULL;
+    }
+
+    return conn_array;
+}
+
+static MYSQL *mysql_connection_get(MYSQL **conn_array, uint32_t user_id)
+{
+    uint32_t db = (user_id % (settings.db_history_count * HISTORY_HASH_NUM)) / HISTORY_HASH_NUM;
+    return conn_array[db];
+}
+
 static void on_job(nw_job_entry *entry, void *privdata)
 {
     struct job_request *req = entry->request;
-    struct mysql_connection *val = privdata;
-    MYSQL *conn = mysql_connection_get(val, req->user_id);
+    MYSQL *conn = mysql_connection_get(privdata, req->user_id);
     struct job_reply *rsp = malloc(sizeof(struct job_reply));
-    entry->reply = rsp;
-    if (rsp == NULL) {
-        return;
-    }
     memset(rsp, 0, sizeof(struct job_reply));
+    entry->reply = rsp;
 
     int ret;
     switch (req->command) {
@@ -521,7 +482,10 @@ static void on_job_cleanup(nw_job_entry *entry)
 
 static void on_job_release(void *privdata)
 {
-    mysql_connection_release(privdata);
+    MYSQL **conn_array = privdata;
+    for (int i = 0; i < settings.db_history_count; ++i) {
+        mysql_close(conn_array[i]);
+    };
 }
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)

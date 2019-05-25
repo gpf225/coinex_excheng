@@ -35,6 +35,10 @@ static void *thread_routine(void *data)
     pthread_mutex_unlock(&consumer->lock);
 
     while (consumer->shutdown == false) {
+        if (consumer->suspend) {
+            usleep(100 * 1000);
+            continue;
+        }
         if (consumer->list->len >= consumer->limit) {
             usleep(100 * 1000);
             continue;
@@ -164,6 +168,16 @@ kafka_consumer_t *kafka_consumer_create(kafka_consumer_cfg *cfg, kafka_message_c
     }
 
     return consumer;
+}
+
+void kafka_consumer_suspend(kafka_consumer_t *consumer)
+{
+    consumer->suspend = true;
+}
+
+void kafka_consumer_resume(kafka_consumer_t *consumer)
+{
+    consumer->suspend = false;
 }
 
 void kafka_consumer_release(kafka_consumer_t *consumer)

@@ -348,17 +348,11 @@ int load_cfg_mysql(json_t *root,  const char *key, mysql_cfg *cfg)
     json_t *node = json_object_get(root, key);
     if (!node || !json_is_object(node))
         return -__LINE__;
-    
-    ERR_RET(read_cfg_str(node, "host", &cfg->host, NULL));
-    ERR_RET(read_cfg_int(node, "port", &cfg->port, false, 3306));
-    ERR_RET(read_cfg_str(node, "user", &cfg->user, NULL));
-    ERR_RET(read_cfg_str(node, "pass", &cfg->pass, NULL));
-    ERR_RET(read_cfg_str(node, "name", &cfg->name, NULL));
-    ERR_RET(read_cfg_str(node, "charset", &cfg->charset, "utf8"));
-    return 0;
+
+    return load_cfg_mysql_node(node, cfg);
 }
 
-int load_cfg_mysql1(json_t *node, mysql_cfg *cfg)
+int load_cfg_mysql_node(json_t *node, mysql_cfg *cfg)
 {
     ERR_RET(read_cfg_str(node, "host", &cfg->host, NULL));
     ERR_RET(read_cfg_int(node, "port", &cfg->port, false, 3306));
@@ -366,7 +360,7 @@ int load_cfg_mysql1(json_t *node, mysql_cfg *cfg)
     ERR_RET(read_cfg_str(node, "pass", &cfg->pass, NULL));
     ERR_RET(read_cfg_str(node, "name", &cfg->name, NULL));
     ERR_RET(read_cfg_str(node, "charset", &cfg->charset, "utf8"));
-    ERR_RET(read_cfg_int(node, "db", &cfg->db, true, 0));
+
     return 0;
 }
 
