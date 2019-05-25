@@ -7,12 +7,14 @@
 # include "aw_message.h"
 # include "aw_deals.h"
 # include "aw_asset.h"
-# include "aw_asset_sub.h"
 # include "aw_order.h"
+# include "aw_index.h"
+# include "aw_asset_sub.h"
 
 static kafka_consumer_t *kafka_deals;
 static kafka_consumer_t *kafka_stops;
 static kafka_consumer_t *kafka_orders;
+static kafka_consumer_t *kafka_indexs;
 static kafka_consumer_t *kafka_balances;
 
 static int process_deals_message(json_t *msg)
@@ -37,7 +39,7 @@ static void on_deals_message(sds message, int64_t offset)
     profile_inc("message_deal ", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
-        log_error("invalid balance message: %s", message);
+        log_error("invalid deal message: %s", message);
         return;
     }
 
@@ -72,7 +74,7 @@ static void on_stops_message(sds message, int64_t offset)
     profile_inc("message_stop", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
-        log_error("invalid balance message: %s", message);
+        log_error("invalid stops message: %s", message);
         return;
     }
 
@@ -127,13 +129,40 @@ static void on_orders_message(sds message, int64_t offset)
     profile_inc("message_order", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
-        log_error("invalid balance message: %s", message);
+        log_error("invalid order message: %s", message);
         return;
     }
 
     int ret = process_orders_message(msg);
     if (ret < 0) {
         log_error("process_orders_message: %s fail: %d", message, ret);
+    }
+
+    json_decref(msg);
+}
+
+static int process_indexs_message(json_t *msg)
+{
+    const char *market = json_string_value(json_object_get(msg, "market"));
+    const char *price  = json_string_value(json_object_get(msg, "price"));
+
+    return index_on_update(market, price);
+}
+
+static void on_indexs_message(sds message, int64_t offset)
+{
+    log_trace("index message: %s", message);
+    profile_inc("message_index", 1);
+
+    json_t *msg = json_loads(message, 0, NULL);
+    if (!msg) {
+        log_error("invalid index message: %s", message);
+        return;
+    }
+
+    int ret = process_indexs_message(msg);
+    if (ret < 0) {
+        log_error("process_indexs_message: %s fail: %d", message, ret);
     }
 
     json_decref(msg);
@@ -191,6 +220,12 @@ int init_message(void)
     settings.orders.offset = RD_KAFKA_OFFSET_END;
     kafka_orders = kafka_consumer_create(&settings.orders, on_orders_message);
     if (kafka_orders == NULL) {
+        return -__LINE__;
+    }
+
+    settings.indexs.offset = RD_KAFKA_OFFSET_END;
+    kafka_indexs = kafka_consumer_create(&settings.indexs, on_indexs_message);
+    if (kafka_indexs == NULL) {
         return -__LINE__;
     }
 

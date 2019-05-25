@@ -32,5 +32,8 @@ void *sds_dict_key_dup(const void *key);
 int sds_dict_key_compare(const void *key1, const void *key2);
 void sds_dict_key_free(void *key);
 
+uint32_t ptr_dict_hash_func(const void *key);
+int ptr_dict_key_compare(const void *key1, const void *key2);
+
 # endif
 

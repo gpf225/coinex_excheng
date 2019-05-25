@@ -90,3 +90,13 @@ void sds_dict_key_free(void *key)
     sdsfree((sds)key);
 }
 
+uint32_t ptr_dict_hash_func(const void *key)
+{
+    return dict_generic_hash_function(key, sizeof(void *));
+}
+
+int ptr_dict_key_compare(const void *key1, const void *key2)
+{
+    return key1 == key2 ? 0 : 1;
+}
+

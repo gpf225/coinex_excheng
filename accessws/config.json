@@ -74,6 +74,11 @@
         "topic": "orders",
         "partition": 0
     },
+    "indexs": {
+        "brokers": "127.0.0.1:9092",
+        "topic": "indexs",
+        "partition": 0
+    },
     "balances": {
         "brokers": "127.0.0.1:9092",
         "topic": "balances",

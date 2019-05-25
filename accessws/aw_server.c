@@ -14,10 +14,11 @@
 # include "aw_deals.h"
 # include "aw_order.h"
 # include "aw_asset.h"
-# include "aw_asset_sub.h"
 # include "aw_common.h"
-# include "aw_sub_user.h"
 # include "aw_state.h"
+# include "aw_index.h"
+# include "aw_sub_user.h"
+# include "aw_asset_sub.h"
 
 static ws_svr *svr;
 static dict_t *method_map;
@@ -1019,6 +1020,15 @@ static int on_method_asset_unsubscribe_sub(nw_ses *ses, uint64_t id, struct clt_
     return send_success(ses, id);
 }
 
+static int on_method_index_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    return index_subscribe(ses);
+}
+
+static int on_method_index_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    return index_unsubscribe(ses);
+}
 
 static int on_message(nw_ses *ses, const char *remote, const char *url, void *message, size_t size)
 {
@@ -1092,6 +1102,7 @@ static void on_close(nw_ses *ses, const char *remote)
     kline_unsubscribe(ses);
     depth_unsubscribe(ses);
     state_unsubscribe(ses);
+    index_unsubscribe(ses);
     deals_unsubscribe(ses, info->user_id);
 
     if (info->auth) {
@@ -1239,6 +1250,9 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("asset.unsubscribe",         on_method_asset_unsubscribe));
     ERR_RET_LN(add_handler("asset.subscribe_sub",       on_method_asset_subscribe_sub));
     ERR_RET_LN(add_handler("asset.unsubscribe_sub",     on_method_asset_unsubscribe_sub));
+
+    ERR_RET_LN(add_handler("index.subscribe",           on_method_index_subscribe));
+    ERR_RET_LN(add_handler("index.unsubscribe",         on_method_index_unsubscribe));
 
     return 0;
 }
