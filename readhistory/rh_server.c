@@ -52,6 +52,7 @@ static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 
 static int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
 {
+    profile_inc("error", 1);
     json_t *error = json_object();
     json_object_set_new(error, "code", json_integer(code));
     json_object_set_new(error, "message", json_string(message));
@@ -84,6 +85,7 @@ static int reply_error_service_unavailable(nw_ses *ses, rpc_pkg *pkg)
 
 static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
 {
+    profile_inc("success", 1);
     json_t *reply = json_object();
     json_object_set_new(reply, "error", json_null());
     json_object_set    (reply, "result", result);
@@ -403,36 +405,42 @@ static void on_job(nw_job_entry *entry, void *privdata)
     int ret;
     switch (req->command) {
     case CMD_ASSET_HISTORY:
+        profile_inc("query_balance_history", 1);
         ret = on_cmd_balance_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_balance_history fail: %d", ret);
         }
         break;
     case CMD_ORDER_FINISHED:
+        profile_inc("query_order_history", 1);
         ret = on_cmd_order_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_history fail: %d", ret);
         }
         break;
     case CMD_ORDER_FINISHED_STOP:
+        profile_inc("query_stop_history", 1);
         ret = on_cmd_stop_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_stop_history fail: %d", ret);
         }
         break;
     case CMD_ORDER_FINISHED_DETAIL:
+        profile_inc("query_order_detail", 1);
         ret = on_cmd_order_detail(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_detail fail: %d", ret);
         }
         break;
     case CMD_ORDER_DEALS:
+        profile_inc("query_order_deals", 1);
         ret = on_cmd_order_deals(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_deals fail: %d", ret);
         }
         break;
     case CMD_MARKET_USER_DEALS:
+        profile_inc("query_user_deals", 1);
         ret = on_cmd_user_deals(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_user_deals fail: %d", ret);

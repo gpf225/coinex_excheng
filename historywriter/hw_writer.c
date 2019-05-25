@@ -39,6 +39,7 @@ static void on_job(nw_job_entry *entry, void *privdata)
     MYSQL *conn = conn_array[req->db];
 
     log_trace("db: %d exec sql: %s", req->db, req->sql);
+    profile_inc("sql_exec", 1);
     while (true) {
         int ret = mysql_real_query(conn, req->sql, sdslen(req->sql));
         if (ret != 0 && mysql_errno(conn) != 1062) {
@@ -67,6 +68,7 @@ static void on_job_release(void *privdata)
 
 static void on_timer(nw_timer *timer, void *privdata)
 {
+    profile_set("sql_pending", job_context->request_count);
     if (!message_suspended) {
         if (job_context->request_count >= PENDING_JOB_MAX) {
             suspend_message();

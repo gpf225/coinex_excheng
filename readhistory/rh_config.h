@@ -34,6 +34,7 @@
 # include "ut_config.h"
 # include "ut_define.h"
 # include "ut_decimal.h"
+# include "ut_profile.h"
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
