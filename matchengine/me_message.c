@@ -30,6 +30,11 @@ static list_t *list_his_balances;
 
 static nw_timer timer;
 
+static void on_logger(const rd_kafka_t *rk, int level, const char *fac, const char *buf)
+{
+    log_error("RDKAFKA-%i-%s: %s: %s\n", level, fac, rk ? rd_kafka_name(rk) : NULL, buf);
+}
+
 static void on_delivery(rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque)
 {
     if (rkmessage->err) {
@@ -41,11 +46,6 @@ static void on_delivery(rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, voi
     }
 }
 
-static void on_logger(const rd_kafka_t *rk, int level, const char *fac, const char *buf)
-{
-    log_error("RDKAFKA-%i-%s: %s: %s\n", level, fac, rk ? rd_kafka_name(rk) : NULL, buf);
-}
-
 static void produce_list(list_t *list, rd_kafka_topic_t *topic)
 {
     list_node *node;
@@ -54,7 +54,7 @@ static void produce_list(list_t *list, rd_kafka_topic_t *topic)
         int ret = rd_kafka_produce(topic, 0, RD_KAFKA_MSG_F_COPY, node->value, strlen(node->value), NULL, 0, NULL);
         if (ret == -1) {
             log_fatal("Failed to produce: %s to topic %s: %s\n", (char *)node->value,
-                    rd_kafka_topic_name(rkt_deals), rd_kafka_err2str(rd_kafka_last_error()));
+                    rd_kafka_topic_name(topic), rd_kafka_err2str(rd_kafka_last_error()));
             if (rd_kafka_last_error() == RD_KAFKA_RESP_ERR__QUEUE_FULL) {
                 break;
             }
@@ -66,17 +66,29 @@ static void produce_list(list_t *list, rd_kafka_topic_t *topic)
 
 static void on_timer(nw_timer *t, void *privdata)
 {
-    if (list_balances->len) {
-        produce_list(list_balances, rkt_balances);
-    }
-    if (list_orders->len) {
-        produce_list(list_orders, rkt_orders);
-    }
-    if (list_deals->len) {
+    if (list_len(list_deals) > 0) {
         produce_list(list_deals, rkt_deals);
     }
-    if (list_stops->len) {
+    if (list_len(list_stops) > 0) {
         produce_list(list_stops, rkt_stops);
+    }
+    if (list_len(list_orders) > 0) {
+        produce_list(list_orders, rkt_orders);
+    }
+    if (list_len(list_balances) > 0) {
+        produce_list(list_balances, rkt_balances);
+    }
+    if (list_len(list_his_deals) > 0) {
+        produce_list(list_deals, rkt_deals);
+    }
+    if (list_len(list_his_stops) > 0) {
+        produce_list(list_stops, rkt_stops);
+    }
+    if (list_len(list_his_orders) > 0) {
+        produce_list(list_orders, rkt_orders);
+    }
+    if (list_len(list_his_balances) > 0) {
+        produce_list(list_balances, rkt_balances);
     }
 
     rd_kafka_poll(rk, 0);

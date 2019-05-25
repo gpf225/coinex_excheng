@@ -35,12 +35,15 @@ struct update_key {
 };
 
 static int worker_id;
-
-static kafka_consumer_t *deals;
 static dict_t *dict_market;
 
+static kafka_consumer_t *deals;
+static kafka_consumer_t *indexs;
+
 static double   last_flush;
-static int64_t  last_offset;
+static int64_t  last_deals_offset;
+static int64_t  last_indexs_offset;
+
 static nw_timer flush_timer;
 static nw_timer clear_timer;
 static nw_timer redis_timer;
@@ -293,15 +296,19 @@ static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *us
     return size * nmemb;
 }
 
-static json_t *get_market_list(void)
+static json_t *http_request(const char *method, json_t *params)
 {
     json_t *reply  = NULL;
     json_t *error  = NULL;
     json_t *result = NULL;
 
     json_t *request = json_object();
-    json_object_set_new(request, "method", json_string("market.list"));
-    json_object_set_new(request, "params", json_array());
+    json_object_set_new(request, "method", json_string(method));
+    if (params) {
+        json_object_set(request, "params", params);
+    } else {
+        json_object_set_new(request, "params", json_array());
+    }
     json_object_set_new(request, "id", json_integer(time(NULL)));
     char *request_data = json_dumps(request, 0);
     json_decref(request);
@@ -347,6 +354,29 @@ cleanup:
     return result;
 }
 
+static int init_single_market(redisContext *context, const char *name)
+{
+    struct market_info *info = create_market(name);
+    if (info == NULL) {
+        log_error("create market %s fail", name);
+        return -__LINE__;
+    }
+    int ret = load_market(context, info);
+    if (ret < 0) {
+        log_error("load market %s fail: %d", name, ret);
+        return -__LINE__;
+    }
+
+    return 0;
+}
+
+static char *convert_index_name(const char *name)
+{
+    static char buf[100];
+    snprintf(buf, sizeof(buf), "%s_INDEX", name);
+    return buf;
+}
+
 static int init_market(void)
 {
     dict_types type;
@@ -361,35 +391,49 @@ static int init_market(void)
     redisContext *context = get_redis_connection();
     if (context == NULL)
         return -__LINE__;
-    json_t *r = get_market_list();
-    if (r == NULL) {
+
+    json_t *market_list = http_request("market.list", NULL);
+    if (market_list == NULL) {
         log_error("get market list fail");
         redisFree(context);
         return -__LINE__;
     }
-    for (size_t i = 0; i < json_array_size(r); ++i) {
-        json_t *item = json_array_get(r, i);
+    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+        json_t *item = json_array_get(market_list, i);
         const char *name = json_string_value(json_object_get(item, "name"));
         if (get_market_id(name) != worker_id)
             continue;
-        struct market_info *info = create_market(name);
-        if (info == NULL) {
-            log_error("create market %s fail", name);
-            json_decref(r);
-            redisFree(context);
-            return -__LINE__;
-        }
-        int ret = load_market(context, info);
+        int ret = init_single_market(context, name);
         if (ret < 0) {
-            log_error("load market %s fail: %d", name, ret);
-            json_decref(r);
+            json_decref(market_list);
             redisFree(context);
             return -__LINE__;
         }
     }
-    json_decref(r);
-    redisFree(context);
+    json_decref(market_list);
 
+    json_t *index_list = http_request("index.list", NULL);
+    if (index_list == NULL) {
+        log_error("get index list fail");
+        redisFree(context);
+        return -__LINE__;
+    }
+    for (size_t i = 0; i < json_array_size(index_list); ++i) {
+        json_t *item = json_array_get(index_list, i);
+        const char *name = json_string_value(json_object_get(item, "name"));
+        char *index_name = convert_index_name(name);
+        if (get_market_id(index_name) != worker_id)
+            continue;
+        int ret = init_single_market(context, index_name);
+        if (ret < 0) {
+            json_decref(index_list);
+            redisFree(context);
+            return -__LINE__;
+        }
+    }
+    json_decref(index_list);
+
+    redisFree(context);
     return 0;
 }
 
@@ -494,23 +538,25 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
     mpd_copy(info->last, price, &mpd_ctx);
 
     // append deals
-    json_t *deal = json_object();
-    json_object_set_new(deal, "id", json_integer(id));
-    json_object_set_new(deal, "time", json_real(timestamp));
-    json_object_set_new(deal, "ask_user_id", json_integer(ask_user_id));
-    json_object_set_new(deal, "bid_user_id", json_integer(bid_user_id));
-    json_object_set_new_mpd(deal, "price", price);
-    json_object_set_new_mpd(deal, "amount", amount);
-    if (side == MARKET_TRADE_SIDE_SELL) {
-        json_object_set_new(deal, "type", json_string("sell"));
-    } else {
-        json_object_set_new(deal, "type", json_string("buy"));
-    }
+    if (id) {
+        json_t *deal = json_object();
+        json_object_set_new(deal, "id", json_integer(id));
+        json_object_set_new(deal, "time", json_real(timestamp));
+        json_object_set_new(deal, "ask_user_id", json_integer(ask_user_id));
+        json_object_set_new(deal, "bid_user_id", json_integer(bid_user_id));
+        json_object_set_new_mpd(deal, "price", price);
+        json_object_set_new_mpd(deal, "amount", amount);
+        if (side == MARKET_TRADE_SIDE_SELL) {
+            json_object_set_new(deal, "type", json_string("sell"));
+        } else {
+            json_object_set_new(deal, "type", json_string("buy"));
+        }
 
-    list_add_node_tail(info->deals, json_dumps(deal, 0));
-    list_add_node_head(info->deals_json, deal);
-    if (info->deals_json->len > MARKET_DEALS_MAX) {
-        list_del(info->deals_json, list_tail(info->deals_json));
+        list_add_node_tail(info->deals, json_dumps(deal, 0));
+        list_add_node_head(info->deals_json, deal);
+        if (info->deals_json->len > MARKET_DEALS_MAX) {
+            list_del(info->deals_json, list_tail(info->deals_json));
+        }
     }
 
     // update time
@@ -522,7 +568,6 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
 static void on_deals_message(sds message, int64_t offset)
 {
     double task_start = current_timestamp();
-    log_trace("deals message: %s, offset: %"PRIi64, message, offset);
     json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
     if (obj == NULL) {
         log_error("invalid message: %s, offset: %"PRIi64, message, offset);
@@ -562,6 +607,7 @@ static void on_deals_message(sds message, int64_t offset)
     }
 
     if (get_market_id(market) == worker_id) {
+        log_trace("deals message: %s, offset: %"PRIi64, message, offset);
         int ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
         if (ret < 0) {
             log_error("market_update fail %d, message: %s", ret, message);
@@ -572,7 +618,8 @@ static void on_deals_message(sds message, int64_t offset)
         profile_inc("new_message_costs", (int)((current_timestamp() - task_start) * 1000000));
     }
 
-    last_offset = offset;
+    last_deals_offset = offset;
+
     mpd_del(price);
     mpd_del(amount);
     json_decref(obj);
@@ -585,6 +632,53 @@ cleanup:
     if (amount)
         mpd_del(amount);
     json_decref(obj);
+}
+
+static void on_indexs_message(sds message, int64_t offset)
+{
+    json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
+    if (obj == NULL) {
+        log_error("invalid message: %s, offset: %"PRIi64, message, offset);
+        return;
+    }
+
+    mpd_t *price    = NULL;
+    const char *market = json_string_value(json_object_get(obj, "market"));
+    if (!market) {
+        goto cleanup;
+    }
+    double timestamp = json_real_value(json_object_get(obj, "timestamp"));
+    if (timestamp == 0) {
+        goto cleanup;
+    }
+
+    const char *price_str = json_string_value(json_object_get(obj, "price"));
+    if (!price_str || (price = decimal(price_str, 0)) == NULL) {
+        goto cleanup;
+    }
+
+    char *index_name = convert_index_name(market);
+    if (get_market_id(index_name) == worker_id) {
+        log_trace("indexs message: %s, offset: %"PRIi64, message, offset);
+        int ret = market_update(timestamp, 0, index_name, 0, 0, 0, price, mpd_zero);
+        if (ret < 0) {
+            log_error("market_update fail %d, message: %s", ret, message);
+            goto cleanup;
+        }
+    }
+
+    last_indexs_offset = offset;
+
+    mpd_del(price);
+    json_decref(obj);
+    return;
+
+cleanup:
+    log_error("invalid message: %s, offset: %"PRIi64, message, offset);
+    if (price)
+        mpd_del(price);
+    json_decref(obj);
+    return;
 }
 
 static int flush_deals(redisContext *context, const char *market, list_t *list)
@@ -673,9 +767,60 @@ static int flush_kline(redisContext *context, struct market_info *info, struct u
     return 0;
 }
 
-static int flush_offset(redisContext *context, int64_t offset)
+static int64_t get_deals_offset(void)
 {
-    redisReply *reply = redisCmd(context, "SET k:offset %"PRIi64, offset);
+    redisContext *context = get_redis_connection();
+    if (context == NULL)
+        return -__LINE__;
+    redisReply *reply = redisCmd(context, "GET k:offset");
+    if (reply == NULL) {
+        redisFree(context);
+        return -__LINE__;
+    }
+    int64_t offset = 0;
+    if (reply->type == REDIS_REPLY_STRING) {
+        offset = strtoll(reply->str, NULL, 0);
+    }
+    freeReplyObject(reply);
+    redisFree(context);
+
+    return offset;
+}
+
+static int flush_deals_offset(redisContext *context)
+{
+    redisReply *reply = redisCmd(context, "SET k:offset %"PRIi64, last_deals_offset);
+    if (reply == NULL) {
+        return -__LINE__;
+    }
+    freeReplyObject(reply);
+
+    return 0;
+}
+
+static int64_t get_indexs_offset(void)
+{
+    redisContext *context = get_redis_connection();
+    if (context == NULL)
+        return -__LINE__;
+    redisReply *reply = redisCmd(context, "GET k:offset_index");
+    if (reply == NULL) {
+        redisFree(context);
+        return -__LINE__;
+    }
+    int64_t offset = 0;
+    if (reply->type == REDIS_REPLY_STRING) {
+        offset = strtoll(reply->str, NULL, 0);
+    }
+    freeReplyObject(reply);
+    redisFree(context);
+
+    return offset;
+}
+
+static int flush_indexs_offset(redisContext *context)
+{
+    redisReply *reply = redisCmd(context, "SET k:offset_index %"PRIi64, last_indexs_offset);
     if (reply == NULL) {
         return -__LINE__;
     }
@@ -754,7 +899,12 @@ static int flush_market(void)
     dict_release_iterator(iter);
 
     if (worker_id == 0) {
-        ret = flush_offset(context, last_offset);
+        ret = flush_deals_offset(context);
+        if (ret < 0) {
+            redisFree(context);
+            return -__LINE__;
+        }
+        ret = flush_indexs_offset(context);
         if (ret < 0) {
             redisFree(context);
             return -__LINE__;
@@ -869,11 +1019,11 @@ static void on_redis_timer(nw_timer *timer, void *privdata)
 
 static int update_market_list(void)
 {
-    json_t *r = get_market_list();
-    if (r == NULL)
+    json_t *list = http_request("market.list", NULL);
+    if (list == NULL)
         return -__LINE__;
-    for (size_t i = 0; i < json_array_size(r); ++i) {
-        json_t *item = json_array_get(r, i);
+    for (size_t i = 0; i < json_array_size(list); ++i) {
+        json_t *item = json_array_get(list, i);
         const char *name = json_string_value(json_object_get(item, "name"));
         if (get_market_id(name) != worker_id)
             continue;
@@ -881,45 +1031,54 @@ static int update_market_list(void)
         if (info == NULL) {
             info = create_market(name);
             if (info == NULL) {
-                json_decref(r);
+                json_decref(list);
                 return -__LINE__;
             }
             log_info("add market: %s", name);
         }
     }
-    json_decref(r);
+    json_decref(list);
+
+    return 0;
+}
+
+static int update_index_list(void)
+{
+    json_t *list = http_request("index.list", NULL);
+    if (list == NULL)
+        return -__LINE__;
+    for (size_t i = 0; i < json_array_size(list); ++i) {
+        json_t *item = json_array_get(list, i);
+        const char *name = json_string_value(json_object_get(item, "name"));
+        char *index_name = convert_index_name(name);
+        if (get_market_id(index_name) != worker_id)
+            continue;
+        struct market_info *info = market_query(index_name);
+        if (info == NULL) {
+            info = create_market(index_name);
+            if (info == NULL) {
+                json_decref(list);
+                return -__LINE__;
+            }
+            log_info("add market: %s", index_name);
+        }
+    }
+    json_decref(list);
 
     return 0;
 }
 
 static void on_market_timer(nw_timer *timer, void *privdata)
 {
-    int ret = update_market_list();
+    int ret;
+    ret = update_market_list();
     if (ret < 0) {
         log_error("update_market_list fail: %d", ret);
-    } else {
-        log_info("update_market_list success");
     }
-}
-
-static int64_t get_message_offset(void)
-{
-    redisContext *context = get_redis_connection();
-    if (context == NULL)
-        return -__LINE__;
-    redisReply *reply = redisCmd(context, "GET k:offset");
-    if (reply == NULL) {
-        redisFree(context);
-        return -__LINE__;
+    ret = update_index_list();
+    if (ret < 0) {
+        log_error("update_index_list fail: %d", ret);
     }
-    int64_t offset = 0;
-    if (reply->type == REDIS_REPLY_STRING) {
-        offset = strtoll(reply->str, NULL, 0);
-    }
-    freeReplyObject(reply);
-    redisFree(context);
-
-    return offset;
 }
 
 int init_message(int id)
@@ -931,13 +1090,24 @@ int init_message(int id)
     if (ret < 0) {
         return ret;
     }
-    last_offset = get_message_offset();
-    if (last_offset < 0) {
+
+    last_deals_offset = get_deals_offset();
+    if (last_deals_offset < 0) {
         return -__LINE__;
     }
-    settings.deals.offset = last_offset + 1;
+    settings.deals.offset = last_deals_offset + 1;
     deals = kafka_consumer_create(&settings.deals, on_deals_message);
     if (deals == NULL) {
+        return -__LINE__;
+    }
+
+    last_indexs_offset = get_indexs_offset();
+    if (last_indexs_offset < 0) {
+        return -__LINE__;
+    }
+    settings.indexs.offset = last_indexs_offset + 1;
+    indexs = kafka_consumer_create(&settings.indexs, on_indexs_message);
+    if (indexs == NULL) {
         return -__LINE__;
     }
 

@@ -74,3 +74,11 @@ CREATE TABLE `operlog_example` (
     `time`          DOUBLE NOT NULL,
     `detail`        TEXT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `indexlog_example` (
+    `id`            BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    `time`          DOUBLE NOT NULL,
+    `market`        VARCHAR(30) NOT NULL,
+    `price`         DECIMAL(40,8),
+    `detail`        TEXT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
