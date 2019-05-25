@@ -7,7 +7,6 @@
 # include "hw_writer.h"
 # include "hw_message.h"
 
-# define PENDING_JOB_MIN 100
 # define PENDING_JOB_MAX 1000
 
 static bool message_suspended;
@@ -38,6 +37,7 @@ static void on_job(nw_job_entry *entry, void *privdata)
         return;
     MYSQL **conn_array = privdata;
     MYSQL *conn = conn_array[req->db];
+
     log_trace("db: %d exec sql: %s", req->db, req->sql);
     while (true) {
         int ret = mysql_real_query(conn, req->sql, sdslen(req->sql));
@@ -73,7 +73,7 @@ static void on_timer(nw_timer *timer, void *privdata)
             message_suspended = true;
         }
     } else {
-        if (job_context->request_count <= PENDING_JOB_MIN) {
+        if (job_context->request_count == 0) {
             resume_message();
             message_suspended = false;
         }
@@ -93,7 +93,7 @@ int init_writer(void)
     if (job_context == NULL)
         return -__LINE__;
 
-    nw_timer_set(&timer, 0.1, true, on_timer, NULL);
+    nw_timer_set(&timer, 0.5, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;
