@@ -3,9 +3,7 @@
  *     History: ouxiangyang, 2019/04/19, create
  */
 
-# include "ah_config.h"
 # include "ah_deals.h"
-# include "ah_server.h"
 
 static dict_t *dict_deals;
 static rpc_clt *cache_deals;
@@ -35,7 +33,6 @@ static void dict_market_key_free(void *key)
     free(key);
 }
 
-// dict deals
 static void *dict_deals_val_dup(const void *val)
 {
     struct deals_val *obj = malloc(sizeof(struct deals_val));
@@ -56,7 +53,6 @@ static void list_free(void *value)
     json_decref(value);
 }
 
-// deals reply
 static json_t *pack_deals_result(list_t *deals, uint32_t limit, int64_t last_id)
 {
     int count = 0;
@@ -80,7 +76,6 @@ static json_t *pack_deals_result(list_t *deals, uint32_t limit, int64_t last_id)
     return result;
 }
 
-// deals update
 static int on_sub_deals_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
 {
     const char *market = json_string_value(json_array_get(result_array, 0));
@@ -92,7 +87,6 @@ static int on_sub_deals_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
         return -__LINE__;
     }
 
-    log_trace("deals update, market: %s", market);
     dict_entry *entry = dict_find(dict_deals, market);
     if (entry == NULL) {
         struct deals_val val;
@@ -161,22 +155,10 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             nw_sock_human_addr(&ses->peer_addr), pkg->command, pkg->sequence);
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (!reply) {
-        log_error("json_loadb fail");
         goto clean;
     }
-    json_t *error = json_object_get(reply, "error");
-    if (!error) {
-        log_error("error param not find");
-        goto clean;
-    }
-    if (!json_is_null(error)) {
-        log_error("error is not null");
-        goto clean;
-    }
-
     json_t *result = json_object_get(reply, "result");
     if (!result) {
-        log_error("result param not find");
         goto clean;
     }
 
@@ -191,55 +173,39 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 clean:
     if (reply)
         json_decref(reply);
-
     return;
 }
 
-// deals reply
-void direct_deals_reply(nw_ses *ses, json_t *params, int64_t id)
+int direct_deals_reply(nw_ses *ses, json_t *params, int64_t id)
 {
     if (json_array_size(params) != 3) {
-        reply_error_invalid_argument(ses, id);
-        return;
+        return http_reply_error_invalid_argument(ses, id);
     }
-
     const char *market = json_string_value(json_array_get(params, 0));
     if (!market) {
-        reply_error_invalid_argument(ses, id);
-        return;
+        return http_reply_error_invalid_argument(ses, id);
     }
-
     int limit = json_integer_value(json_array_get(params, 1));
     if (limit <= 0 || limit > settings.deal_max) {
-        log_error("exceed deals max limit, limit: %d, max_limit: %d", limit, settings.deal_max);
-        reply_error_invalid_argument(ses, id);
-        return;
+        return http_reply_error_invalid_argument(ses, id);
     }
-
     if (!json_is_integer(json_array_get(params, 2))) {
-        reply_error_invalid_argument(ses, id);
-        return;
+        return http_reply_error_invalid_argument(ses, id);
     }
     uint64_t last_id = json_integer_value(json_array_get(params, 2));
 
-    bool is_reply = false;
+    int ret = 0;
     dict_entry *entry = dict_find(dict_deals, market);
     if (entry != NULL) {
         struct deals_val *val = entry->val;
-        if (val->deals != NULL) {
-            is_reply = true;
-            json_t *result = pack_deals_result(val->deals, limit, last_id);
-            reply_message(ses, id, result);
-            json_decref(result);
-        }
+        json_t *result = pack_deals_result(val->deals, limit, last_id);
+        ret = http_reply_message(ses, id, result);
+        json_decref(result);
+    } else {
+        ret = http_reply_error_not_found(ses, id);
     }
 
-    if (!is_reply) {
-        reply_result_null(ses, id);
-        log_error("deals not find result, market: %s", market);
-    }
-
-    return;
+    return ret;
 }
 
 int init_deals(void)

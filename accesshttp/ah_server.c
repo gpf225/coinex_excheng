@@ -3,11 +3,11 @@
  *     History: yang@haipo.me, 2017/04/21, create
  */
 
-# include "ah_config.h"
-# include "ah_server.h"
 # include "ah_deals.h"
 # include "ah_state.h"
 # include "ah_cache.h"
+# include "ah_config.h"
+# include "ah_server.h"
 
 static http_svr *svr;
 static nw_state *state;
@@ -33,83 +33,6 @@ struct request_info {
     rpc_clt *clt;
     uint32_t cmd;
 };
-
-static void reply_error(nw_ses *ses, int64_t id, int code, const char *message, uint32_t status)
-{
-    json_t *error = json_object();
-    json_object_set_new(error, "code", json_integer(code));
-    json_object_set_new(error, "message", json_string(message));
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", error);
-    json_object_set_new(reply, "result", json_null());
-    json_object_set_new(reply, "id", json_integer(id));
-
-    char *reply_str = json_dumps(reply, 0);
-    send_http_response_simple(ses, status, reply_str, strlen(reply_str));
-    free(reply_str);
-    json_decref(reply);
-}
-
-static void reply_bad_request(nw_ses *ses)
-{
-    profile_inc("error_bad_request", 1);
-    send_http_response_simple(ses, 400, NULL, 0);
-}
-
-static void reply_not_found(nw_ses *ses, int64_t id)
-{
-    profile_inc("error_not_found", 1);
-    reply_error(ses, id, 4, "method not found", 404);
-}
-
-static void reply_time_out(nw_ses *ses, int64_t id)
-{
-    profile_inc("error_time_out", 1);
-    reply_error(ses, id, 5, "service timeout", 504);
-}
-
-static void reply_internal_error(nw_ses *ses)
-{
-    profile_inc("error_interval_error", 1);
-    send_http_response_simple(ses, 500, NULL, 0);
-}
-
-void reply_result_null(nw_ses *ses, int64_t id)
-{
-    profile_inc("get_result_null", 1);
-    reply_error(ses, id, 6, "get result null", 505);
-}
-
-void reply_error_invalid_argument(nw_ses *ses, int64_t id)
-{
-    profile_inc("invalid_argument", 1);
-    json_t *error = json_object();
-    json_object_set_new(error, "code", json_integer(1));
-    json_object_set_new(error, "message", json_string("invalid argument"));
-
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", error);
-    json_object_set_new(reply, "result", json_null());
-    json_object_set_new(reply, "id", json_integer(id));
-
-    char *reply_str = json_dumps(reply, 0);
-    send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
-    free(reply_str);
-    json_decref(reply);
-}
-
-void reply_message(nw_ses *ses, int64_t id, json_t *result)
-{
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", json_null());
-    json_object_set    (reply, "result", result);
-    json_object_set_new(reply, "id", json_integer(id));
-
-    char *reply_str = json_dumps(reply, 0);
-    send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
-    free(reply_str);
-    json_decref(reply);
-}
 
 static int check_depth_param(json_t *params)
 {
@@ -140,7 +63,7 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         return send_http_response_simple(ses, 200, "ok\n", 3);
     } else {
         if (request->method != HTTP_POST || !request->body) {
-            reply_bad_request(ses);
+            http_reply_error_bad_request(ses);
             return -__LINE__;
         }
     }
@@ -166,14 +89,14 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
     dict_entry *entry = dict_find(methods, json_string_value(method));
     if (entry == NULL) {
         profile_inc("method_not_found", 1);
-        reply_not_found(ses, json_integer_value(id));
+        http_reply_error_not_found(ses, json_integer_value(id));
     } else {
         struct request_info *req = entry->val;
         sds key = NULL;
 
         if (req->cmd == CMD_CACHE_DEPTH) {
             if (check_depth_param(params) != 0) {
-                reply_error_invalid_argument(ses, json_integer_value(id));
+                http_reply_error_invalid_argument(ses, json_integer_value(id));
                 json_decref(body);
                 return 0;
             }
@@ -204,7 +127,7 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         }
 
         if (!rpc_clt_connected(req->clt)) {
-            reply_internal_error(ses);
+            http_reply_error_internal_error(ses, json_integer_value(id));
             json_decref(body);
             return 0;
         }
@@ -244,7 +167,7 @@ decode_error:
     sds hex = hexdump(request->body, sdslen(request->body));
     log_fatal("peer: %s, decode request fail, request body: \n%s", nw_sock_human_addr(&ses->peer_addr), hex);
     sdsfree(hex);
-    reply_bad_request(ses);
+    http_reply_error_bad_request(ses);
     return -__LINE__;
 }
 
@@ -285,41 +208,22 @@ static int send_depth_http_response(struct state_info *state, rpc_pkg *pkg)
     int ret = 0;
     json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (!reply_json) {
-        reply_internal_error(state->ses);
+        http_reply_error_internal_error(state->ses, state->request_id);
         goto clean;
     }
-
-    json_t *error = json_object_get(reply_json, "error");
-    if (!error) {
-        reply_internal_error(state->ses);
-        goto clean;
-    }
-    if (!json_is_null(error)) {
-        send_http_response_simple(state->ses, 200, pkg->body, pkg->body_size);  
-        goto clean;
-    }
-
     json_t *result = json_object_get(reply_json, "result");
     if (!result) {
-        reply_internal_error(state->ses);
+        http_reply_error_internal_error(state->ses, state->request_id);
         goto clean;
     }
 
     json_t *data = pack_depth_result(result, state->depth_limit);
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", json_null());
-    json_object_set    (reply, "result", data);
-    json_object_set_new(reply, "id", json_integer(state->request_id));
-
-    char *reply_str = json_dumps(reply, 0);
-    ret = send_http_response_simple(state->ses, 200, reply_str, strlen(reply_str));
-    free(reply_str);
-    json_decref(reply);
+    ret = http_reply_message(state->ses, state->request_id, data);
+    json_decref(data);
 
 clean:
     if (reply_json)
         json_decref(reply_json);
-
     return ret;
 }
 
@@ -328,7 +232,7 @@ static void on_state_timeout(nw_state_entry *entry)
     log_error("state id: %u timeout", entry->id);
     struct state_info *info = entry->data;
     if (info->ses->id == info->ses_id) {
-        reply_time_out(info->ses, info->request_id);
+        http_reply_error_service_timeout(info->ses, info->request_id);
     }
 }
 

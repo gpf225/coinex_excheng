@@ -37,6 +37,7 @@
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
 # include "ut_http_svr.h"
+# include "ut_json_rpc.h"
 
 # define AH_LISTENER_BIND   "seqpacket@/tmp/accesshttp_listener.sock"
 
