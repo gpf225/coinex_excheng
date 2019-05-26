@@ -6,6 +6,7 @@ cd ../monitorcenter/ &&  make clean && make
 cd ../monitoragent/ &&  make clean && make
 cd ../matchengine/ &&  make clean && make
 cd ../marketprice/ &&  make clean && make
+cd ../marketindex/ &&  make clean && make
 cd ../historywriter/ &&  make clean && make
 cd ../readhistory/ &&  make clean && make
 cd ../alertcenter/ &&  make clean && make

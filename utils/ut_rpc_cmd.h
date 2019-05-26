@@ -59,8 +59,9 @@
 // config
 # define CMD_CONFIG_UPDATE_ASSET        401
 # define CMD_CONFIG_UPDATE_MARKET       402
+# define CMD_CONFIG_UPDATE_INDEX        403
 
-//cache
+// cache
 # define CMD_CACHE_DEPTH_UPDATE         502
 # define CMD_CACHE_DEALS_UPDATE     	503
 # define CMD_CACHE_STATUS_UPDATE    	504
@@ -74,5 +75,9 @@
 
 // matchengine push
 # define CMD_REDER_ERROR                801
+
+// marketindex
+# define CMD_INDEX_LIST                 901
+# define CMD_INDEX_QUERY                902
 
 # endif
