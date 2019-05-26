@@ -40,7 +40,12 @@ function alter_history_table() {
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table user_deal_history_$i add account INT UNSIGNED NOT NULL COMMENT '用户账户ID' AFTER user_id;"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table user_deal_history_$i add deal_account INT UNSIGNED NOT NULL COMMENT '对手账户ID' AFTER deal_user_id ;"
 
+	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table balance_history_$i drop INDEX idx_user_time;"
+	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table balance_history_$i drop INDEX idx_user_business_time;"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table balance_history_$i drop INDEX idx_user_asset_business_time;"
+
+	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table balance_history_$i add INDEX idx_user_account_time (user_id, account, time);"
+	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table balance_history_$i add INDEX idx_user_account_business_time (user_id, account, business, time);"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table balance_history_$i add INDEX idx_user_account_asset_business_time (user_id, account, asset, business, time);"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table order_history_$i add INDEX idx_user_account_market_side_time (user_id, account, market, side, create_time);"
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table stop_history_$i add INDEX idx_user_account_market_side_time (user_id, account, market, side, create_time);"

@@ -79,16 +79,16 @@ static void on_timer(nw_timer *t, void *privdata)
         produce_list(list_balances, rkt_balances);
     }
     if (list_len(list_his_deals) > 0) {
-        produce_list(list_deals, rkt_deals);
+        produce_list(list_his_deals, rkt_his_deals);
     }
     if (list_len(list_his_stops) > 0) {
-        produce_list(list_stops, rkt_stops);
+        produce_list(list_his_stops, rkt_his_stops);
     }
     if (list_len(list_his_orders) > 0) {
-        produce_list(list_orders, rkt_orders);
+        produce_list(list_his_orders, rkt_his_orders);
     }
     if (list_len(list_his_balances) > 0) {
-        produce_list(list_balances, rkt_balances);
+        produce_list(list_his_balances, rkt_his_balances);
     }
 
     rd_kafka_poll(rk, 0);

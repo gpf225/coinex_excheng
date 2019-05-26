@@ -63,7 +63,7 @@ static void on_job_release(void *privdata)
     MYSQL **conn_array = privdata;
     for (int i = 0; i < settings.db_history_count; ++i) {
         mysql_close(conn_array[i]);
-    };
+    }
 }
 
 static void on_timer(nw_timer *timer, void *privdata)
