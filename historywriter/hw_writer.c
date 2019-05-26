@@ -39,7 +39,6 @@ static void on_job(nw_job_entry *entry, void *privdata)
     MYSQL *conn = conn_array[req->db];
 
     log_trace("db: %d exec sql: %s", req->db, req->sql);
-    profile_inc("sql_exec", 1);
     while (true) {
         int ret = mysql_real_query(conn, req->sql, sdslen(req->sql));
         if (ret != 0 && mysql_errno(conn) != 1062) {

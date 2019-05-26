@@ -877,7 +877,7 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
         taker->update_time = maker->update_time = current_timestamp();
         uint64_t deal_id = ++deals_id_start;
         if (real) {
-            append_order_deal_history(taker->update_time, deal_id, taker, MARKET_ROLE_TAKER, maker, MARKET_ROLE_MAKER,
+            append_deal_history(taker->update_time, deal_id, taker, MARKET_ROLE_TAKER, maker, MARKET_ROLE_MAKER,
                     price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);
             push_deal_message(taker->update_time, deal_id, m, MARKET_TRADE_SIDE_SELL,
                     taker, maker, price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);
@@ -1056,7 +1056,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
         taker->update_time = maker->update_time = current_timestamp();
         uint64_t deal_id = ++deals_id_start;
         if (real) {
-            append_order_deal_history(taker->update_time, deal_id, maker, MARKET_ROLE_MAKER, taker, MARKET_ROLE_TAKER,
+            append_deal_history(taker->update_time, deal_id, maker, MARKET_ROLE_MAKER, taker, MARKET_ROLE_TAKER,
                     price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);
             push_deal_message(taker->update_time, deal_id, m, MARKET_TRADE_SIDE_BUY,
                     maker, taker, price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);
@@ -1390,7 +1390,7 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
         taker->update_time = maker->update_time = current_timestamp();
         uint64_t deal_id = ++deals_id_start;
         if (real) {
-            append_order_deal_history(taker->update_time, deal_id, taker, MARKET_ROLE_TAKER, maker, MARKET_ROLE_MAKER,
+            append_deal_history(taker->update_time, deal_id, taker, MARKET_ROLE_TAKER, maker, MARKET_ROLE_MAKER,
                     price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);
             push_deal_message(taker->update_time, deal_id, m, MARKET_TRADE_SIDE_SELL,
                     taker, maker, price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);
@@ -1577,7 +1577,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
         taker->update_time = maker->update_time = current_timestamp();
         uint64_t deal_id = ++deals_id_start;
         if (real) {
-            append_order_deal_history(taker->update_time, deal_id, maker, MARKET_ROLE_MAKER, taker, MARKET_ROLE_TAKER,
+            append_deal_history(taker->update_time, deal_id, maker, MARKET_ROLE_MAKER, taker, MARKET_ROLE_TAKER,
                     price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);
             push_deal_message(taker->update_time, deal_id, m, MARKET_TRADE_SIDE_BUY,
                     maker, taker, price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);

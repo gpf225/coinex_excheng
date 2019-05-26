@@ -140,8 +140,13 @@ int init_message(void)
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_his_balances = rd_kafka_topic_new(rk, "his_balances", NULL);
-    if (rkt_his_balances == NULL) {
+    rkt_his_deals = rd_kafka_topic_new(rk, "his_deals", NULL);
+    if (rkt_his_deals == NULL) {
+        log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
+        return -__LINE__;
+    }
+    rkt_his_stops = rd_kafka_topic_new(rk, "his_stops", NULL);
+    if (rkt_his_stops == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
@@ -150,13 +155,8 @@ int init_message(void)
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_his_deals = rd_kafka_topic_new(rk, "his_deals", NULL);
-    if (rkt_his_deals == NULL) {
-        log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
-        return -__LINE__;
-    }
-    rkt_his_stops = rd_kafka_topic_new(rk, "his_stops", NULL);
-    if (rkt_his_stops == NULL) {
+    rkt_his_balances = rd_kafka_topic_new(rk, "his_balances", NULL);
+    if (rkt_his_balances == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
@@ -199,12 +199,16 @@ int init_message(void)
 int fini_message(void)
 {
     on_timer(NULL, NULL);
-
     rd_kafka_flush(rk, 1000);
-    rd_kafka_topic_destroy(rkt_balances);
-    rd_kafka_topic_destroy(rkt_orders);
+
     rd_kafka_topic_destroy(rkt_deals);
     rd_kafka_topic_destroy(rkt_stops);
+    rd_kafka_topic_destroy(rkt_orders);
+    rd_kafka_topic_destroy(rkt_balances);
+    rd_kafka_topic_destroy(rkt_his_deals);
+    rd_kafka_topic_destroy(rkt_his_stops);
+    rd_kafka_topic_destroy(rkt_his_orders);
+    rd_kafka_topic_destroy(rkt_his_balances);
     rd_kafka_destroy(rk);
 
     return 0;
@@ -231,55 +235,6 @@ static int push_message(char *message, rd_kafka_topic_t *topic, list_t *list)
         return -__LINE__;
     }
     free(message);
-
-    return 0;
-}
-
-int push_balance_message(double t, uint32_t user_id, uint32_t account, const char *asset, const char *business, mpd_t *change, mpd_t *result)
-{
-    json_t *message = json_object();
-    json_object_set_new(message, "timestamp", json_real(t));
-    json_object_set_new(message, "user_id", json_integer(user_id));
-    json_object_set_new(message, "account", json_integer(account));
-    json_object_set_new(message, "asset", json_string(asset));
-    json_object_set_new(message, "business", json_string(business));
-    json_object_set_new_mpd(message, "change", change);
-    json_object_set_new_mpd(message, "result", result);
-
-    push_message(json_dumps(message, 0), rkt_balances, list_balances);
-    json_decref(message);
-    profile_inc("message_balance", 1);
-
-    return 0;
-}
-
-int push_order_message(uint32_t event, order_t *order, market_t *market)
-{
-    json_t *message = json_object();
-    json_object_set_new(message, "event", json_integer(event));
-    json_object_set_new(message, "order", get_order_info(order));
-    json_object_set_new(message, "stock", json_string(market->stock));
-    json_object_set_new(message, "money", json_string(market->money));
-
-    push_message(json_dumps(message, 0), rkt_orders, list_orders);
-    json_decref(message);
-    profile_inc("message_order", 1);
-
-    return 0;
-}
-
-int push_stop_message(uint32_t event, stop_t *stop, market_t *market, int status)
-{
-    json_t *order_info = get_stop_info(stop);
-    json_object_set_new(order_info, "status", json_integer(status));
-
-    json_t *message = json_object();
-    json_object_set_new(message, "event", json_integer(event));
-    json_object_set_new(message, "order", order_info);
-
-    push_message(json_dumps(message, 0), rkt_stops, list_stops);
-    json_decref(message);
-    profile_inc("message_order", 1);
 
     return 0;
 }
@@ -316,17 +271,59 @@ int push_deal_message(double t, uint64_t id, market_t *market, int side, order_t
     return 0;
 }
 
-int push_his_balance_message(json_t *msg)
+int push_stop_message(uint32_t event, stop_t *stop, market_t *market, int status)
 {
-    push_message(json_dumps(msg, 0), rkt_his_balances, list_his_balances);
-    profile_inc("message_his_balance", 1);
+    json_t *order_info = get_stop_info(stop);
+    json_object_set_new(order_info, "status", json_integer(status));
+
+    json_t *message = json_object();
+    json_object_set_new(message, "event", json_integer(event));
+    json_object_set_new(message, "order", order_info);
+
+    push_message(json_dumps(message, 0), rkt_stops, list_stops);
+    json_decref(message);
+    profile_inc("message_order", 1);
+
     return 0;
 }
 
-int push_his_order_message(json_t *msg)
+int push_order_message(uint32_t event, order_t *order, market_t *market)
 {
-    push_message(json_dumps(msg, 0), rkt_his_orders, list_his_orders);
-    profile_inc("message_his_order", 1);
+    json_t *message = json_object();
+    json_object_set_new(message, "event", json_integer(event));
+    json_object_set_new(message, "order", get_order_info(order));
+    json_object_set_new(message, "stock", json_string(market->stock));
+    json_object_set_new(message, "money", json_string(market->money));
+
+    push_message(json_dumps(message, 0), rkt_orders, list_orders);
+    json_decref(message);
+    profile_inc("message_order", 1);
+
+    return 0;
+}
+
+int push_balance_message(double t, uint32_t user_id, uint32_t account, const char *asset, const char *business, mpd_t *change, mpd_t *result)
+{
+    json_t *message = json_object();
+    json_object_set_new(message, "timestamp", json_real(t));
+    json_object_set_new(message, "user_id", json_integer(user_id));
+    json_object_set_new(message, "account", json_integer(account));
+    json_object_set_new(message, "asset", json_string(asset));
+    json_object_set_new(message, "business", json_string(business));
+    json_object_set_new_mpd(message, "change", change);
+    json_object_set_new_mpd(message, "result", result);
+
+    push_message(json_dumps(message, 0), rkt_balances, list_balances);
+    json_decref(message);
+    profile_inc("message_balance", 1);
+
+    return 0;
+}
+
+int push_his_deal_message(json_t *msg)
+{
+    push_message(json_dumps(msg, 0), rkt_his_deals, list_his_deals);
+    profile_inc("message_his_deal", 1);
     return 0;
 }
 
@@ -337,10 +334,17 @@ int push_his_stop_message(json_t *msg)
     return 0;
 }
 
-int push_his_deal_message(json_t *msg)
+int push_his_order_message(json_t *msg)
 {
-    push_message(json_dumps(msg, 0), rkt_his_deals, list_his_deals);
-    profile_inc("message_his_deal", 1);
+    push_message(json_dumps(msg, 0), rkt_his_orders, list_his_orders);
+    profile_inc("message_his_order", 1);
+    return 0;
+}
+
+int push_his_balance_message(json_t *msg)
+{
+    push_message(json_dumps(msg, 0), rkt_his_balances, list_his_balances);
+    profile_inc("message_his_balance", 1);
     return 0;
 }
 
