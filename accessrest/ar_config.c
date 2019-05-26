@@ -72,14 +72,14 @@ static int read_config_from_json(json_t *root)
         return -__LINE__;
     }
 
-    ret = load_cfg_rpc_clt(root, "matchengine", &settings.matchengine);
-    if (ret < 0) {
-        printf("load matchengine clt config fail: %d\n", ret);
-        return -__LINE__;
-    }
     ret = load_cfg_rpc_clt(root, "marketprice", &settings.marketprice);
     if (ret < 0) {
         printf("load marketprice clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
+    ret = load_cfg_rpc_clt(root, "marketindex", &settings.marketindex);
+    if (ret < 0) {
+        printf("load marketindex clt config fail: %d\n", ret);
         return -__LINE__;
     }
     ret = load_cfg_rpc_clt(root, "cache_deals", &settings.cache_deals);

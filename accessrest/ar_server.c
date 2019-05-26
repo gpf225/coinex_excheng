@@ -15,8 +15,8 @@ static nw_state *state_context;
 static dict_t *method_map;
 static nw_timer timer;
 
-static rpc_clt *matchengine;
 static rpc_clt *marketprice;
+static rpc_clt *marketindex;
 static rpc_clt **cachecenter_clt_arr;
 
 struct state_data {
@@ -544,7 +544,46 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     state->cmd = pkg.command;
     rpc_clt_send(marketprice, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
+            nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), pkg.command, pkg.sequence, (char *)pkg.body);
+    free(pkg.body);
+    json_decref(query_params);
+
+    return 0;
+}
+
+static int on_market_index(nw_ses *ses, dict_t *params)
+{
+    sds cache_key = sdsempty();
+    cache_key = sdscatprintf(cache_key, "index");
+    if (check_cache(ses, cache_key)) {
+        sdsfree(cache_key);
+        return 0;
+    }
+
+    if (!rpc_clt_connected(marketindex)) {
+        sdsfree(cache_key);
+        return reply_internal_error(ses);
+    }
+
+    nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
+    struct state_data *state = state_entry->data;
+    state->ses = ses;
+    state->ses_id = ses->id;
+    state->cache_key = cache_key;
+
+    json_t *query_params = json_array();
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
+    pkg.command   = CMD_INDEX_LIST;
+    pkg.sequence  = state_entry->id;
+    pkg.body      = json_dumps(query_params, 0);
+    pkg.body_size = strlen(pkg.body);
+
+    state->cmd = pkg.command;
+    rpc_clt_send(marketindex, &pkg);
+    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
+            nw_sock_human_addr(rpc_clt_peer_addr(marketindex)), pkg.command, pkg.sequence, (char *)pkg.body);
     free(pkg.body);
     json_decref(query_params);
 
@@ -653,6 +692,7 @@ static int init_svr(void)
     add_handler("/v1/market/depth",         on_market_depth);
     add_handler("/v1/market/deals",         on_market_deals);
     add_handler("/v1/market/kline",         on_market_kline);
+    add_handler("/v1/market/index",         on_market_index);
     
     return 0;
 }
@@ -779,16 +819,16 @@ static int init_backend(void)
     ct.on_connect = on_backend_connect;
     ct.on_recv_pkg = on_backend_recv_pkg;
 
-    matchengine = rpc_clt_create(&settings.matchengine, &ct);
-    if (matchengine == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(matchengine) < 0)
-        return -__LINE__;
-
     marketprice = rpc_clt_create(&settings.marketprice, &ct);
     if (marketprice == NULL)
         return -__LINE__;
     if (rpc_clt_start(marketprice) < 0)
+        return -__LINE__;
+
+    marketindex = rpc_clt_create(&settings.marketindex, &ct);
+    if (marketindex == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(marketindex) < 0)
         return -__LINE__;
 
     if (init_cache_backend(&ct) < 0)

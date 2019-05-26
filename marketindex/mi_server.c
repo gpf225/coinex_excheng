@@ -31,12 +31,15 @@ static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
     return 0;
 }
 
-static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
+static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result, double ttl)
 {
     json_t *reply = json_object();
     json_object_set_new(reply, "error", json_null());
     json_object_set    (reply, "result", result);
     json_object_set_new(reply, "id", json_integer(pkg->req_id));
+    if (ttl > 0) {
+        json_object_set_new(reply, "ttl", json_integer((int)(ttl * 1000)));
+    }
 
     int ret = reply_json(ses, pkg, reply);
     json_decref(reply);
@@ -79,7 +82,7 @@ int reply_success(nw_ses *ses, rpc_pkg *pkg)
     json_t *result = json_object();
     json_object_set_new(result, "status", json_string("success"));
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = reply_result(ses, pkg, result, 0);
     json_decref(result);
     return ret;
 }
@@ -90,7 +93,7 @@ static int on_cmd_index_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (result == NULL)
         return reply_error_internal_error(ses, pkg);
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = reply_result(ses, pkg, result, 1);
     json_decref(result);
     return ret;
 }
@@ -110,7 +113,7 @@ static int on_cmd_index_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (result == NULL)
         return reply_error_internal_error(ses, pkg);
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = reply_result(ses, pkg, result, 1);
     json_decref(result);
     return ret;
 }

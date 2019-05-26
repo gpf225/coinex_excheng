@@ -107,6 +107,8 @@ void fini_writer(void)
         usleep(100 * 1000);
         continue;
     }
+
+    nw_job_release(job_context);
 }
 
 int submit_job(int db, sds sql)

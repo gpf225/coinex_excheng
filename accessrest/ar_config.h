@@ -60,8 +60,8 @@ struct settings {
     int                 deal_max;
     int                 kline_max;
 
-    rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
+    rpc_clt_cfg         marketindex;
 
     rpc_clt_cfg         cache_deals;
     rpc_clt_cfg         cache_state;
