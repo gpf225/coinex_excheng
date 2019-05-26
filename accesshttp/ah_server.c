@@ -219,7 +219,7 @@ static int send_depth_http_response(struct state_info *state, rpc_pkg *pkg)
     }
 
     json_t *data = pack_depth_result(result, state->depth_limit);
-    ret = http_reply_message(state->ses, state->request_id, data);
+    ret = http_reply_result(state->ses, state->request_id, data);
     json_decref(data);
 
 clean:

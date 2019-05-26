@@ -175,7 +175,7 @@ int direct_state_reply(nw_ses *ses, json_t *params, int64_t id)
     if (entry != NULL) {
         struct state_val *val = entry->val;
         if (val->last != NULL) {
-            ret = http_reply_message(ses, id, val->last);
+            ret = http_reply_result(ses, id, val->last);
         } else {
             ret = http_reply_error_not_found(ses, id);
         }

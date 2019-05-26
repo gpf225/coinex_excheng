@@ -199,7 +199,7 @@ int direct_deals_reply(nw_ses *ses, json_t *params, int64_t id)
     if (entry != NULL) {
         struct deals_val *val = entry->val;
         json_t *result = pack_deals_result(val->deals, limit, last_id);
-        ret = http_reply_message(ses, id, result);
+        ret = http_reply_result(ses, id, result);
         json_decref(result);
     } else {
         ret = http_reply_error_not_found(ses, id);

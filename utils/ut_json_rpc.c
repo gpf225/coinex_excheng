@@ -240,6 +240,19 @@ int ws_send_notify(nw_ses *ses, const char *method, json_t *params)
     return ret;
 }
 
+int http_reply_json(nw_ses *ses, json_t *json, uint32_t status)
+{
+    char *message_str = json_dumps(json, 0);
+    if (message_str == NULL)
+        return -__LINE__;
+    size_t message_len = strlen(message_str);
+    log_trace("connection: %s size: %zu, send: %s", nw_sock_human_addr(&ses->peer_addr), message_len, message_str);
+
+    int ret = send_http_response_simple(ses, status, message_str, message_len);
+    free(message_str);
+    return ret;
+}
+
 int http_reply_error(nw_ses *ses, int64_t id, int code, const char *message, uint32_t status)
 {
     json_t *error = json_object();
@@ -251,12 +264,7 @@ int http_reply_error(nw_ses *ses, int64_t id, int code, const char *message, uin
     json_object_set_new(reply, "result", json_null());
     json_object_set_new(reply, "id", json_integer(id));
 
-    char *reply_str = json_dumps(reply, 0);
-    size_t reply_len = strlen(reply_str);
-    log_trace("connection: %s size: %zu, send: %s", nw_sock_human_addr(&ses->peer_addr), reply_len,  reply_str);
-
-    int ret = send_http_response_simple(ses, status, reply_str, reply_len);
-    free(reply_str);
+    int ret = http_reply_json(ses, reply, status);
     json_decref(reply);
     return ret;
 }
@@ -296,20 +304,25 @@ int http_reply_error_require_auth(nw_ses *ses, int64_t id)
     return http_reply_error(ses, id, 6, "require auth", 401);
 }
 
-int http_reply_message(nw_ses *ses, int64_t id, json_t *result)
+int http_reply_result(nw_ses *ses, int64_t id, json_t *result)
 {
     json_t *reply = json_object();
     json_object_set_new(reply, "error", json_null());
     json_object_set    (reply, "result", result);
     json_object_set_new(reply, "id", json_integer(id));
 
-    char *reply_str = json_dumps(reply, 0);
-    size_t reply_len = strlen(reply_str);
-    log_trace("connection: %s size: %zu, send: %s", nw_sock_human_addr(&ses->peer_addr), reply_len,  reply_str);
-
-    int ret = send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
-    free(reply_str);
+    int ret = http_reply_json(ses, reply, 200);
     json_decref(reply);
+    return ret;
+}
+
+int http_reply_success(nw_ses *ses, int64_t id)
+{
+    json_t *result = json_object();
+    json_object_set_new(result, "status", json_string("success"));
+
+    int ret = http_reply_result(ses, id, result);
+    json_decref(result);
     return ret;
 }
 
