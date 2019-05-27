@@ -274,8 +274,10 @@ static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!asset || !asset_exist(asset)) {
         return reply_error_invalid_argument(ses, pkg);
     }
-
-    int total_users, available_users, lock_users, frozen_users = 0;
+    int prec_save = asset_prec(asset);
+    int prec_show = asset_prec_show(asset);
+            
+    int total_users = 0, available_users = 0, lock_users = 0, frozen_users = 0;
     mpd_t *total     = mpd_qncopy(mpd_zero);
     mpd_t *available = mpd_qncopy(mpd_zero);
     mpd_t *frozen    = mpd_qncopy(mpd_zero);
@@ -291,6 +293,9 @@ static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         }
 
         mpd_t *balance = entry->val;
+        if (prec_save != prec_show) {
+            mpd_rescale(balance, balance, -prec_show, &mpd_ctx);
+        }
         mpd_add(total, total, balance, &mpd_ctx);
         if (key->type == BALANCE_TYPE_AVAILABLE) {
             available_users++;
@@ -973,7 +978,7 @@ static int on_cmd_market_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     uint32_set_release(distinct_dict);
     skiplist_release_iterator(iter);
 
-    json_t *result = json_array();
+    json_t *result = json_object();
 
     json_object_set_new(result, "order_users", json_integer(dict_size(market->user_orders)));
     json_object_set_new(result, "order_ask_users", json_integer(order_ask_users));
