@@ -3,7 +3,6 @@
  *     History: ouxiangyang, 2019/04/3, create
  */
 
-# include "ah_config.h"
 # include "ah_cache.h"
 
 static nw_timer cache_timer;
