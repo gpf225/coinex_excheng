@@ -94,7 +94,7 @@ static void sendto_all(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
-    for (int i = 0; i < settings.reader_num; ++i) {
+    for (int i = 0; i < settings.reader_num + 1; ++i) {
         if (!rpc_clt_connected(reader_clt_arr[i])) {
             reply_error_internal_error(ses, pkg);
             log_fatal("lose connection to reader: %d", i);
@@ -103,7 +103,7 @@ static void sendto_all(nw_ses *ses, rpc_pkg *pkg)
     }
 
     sendto_clt_pkg(writer_clt, ses, pkg);
-    for (int i = 0; i < settings.reader_num; ++i) {
+    for (int i = 0; i < settings.reader_num + 1; ++i) {
         sendto_clt_pkg(reader_clt_arr[i], ses, pkg);
     }
 }
@@ -323,8 +323,8 @@ static int init_worker_clt()
     if (rpc_clt_start(writer_clt) < 0)
             return -__LINE__;
 
-    reader_clt_arr = malloc(sizeof(void *) * settings.reader_num);
-    for (int i = 0; i < settings.reader_num; ++i) {
+    reader_clt_arr = malloc(sizeof(void *) * (settings.reader_num + 1));
+    for (int i = 0; i < settings.reader_num + 1; ++i) {
         sds name = sdsempty();
         name = sdscatprintf(name, "reader_clt_%d", i);
 
@@ -358,7 +358,7 @@ static sds on_cmd_status(const char *cmd, int argc, sds *argv)
         reply = sdscatprintf(reply, "writer dead\n");
     }
 
-    for (int i = 0; i < settings.reader_num; ++i) {
+    for (int i = 0; i < settings.reader_num + 1; ++i) {
         if (rpc_clt_connected(reader_clt_arr[i])) {
             reply = sdscatprintf(reply, "reader: %u ok\n", i);
         } else {

@@ -31,7 +31,7 @@ static int push_operlog(const char *method, json_t *params)
     json_decref(data);
 
     log_trace("operlog: %s", detail);
-    for (int i = 0; i < settings.reader_num; ++i) {
+    for (int i = 0; i < settings.reader_num + 1; ++i) {
         queue_push(&queue_writers[i], detail, strlen(detail));
     }
     append_operlog(detail);
@@ -875,7 +875,7 @@ invalid_argument:
 
 static bool is_queue_block()
 {
-    for (int i = 0; i < settings.reader_num; i++) {
+    for (int i = 0; i < settings.reader_num + 1; i++) {
         uint32_t left = queue_left(&queue_writers[i]);
         if (left <= QUEUE_MEM_MIN) {
             log_error("queue: %d block, mem left: %u", i, left);
@@ -1090,7 +1090,7 @@ static sds queue_status(sds reply)
 {
     uint32_t mem_num = 0;
     uint32_t mem_size = 0;
-    for (int i = 0; i < settings.reader_num; i++) {
+    for (int i = 0; i < settings.reader_num + 1; i++) {
         queue_stat(&queue_writers[i], &mem_num, &mem_size);
         reply = sdscatprintf(reply, "queue: %d, used num: %u, used size: %u\n", i, mem_num, mem_size);
     }
@@ -1177,8 +1177,8 @@ static int init_cli()
 
 static int init_queue()
 {
-    queue_writers = (queue_t *)malloc(sizeof(queue_t) * settings.reader_num);
-    memset(queue_writers, 0, sizeof(queue_t) * settings.reader_num);
+    queue_writers = (queue_t *)malloc(sizeof(queue_t) * (settings.reader_num + 1));
+    memset(queue_writers, 0, sizeof(queue_t) * (settings.reader_num + 1));
 
     for (int i = 0; i < settings.reader_num + 1; ++i) {
         sds queue_name = sdsempty();
