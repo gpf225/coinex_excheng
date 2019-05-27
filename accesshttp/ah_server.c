@@ -360,7 +360,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("asset.list", matchengine, CMD_ASSET_LIST));
     ERR_RET_LN(add_handler("asset.query", matchengine, CMD_ASSET_QUERY));
     ERR_RET_LN(add_handler("asset.update", matchengine, CMD_ASSET_UPDATE));
-    ERR_RET_LN(add_handler("asset.summary", matchengine, CMD_ASSET_SUMMARY))
+    ERR_RET_LN(add_handler("asset.summary", matchengine, CMD_ASSET_SUMMARY));
     ERR_RET_LN(add_handler("asset.history", readhistory, CMD_ASSET_HISTORY));
     ERR_RET_LN(add_handler("asset.lock", matchengine, CMD_ASSET_LOCK));
     ERR_RET_LN(add_handler("asset.unlock", matchengine, CMD_ASSET_UNLOCK));
