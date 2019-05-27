@@ -144,7 +144,10 @@ int fini_operlog(void)
 {
     on_timer(NULL, NULL);
 
-    usleep(100 * 1000);
+    while (job->request_count != 0) {
+        usleep(100 * 1000);
+        continue;
+    }
     nw_job_release(job);
 
     return 0;
