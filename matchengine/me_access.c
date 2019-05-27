@@ -71,6 +71,21 @@ static void sendto_reader(nw_ses *ses, rpc_pkg *pkg, const char *market, uint64_
     profile_inc(str, 1);
 }
 
+static void sendto_reader_summary(nw_ses *ses, rpc_pkg *pkg)
+{
+    int reader_id = settings.reader_num;
+    if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
+        reply_error_internal_error(ses, pkg);
+        log_fatal("lose connection to summary reader: %d", reader_id);
+        return;
+    }
+
+    sendto_clt_pkg(reader_clt_arr[reader_id], ses, pkg);
+    char str[100];
+    snprintf(str, sizeof(str), "access_to_reader_%d", reader_id);
+    profile_inc(str, 1);
+}
+
 static void sendto_all(nw_ses *ses, rpc_pkg *pkg)
 {
     if (!rpc_clt_connected(writer_clt)) {
@@ -164,6 +179,11 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         sendto_reader(ses, pkg, NULL, 0);
         break;
 
+    case CMD_ASSET_SUMMARY:
+    case CMD_MARKET_SUMMARY:
+        sendto_reader_summary(ses, pkg);
+        break;
+
     case CMD_ORDER_PENDING_DETAIL:
         if (json_array_size(params) != 2 || !json_is_integer(json_array_get(params, 1))) {
             reply_error_invalid_argument(ses, pkg);
@@ -172,7 +192,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         uint64_t order_id = json_integer_value(json_array_get(params, 1));
         sendto_reader(ses, pkg, NULL, order_id);
         break;
-
     default:
         profile_inc("method_not_found", 1);
         log_error("from: %s unknown command: %u", nw_sock_human_addr(&ses->peer_addr), pkg->command);

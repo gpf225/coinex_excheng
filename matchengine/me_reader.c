@@ -11,6 +11,7 @@
 # include "me_reply.h"
 # include "me_load.h"
 # include "ut_queue.h"
+# include "ut_comm_dict.h"
 
 static rpc_svr *svr;
 static cli_svr *svrcli;
@@ -261,6 +262,73 @@ static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     int ret = reply_result(ses, pkg, result);
     json_decref(result);
+    return ret;
+}
+
+static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return reply_error_invalid_argument(ses, pkg);
+
+    const char *asset = json_string_value(json_array_get(params, 0));
+    if (!asset || !asset_exist(asset)) {
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    int total_users, available_users, lock_users, frozen_users = 0;
+    mpd_t *total     = mpd_qncopy(mpd_zero);
+    mpd_t *available = mpd_qncopy(mpd_zero);
+    mpd_t *frozen    = mpd_qncopy(mpd_zero);
+    mpd_t *lock      = mpd_qncopy(mpd_zero);
+
+    dict_t *distinct_dict = uint32_set_create();
+    dict_iterator *iter = dict_get_iterator(dict_balance);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        struct balance_key *key = entry->key;
+        if (strcmp(key->asset, asset) != 0) {
+            continue;
+        }
+
+        mpd_t *balance = entry->val;
+        mpd_add(total, total, balance, &mpd_ctx);
+        if (key->type == BALANCE_TYPE_AVAILABLE) {
+            available_users++;
+            mpd_add(available, available, balance, &mpd_ctx);
+        } else if (key->type == BALANCE_TYPE_FROZEN) {
+            lock_users++;
+            mpd_add(frozen, frozen, balance, &mpd_ctx);
+        } else {
+            frozen_users++;
+            mpd_add(lock, lock, balance, &mpd_ctx);
+        }
+
+        uint32_t user_id = key->user_id;
+        if (!uint32_set_exist(distinct_dict, user_id)) {
+            uint32_set_add(distinct_dict, user_id);
+        }
+    }
+    total_users = uint32_set_num(distinct_dict);
+    dict_release_iterator(iter);
+    uint32_set_release(distinct_dict);
+
+    json_t *result = json_object();
+    json_object_set_new(result, "total_users", json_integer(total_users));
+    json_object_set_new(result, "available_users", json_integer(available_users));
+    json_object_set_new(result, "lock_users", json_integer(lock_users));
+    json_object_set_new(result, "frozen_users", json_integer(frozen_users));
+    json_object_set_new_mpd(result, "total", total);
+    json_object_set_new_mpd(result, "available", available);
+    json_object_set_new_mpd(result, "frozen", frozen);
+    json_object_set_new_mpd(result, "lock", lock);
+
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+
+    mpd_del(total);
+    mpd_del(available);
+    mpd_del(frozen);
+    mpd_del(lock);
     return ret;
 }
 
@@ -828,6 +896,122 @@ static int on_cmd_market_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+static int on_cmd_market_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // market
+    if (!json_is_string(json_array_get(params, 0)))
+        return reply_error_invalid_argument(ses, pkg);
+    const char *market_name = json_string_value(json_array_get(params, 0));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return reply_error_invalid_argument(ses, pkg);
+
+    int order_ask_users, order_bid_users, stop_ask_users, stop_bid_users = 0;
+    mpd_t *order_ask_amount = mpd_qncopy(mpd_zero);
+    mpd_t *order_bid_amount = mpd_qncopy(mpd_zero);
+    mpd_t *order_ask_left = mpd_qncopy(mpd_zero);
+    mpd_t *order_bid_left = mpd_qncopy(mpd_zero);
+    mpd_t *stop_ask_amount = mpd_qncopy(mpd_zero);
+    mpd_t *stop_bid_amount = mpd_qncopy(mpd_zero);
+
+    //ask orders
+    dict_t *distinct_dict = uint32_set_create();
+    skiplist_node *node;
+    skiplist_iter *iter = skiplist_get_iterator(market->asks);
+    for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
+        order_t *order = node->value;
+        mpd_add(order_ask_amount, order_ask_amount, order->amount, &mpd_ctx);
+        mpd_add(order_ask_left, order_ask_left, order->left, &mpd_ctx);
+        if (!uint32_set_exist(distinct_dict, order->user_id)) {
+            uint32_set_add(distinct_dict, order->user_id);
+        }
+    }
+    order_ask_users = uint32_set_num(distinct_dict);
+    uint32_set_clear(distinct_dict);
+    skiplist_release_iterator(iter);
+
+    //bid orders
+    iter = skiplist_get_iterator(market->bids);
+    for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
+        order_t *order = node->value;
+        mpd_add(order_bid_amount, order_bid_amount, order->amount, &mpd_ctx);
+        mpd_add(order_bid_left, order_bid_left, order->left, &mpd_ctx);
+        if (!uint32_set_exist(distinct_dict, order->user_id)) {
+            uint32_set_add(distinct_dict, order->user_id);
+        }
+    }
+    order_bid_users = uint32_set_num(distinct_dict);
+    uint32_set_clear(distinct_dict);
+    skiplist_release_iterator(iter);
+
+    //ask stops
+    iter = skiplist_get_iterator(market->stop_asks);
+    for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
+        stop_t *stop = node->value;
+        mpd_add(stop_ask_amount, stop_ask_amount, stop->amount, &mpd_ctx);
+        if (!uint32_set_exist(distinct_dict, stop->user_id)) {
+            uint32_set_add(distinct_dict, stop->user_id);
+        }
+    }
+    stop_ask_users = uint32_set_num(distinct_dict);
+    uint32_set_clear(distinct_dict);
+    skiplist_release_iterator(iter);
+
+    //bid stops
+    iter = skiplist_get_iterator(market->stop_bids);
+    for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
+        stop_t *stop = node->value;
+        mpd_add(stop_bid_amount, stop_bid_amount, stop->amount, &mpd_ctx);
+        if (!uint32_set_exist(distinct_dict, stop->user_id)) {
+            uint32_set_add(distinct_dict, stop->user_id);
+        }
+    }
+    stop_bid_users = uint32_set_num(distinct_dict);
+    uint32_set_release(distinct_dict);
+    skiplist_release_iterator(iter);
+
+    json_t *result = json_array();
+
+    json_object_set_new(result, "order_users", json_integer(dict_size(market->user_orders)));
+    json_object_set_new(result, "order_ask_users", json_integer(order_ask_users));
+    json_object_set_new(result, "order_bid_users", json_integer(order_bid_users));
+
+    json_object_set_new(result, "stop_users", json_integer(dict_size(market->user_stops)));
+    json_object_set_new(result, "stop_ask_users", json_integer(stop_ask_users));
+    json_object_set_new(result, "stop_bid_users", json_integer(stop_bid_users));
+
+    json_object_set_new(result, "orders", json_integer(dict_size(market->orders)));
+    json_object_set_new(result, "stops", json_integer(dict_size(market->stops)));
+
+    json_object_set_new(result, "order_asks", json_integer(skiplist_len(market->asks)));
+    json_object_set_new_mpd(result, "order_ask_amount", order_ask_amount);
+    json_object_set_new_mpd(result, "order_ask_left", order_ask_left);
+
+    json_object_set_new(result, "order_bids", json_integer(skiplist_len(market->bids)));
+    json_object_set_new_mpd(result, "order_bid_amount", order_bid_amount);
+    json_object_set_new_mpd(result, "order_bid_left", order_bid_left);
+
+    json_object_set_new(result, "stop_asks", json_integer(skiplist_len(market->stop_asks)));
+    json_object_set_new_mpd(result, "stop_ask_amount", stop_ask_amount);
+
+    json_object_set_new(result, "stop_bids", json_integer(skiplist_len(market->stop_bids)));
+    json_object_set_new_mpd(result, "stop_bid_amount", stop_bid_amount);
+
+    mpd_del(order_ask_amount);
+    mpd_del(order_bid_amount);
+    mpd_del(order_ask_left);
+    mpd_del(order_bid_left);
+    mpd_del(stop_ask_amount);
+    mpd_del(stop_bid_amount);
+
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
 static int on_cmd_update_asset_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     int ret;
@@ -854,12 +1038,28 @@ static int on_cmd_update_market_config(nw_ses *ses, rpc_pkg *pkg, json_t *params
     return reply_success(ses, pkg);
 }
 
+static bool check_valid_command(uint32_t command)
+{
+    if (reader_id != settings.reader_num && (command == CMD_ASSET_SUMMARY || command == CMD_MARKET_SUMMARY)) {
+        return false;
+    }
+    return true;
+}
+
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
+    if (!check_valid_command(pkg->command)) {
+        reply_error_internal_error(ses, pkg);
+        log_error("reader: %d, connection: %s, recv invalid cmd: %u", reader_id, nw_sock_human_addr(&ses->peer_addr), pkg->command);
+        rpc_svr_close_clt(svr, ses);
+        return;
+    }
+
     json_t *params = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (params == NULL || !json_is_array(params)) {
         goto decode_error;
     }
+
     sds params_str = sdsnewlen(pkg->body, pkg->body_size);
 
     int ret;
@@ -883,6 +1083,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_asset_query_lock(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_query_lock %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_SUMMARY:
+        profile_inc("cmd_asset_summary", 1);
+        ret = on_cmd_asset_summary(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_summary %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_PENDING:
@@ -932,6 +1139,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_market_list(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_list %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_MARKET_SUMMARY:
+        profile_inc("cmd_market_summary", 1);
+        ret = on_cmd_market_summary(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_market_summary %s fail: %d", params_str, ret);
         }
         break;
     case CMD_CONFIG_UPDATE_ASSET:

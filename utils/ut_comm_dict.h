@@ -20,6 +20,7 @@ dict_t *uint32_set_create(void);
 void uint32_set_add(dict_t *set, uint32_t value);
 bool uint32_set_exist(dict_t *set, uint32_t value);
 size_t uint32_set_num(dict_t *set);
+void uint32_set_clear(dict_t *set);
 void uint32_set_release(dict_t *set);
 
 uint32_t str_dict_hash_function(const void *key);

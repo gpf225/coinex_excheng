@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
         goto run;
     }
 
-    for (int i = 0; i < settings.reader_num; ++i) {
+    for (int i = 0; i < settings.reader_num + 1; ++i) {
         pid = fork();
         if (pid < 0) {
             error(EXIT_FAILURE, errno, "fork error");

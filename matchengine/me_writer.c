@@ -1180,7 +1180,7 @@ static int init_queue()
     queue_writers = (queue_t *)malloc(sizeof(queue_t) * settings.reader_num);
     memset(queue_writers, 0, sizeof(queue_t) * settings.reader_num);
 
-    for (int i = 0; i < settings.reader_num; ++i) {
+    for (int i = 0; i < settings.reader_num + 1; ++i) {
         sds queue_name = sdsempty();
         queue_name = sdscatprintf(queue_name, "%s_%d", QUEUE_NAME, i);
 
