@@ -129,6 +129,28 @@ asset list(optional, if no asset special, return all asset)
 }
 ```
 
+**Asset summary**
+* method: `asset.summary`
+* params:
+1. asset
+* result:
+```
+{
+	'id': 1, 
+	'result': {
+		'total_users': 10,
+		'available_users': 10,
+		'lock_users': 10,
+		'frozen_users': 10,
+		'total': '100',
+		'available': '100',
+		'frozen': '100',
+		'lock': 11
+	}, 
+	'error': null
+}
+```
+
 **Asset query all**
 * method: `asset.query_all`
 * params:
@@ -775,6 +797,38 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
     }
     ...
 ]
+```
+
+**Market summary**
+* method: `market.summary`
+* params:
+1. market
+* result:
+```
+{
+	'id': 1,
+	'result': {
+		'order_users': 10,
+		'order_ask_users': 10,
+		'order_bid_users': 10,
+		'stop_users': 10,
+		'stop_ask_users': 10,
+		'stop_bid_users': 10,
+		'orders': 10,
+		'stops': 10,
+		'order_asks': 10,
+		'order_ask_amount': '10.10',
+		'order_ask_left': '100.10',
+		'order_bids': '100.10',
+		'order_bid_amount': '100.10',
+		'order_bid_left': '100.10',
+		'stop_asks': '1000.10',
+		'stop_ask_amount': '100.10',
+		'stop_bids': '100.10',
+		'stop_bid_amount': '100.10'
+	},
+	'error': null
+}
 ```
 
 **Executed history extend**
