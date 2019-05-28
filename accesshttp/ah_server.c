@@ -361,6 +361,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("asset.query", matchengine, CMD_ASSET_QUERY));
     ERR_RET_LN(add_handler("asset.query_all", matchengine, CMD_ASSET_QUERY_ALL));
     ERR_RET_LN(add_handler("asset.update", matchengine, CMD_ASSET_UPDATE));
+    ERR_RET_LN(add_handler("asset.summary", matchengine, CMD_ASSET_SUMMARY));
     ERR_RET_LN(add_handler("asset.history", readhistory, CMD_ASSET_HISTORY));
     ERR_RET_LN(add_handler("asset.lock", matchengine, CMD_ASSET_LOCK));
     ERR_RET_LN(add_handler("asset.unlock", matchengine, CMD_ASSET_UNLOCK));
@@ -385,6 +386,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.stop_book", matchengine, CMD_ORDER_STOP_BOOK));
 
     ERR_RET_LN(add_handler("market.list", matchengine, CMD_MARKET_LIST));
+    ERR_RET_LN(add_handler("market.summary", matchengine, CMD_MARKET_SUMMARY));
     ERR_RET_LN(add_handler("market.last", marketprice, CMD_MARKET_LAST));
     ERR_RET_LN(add_handler("market.kline", marketprice, CMD_MARKET_KLINE));
     ERR_RET_LN(add_handler("market.status", marketprice, CMD_MARKET_STATUS));
