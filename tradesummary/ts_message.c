@@ -242,17 +242,29 @@ static void dict_user_detail_val_free(void *val)
 static void trade_rank_val_free(void *val)
 {
     struct trade_rank_val *obj = val;
-    mpd_del(obj->amount);
-    mpd_del(obj->amount_net);
+    if (obj->amount)
+        mpd_del(obj->amount);
+    if (obj->amount_net)
+        mpd_del(obj->amount_net);
     free(obj);
 }
 
-// trade rank compare
-static int trade_rank_val_compare(const void *val1, const void *val2)
+// trade net rank compare
+static int trade_net_rank_val_compare(const void *val1, const void *val2)
 {
     const struct trade_rank_val *obj1 = val1;
     const struct trade_rank_val *obj2 = val2;
     if (mpd_cmp(obj1->amount_net, obj2->amount_net, &mpd_ctx) > 0)
+        return -1;
+    return 1;
+}
+
+// trade amount rank compare
+static int trade_amount_rank_val_compare(const void *val1, const void *val2)
+{
+    const struct trade_rank_val *obj1 = val1;
+    const struct trade_rank_val *obj2 = val2;
+    if (mpd_cmp(obj1->amount, obj2->amount, &mpd_ctx) > 0)
         return -1;
     return 1;
 }
@@ -1300,7 +1312,7 @@ static int update_trade_detail(dict_t *dict, time_t start_time, time_t end_time,
     return 0;
 }
 
-json_t *get_trade_rank(json_t *market_list, time_t start_time, time_t end_time)
+json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_time)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
@@ -1322,7 +1334,7 @@ json_t *get_trade_rank(json_t *market_list, time_t start_time, time_t end_time)
     skiplist_type st;
     memset(&st, 0, sizeof(st));
     st.free = trade_rank_val_free;
-    st.compare = trade_rank_val_compare;
+    st.compare = trade_net_rank_val_compare;
 
     skiplist_t *buy_list = skiplist_create(&st);
     skiplist_t *sell_list = skiplist_create(&st);
@@ -1393,6 +1405,100 @@ json_t *get_trade_rank(json_t *market_list, time_t start_time, time_t end_time)
     json_t *result = json_object();
     json_object_set_new(result, "buy", net_buy);
     json_object_set_new(result, "sell", net_sell);
+
+    return result;
+}
+
+json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end_time)
+{
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function    = dict_user_key_hash_func;
+    dt.key_compare      = dict_user_key_compare;
+    dt.key_dup          = dict_user_key_dup;
+    dt.key_destructor   = dict_user_key_free;
+    dt.val_destructor   = dict_user_detail_val_free;
+
+    dict_t *dict = dict_create(&dt, 1024);
+    if (dict == NULL)
+        return NULL;
+
+    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+        const char *market_name = json_string_value(json_array_get(market_list, i));
+        update_trade_detail(dict, start_time, end_time, market_name);
+    }
+
+    skiplist_type st;
+    memset(&st, 0, sizeof(st));
+    st.free = trade_rank_val_free;
+    st.compare = trade_amount_rank_val_compare;
+
+    skiplist_t *buy_amount_list = skiplist_create(&st);
+    skiplist_t *sell_amount_list = skiplist_create(&st);
+
+    dict_entry *entry;
+    dict_iterator *diter = dict_get_iterator(dict);
+    while ((entry = dict_next(diter)) != NULL) {
+        struct user_key *ukey = entry->key;
+        struct user_detail_val *user_detail = entry->val;
+
+        struct trade_rank_val *buy_rank_detail = malloc(sizeof(struct trade_rank_val));
+        memset(buy_rank_detail, 0, sizeof(struct trade_rank_val));
+        buy_rank_detail->user_id = ukey->user_id;
+        buy_rank_detail->amount = mpd_qncopy(user_detail->buy_amount);
+        skiplist_insert(buy_amount_list, buy_rank_detail);
+
+        struct trade_rank_val *sell_rank_detail = malloc(sizeof(struct trade_rank_val));
+        memset(sell_rank_detail, 0, sizeof(struct trade_rank_val));
+        sell_rank_detail->user_id = ukey->user_id;
+        sell_rank_detail->amount = mpd_qncopy(user_detail->sell_amount);
+        skiplist_insert(sell_amount_list, sell_rank_detail);
+    }
+    dict_release_iterator(diter);
+    dict_release(dict);
+
+    skiplist_node *node;
+    skiplist_iter *siter;
+    size_t count;
+    size_t reply_limit = 500;
+
+    count = 0;
+    json_t *amount_buy = json_array();
+    siter = skiplist_get_iterator(buy_amount_list);
+    while ((node = skiplist_next(siter)) != NULL) {
+        struct trade_rank_val *val = node->value;
+        json_t *item = json_object();
+        json_object_set_new_mpd(item, "amount", val->amount);
+        json_object_set_new    (item, "user_id", json_integer(val->user_id));
+        json_array_append_new(amount_buy, item);
+
+        count += 1;
+        if (count >= reply_limit)
+            break;
+    }
+    skiplist_release_iterator(siter);
+
+    count = 0;
+    json_t *amount_sell = json_array();
+    siter = skiplist_get_iterator(sell_amount_list);
+    while ((node = skiplist_next(siter)) != NULL) {
+        struct trade_rank_val *val = node->value;
+        json_t *item = json_object();
+        json_object_set_new_mpd(item, "amount", val->amount);
+        json_object_set_new    (item, "user_id", json_integer(val->user_id));
+        json_array_append_new(amount_sell, item);
+
+        count += 1;
+        if (count >= reply_limit)
+            break;
+    }
+    skiplist_release_iterator(siter);
+    skiplist_release(buy_amount_list);
+    skiplist_release(sell_amount_list);
+
+    json_t *result = json_object();
+    json_object_set_new(result, "buy", amount_buy);
+    json_object_set_new(result, "sell", amount_sell);
 
     return result;
 }
