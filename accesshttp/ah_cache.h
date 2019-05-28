@@ -1,6 +1,8 @@
 # ifndef _AH_CACHE_H_
 # define _AH_CACHE_H_
 
+# include "ah_config.h"
+
 struct cache_val {
     uint64_t    time_cache;
     json_t      *result;
