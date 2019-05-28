@@ -31,6 +31,7 @@ typedef struct kafka_consumer_t {
     struct ev_loop *loop;
     int pipefd[2];
     bool running;
+    bool suspend;
     bool shutdown;
     pthread_mutex_t lock;
     pthread_t thread;
@@ -45,6 +46,8 @@ typedef struct kafka_consumer_t {
 } kafka_consumer_t;
 
 kafka_consumer_t *kafka_consumer_create(kafka_consumer_cfg *cfg, kafka_message_callback callback);
+void kafka_consumer_suspend(kafka_consumer_t *consumer);
+void kafka_consumer_resume(kafka_consumer_t *consumer);
 void kafka_consumer_release(kafka_consumer_t *consumer);
 int kafka_query_offset(kafka_consumer_t *consumer, int64_t *low, int64_t *high);
 

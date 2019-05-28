@@ -179,6 +179,9 @@ static void on_request_callback(uint32_t id, const char *exchange, json_t *reply
             log_debug("exchange: %s, price: %s, time: %lf", exchange, strmpd(buf, sizeof(buf), price), price_time);
             update_market_index(state->market, exchange, state->request_time, price, price_time);
         }
+        profile_inc("request_success", 1);
+    } else {
+        profile_inc("request_fail", 1);
     }
 
     state->finished_count += 1;
@@ -332,7 +335,7 @@ bool market_exists(const char *market_name)
 
 json_t *get_market_list(void)
 {
-    json_t *result = json_array();
+    json_t *result = json_object();
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
@@ -342,10 +345,9 @@ json_t *get_market_list(void)
             continue;
 
         json_t *item = json_object();
-        json_object_set_new(item, "name", json_string(market_name));
+        json_object_set_new(item, "time", json_integer(info->last_index_time * 1000));
         json_object_set_new_mpd(item, "index", info->last_index);
-        json_object_set_new(item, "timestamp", json_integer(info->last_index_time));
-        json_array_append_new(result, item);
+        json_object_set_new(result, market_name, item);
     }
     dict_release_iterator(iter);
 
@@ -363,8 +365,8 @@ json_t *get_market_index(const char *market_name)
 
     json_t *result = json_object();
     json_object_set_new(result, "name", json_string(market_name));
+    json_object_set_new(result, "time", json_integer(info->last_index_time * 1000));
     json_object_set_new_mpd(result, "index", info->last_index);
-    json_object_set_new(result, "timestamp", json_integer(info->last_index_time));
 
     return result;
 }

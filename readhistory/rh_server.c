@@ -27,54 +27,6 @@ struct job_reply {
     json_t  *result;
 };
 
-struct mysql_connection {
-    MYSQL **connections;
-    int size;
-};
-
-static struct mysql_connection* mysql_connection_create(void)
-{
-    struct mysql_connection *val = malloc(sizeof(struct mysql_connection));
-    if (val == NULL) {
-        return NULL;
-    }
-    val->size = settings.db_histories.count;
-    val->connections = malloc(sizeof(MYSQL *) * val->size);
-    if (val->connections == NULL) {
-        free(val);
-        return NULL;
-    }
-
-    for (int i = 0; i < val->size; ++i) {
-        MYSQL *conn = mysql_connect(&settings.db_histories.configs[i]);
-        if (conn == NULL) {
-            for (int j = 0; j < i; ++j) {
-                mysql_close(val->connections[j]);
-            }
-            free(val->connections);
-            free(val);
-            return NULL;
-        }
-        val->connections[i] = conn;
-    }
-    return val;
-}
-
-static void mysql_connection_release(struct mysql_connection *val)
-{
-    for (int i = 0; i < val->size; ++i) {
-        mysql_close(val->connections[i]);
-    }
-    free(val->connections);
-    free(val);
-}
-
-static MYSQL* mysql_connection_get(struct mysql_connection *val, uint32_t user_id)
-{
-    uint32_t no = (user_id % (val->size * HISTORY_HASH_NUM)) / HISTORY_HASH_NUM;
-    return val->connections[no];
-}
-
 static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
     char *message_data;
@@ -100,6 +52,7 @@ static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 
 static int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
 {
+    profile_inc("error", 1);
     json_t *error = json_object();
     json_object_set_new(error, "code", json_integer(code));
     json_object_set_new(error, "message", json_string(message));
@@ -132,6 +85,7 @@ static int reply_error_service_unavailable(nw_ses *ses, rpc_pkg *pkg)
 
 static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
 {
+    profile_inc("success", 1);
     json_t *reply = json_object();
     json_object_set_new(reply, "error", json_null());
     json_object_set    (reply, "result", result);
@@ -143,35 +97,31 @@ static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     return ret;
 }
 
-static void *on_job_init(void)
-{
-    return mysql_connection_create();
-}
-
 static int on_cmd_balance_history(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 7)
+    if (json_array_size(params) != 8)
         goto invalid_argument;
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id == 0)
         goto invalid_argument;
-    const char *asset = json_string_value(json_array_get(params, 1));
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+    const char *asset = json_string_value(json_array_get(params, 2));
     if (asset == NULL)
         goto invalid_argument;
-    const char *business = json_string_value(json_array_get(params, 2));
+    const char *business = json_string_value(json_array_get(params, 3));
     if (business == NULL)
         goto invalid_argument;
-    uint64_t start_time = json_integer_value(json_array_get(params, 3));
-    uint64_t end_time   = json_integer_value(json_array_get(params, 4));
+    uint64_t start_time = json_integer_value(json_array_get(params, 4));
+    uint64_t end_time   = json_integer_value(json_array_get(params, 5));
     if (end_time && start_time > end_time)
         goto invalid_argument;
-    size_t offset = json_integer_value(json_array_get(params, 5));
-    size_t limit  = json_integer_value(json_array_get(params, 6));
+    size_t offset = json_integer_value(json_array_get(params, 6));
+    size_t limit  = json_integer_value(json_array_get(params, 7));
     if (limit == 0 || limit > QUERY_LIMIT)
         goto invalid_argument;
 
-    json_t *records = get_user_balance_history(conn, user_id, asset, business, start_time, end_time, offset, limit);
+    json_t *records = get_user_balance_history(conn, user_id, account, asset, business, start_time, end_time, offset, limit);
     if (records == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
@@ -200,28 +150,29 @@ invalid_argument:
 
 static int on_cmd_order_history(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 7)
+    if (json_array_size(params) != 8)
         goto invalid_argument;
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id == 0)
         goto invalid_argument;
-    const char *market = json_string_value(json_array_get(params, 1));
+    int32_t account = json_integer_value(json_array_get(params, 1));
+    const char *market = json_string_value(json_array_get(params, 2));
     if (market == NULL)
         goto invalid_argument;
-    int side = json_integer_value(json_array_get(params, 2));
+    int side = json_integer_value(json_array_get(params, 3));
     if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
         goto invalid_argument;
-    uint64_t start_time = json_integer_value(json_array_get(params, 3));
-    uint64_t end_time   = json_integer_value(json_array_get(params, 4));
+    uint64_t start_time = json_integer_value(json_array_get(params, 4));
+    uint64_t end_time   = json_integer_value(json_array_get(params, 5));
     if (end_time && start_time > end_time)
         goto invalid_argument;
-    size_t offset = json_integer_value(json_array_get(params, 5));
-    size_t limit  = json_integer_value(json_array_get(params, 6));
+    size_t offset = json_integer_value(json_array_get(params, 6));
+    size_t limit  = json_integer_value(json_array_get(params, 7));
     if (limit == 0 || limit > QUERY_LIMIT)
         goto invalid_argument;
 
-    json_t *records = get_user_order_history(conn, user_id, market, side, start_time, end_time, offset, limit);
+    json_t *records = get_user_order_history(conn, user_id, account, market, side, start_time, end_time, offset, limit);
     if (records == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
@@ -250,28 +201,29 @@ invalid_argument:
 
 static int on_cmd_stop_history(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 7)
+    if (json_array_size(params) != 8)
         goto invalid_argument;
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id == 0)
         goto invalid_argument;
-    const char *market = json_string_value(json_array_get(params, 1));
+    int32_t account = json_integer_value(json_array_get(params, 1));
+    const char *market = json_string_value(json_array_get(params, 2));
     if (market == NULL)
         goto invalid_argument;
-    int side = json_integer_value(json_array_get(params, 2));
+    int side = json_integer_value(json_array_get(params, 3));
     if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
         goto invalid_argument;
-    uint64_t start_time = json_integer_value(json_array_get(params, 3));
-    uint64_t end_time   = json_integer_value(json_array_get(params, 4));
+    uint64_t start_time = json_integer_value(json_array_get(params, 4));
+    uint64_t end_time   = json_integer_value(json_array_get(params, 5));
     if (end_time && start_time > end_time)
         goto invalid_argument;
-    size_t offset = json_integer_value(json_array_get(params, 5));
-    size_t limit  = json_integer_value(json_array_get(params, 6));
+    size_t offset = json_integer_value(json_array_get(params, 6));
+    size_t limit  = json_integer_value(json_array_get(params, 7));
     if (limit == 0 || limit > QUERY_LIMIT)
         goto invalid_argument;
 
-    json_t *records = get_user_stop_history(conn, user_id, market, side, start_time, end_time, offset, limit);
+    json_t *records = get_user_stop_history(conn, user_id, account, market, side, start_time, end_time, offset, limit);
     if (records == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
@@ -300,20 +252,21 @@ invalid_argument:
 
 static int on_cmd_order_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 4)
+    if (json_array_size(params) != 5)
         goto invalid_argument;
     uint64_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id == 0)
         goto invalid_argument;
-    uint64_t order_id = json_integer_value(json_array_get(params, 1));
+    int32_t account = json_integer_value(json_array_get(params, 1));
+    uint64_t order_id = json_integer_value(json_array_get(params, 2));
     if (order_id == 0)
         goto invalid_argument;
-    size_t offset = json_integer_value(json_array_get(params, 2));
-    size_t limit  = json_integer_value(json_array_get(params, 3));
+    size_t offset = json_integer_value(json_array_get(params, 3));
+    size_t limit  = json_integer_value(json_array_get(params, 4));
     if (limit == 0 || limit > QUERY_LIMIT)
         goto invalid_argument;
 
-    json_t *records = get_order_deals(conn, user_id, order_id, offset, limit);
+    json_t *records = get_order_deals(conn, user_id, account, order_id, offset, limit);
     if (records == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
@@ -374,28 +327,29 @@ invalid_argument:
 
 static int on_cmd_user_deals(MYSQL *conn, json_t *params, struct job_reply *rsp)
 {
-    if (json_array_size(params) != 7)
+    if (json_array_size(params) != 8)
         goto invalid_argument;
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id == 0)
         goto invalid_argument;
-    const char *market = json_string_value(json_array_get(params, 1));
+    int32_t account = json_integer_value(json_array_get(params, 1));
+    const char *market = json_string_value(json_array_get(params, 2));
     if (market == NULL)
         goto invalid_argument;
-    int side = json_integer_value(json_array_get(params, 2));
+    int side = json_integer_value(json_array_get(params, 3));
     if (side != 0 && side != MARKET_TRADE_SIDE_SELL && side != MARKET_TRADE_SIDE_BUY)
         goto invalid_argument;
-    uint64_t start_time = json_integer_value(json_array_get(params, 3));
-    uint64_t end_time   = json_integer_value(json_array_get(params, 4));
+    uint64_t start_time = json_integer_value(json_array_get(params, 4));
+    uint64_t end_time   = json_integer_value(json_array_get(params, 5));
     if (end_time && start_time > end_time)
         goto invalid_argument;
-    size_t offset = json_integer_value(json_array_get(params, 5));
-    size_t limit  = json_integer_value(json_array_get(params, 6));
+    size_t offset = json_integer_value(json_array_get(params, 6));
+    size_t limit  = json_integer_value(json_array_get(params, 7));
     if (limit == 0 || limit > QUERY_LIMIT)
         goto invalid_argument;
 
-    json_t *records = get_user_deal_history(conn, user_id, market, side, start_time, end_time, offset, limit);
+    json_t *records = get_user_deal_history(conn, user_id, account, market, side, start_time, end_time, offset, limit);
     if (records == NULL) {
         rsp->code = 2;
         rsp->message = sdsnew("internal error");
@@ -422,51 +376,71 @@ invalid_argument:
     return 0;
 }
 
+static void *on_job_init(void)
+{
+    MYSQL **conn_array = calloc(sizeof(void *), settings.db_history_count);
+    for (int i = 0; i < settings.db_history_count; ++i) {
+        conn_array[i] = mysql_connect(&settings.db_histories[i]);
+        if (conn_array[i] == NULL)
+            return NULL;
+    }
+
+    return conn_array;
+}
+
+static MYSQL *mysql_connection_get(MYSQL **conn_array, uint32_t user_id)
+{
+    uint32_t db = (user_id % (settings.db_history_count * HISTORY_HASH_NUM)) / HISTORY_HASH_NUM;
+    return conn_array[db];
+}
+
 static void on_job(nw_job_entry *entry, void *privdata)
 {
     struct job_request *req = entry->request;
-    struct mysql_connection *val = privdata;
-    MYSQL *conn = mysql_connection_get(val, req->user_id);
+    MYSQL *conn = mysql_connection_get(privdata, req->user_id);
     struct job_reply *rsp = malloc(sizeof(struct job_reply));
-    entry->reply = rsp;
-    if (rsp == NULL) {
-        return;
-    }
     memset(rsp, 0, sizeof(struct job_reply));
+    entry->reply = rsp;
 
     int ret;
     switch (req->command) {
     case CMD_ASSET_HISTORY:
+        profile_inc("query_balance_history", 1);
         ret = on_cmd_balance_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_balance_history fail: %d", ret);
         }
         break;
     case CMD_ORDER_FINISHED:
+        profile_inc("query_order_history", 1);
         ret = on_cmd_order_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_history fail: %d", ret);
         }
         break;
     case CMD_ORDER_FINISHED_STOP:
+        profile_inc("query_stop_history", 1);
         ret = on_cmd_stop_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_stop_history fail: %d", ret);
         }
         break;
     case CMD_ORDER_FINISHED_DETAIL:
+        profile_inc("query_order_detail", 1);
         ret = on_cmd_order_detail(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_detail fail: %d", ret);
         }
         break;
     case CMD_ORDER_DEALS:
+        profile_inc("query_order_deals", 1);
         ret = on_cmd_order_deals(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_deals fail: %d", ret);
         }
         break;
     case CMD_MARKET_USER_DEALS:
+        profile_inc("query_user_deals", 1);
         ret = on_cmd_user_deals(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_user_deals fail: %d", ret);
@@ -516,7 +490,10 @@ static void on_job_cleanup(nw_job_entry *entry)
 
 static void on_job_release(void *privdata)
 {
-    mysql_connection_release(privdata);
+    MYSQL **conn_array = privdata;
+    for (int i = 0; i < settings.db_history_count; ++i) {
+        mysql_close(conn_array[i]);
+    };
 }
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)

@@ -25,6 +25,7 @@
 # define CMD_ASSET_UNLOCK               107
 # define CMD_ASSET_QUERY_LOCK           108
 # define CMD_ASSET_BACKUP               109
+# define CMD_ASSET_QUERY_ALL            110
 
 // trade
 # define CMD_ORDER_PUT_LIMIT            201

@@ -6,7 +6,7 @@
 # include "me_config.h"
 # include "me_trade.h"
 
-static dict_t *dict_market;
+dict_t *dict_market;
 static nw_timer timer;
 
 static uint32_t market_dict_hash_function(const void *key)
@@ -31,15 +31,20 @@ static void market_dict_key_free(void *key)
 
 static void status_report(void)
 {
-    size_t count = 0;
+    size_t pending_orders_count = 0;
+    size_t pending_stops_count  = 0;
+
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
         market_t *market = entry->val;
-        count += dict_size(market->orders);
+        pending_orders_count += dict_size(market->orders);
+        pending_stops_count  += dict_size(market->stops);
     }
     dict_release_iterator(iter);
-    profile_set("pending_orders", count);
+
+    profile_set("pending_orders", pending_orders_count);
+    profile_set("pending_stops",  pending_stops_count);
 }
 
 static void on_timer(nw_timer *timer, void *privdata)
@@ -60,17 +65,18 @@ int init_trade(void)
     if (dict_market == NULL)
         return -__LINE__;
 
-    for (size_t i = 0; i < settings.market_num; ++i) {
-        log_stderr("create market: %s", settings.markets[i].name);
-        market_t *m = market_create(&settings.markets[i]);
+    for (size_t i = 0; i < json_array_size(settings.market_cfg); ++i) {
+        json_t *item = json_array_get(settings.market_cfg, i);
+        const char *market_name = json_string_value(json_object_get(item, "name"));
+        log_info("create market: %s", market_name);
+        market_t *m = market_create(item);
         if (m == NULL) {
-            log_stderr("create market: %s fail, stock: %s, money: %s, fee_prec: %d, stock_prec: %d, money_prec: %d",
-                    settings.markets[i].name, settings.markets[i].stock, settings.markets[i].money,
-                    settings.markets[i].fee_prec, settings.markets[i].stock_prec, settings.markets[i].money_prec);
+            char *item_string = json_dumps(item, 0);
+            log_stderr("create market: %s, config: %s fail", market_name, item_string);
+            free(item_string);
             return -__LINE__;
         }
-
-        dict_add(dict_market, settings.markets[i].name, m);
+        dict_add(dict_market, (char *)market_name, m);
     }
 
     nw_timer_set(&timer, 60, true, on_timer, NULL);
@@ -81,15 +87,26 @@ int init_trade(void)
 
 int update_trade(void)
 {
-    for (size_t i = 0; i < settings.market_num; ++i) {
-        dict_entry *entry = dict_find(dict_market, settings.markets[i].name);
+    for (size_t i = 0; i < json_array_size(settings.market_cfg); ++i) {
+        json_t *item = json_array_get(settings.market_cfg, i);
+        const char *market_name = json_string_value(json_object_get(item, "name"));
+        dict_entry *entry = dict_find(dict_market, market_name);
         if (!entry) {
-            market_t *m = market_create(&settings.markets[i]);
-            if (m == NULL)
+            log_info("create market: %s", market_name);
+            market_t *m = market_create(item);
+            if (m == NULL) {
+                char *item_string = json_dumps(item, 0);
+                log_error("create market: %s, config: %s fail", market_name, item_string);
+                free(item_string);
                 return -__LINE__;
-            dict_add(dict_market, settings.markets[i].name, m);
+            }
+            dict_add(dict_market, (char *)market_name, m);
         } else {
-            market_update(entry->val, &settings.markets[i]);
+            char *item_string = json_dumps(item, 0);
+            market_t *m = entry->val;
+            market_update(m, item);
+            log_info("update market: %s, config: %s", market_name, item_string);
+            free(item_string);
         }
     }
 
@@ -135,7 +152,7 @@ mpd_t *get_fee_price(market_t *m, const char *asset)
     }
     
     char name[100];
-    if (strcmp(asset, "CET") == 0) {
+    if (strcmp(asset, SYSTEM_FEE_TOKEN) == 0) {
         if (need_convert(m->money)) {
             snprintf(name, sizeof(name), "%s%s", asset, "USDC");
         } else {
@@ -148,6 +165,29 @@ mpd_t *get_fee_price(market_t *m, const char *asset)
     market_t *m_fee = get_market(name);
     if (m_fee == NULL)
         return NULL;
+
     return m_fee->last;
+}
+
+json_t *get_market_config(void)
+{
+    json_t *result = json_array();
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        market_t *m = entry->val;
+        json_t *info = json_object();
+        json_object_set_new(info, "name", json_string(m->name));
+        json_object_set_new(info, "stock", json_string(m->stock));
+        json_object_set_new(info, "money", json_string(m->money));
+        json_object_set_new(info, "fee_prec", json_integer(m->fee_prec));
+        json_object_set_new(info, "stock_prec", json_integer(m->stock_prec));
+        json_object_set_new(info, "money_prec", json_integer(m->money_prec));
+        json_object_set_new_mpd(info, "min_amount", m->min_amount);
+        json_array_append_new(result, info);
+    }
+    dict_release_iterator(iter);
+
+    return result;
 }
 

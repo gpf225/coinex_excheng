@@ -1,6 +1,7 @@
 CREATE TABLE `slice_balance_example` (
     `id`            INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `user_id`       INT UNSIGNED NOT NULL,
+    `account`       INT UNSIGNED NOT NULL,
     `asset`         VARCHAR(30) NOT NULL,
     `t`             TINYINT UNSIGNED NOT NULL,
     `balance`       DECIMAL(40,20) NOT NULL
@@ -10,6 +11,7 @@ CREATE TABLE `slice_update_example` (
     `id`            INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `create_time`   DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
+    `account`       INT UNSIGNED NOT NULL,
     `asset`         VARCHAR(30) NOT NULL,
     `business`      VARCHAR(30) NOT NULL,
     `business_id`   BIGINT UNSIGNED NOT NULL
@@ -22,6 +24,7 @@ CREATE TABLE `slice_order_example` (
     `create_time`   DOUBLE NOT NULL,
     `update_time`   DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
+    `account`       INT UNSIGNED NOT NULL,
     `market`        VARCHAR(30) NOT NULL,
     `source`        VARCHAR(30) NOT NULL,
     `fee_asset`     VARCHAR(30) NOT NULL,
@@ -45,6 +48,7 @@ CREATE TABLE `slice_stop_example` (
     `create_time`   DOUBLE NOT NULL,
     `update_time`   DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
+    `account`       INT UNSIGNED NOT NULL,
     `market`        VARCHAR(30) NOT NULL,
     `source`        VARCHAR(30) NOT NULL,
     `fee_asset`     VARCHAR(30) NOT NULL,

@@ -147,6 +147,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
 
     case CMD_ASSET_QUERY:
+    case CMD_ASSET_QUERY_ALL:
     case CMD_ASSET_QUERY_LOCK:
     case CMD_ORDER_PENDING:
     case CMD_ORDER_PENDING_STOP:

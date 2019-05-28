@@ -18,6 +18,7 @@ struct sub_unit {
 
 struct state_data {
     uint32_t user_id;
+    uint32_t account;
     char asset[ASSET_NAME_MAX_LEN];
 };
 
@@ -77,6 +78,7 @@ static int on_balance_query_reply(struct state_data *state, json_t *result)
 
     json_t *params = json_array();
     json_array_append(params, result);
+    json_array_append_new(params, json_integer(state->account));
 
     size_t count = 0;
     list_t *list = entry->val;
@@ -237,7 +239,7 @@ int asset_unsubscribe(uint32_t user_id, nw_ses *ses)
     return 0;
 }
 
-int asset_on_update(uint32_t user_id, const char *asset)
+int asset_on_update(uint32_t user_id, uint32_t account, const char *asset)
 {
     void *key = (void *)(uintptr_t)user_id;
     dict_entry *entry = dict_find(dict_sub, key);
@@ -261,11 +263,13 @@ int asset_on_update(uint32_t user_id, const char *asset)
 
     json_t *trade_params = json_array();
     json_array_append_new(trade_params, json_integer(user_id));
+    json_array_append_new(trade_params, json_integer(account));
     json_array_append_new(trade_params, json_string(asset));
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     state->user_id = user_id;
+    state->account = account;
     sstrncpy(state->asset, asset, ASSET_NAME_MAX_LEN);
 
     rpc_pkg pkg;

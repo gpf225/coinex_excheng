@@ -10,6 +10,24 @@
 # include "ut_http_svr.h"
 # include "ut_json_rpc.h"
 
+int rpc_request_json(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, const json_t *params)
+{
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.pkg_type    = RPC_PKG_TYPE_REQUEST;
+    pkg.command     = command;
+    pkg.sequence    = sequence;
+    pkg.req_id      = request_id;
+    pkg.body        = json_dumps(params, 0);
+    pkg.body_size   = strlen(pkg.body);
+
+    int ret = rpc_clt_send(clt, &pkg);
+    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
+            nw_sock_human_addr(rpc_clt_peer_addr(clt)), command, sequence, (char *)pkg.body);
+    free(pkg.body);
+    return ret;
+}
+
 int rpc_push_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
     char *message_str = json_dumps(json, 0);
@@ -62,24 +80,6 @@ int rpc_reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
     return ret;
 }
 
-int rpc_request_json(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, const json_t *params)
-{
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type    = RPC_PKG_TYPE_REQUEST;
-    pkg.command     = command;
-    pkg.sequence    = sequence;
-    pkg.req_id      = request_id;
-    pkg.body        = json_dumps(params, 0);
-    pkg.body_size   = strlen(pkg.body);
-
-    int ret = rpc_clt_send(clt, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(clt)), command, sequence, (char *)pkg.body);
-    free(pkg.body);
-    return ret;
-}
-
 int rpc_reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
 {
     json_t *error = json_object();
@@ -101,7 +101,7 @@ int rpc_reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
     return rpc_reply_error(ses, pkg, 1, "invalid argument");
 }
 
-int rpc_eply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)
+int rpc_reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)
 {
     return rpc_reply_error(ses, pkg, 2, "internal error");
 }
@@ -198,7 +198,7 @@ int ws_send_error_service_timeout(nw_ses *ses, uint64_t id)
 
 int ws_send_error_unknown_method(nw_ses *ses, uint64_t id)
 {
-    return ws_send_error(ses, id, 5, "unknwon method");
+    return ws_send_error(ses, id, 5, "unknown method");
 }
 
 int ws_send_error_require_auth(nw_ses *ses, uint64_t id)

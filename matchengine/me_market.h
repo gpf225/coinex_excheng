@@ -40,6 +40,7 @@ typedef struct order_t {
     double          create_time;
     double          update_time;
     uint32_t        user_id;
+    uint32_t        account;
     char            *market;
     char            *source;
     char            *fee_asset;
@@ -65,6 +66,7 @@ typedef struct stop_t {
     double          create_time;
     double          update_time;
     uint32_t        user_id;
+    uint32_t        account;
     char            *market;
     char            *source;
     char            *fee_asset;
@@ -78,20 +80,22 @@ typedef struct stop_t {
 
 int init_market(void);
 
-market_t *market_create(struct market *conf);
-int market_update(market_t *m, struct market *conf);
+market_t *market_create(json_t *conf);
+int market_update(market_t *m, json_t *conf);
 
-int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount,
+int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
         mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount);
 
-int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount,
+int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
         mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount);
 
-int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount, mpd_t *stop_price, mpd_t *price,
+int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount, mpd_t *stop_price, mpd_t *price,
         mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount);
 
-int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t side, mpd_t *amount, mpd_t *stop_price,
+int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount, mpd_t *stop_price,
         mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount);
+
+int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, uint32_t side);
 
 json_t *get_order_info(order_t *order);
 json_t *get_stop_info(stop_t *stop);
@@ -105,18 +109,13 @@ int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop);
 int market_put_order(market_t *m, order_t *order);
 int market_put_stop(market_t *m, stop_t *stop);
 
-int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, uint32_t side);
-
-skiplist_t *market_get_order_list(market_t *m, uint32_t user_id);
-skiplist_t *market_get_stop_list(market_t *m, uint32_t user_id);
-
-int market_get_status(market_t *m, size_t *user_count, size_t *ask_count, mpd_t *ask_amount, mpd_t *ask_value,
-        size_t *bid_count, mpd_t *bid_amount, mpd_t *bid_value, mpd_t *last);
+skiplist_t *get_user_order_list(market_t *m, uint32_t user_id, int account);
+skiplist_t *get_user_stop_list(market_t *m, uint32_t user_id, int account);
 
 sds market_status(sds reply);
 
-json_t *market_get_fini_order(uint64_t order_id);
 int market_set_reader();
+json_t *market_get_fini_order(uint64_t order_id);
 
 # endif
 

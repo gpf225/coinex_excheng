@@ -4,15 +4,10 @@
  */
 
 # include "hw_config.h"
-# include "hw_persist.h"
+# include "hw_cli.h"
+# include "hw_writer.h"
 # include "hw_message.h"
 # include "hw_dispatcher.h"
-# include "hw_cli.h"
-
-# include <stdio.h>
-# include <stdlib.h>
-# include <errno.h>
-# include <error.h>
 
 const char *__process__ = "historywriter";
 const char *__version__ = "0.1.0";
@@ -72,10 +67,6 @@ int main(int argc, char *argv[])
     }
 
     int ret;
-    ret = init_mpd();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init mpd fail: %d", ret);
-    }
     ret = init_config(argv[1]);
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "load config fail: %d", ret);
@@ -92,32 +83,35 @@ int main(int argc, char *argv[])
     daemon(1, 1);
     process_keepalive(settings.debug);
 
-    ret = init_persist();
+    ret = init_writer();
     if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init persist fail: %d", ret);
-    }
-    ret = init_message();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init message fail: %d", ret);
+        error(EXIT_FAILURE, errno, "init writer fail: %d", ret);
     }
     ret = init_dispatcher();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init dispatcher fail: %d", ret);
     }
+    ret = init_message();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init message fail: %d", ret);
+    }
     ret = init_cli();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init cli fail: %d", ret);
     }
-    
+
     nw_timer_set(&cron_timer, 0.5, true, on_cron_check, NULL);
     nw_timer_start(&cron_timer);
-    
+
     log_vip("server start");
     log_stderr("server start");
     nw_loop_run();
     log_vip("server stop");
 
+    fini_message();
+    fini_dispatcher();
+    fini_writer();
+
     return 0;
 }
-
 

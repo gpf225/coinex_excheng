@@ -5,6 +5,7 @@
 
 # include "ut_mysql.h"
 # include "me_trade.h"
+# include "me_asset.h"
 # include "me_market.h"
 # include "me_update.h"
 # include "me_balance.h"
@@ -15,7 +16,7 @@ int load_orders(MYSQL *conn, const char *table)
     uint64_t last_id = 0;
     while (true) {
         sds sql = sdsempty();
-        sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, `source`, `fee_asset`, `fee_discount`, "
+        sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `account`, `market`, `source`, `fee_asset`, `fee_discount`, "
                 "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee`, `asset_fee` FROM `%s` "
                 "WHERE `id` > %"PRIu64" ORDER BY `id` LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
@@ -47,29 +48,30 @@ int load_orders(MYSQL *conn, const char *table)
             order->create_time  = strtod(row[3], NULL);
             order->update_time  = strtod(row[4], NULL);
             order->user_id      = strtoul(row[5], NULL, 0);
-            order->market       = strdup(row[6]);
-            order->source       = strdup(row[7]);
-            if (strlen(row[8]) == 0) {
+            order->account      = strtoul(row[6], NULL, 0);
+            order->market       = strdup(row[7]);
+            order->source       = strdup(row[8]);
+            if (strlen(row[9]) == 0) {
                 order->fee_asset = NULL;
             } else {
-                order->fee_asset = strdup(row[8]);
+                order->fee_asset = strdup(row[9]);
                 order->fee_price = get_fee_price(market, order->fee_asset);
                 if (order->fee_price == NULL) {
                     log_stderr("money:%s free_asset:%s:%s order->id:%"PRIu64, market->name, order->fee_asset, row[8], order->id);
                     return -__LINE__;
                 }
             }
-            order->fee_discount = decimal(row[9],  4);
-            order->price        = decimal(row[10], market->money_prec);
-            order->amount       = decimal(row[11], market->stock_prec);
-            order->taker_fee    = decimal(row[12], market->fee_prec);
-            order->maker_fee    = decimal(row[13], market->fee_prec);
-            order->left         = decimal(row[14], market->stock_prec);
-            order->frozen       = decimal(row[15], 0);
-            order->deal_stock   = decimal(row[16], 0);
-            order->deal_money   = decimal(row[17], 0);
-            order->deal_fee     = decimal(row[18], 0);
-            order->asset_fee    = decimal(row[19], 0);
+            order->fee_discount = decimal(row[10],  4);
+            order->price        = decimal(row[11], market->money_prec);
+            order->amount       = decimal(row[12], market->stock_prec);
+            order->taker_fee    = decimal(row[13], market->fee_prec);
+            order->maker_fee    = decimal(row[14], market->fee_prec);
+            order->left         = decimal(row[15], market->stock_prec);
+            order->frozen       = decimal(row[16], 0);
+            order->deal_stock   = decimal(row[17], 0);
+            order->deal_money   = decimal(row[18], 0);
+            order->deal_fee     = decimal(row[19], 0);
+            order->asset_fee    = decimal(row[20], 0);
 
             if (!order->market || !order->source || !order->price || !order->amount || !order->taker_fee || !order->maker_fee ||
                     !order->left || !order->frozen || !order->deal_stock || !order->deal_money || !order->deal_fee || !order->asset_fee) {
@@ -100,7 +102,7 @@ int load_stops(MYSQL *conn, const char *table)
     uint64_t last_id = 0;
     while (true) {
         sds sql = sdsempty();
-        sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `market`, `source`, "
+        sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `account`, `market`, `source`, "
                 "`fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee` FROM `%s` "
                 "WHERE `id` > %"PRIu64" order BY `id` LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
@@ -134,15 +136,20 @@ int load_stops(MYSQL *conn, const char *table)
             stop->create_time   = strtod(row[3], NULL);
             stop->update_time   = strtod(row[4], NULL);
             stop->user_id       = strtoul(row[5], NULL, 0);
-            stop->market        = strdup(row[6]);
-            stop->source        = strdup(row[7]);
-            stop->fee_asset     = strdup(row[8]);
-            stop->fee_discount  = decimal(row[9],  4);
-            stop->stop_price    = decimal(row[10], market->money_prec);
-            stop->price         = decimal(row[11], market->money_prec);
-            stop->amount        = decimal(row[12], market->stock_prec);
-            stop->taker_fee     = decimal(row[13], market->fee_prec);
-            stop->maker_fee     = decimal(row[14], market->fee_prec);
+            stop->account       = strtoul(row[6], NULL, 0);
+            stop->market        = strdup(row[7]);
+            stop->source        = strdup(row[8]);
+            if (strlen(row[9]) == 0) {
+                stop->fee_asset = NULL;
+            } else {
+                stop->fee_asset = strdup(row[9]);
+            }
+            stop->fee_discount  = decimal(row[10],  4);
+            stop->stop_price    = decimal(row[11], market->money_prec);
+            stop->price         = decimal(row[12], market->money_prec);
+            stop->amount        = decimal(row[13], market->stock_prec);
+            stop->taker_fee     = decimal(row[14], market->fee_prec);
+            stop->maker_fee     = decimal(row[15], market->fee_prec);
 
             if (!stop->market || !stop->source || !stop->stop_price || !stop->price || !stop->amount || !stop->taker_fee || !stop->maker_fee) {
                 log_error("get stop detail of stop id: %"PRIu64" fail", stop->id);
@@ -167,7 +174,7 @@ int load_balance(MYSQL *conn, const char *table)
     uint64_t last_id = 0;
     while (true) {
         sds sql = sdsempty();
-        sql = sdscatprintf(sql, "SELECT `id`, `user_id`, `asset`, `t`, `balance` FROM `%s` "
+        sql = sdscatprintf(sql, "SELECT `id`, `user_id`, `account`, `asset`, `t`, `balance` FROM `%s` "
                 "WHERE `id` > %"PRIu64" ORDER BY id LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -184,13 +191,14 @@ int load_balance(MYSQL *conn, const char *table)
             MYSQL_ROW row = mysql_fetch_row(result);
             last_id = strtoull(row[0], NULL, 0);
             uint32_t user_id = strtoul(row[1], NULL, 0);
-            const char *asset = row[2];
-            if (!asset_exist(asset)) {
+            uint32_t account = strtoul(row[2], NULL, 0);
+            const char *asset = row[3];
+            if (!asset_exist(account, asset)) {
                 continue;
             }
-            uint32_t type = strtoul(row[3], NULL, 0);
-            mpd_t *balance = decimal(row[4], asset_prec(asset));
-            balance_set(user_id, type, asset, balance);
+            uint32_t type = strtoul(row[4], NULL, 0);
+            mpd_t *balance = decimal(row[5], asset_prec_save(account, asset));
+            balance_set(user_id, account, type, asset, balance);
             mpd_del(balance);
         }
         mysql_free_result(result);
@@ -213,7 +221,7 @@ int load_update(MYSQL *conn, const char *table)
     uint64_t last_id = 0;
     while (true) {
         sds sql = sdsempty();
-        sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `user_id`, `asset`, `business`, `business_id` FROM `%s` "
+        sql = sdscatprintf(sql, "SELECT `id`, `create_time`, `user_id`, `account`, `asset`, `business`, `business_id` FROM `%s` "
                 "WHERE `id` > %"PRIu64" ORDER BY id LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -231,10 +239,11 @@ int load_update(MYSQL *conn, const char *table)
             last_id = strtoull(row[0], NULL, 0);
             double create_time = strtod(row[1], NULL);
             uint32_t user_id = strtoul(row[2], NULL, 0);
-            const char *asset = row[3];
-            const char *business = row[4];
-            uint64_t business_id = strtoull(row[5], NULL, 0);
-            update_add(user_id, asset, business, business_id, create_time);
+            uint32_t account = strtoul(row[3], NULL, 0);
+            const char *asset = row[4];
+            const char *business = row[5];
+            uint64_t business_id = strtoull(row[6], NULL, 0);
+            update_add(user_id, account, asset, business, business_id, create_time);
         }
         mysql_free_result(result);
 
@@ -247,7 +256,7 @@ int load_update(MYSQL *conn, const char *table)
 
 static int load_update_balance(json_t *params)
 {
-    if (json_array_size(params) != 6)
+    if (json_array_size(params) != 7)
         return -__LINE__;
 
     // user_id
@@ -255,39 +264,44 @@ static int load_update_balance(json_t *params)
         return -__LINE__;
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
-    // asset
-    if (!json_is_string(json_array_get(params, 1)))
+    // account 
+    if (!json_is_integer(json_array_get(params, 1)))
         return -__LINE__;
-    const char *asset = json_string_value(json_array_get(params, 1));
-    int prec = asset_prec_show(asset);
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+
+    // asset
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *asset = json_string_value(json_array_get(params, 2));
+    int prec = asset_prec_show(account, asset);
     if (prec < 0)
         return 0;
 
     // business
-    if (!json_is_string(json_array_get(params, 2)))
+    if (!json_is_string(json_array_get(params, 3)))
         return -__LINE__;
-    const char *business = json_string_value(json_array_get(params, 2));
+    const char *business = json_string_value(json_array_get(params, 3));
 
     // business_id
-    if (!json_is_integer(json_array_get(params, 3)))
+    if (!json_is_integer(json_array_get(params, 4)))
         return -__LINE__;
-    uint64_t business_id = json_integer_value(json_array_get(params, 3));
+    uint64_t business_id = json_integer_value(json_array_get(params, 4));
 
     // change
-    if (!json_is_string(json_array_get(params, 4)))
+    if (!json_is_string(json_array_get(params, 5)))
         return -__LINE__;
-    mpd_t *change = decimal(json_string_value(json_array_get(params, 4)), prec);
+    mpd_t *change = decimal(json_string_value(json_array_get(params, 5)), prec);
     if (change == NULL)
         return -__LINE__;
 
     // detail
-    json_t *detail = json_array_get(params, 5);
+    json_t *detail = json_array_get(params, 6);
     if (!json_is_object(detail)) {
         mpd_del(change);
         return -__LINE__;
     }
 
-    int ret = update_user_balance(false, user_id, asset, business, business_id, change, detail);
+    int ret = update_user_balance(false, user_id, account, asset, business, business_id, change, detail);
     mpd_del(change);
 
     if (ret < 0) {
@@ -300,7 +314,7 @@ static int load_update_balance(json_t *params)
 
 static int load_asset_lock(json_t *params)
 {
-    if (json_array_size(params) != 5)
+    if (json_array_size(params) != 6)
         return -__LINE__;
 
     // user_id
@@ -308,28 +322,33 @@ static int load_asset_lock(json_t *params)
         return -__LINE__;
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
-    // asset
-    if (!json_is_string(json_array_get(params, 1)))
+    // account
+    if (!json_is_integer(json_array_get(params, 1)))
         return -__LINE__;
-    const char *asset = json_string_value(json_array_get(params, 1));
-    int prec = asset_prec_show(asset);
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+
+    // asset
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *asset = json_string_value(json_array_get(params, 2));
+    int prec = asset_prec_show(account, asset);
     if (prec < 0)
         return 0;
 
     // business
-    if (!json_is_string(json_array_get(params, 2)))
+    if (!json_is_string(json_array_get(params, 3)))
         return -__LINE__;
-    const char *business = json_string_value(json_array_get(params, 2));
+    const char *business = json_string_value(json_array_get(params, 3));
 
     // business_id
-    if (!json_is_integer(json_array_get(params, 3)))
+    if (!json_is_integer(json_array_get(params, 4)))
         return -__LINE__;
-    uint64_t business_id = json_integer_value(json_array_get(params, 3));
+    uint64_t business_id = json_integer_value(json_array_get(params, 4));
 
     // amount
-    if (!json_is_string(json_array_get(params, 4)))
+    if (!json_is_string(json_array_get(params, 5)))
         return -__LINE__;
-    mpd_t *amount = decimal(json_string_value(json_array_get(params, 4)), prec);
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 5)), prec);
     if (amount == NULL)
         return -__LINE__;
     if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0) {
@@ -337,7 +356,7 @@ static int load_asset_lock(json_t *params)
         return -__LINE__;
     }
 
-    int ret = update_user_lock(false, user_id, asset, business, business_id, amount);
+    int ret = update_user_lock(false, user_id, account, asset, business, business_id, amount);
     mpd_del(amount);
     if (ret < 0) {
         return -__LINE__;
@@ -348,7 +367,7 @@ static int load_asset_lock(json_t *params)
 
 static int load_asset_unlock(json_t *params)
 {
-    if (json_array_size(params) != 5)
+    if (json_array_size(params) != 6)
         return -__LINE__;
 
     // user_id
@@ -356,28 +375,33 @@ static int load_asset_unlock(json_t *params)
         return -__LINE__;
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
-    // asset
-    if (!json_is_string(json_array_get(params, 1)))
+    // account
+    if (!json_is_integer(json_array_get(params, 1)))
         return -__LINE__;
-    const char *asset = json_string_value(json_array_get(params, 1));
-    int prec = asset_prec_show(asset);
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+
+    // asset
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *asset = json_string_value(json_array_get(params, 2));
+    int prec = asset_prec_show(account, asset);
     if (prec < 0)
         return 0;
 
     // business
-    if (!json_is_string(json_array_get(params, 2)))
+    if (!json_is_string(json_array_get(params, 3)))
         return -__LINE__;
-    const char *business = json_string_value(json_array_get(params, 2));
+    const char *business = json_string_value(json_array_get(params, 3));
 
     // business_id
-    if (!json_is_integer(json_array_get(params, 3)))
+    if (!json_is_integer(json_array_get(params, 4)))
         return -__LINE__;
-    uint64_t business_id = json_integer_value(json_array_get(params, 3));
+    uint64_t business_id = json_integer_value(json_array_get(params, 4));
 
     // amount
-    if (!json_is_string(json_array_get(params, 4)))
+    if (!json_is_string(json_array_get(params, 5)))
         return -__LINE__;
-    mpd_t *amount = decimal(json_string_value(json_array_get(params, 4)), prec);
+    mpd_t *amount = decimal(json_string_value(json_array_get(params, 5)), prec);
     if (amount == NULL)
         return -__LINE__;
     if (mpd_cmp(amount, mpd_zero, &mpd_ctx) < 0) {
@@ -385,7 +409,7 @@ static int load_asset_unlock(json_t *params)
         return -__LINE__;
     }
 
-    int ret = update_user_unlock(false, user_id, asset, business, business_id, amount);
+    int ret = update_user_unlock(false, user_id, account, asset, business, business_id, amount);
     mpd_del(amount);
     if (ret < 0) {
         return -__LINE__;
@@ -396,7 +420,7 @@ static int load_asset_unlock(json_t *params)
 
 static int load_limit_order(json_t *params)
 {
-    if (json_array_size(params) < 8)
+    if (json_array_size(params) != 11)
         return -__LINE__;
 
     // user_id
@@ -404,18 +428,23 @@ static int load_limit_order(json_t *params)
         return -__LINE__;
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
-    // market
-    if (!json_is_string(json_array_get(params, 1)))
+    // account
+    if (!json_is_integer(json_array_get(params, 1)))
         return -__LINE__;
-    const char *market_name = json_string_value(json_array_get(params, 1));
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+
+    // market
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *market_name = json_string_value(json_array_get(params, 2));
     market_t *market = get_market(market_name);
     if (market == NULL)
         return 0;
 
     // side
-    if (!json_is_integer(json_array_get(params, 2)))
+    if (!json_is_integer(json_array_get(params, 3)))
         return -__LINE__;
-    uint32_t side = json_integer_value(json_array_get(params, 2));
+    uint32_t side = json_integer_value(json_array_get(params, 3));
     if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
         return -__LINE__;
 
@@ -426,70 +455,64 @@ static int load_limit_order(json_t *params)
     mpd_t *fee_discount = NULL;
 
     // amount
-    if (!json_is_string(json_array_get(params, 3)))
+    if (!json_is_string(json_array_get(params, 4)))
         goto error;
-    amount = decimal(json_string_value(json_array_get(params, 3)), market->stock_prec);
+    amount = decimal(json_string_value(json_array_get(params, 4)), market->stock_prec);
     if (amount == NULL)
         goto error;
     if (mpd_cmp(amount, mpd_zero, &mpd_ctx) <= 0)
         goto error;
 
     // price 
-    if (!json_is_string(json_array_get(params, 4)))
+    if (!json_is_string(json_array_get(params, 5)))
         goto error;
-    price = decimal(json_string_value(json_array_get(params, 4)), market->money_prec);
+    price = decimal(json_string_value(json_array_get(params, 5)), market->money_prec);
     if (price == NULL) 
         goto error;
     if (mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0)
         goto error;
 
     // taker fee
-    if (!json_is_string(json_array_get(params, 5)))
+    if (!json_is_string(json_array_get(params, 6)))
         goto error;
-    taker_fee = decimal(json_string_value(json_array_get(params, 5)), market->fee_prec);
+    taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
     if (taker_fee == NULL)
         goto error;
     if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // maker fee
-    if (!json_is_string(json_array_get(params, 6)))
+    if (!json_is_string(json_array_get(params, 7)))
         goto error;
-    maker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
+    maker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
     if (maker_fee == NULL)
         goto error;
     if (mpd_cmp(maker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(maker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // source
-    if (!json_is_string(json_array_get(params, 7)))
+    if (!json_is_string(json_array_get(params, 8)))
         goto error;
-    const char *source = json_string_value(json_array_get(params, 7));
+    const char *source = json_string_value(json_array_get(params, 8));
     if (strlen(source) > SOURCE_MAX_LEN)
         goto error;
 
+    // fee asset
     const char *fee_asset = NULL;
-    if (json_array_size(params) >= 10) {
-        // fee asset
-        if (json_is_string(json_array_get(params, 8))) {
-            fee_asset = json_string_value(json_array_get(params, 8));
-            if (!asset_exist(fee_asset))
-                goto error;
-            if (!get_fee_price(market, fee_asset))
-                goto error;
-        } else if (!json_is_null(json_array_get(params, 8))) {
+    if (json_is_string(json_array_get(params, 9))) {
+        fee_asset = json_string_value(json_array_get(params, 9));
+        if (!get_fee_price(market, fee_asset))
             goto error;
-        }
-
-        // fee discount
-        if (fee_asset && json_is_string(json_array_get(params, 9))) {
-            fee_discount = decimal(json_string_value(json_array_get(params, 9)), 4);
-            if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
-                goto error;
-        }
     }
 
-    int ret = market_put_limit_order(false, NULL, market, user_id, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_discount);
+    // fee discount
+    if (fee_asset && json_is_string(json_array_get(params, 10))) {
+        fee_discount = decimal(json_string_value(json_array_get(params, 10)), 4);
+        if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
+            goto error;
+    }
+
+    int ret = market_put_limit_order(false, NULL, market, user_id, account, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_discount);
 
     mpd_del(amount);
     mpd_del(price);
@@ -517,7 +540,7 @@ error:
 
 static int load_market_order(json_t *params)
 {
-    if (json_array_size(params) < 6)
+    if (json_array_size(params) != 9)
         return -__LINE__;
 
     // user_id
@@ -525,18 +548,23 @@ static int load_market_order(json_t *params)
         return -__LINE__;
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
-    // market
-    if (!json_is_string(json_array_get(params, 1)))
+    // account 
+    if (!json_is_integer(json_array_get(params, 1)))
         return -__LINE__;
-    const char *market_name = json_string_value(json_array_get(params, 1));
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+
+    // market
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *market_name = json_string_value(json_array_get(params, 2));
     market_t *market = get_market(market_name);
     if (market == NULL)
         return 0;
 
     // side
-    if (!json_is_integer(json_array_get(params, 2)))
+    if (!json_is_integer(json_array_get(params, 3)))
         return -__LINE__;
-    uint32_t side = json_integer_value(json_array_get(params, 2));
+    uint32_t side = json_integer_value(json_array_get(params, 3));
     if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
         return -__LINE__;
 
@@ -545,52 +573,46 @@ static int load_market_order(json_t *params)
     mpd_t *fee_discount = NULL;
 
     // amount
-    if (!json_is_string(json_array_get(params, 3)))
+    if (!json_is_string(json_array_get(params, 4)))
         goto error;
-    amount = decimal(json_string_value(json_array_get(params, 3)), market->stock_prec);
+    amount = decimal(json_string_value(json_array_get(params, 4)), market->stock_prec);
     if (amount == NULL)
         goto error;
     if (mpd_cmp(amount, mpd_zero, &mpd_ctx) <= 0)
         goto error;
 
     // taker fee
-    if (!json_is_string(json_array_get(params, 4)))
+    if (!json_is_string(json_array_get(params, 5)))
         goto error;
-    taker_fee = decimal(json_string_value(json_array_get(params, 4)), market->fee_prec);
+    taker_fee = decimal(json_string_value(json_array_get(params, 5)), market->fee_prec);
     if (taker_fee == NULL)
         goto error;
     if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // source
-    if (!json_is_string(json_array_get(params, 5)))
+    if (!json_is_string(json_array_get(params, 6)))
         goto error;
-    const char *source = json_string_value(json_array_get(params, 5));
+    const char *source = json_string_value(json_array_get(params, 6));
     if (strlen(source) > SOURCE_MAX_LEN)
         goto error;
 
+    // fee asset
     const char *fee_asset = NULL;
-    if (json_array_size(params) >= 8) {
-        // fee asset
-        if (json_is_string(json_array_get(params, 6))) {
-            fee_asset = json_string_value(json_array_get(params, 6));
-            if (!asset_exist(fee_asset))
-                goto error;
-            if (!get_fee_price(market, fee_asset))
-                goto error;
-        } else if (!json_is_null(json_array_get(params, 6))) {
+    if (json_is_string(json_array_get(params, 7))) {
+        fee_asset = json_string_value(json_array_get(params, 7));
+        if (!get_fee_price(market, fee_asset))
             goto error;
-        }
-
-        // fee discount
-        if (fee_asset && json_is_string(json_array_get(params, 7))) {
-            fee_discount = decimal(json_string_value(json_array_get(params, 7)), 4);
-            if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
-                goto error;
-        }
     }
 
-    int ret = market_put_market_order(false, NULL, market, user_id, side, amount, taker_fee, source, fee_asset, fee_discount);
+    // fee discount
+    if (fee_asset && json_is_string(json_array_get(params, 8))) {
+        fee_discount = decimal(json_string_value(json_array_get(params, 8)), 4);
+        if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
+            goto error;
+    }
+
+    int ret = market_put_market_order(false, NULL, market, user_id, account, side, amount, taker_fee, source, fee_asset, fee_discount);
 
     mpd_del(amount);
     mpd_del(taker_fee);
@@ -649,7 +671,7 @@ static int load_cancel_order(json_t *params)
 
 static int load_stop_limit(json_t *params)
 {
-    if (json_array_size(params) != 11)
+    if (json_array_size(params) != 12)
         return -__LINE__;
 
     // user_id
@@ -657,18 +679,23 @@ static int load_stop_limit(json_t *params)
         return -__LINE__;
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
-    // market
-    if (!json_is_string(json_array_get(params, 1)))
+    // account 
+    if (!json_is_integer(json_array_get(params, 1)))
         return -__LINE__;
-    const char *market_name = json_string_value(json_array_get(params, 1));
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+
+    // market
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *market_name = json_string_value(json_array_get(params, 2));
     market_t *market = get_market(market_name);
     if (market == NULL)
         return 0;
 
     // side
-    if (!json_is_integer(json_array_get(params, 2)))
+    if (!json_is_integer(json_array_get(params, 3)))
         return -__LINE__;
-    uint32_t side = json_integer_value(json_array_get(params, 2));
+    uint32_t side = json_integer_value(json_array_get(params, 3));
     if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
         return -__LINE__;
 
@@ -680,72 +707,74 @@ static int load_stop_limit(json_t *params)
     mpd_t *fee_discount = NULL;
 
     // amount
-    if (!json_is_string(json_array_get(params, 3)))
+    if (!json_is_string(json_array_get(params, 4)))
         goto error;
-    amount = decimal(json_string_value(json_array_get(params, 3)), market->stock_prec);
+    amount = decimal(json_string_value(json_array_get(params, 4)), market->stock_prec);
     if (amount == NULL)
         goto error;
     if (mpd_cmp(amount, mpd_zero, &mpd_ctx) <= 0)
         goto error;
 
     // stop price 
-    if (!json_is_string(json_array_get(params, 4)))
+    if (!json_is_string(json_array_get(params, 5)))
         goto error;
-    stop_price = decimal(json_string_value(json_array_get(params, 4)), market->money_prec);
+    stop_price = decimal(json_string_value(json_array_get(params, 5)), market->money_prec);
     if (stop_price == NULL) 
         goto error;
     if (mpd_cmp(stop_price, mpd_zero, &mpd_ctx) <= 0)
         goto error;
 
     // price 
-    if (!json_is_string(json_array_get(params, 5)))
+    if (!json_is_string(json_array_get(params, 6)))
         goto error;
-    price = decimal(json_string_value(json_array_get(params, 5)), market->money_prec);
+    price = decimal(json_string_value(json_array_get(params, 6)), market->money_prec);
     if (price == NULL) 
         goto error;
     if (mpd_cmp(price, mpd_zero, &mpd_ctx) <= 0)
         goto error;
 
     // taker fee
-    if (!json_is_string(json_array_get(params, 6)))
+    if (!json_is_string(json_array_get(params, 7)))
         goto error;
-    taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
+    taker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
     if (taker_fee == NULL)
         goto error;
     if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // maker fee
-    if (!json_is_string(json_array_get(params, 7)))
+    if (!json_is_string(json_array_get(params, 8)))
         goto error;
-    maker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
+    maker_fee = decimal(json_string_value(json_array_get(params, 8)), market->fee_prec);
     if (maker_fee == NULL)
         goto error;
     if (mpd_cmp(maker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(maker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // source
-    if (!json_is_string(json_array_get(params, 8)))
+    if (!json_is_string(json_array_get(params, 9)))
         goto error;
-    const char *source = json_string_value(json_array_get(params, 8));
+    const char *source = json_string_value(json_array_get(params, 9));
     if (strlen(source) > SOURCE_MAX_LEN)
         goto error;
 
     // fee asset
-    if (!json_is_string(json_array_get(params, 9)))
-        goto error;
-    const char *fee_asset = json_string_value(json_array_get(params, 9));
-    if (strlen(fee_asset) > 0 && !asset_exist(fee_asset))
-        goto error;
+    const char *fee_asset = NULL;
+    if (json_is_string(json_array_get(params, 10))) {
+        fee_asset = json_string_value(json_array_get(params, 10));
+        if (!get_fee_price(market, fee_asset)) {
+            goto error;
+        }
+    }
 
     // fee discount
-    if (json_is_string(json_array_get(params, 10)) && strlen(json_string_value(json_array_get(params, 10))) > 0) {
-        fee_discount = decimal(json_string_value(json_array_get(params, 10)), 4);
+    if (fee_asset && json_is_string(json_array_get(params, 11))) {
+        fee_discount = decimal(json_string_value(json_array_get(params, 11)), 4);
         if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
             goto error;
     }
 
-    int ret = market_put_stop_limit(false, market, user_id, side, amount, stop_price, price, taker_fee, maker_fee, source, fee_asset, fee_discount);
+    int ret = market_put_stop_limit(false, market, user_id, account, side, amount, stop_price, price, taker_fee, maker_fee, source, fee_asset, fee_discount);
 
     mpd_del(amount);
     mpd_del(stop_price);
@@ -776,7 +805,7 @@ error:
 
 static int load_stop_market(json_t *params)
 {
-    if (json_array_size(params) != 9)
+    if (json_array_size(params) != 10)
         return -__LINE__;
 
     // user_id
@@ -784,18 +813,23 @@ static int load_stop_market(json_t *params)
         return -__LINE__;
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
-    // market
-    if (!json_is_string(json_array_get(params, 1)))
+    // account 
+    if (!json_is_integer(json_array_get(params, 1)))
         return -__LINE__;
-    const char *market_name = json_string_value(json_array_get(params, 1));
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+
+    // market
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *market_name = json_string_value(json_array_get(params, 2));
     market_t *market = get_market(market_name);
     if (market == NULL)
         return 0;
 
     // side
-    if (!json_is_integer(json_array_get(params, 2)))
+    if (!json_is_integer(json_array_get(params, 3)))
         return -__LINE__;
-    uint32_t side = json_integer_value(json_array_get(params, 2));
+    uint32_t side = json_integer_value(json_array_get(params, 3));
     if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
         return -__LINE__;
 
@@ -805,54 +839,56 @@ static int load_stop_market(json_t *params)
     mpd_t *fee_discount = NULL;
 
     // amount
-    if (!json_is_string(json_array_get(params, 3)))
+    if (!json_is_string(json_array_get(params, 4)))
         goto error;
-    amount = decimal(json_string_value(json_array_get(params, 3)), market->stock_prec);
+    amount = decimal(json_string_value(json_array_get(params, 4)), market->stock_prec);
     if (amount == NULL)
         goto error;
     if (mpd_cmp(amount, mpd_zero, &mpd_ctx) <= 0)
         goto error;
 
     // stop price 
-    if (!json_is_string(json_array_get(params, 4)))
+    if (!json_is_string(json_array_get(params, 5)))
         goto error;
-    stop_price = decimal(json_string_value(json_array_get(params, 4)), market->money_prec);
+    stop_price = decimal(json_string_value(json_array_get(params, 5)), market->money_prec);
     if (stop_price == NULL) 
         goto error;
     if (mpd_cmp(stop_price, mpd_zero, &mpd_ctx) <= 0)
         goto error;
 
     // taker fee
-    if (!json_is_string(json_array_get(params, 5)))
+    if (!json_is_string(json_array_get(params, 6)))
         goto error;
-    taker_fee = decimal(json_string_value(json_array_get(params, 5)), market->fee_prec);
+    taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
     if (taker_fee == NULL)
         goto error;
     if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // source
-    if (!json_is_string(json_array_get(params, 6)))
+    if (!json_is_string(json_array_get(params, 7)))
         goto error;
-    const char *source = json_string_value(json_array_get(params, 6));
+    const char *source = json_string_value(json_array_get(params, 7));
     if (strlen(source) > SOURCE_MAX_LEN)
         goto error;
 
     // fee asset
-    if (!json_is_string(json_array_get(params, 7)))
-        goto error;
-    const char *fee_asset = json_string_value(json_array_get(params, 7));
-    if (strlen(fee_asset) > 0 && !asset_exist(fee_asset))
-        goto error;
+    const char *fee_asset = NULL;
+    if (json_is_string(json_array_get(params, 8))) {
+        fee_asset = json_string_value(json_array_get(params, 8));
+        if (!get_fee_price(market, fee_asset)) {
+            goto error;
+        }
+    }
 
     // fee discount
-    if (json_is_string(json_array_get(params, 8)) && strlen(json_string_value(json_array_get(params, 8))) > 0) {
-        fee_discount = decimal(json_string_value(json_array_get(params, 8)), 4);
+    if (fee_asset && json_is_string(json_array_get(params, 9))) {
+        fee_discount = decimal(json_string_value(json_array_get(params, 9)), 4);
         if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
             goto error;
     }
 
-    int ret = market_put_stop_market(false, market, user_id, side, amount, stop_price, taker_fee, source, fee_asset, fee_discount);
+    int ret = market_put_stop_market(false, market, user_id, account, side, amount, stop_price, taker_fee, source, fee_asset, fee_discount);
 
     mpd_del(amount);
     mpd_del(stop_price);
