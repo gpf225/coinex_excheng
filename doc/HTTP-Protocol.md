@@ -982,23 +982,21 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 ```
 "result": {
 	'id': 1,
-	'result': [
-		{
-			'index': '265.40',
-			'name': 'ETHUSDT',
-			'timestamp': 1558945100
+	'ttl': 1000,
+	'result': {
+		'LTCUSDT': {
+			'index': '114.23',
+			'time': 1559042800000
 		},
-		{
-			'index': '112.40',
-			'name': 'LTCUSDT',
-			'timestamp': 1558945100
+		'BTCUSDT': {
+			'index': '8711.09',
+			'time': 1559042800000
 		},
-		{
-			'index': '8652.86',
-			'name': 'BTCUSDT',
-			'timestamp': 1558945100
+		'ETHUSDT': {
+			'index': '269.37',
+			'time': 1559042800000
 		}
-	],
+	},
 	'error': null
 }
 ```
@@ -1017,10 +1015,11 @@ request: ['BTCUSDT']
 respose:
 {
 	'id': 1,
+	'ttl': 1000,
 	'result': {
-		'index': '112.28',
-		'name': 'LTCUSDT',
-		'timestamp': 1558945160
+		'index': '8705.37',
+		'name': 'BTCUSDT',
+		'time': 1559042980000
 	},
 	'error': null
 }
