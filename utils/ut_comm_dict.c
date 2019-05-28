@@ -72,6 +72,7 @@ void uint32_mpd_dict_plus(dict_t *dict, uint32_t key, mpd_t *val)
     if (entry) {
         mpd_t *m = entry->val;
         mpd_add(m, m, val, &mpd_ctx);
+        return;
     }
     dict_add(dict, (void *)(uintptr_t)key, val);
 }
