@@ -952,14 +952,23 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 
 ## TradeRank API
 
-**TradeRank**
-* method: `trade.rank`
+**TradeNetRank**
+* method: `trade.net_rank`
 * params:
 1. market list: array
 2. start_time: start time  Integer
 3. end_time: start time  Integer
 
-* example: trade.rank("[BTCUSDT]", 1557471355, 1557476355)
+* example: trade.net_rank("[BTCUSDT]", 1557471355, 1557476355)
+
+**TradeAmountRank**
+* method: `trade.amount_rank`
+* params:
+1. market list: array
+2. start_time: start time  Integer
+3. end_time: start time  Integer
+
+* example: trade.amount_rank("[BTCUSDT]", 1557471355, 1557476355)
 
 ## Index API
 
