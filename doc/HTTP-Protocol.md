@@ -961,6 +961,61 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 
 * example: trade.rank("[BTCUSDT]", 1557471355, 1557476355)
 
+## Index API
+
+**market index list**
+
+* method: `index.list`
+* params: None
+
+* result:
+
+```
+"result": {
+	'id': 1,
+	'result': [
+		{
+			'index': '265.40',
+			'name': 'ETHUSDT',
+			'timestamp': 1558945100
+		},
+		{
+			'index': '112.40',
+			'name': 'LTCUSDT',
+			'timestamp': 1558945100
+		},
+		{
+			'index': '8652.86',
+			'name': 'BTCUSDT',
+			'timestamp': 1558945100
+		}
+	],
+	'error': null
+}
+```
+
+**query market index**
+
+* method: `index.query`
+* params:
+	1. market name
+
+* result:
+
+```
+request: ['BTCUSDT']
+
+respose:
+{
+	'id': 1,
+	'result': {
+		'index': '112.28',
+		'name': 'LTCUSDT',
+		'timestamp': 1558945160
+	},
+	'error': null
+}
+```
 
 ## Config API
 
@@ -969,3 +1024,18 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 
 **Update market config**
 * method: `config.update_market`
+
+**Update market index config**
+
+* method: `config.update_index`
+* result:
+
+```
+ {
+     'id': 1,
+     'result': {
+     		'status': 'success'
+     },
+     'error': null
+  
+```
