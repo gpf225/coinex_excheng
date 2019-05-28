@@ -324,7 +324,7 @@ static int init_worker_clt()
     if (rpc_clt_start(writer_clt) < 0)
             return -__LINE__;
 
-    reader_clt_arr = malloc(sizeof(void *) * (settings.reader_num));
+    reader_clt_arr = malloc(sizeof(void *) * settings.reader_num);
     for (int i = 0; i < settings.reader_num; ++i) {
         sds name = sdsempty();
         name = sdscatprintf(name, "reader_clt_%d", i);

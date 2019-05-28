@@ -1194,8 +1194,8 @@ static int init_cli()
 
 static int init_queue()
 {
-    queue_writers = (queue_t *)malloc(sizeof(queue_t) * (settings.reader_num));
-    memset(queue_writers, 0, sizeof(queue_t) * (settings.reader_num));
+    queue_writers = (queue_t *)malloc(sizeof(queue_t) * settings.reader_num);
+    memset(queue_writers, 0, sizeof(queue_t) * settings.reader_num);
 
     for (int i = 0; i < settings.reader_num; ++i) {
         sds queue_name = sdsempty();
