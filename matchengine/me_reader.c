@@ -192,12 +192,10 @@ static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
 
     const char *asset = json_string_value(json_array_get(params, 0));
-    if (!asset || !asset_exist(asset)) {
+    if (!asset) {
         return reply_error_invalid_argument(ses, pkg);
     }
-    int prec_save = asset_prec(asset);
-    int prec_show = asset_prec_show(asset);
-            
+                
     int total_users = 0, available_users = 0, lock_users = 0, frozen_users = 0;
     mpd_t *total     = mpd_qncopy(mpd_zero);
     mpd_t *available = mpd_qncopy(mpd_zero);
@@ -205,44 +203,82 @@ static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     mpd_t *lock      = mpd_qncopy(mpd_zero);
 
     dict_t *distinct_dict = uint32_set_create();
+    dict_t *account_summary = uint32_mpd_dict_create();
     dict_iterator *iter = dict_get_iterator(dict_balance);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
-        struct balance_key *key = entry->key;
-        if (strcmp(key->asset, asset) != 0) {
-            continue;
-        }
+        uint32_t user_id = (uintptr_t)entry->key;
 
-        mpd_t *balance = entry->val;
-        if (prec_save != prec_show) {
-            mpd_rescale(balance, balance, -prec_show, &mpd_ctx);
-        }
-        mpd_add(total, total, balance, &mpd_ctx);
-        if (key->type == BALANCE_TYPE_AVAILABLE) {
-            available_users++;
-            mpd_add(available, available, balance, &mpd_ctx);
-        } else if (key->type == BALANCE_TYPE_FROZEN) {
-            lock_users++;
-            mpd_add(frozen, frozen, balance, &mpd_ctx);
-        } else {
-            frozen_users++;
-            mpd_add(lock, lock, balance, &mpd_ctx);
-        }
+        dict_t *dict_user = entry->val;
+        dict_entry *entry_user;
+        dict_iterator *iter_user = dict_get_iterator(dict_user);
+        while ((entry_user = dict_next(iter_user)) != NULL) {
+            uint32_t account = (uintptr_t)entry->key;
+            if (!asset_exist(account, asset)) {
+                continue;
+            }
 
-        uint32_t user_id = key->user_id;
-        if (!uint32_set_exist(distinct_dict, user_id)) {
-            uint32_set_add(distinct_dict, user_id);
+            int prec_save = asset_prec_save(account, asset);
+            int prec_show = asset_prec_show(account, asset);
+
+            dict_t *dict_account = entry->val;
+            dict_entry *entry_account;
+            dict_iterator *iter_account = dict_get_iterator(dict_account);
+            while ((entry_account = dict_next(iter_account)) != NULL) {
+                const struct balance_key *key = entry_account->key;
+                if (strcmp(key->asset, asset) != 0) {
+                    continue;
+                }
+
+                mpd_t *balance = mpd_qncopy(entry->val);
+                if (prec_save != prec_show) {
+                    mpd_rescale(balance, balance, -prec_show, &mpd_ctx);
+                }
+
+                mpd_add(total, total, balance, &mpd_ctx);
+                uint32_mpd_dict_plus(account_summary, account, balance);
+                if (key->type == BALANCE_TYPE_AVAILABLE) {
+                    available_users++;
+                    mpd_add(available, available, balance, &mpd_ctx);
+                } else if (key->type == BALANCE_TYPE_FROZEN) {
+                    lock_users++;
+                    mpd_add(frozen, frozen, balance, &mpd_ctx);
+                } else {
+                    frozen_users++;
+                    mpd_add(lock, lock, balance, &mpd_ctx);
+                }
+                mpd_del(balance);
+
+                if (!uint32_set_exist(distinct_dict, user_id)) {
+                    uint32_set_add(distinct_dict, user_id);
+                }
+            }
+            dict_release_iterator(iter_account);
         }
+        dict_release_iterator(iter_user);
     }
-    total_users = uint32_set_num(distinct_dict);
     dict_release_iterator(iter);
+    total_users = uint32_set_num(distinct_dict);
     uint32_set_release(distinct_dict);
+
+    json_t *account_data = json_object();
+    iter = dict_get_iterator(account_summary);
+    while ((entry = dict_next(iter)) != NULL) {
+        uint32_t account = (uintptr_t)entry->key;
+        mpd_t *val = entry->val;
+        char account_str[20];
+        snprintf(account_str, sizeof(account_str), "%u", account);
+        json_object_set_new_mpd(account_data, account_str, val);
+    }
+    dict_release_iterator(iter);
+    uint32_mpd_dict_release(account_summary);
 
     json_t *result = json_object();
     json_object_set_new(result, "total_users", json_integer(total_users));
     json_object_set_new(result, "available_users", json_integer(available_users));
     json_object_set_new(result, "lock_users", json_integer(lock_users));
     json_object_set_new(result, "frozen_users", json_integer(frozen_users));
+    json_object_set_new(result, "account_summary", account_data);
     json_object_set_new_mpd(result, "total", total);
     json_object_set_new_mpd(result, "available", available);
     json_object_set_new_mpd(result, "frozen", frozen);
@@ -965,23 +1001,8 @@ static int on_cmd_update_market_config(nw_ses *ses, rpc_pkg *pkg, json_t *params
     return reply_success(ses, pkg);
 }
 
-static bool check_valid_command(uint32_t command)
-{
-    if (reader_id != settings.reader_num && (command == CMD_ASSET_SUMMARY || command == CMD_MARKET_SUMMARY)) {
-        return false;
-    }
-    return true;
-}
-
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
-    if (!check_valid_command(pkg->command)) {
-        reply_error_internal_error(ses, pkg);
-        log_error("reader: %d, connection: %s, recv invalid cmd: %u", reader_id, nw_sock_human_addr(&ses->peer_addr), pkg->command);
-        rpc_svr_close_clt(svr, ses);
-        return;
-    }
-
     json_t *params = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (params == NULL || !json_is_array(params)) {
         goto decode_error;
