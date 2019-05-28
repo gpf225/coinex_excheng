@@ -408,7 +408,8 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("config.update_market", matchengine, CMD_CONFIG_UPDATE_MARKET));
     ERR_RET_LN(add_handler("config.update_index", marketindex, CMD_CONFIG_UPDATE_INDEX));
 
-    ERR_RET_LN(add_handler("trade.rank", tradesummary, CMD_TRADE_RANK));
+    ERR_RET_LN(add_handler("trade.net_rank", tradesummary, CMD_TRADE_NET_RANK));
+    ERR_RET_LN(add_handler("trade.amount_rank", tradesummary, CMD_TRADE_AMOUNT_RANK));
 
     return 0;
 }

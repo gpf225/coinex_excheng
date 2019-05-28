@@ -361,6 +361,8 @@ static int notify_depth(const char *market, const char *interval, uint32_t limit
         val->last_clean = now; 
         broadcast_update(key.market, val->sessions, true, depth_result);
     } else {
+        json_object_set(diff, "last", json_object_get(result, "last"));
+        json_object_set(diff, "time", json_object_get(result, "time"));
         broadcast_update(key.market, val->sessions, false, diff);
     }
     json_decref(diff);
