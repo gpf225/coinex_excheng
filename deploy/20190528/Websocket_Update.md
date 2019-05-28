@@ -73,10 +73,10 @@ response:
 **Account Asset inquiry**
 
 * method: `asset.account_query`
-* params: 
-	1. user_id: user ID, Integer
-	2. account: account ID, Integer, 0 is compatible with the original
-	3. asset list, null for inquire all
+* params:
+    1. user_id: user ID, Integer
+    2. account: account ID, Integer, 0 is compatible with the original
+    3. asset list, null for inquire all
 * result: see HTTP protocol(asset.query)
 
 ```
@@ -85,6 +85,29 @@ request:
 
 response:
 {"BTC": {"available": "1.10000000","freeze": "9.90000000"}}
+```
+
+**index subscription**
+
+* method: `index.subscribe`
+* params:
+
+**cancel index subscription**
+
+* method: `index.unsubscribe`
+* params:
+
+**index notification**
+
+* method: `index.update`
+* params:
+
+```
+	{
+		"method": "index.update",
+		"params": ["BTCUSDT", "8730.91"],
+		"id": null
+	}
 ```
 
 ##修改接口

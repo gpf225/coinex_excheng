@@ -3,7 +3,6 @@
 ## 新增接口
 **Asset query all**
 
-
 * method: `asset.query_all`
 * params:
   1. user_id
@@ -39,6 +38,79 @@
 	}, 
 	'error': null
 }
+```
+
+###Market Index
+
+**market index list**
+
+* method: `index.list`
+* params: None
+
+* result: 
+
+```
+"result": {
+	'id': 1,
+	'result': [
+		{
+			'index': '265.40',
+			'name': 'ETHUSDT',
+			'timestamp': 1558945100
+		},
+		{
+			'index': '112.40',
+			'name': 'LTCUSDT',
+			'timestamp': 1558945100
+		},
+		{
+			'index': '8652.86',
+			'name': 'BTCUSDT',
+			'timestamp': 1558945100
+		}
+	],
+	'error': null
+}
+```
+
+**query market index**
+
+* method: `index.query`
+* params:
+	1. market name
+
+* result:
+
+```
+request: ['BTCUSDT']
+
+respose:
+{
+	'id': 1, 
+	'result': {
+		'index': '112.28',
+		'name': 'LTCUSDT',
+		'timestamp': 1558945160
+	},
+	'error': null
+}
+```
+
+**Market Index change**
+
+* method: `config.update_index`
+* params: None
+
+*result:
+
+```
+ {
+     'id': 1,
+     'result': {
+     		'status': 'success'
+     },
+     'error': null
+  
 ```
 
 ## 有修改接口

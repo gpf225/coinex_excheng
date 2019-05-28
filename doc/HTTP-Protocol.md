@@ -952,15 +952,78 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 
 ## TradeRank API
 
-**TradeRank**
-* method: `trade.rank`
+**TradeNetRank**
+* method: `trade.net_rank`
 * params:
 1. market list: array
 2. start_time: start time  Integer
 3. end_time: start time  Integer
 
-* example: trade.rank("[BTCUSDT]", 1557471355, 1557476355)
+* example: trade.net_rank("[BTCUSDT]", 1557471355, 1557476355)
 
+**TradeAmountRank**
+* method: `trade.amount_rank`
+* params:
+1. market list: array
+2. start_time: start time  Integer
+3. end_time: start time  Integer
+
+* example: trade.amount_rank("[BTCUSDT]", 1557471355, 1557476355)
+
+## Index API
+
+**market index list**
+
+* method: `index.list`
+* params: None
+
+* result:
+
+```
+"result": {
+	'id': 1,
+	'ttl': 1000,
+	'result': {
+		'LTCUSDT': {
+			'index': '114.23',
+			'time': 1559042800000
+		},
+		'BTCUSDT': {
+			'index': '8711.09',
+			'time': 1559042800000
+		},
+		'ETHUSDT': {
+			'index': '269.37',
+			'time': 1559042800000
+		}
+	},
+	'error': null
+}
+```
+
+**query market index**
+
+* method: `index.query`
+* params:
+	1. market name
+
+* result:
+
+```
+request: ['BTCUSDT']
+
+respose:
+{
+	'id': 1,
+	'ttl': 1000,
+	'result': {
+		'index': '8705.37',
+		'name': 'BTCUSDT',
+		'time': 1559042980000
+	},
+	'error': null
+}
+```
 
 ## Config API
 
@@ -969,3 +1032,18 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 
 **Update market config**
 * method: `config.update_market`
+
+**Update market index config**
+
+* method: `config.update_index`
+* result:
+
+```
+ {
+     'id': 1,
+     'result': {
+     		'status': 'success'
+     },
+     'error': null
+  
+```

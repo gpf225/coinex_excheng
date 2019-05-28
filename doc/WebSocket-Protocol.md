@@ -429,3 +429,28 @@ response:
 **Cancel sub-account subscription**
 * method: `asset.unsubscribe_sub`
 * params: none
+
+## Iindex API
+
+**index subscription**
+
+* method: `index.subscribe`
+* params:
+
+**cancel index subscription**
+
+* method: `index.unsubscribe`
+* params:
+
+**index notification**
+
+* method: `index.update`
+* params:
+
+```
+	{
+		"method": "index.update",
+		"params": ["BTCUSDT", "8730.91"], 
+		"id": null
+	}
+```
