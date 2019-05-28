@@ -51,12 +51,12 @@ static void sendto_reader(nw_ses *ses, rpc_pkg *pkg, const char *market, uint64_
 {
     int reader_id = -1;
     if (market == NULL && user_order_id == 0) {
-        reader_id = rand() % settings.reader_num;
+        reader_id = rand() % (settings.reader_num - 1);
     } else if (market != NULL) {
         uint32_t hash = dict_generic_hash_function(market, strlen(market));
-        reader_id = hash % settings.reader_num;
+        reader_id = hash % (settings.reader_num - 1);
     } else {
-        reader_id = user_order_id % settings.reader_num;
+        reader_id = user_order_id % (settings.reader_num - 1);
     }
 
     if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
@@ -73,7 +73,7 @@ static void sendto_reader(nw_ses *ses, rpc_pkg *pkg, const char *market, uint64_
 
 static void sendto_reader_summary(nw_ses *ses, rpc_pkg *pkg)
 {
-    int reader_id = settings.reader_num;
+    int reader_id = settings.reader_num - 1;
     if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
         reply_error_internal_error(ses, pkg);
         log_fatal("lose connection to summary reader: %d", reader_id);
@@ -94,7 +94,7 @@ static void sendto_all(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
-    for (int i = 0; i < settings.reader_num + 1; ++i) {
+    for (int i = 0; i < settings.reader_num; ++i) {
         if (!rpc_clt_connected(reader_clt_arr[i])) {
             reply_error_internal_error(ses, pkg);
             log_fatal("lose connection to reader: %d", i);
@@ -103,7 +103,7 @@ static void sendto_all(nw_ses *ses, rpc_pkg *pkg)
     }
 
     sendto_clt_pkg(writer_clt, ses, pkg);
-    for (int i = 0; i < settings.reader_num + 1; ++i) {
+    for (int i = 0; i < settings.reader_num; ++i) {
         sendto_clt_pkg(reader_clt_arr[i], ses, pkg);
     }
 }
@@ -324,8 +324,8 @@ static int init_worker_clt()
     if (rpc_clt_start(writer_clt) < 0)
             return -__LINE__;
 
-    reader_clt_arr = malloc(sizeof(void *) * (settings.reader_num + 1));
-    for (int i = 0; i < settings.reader_num + 1; ++i) {
+    reader_clt_arr = malloc(sizeof(void *) * (settings.reader_num));
+    for (int i = 0; i < settings.reader_num; ++i) {
         sds name = sdsempty();
         name = sdscatprintf(name, "reader_clt_%d", i);
 
@@ -359,7 +359,7 @@ static sds on_cmd_status(const char *cmd, int argc, sds *argv)
         reply = sdscatprintf(reply, "writer dead\n");
     }
 
-    for (int i = 0; i < settings.reader_num + 1; ++i) {
+    for (int i = 0; i < settings.reader_num; ++i) {
         if (rpc_clt_connected(reader_clt_arr[i])) {
             reply = sdscatprintf(reply, "reader: %u ok\n", i);
         } else {

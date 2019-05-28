@@ -55,38 +55,6 @@ void uint32_set_release(dict_t *set)
     dict_release(set);
 }
 
-dict_t *uint32_mpd_dict_create(void)
-{
-    dict_types type;
-    memset(&type, 0, sizeof(type));
-    type.hash_function  = uint32_dict_hash_func;
-    type.key_compare    = uint32_dict_key_compare;
-    type.val_dup        = mpd_dict_val_dup;
-    type.val_destructor = mpd_dict_val_free;
-    return dict_create(&type, 64);
-}
-
-void uint32_mpd_dict_plus(dict_t *dict, uint32_t key, mpd_t *val)
-{
-    dict_entry *entry = dict_find(dict, (void *)(uintptr_t)val);
-    if (entry) {
-        mpd_t *m = entry->val;
-        mpd_add(m, m, val, &mpd_ctx);
-        return;
-    }
-    dict_add(dict, (void *)(uintptr_t)key, val);
-}
-
-void uint32_mpd_dict_clear(dict_t *dict)
-{
-    dict_clear(dict);
-}
-
-void uint32_mpd_dict_release(dict_t *dict)
-{
-    dict_release(dict);
-}
-
 uint32_t str_dict_hash_function(const void *key)
 {
     return dict_generic_hash_function(key, strlen(key));
@@ -136,15 +104,4 @@ int ptr_dict_key_compare(const void *key1, const void *key2)
 {
     return key1 == key2 ? 0 : 1;
 }
-
-void *mpd_dict_val_dup(const void *val)
-{
-    return mpd_qncopy(val);
-}
-
-void mpd_dict_val_free(void *val)
-{
-    mpd_del(val);
-}
-
 
