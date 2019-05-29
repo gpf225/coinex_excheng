@@ -45,6 +45,11 @@ size_t uint32_set_num(dict_t *set)
     return dict_size(set);
 }
 
+void uint32_set_clear(dict_t *set)
+{
+    dict_clear(set);
+}
+
 void uint32_set_release(dict_t *set)
 {
     dict_release(set);
