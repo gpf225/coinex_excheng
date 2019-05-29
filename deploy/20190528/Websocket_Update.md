@@ -117,11 +117,10 @@ response:
 
 * method: `deals.query_user`
 * params:
-	1. user_id: user ID, Integer
-	2. <span style='color:red'>**account: account ID, Integer, 0 is compatible with the original, -1 for query all**</style>
-	3. market: market name, String
-	4. side: side, 0 for no limit, 1 for sell, 2 for buy
-	5. start_time: start time, 0 for unlimited, Integer
-	6. end_time: end time, 0 for unlimited, Integer
-	7. offset: offset, Integer
-	8. limit: limit, Integer
+	1. <span style='color:red'>**account: account ID, Integer, 0 is compatible with the original, -1 for query all**</style>
+	2. market: market name, String
+	3. side: side, 0 for no limit, 1 for sell, 2 for buy
+	4. start_time: start time, 0 for unlimited, Integer
+	5. end_time: end time, 0 for unlimited, Integer
+	6. offset: offset, Integer
+	7. limit: limit, Integer
