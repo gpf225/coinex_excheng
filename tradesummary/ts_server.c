@@ -74,7 +74,7 @@ static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
     return ret;
 }
 
-static int on_cmd_trade_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+static int on_cmd_trade_net_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 3)
         return reply_error_invalid_argument(ses, pkg);
@@ -99,7 +99,40 @@ static int on_cmd_trade_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (end_time > now)
         end_time = now;
 
-    json_t *result = get_trade_rank(market_list, start_time, end_time);
+    json_t *result = get_trade_net_rank(market_list, start_time, end_time);
+    if (result == NULL)
+        return reply_error_internal_error(ses, pkg);
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
+static int on_cmd_trade_amount_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // market list
+    json_t *market_list = json_array_get(params, 0);
+    if (!json_is_array(market_list))
+        return reply_error_invalid_argument(ses, pkg);
+    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+        if (!json_is_string(json_array_get(market_list, i)))
+            return reply_error_invalid_argument(ses, pkg);
+    }
+
+    // start time
+    time_t now = time(NULL);
+    time_t start_time = json_integer_value(json_array_get(params, 1));
+    time_t end_time = json_integer_value(json_array_get(params, 2));
+    if (start_time <= 0 || end_time <= 0 || start_time > end_time)
+        return reply_error_invalid_argument(ses, pkg);
+    if (start_time < now - settings.keep_days * 86400)
+        start_time = now - settings.keep_days * 86400;
+    if (end_time > now)
+        end_time = now;
+
+    json_t *result = get_trade_amount_rank(market_list, start_time, end_time);
     if (result == NULL)
         return reply_error_internal_error(ses, pkg);
     int ret = reply_result(ses, pkg, result);
@@ -118,11 +151,18 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     int ret;
     switch (pkg->command) {
-    case CMD_TRADE_RANK:
-        profile_inc("cmd_trade_rank", 1);
-        ret = on_cmd_trade_rank(ses, pkg, params);
+    case CMD_TRADE_NET_RANK:
+        profile_inc("cmd_trade_net_rank", 1);
+        ret = on_cmd_trade_net_rank(ses, pkg, params);
         if (ret < 0) {
-            log_error("on_cmd_trade_rank %s fail: %d", params_str, ret);
+            log_error("on_cmd_trade_net_rank %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_TRADE_AMOUNT_RANK:
+        profile_inc("cmd_trade_amount_rank", 1);
+        ret = on_cmd_trade_amount_rank(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_trade_amount_rank %s fail: %d", params_str, ret);
         }
         break;
     default:
