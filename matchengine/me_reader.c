@@ -186,6 +186,22 @@ static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return reply_error_invalid_argument(ses, pkg);
+
+    const char *asset = json_string_value(json_array_get(params, 0));
+    if (!asset) {
+        return reply_error_invalid_argument(ses, pkg);
+    }
+
+    json_t *result = balance_get_summary(asset);
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
 static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 6)
@@ -751,6 +767,25 @@ static int on_cmd_market_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+static int on_cmd_market_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return reply_error_invalid_argument(ses, pkg);
+
+    // market
+    if (!json_is_string(json_array_get(params, 0)))
+        return reply_error_invalid_argument(ses, pkg);
+    const char *market_name = json_string_value(json_array_get(params, 0));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = market_get_summary(market);
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
 static int on_cmd_update_asset_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     int ret;
@@ -783,6 +818,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     if (params == NULL || !json_is_array(params)) {
         goto decode_error;
     }
+
     sds params_str = sdsnewlen(pkg->body, pkg->body_size);
 
     int ret;
@@ -813,6 +849,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_asset_query_lock(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_query_lock %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_SUMMARY:
+        profile_inc("cmd_asset_summary", 1);
+        ret = on_cmd_asset_summary(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_summary %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_PENDING:
@@ -862,6 +905,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_market_list(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_list %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_MARKET_SUMMARY:
+        profile_inc("cmd_market_summary", 1);
+        ret = on_cmd_market_summary(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_market_summary %s fail: %d", params_str, ret);
         }
         break;
     case CMD_CONFIG_UPDATE_ASSET:

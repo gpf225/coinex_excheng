@@ -52,23 +52,21 @@
 ```
 "result": {
 	'id': 1,
-	'result': [
-		{
-			'index': '265.40',
-			'name': 'ETHUSDT',
-			'timestamp': 1558945100
+	'ttl': 1000,
+	'result': {
+		'LTCUSDT': {
+			'index': '114.23',
+			'time': 1559042800000
 		},
-		{
-			'index': '112.40',
-			'name': 'LTCUSDT',
-			'timestamp': 1558945100
+		'BTCUSDT': {
+			'index': '8711.09',
+			'time': 1559042800000
 		},
-		{
-			'index': '8652.86',
-			'name': 'BTCUSDT',
-			'timestamp': 1558945100
+		'ETHUSDT': {
+			'index': '269.37',
+			'time': 1559042800000
 		}
-	],
+	},
 	'error': null
 }
 ```
@@ -86,11 +84,12 @@ request: ['BTCUSDT']
 
 respose:
 {
-	'id': 1, 
+	'id': 1,
+	'ttl': 1000,
 	'result': {
-		'index': '112.28',
-		'name': 'LTCUSDT',
-		'timestamp': 1558945160
+		'index': '8705.37',
+		'name': 'BTCUSDT',
+		'time': 1559042980000
 	},
 	'error': null
 }
@@ -345,6 +344,27 @@ params: [1, 0, "BTCCNY", 1, "10", "8000", "0.002", "0.001"]
 ```
 params: '[1, "BTCCNY", 1, "10","0.002"]'
 ```
+
+**Place limit stop order**
+* method: `order.put_stop_limit`
+* params:
+1. user_id: user ID, Integer
+2. <span style="color:red">**account: account ID, Integer, 0 is compatible with the original**</span>
+3. market: market name, String
+4. side: 1: sell, 2: buy, Integer
+5. amount: count, String
+6. stop_price: price, String
+7. price: price, String
+8. taker_fee_rate: String, taker fee
+9. maker_fee_rate: String, maker fee
+10. source: String, source, up to 30 bytes
+11. fee_asset: String, asset to use as fee
+12. fee_discount: String, 0~1
+* result: order detail
+* error:
+    1. balance not enough
+    2. invalid stop price
+    3. amount too small
 
 **Place stop market order**
 

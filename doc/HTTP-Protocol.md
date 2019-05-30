@@ -129,6 +129,28 @@ asset list(optional, if no asset special, return all asset)
 }
 ```
 
+**Asset summary**
+* method: `asset.summary`
+* params:
+1. asset
+* result:
+```
+{
+	'id': 1, 
+	'result': {
+		'total_users': 10,
+		'available_users': 10,
+		'lock_users': 10,
+		'frozen_users': 10,
+		'total': '100',
+		'available': '100',
+		'frozen': '100',
+		'lock': 11
+	}, 
+	'error': null
+}
+```
+
 **Asset query all**
 * method: `asset.query_all`
 * params:
@@ -291,21 +313,22 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `order.put_stop_limit`
 * params:
 1. user_id: user ID, Integer
-2. market: market name, String
-3. side: 1: sell, 2: buy, Integer
-4. amount: count, String
-5. stop_price: price, String
-6. price: price, String
-7. taker_fee_rate: String, taker fee
-8. maker_fee_rate: String, maker fee
-9. source: String, source, up to 30 bytes
-10. fee_asset: String, asset to use as fee
-11. fee_discount: String, 0~1
+2. account: account ID, Integer, 0 is compatible with the original
+3. market: market name, String
+4. side: 1: sell, 2: buy, Integer
+5. amount: count, String
+6. stop_price: price, String
+7. price: price, String
+8. taker_fee_rate: String, taker fee
+9. maker_fee_rate: String, maker fee
+10. source: String, source, up to 30 bytes
+11. fee_asset: String, asset to use as fee
+12. fee_discount: String, 0~1
 * result: order detail
 * error:
-10. balance not enough
-11. invalid stop price
-12. amount too small
+    1. balance not enough
+    2. invalid stop price
+    3. amount too small
 
 **Place stop market order**
 * method: `order.put_stop_market`
@@ -777,6 +800,38 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 ]
 ```
 
+**Market summary**
+* method: `market.summary`
+* params:
+1. market
+* result:
+```
+{
+	'id': 1,
+	'result': {
+		'order_users': 10,
+		'order_ask_users': 10,
+		'order_bid_users': 10,
+		'stop_users': 10,
+		'stop_ask_users': 10,
+		'stop_bid_users': 10,
+		'orders': 10,
+		'stops': 10,
+		'order_asks': 10,
+		'order_ask_amount': '10.10',
+		'order_ask_left': '100.10',
+		'order_bids': '100.10',
+		'order_bid_amount': '100.10',
+		'order_bid_left': '100.10',
+		'stop_asks': '1000.10',
+		'stop_ask_amount': '100.10',
+		'stop_bids': '100.10',
+		'stop_bid_amount': '100.10'
+	},
+	'error': null
+}
+```
+
 **Executed history extend**
 * method: `market.deals_ext`
 * params:
@@ -952,14 +1007,23 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 
 ## TradeRank API
 
-**TradeRank**
-* method: `trade.rank`
+**TradeNetRank**
+* method: `trade.net_rank`
 * params:
 1. market list: array
 2. start_time: start time  Integer
 3. end_time: start time  Integer
 
-* example: trade.rank("[BTCUSDT]", 1557471355, 1557476355)
+* example: trade.net_rank("[BTCUSDT]", 1557471355, 1557476355)
+
+**TradeAmountRank**
+* method: `trade.amount_rank`
+* params:
+1. market list: array
+2. start_time: start time  Integer
+3. end_time: start time  Integer
+
+* example: trade.amount_rank("[BTCUSDT]", 1557471355, 1557476355)
 
 ## Index API
 
@@ -973,23 +1037,21 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 ```
 "result": {
 	'id': 1,
-	'result': [
-		{
-			'index': '265.40',
-			'name': 'ETHUSDT',
-			'timestamp': 1558945100
+	'ttl': 1000,
+	'result': {
+		'LTCUSDT': {
+			'index': '114.23',
+			'time': 1559042800000
 		},
-		{
-			'index': '112.40',
-			'name': 'LTCUSDT',
-			'timestamp': 1558945100
+		'BTCUSDT': {
+			'index': '8711.09',
+			'time': 1559042800000
 		},
-		{
-			'index': '8652.86',
-			'name': 'BTCUSDT',
-			'timestamp': 1558945100
+		'ETHUSDT': {
+			'index': '269.37',
+			'time': 1559042800000
 		}
-	],
+	},
 	'error': null
 }
 ```
@@ -1008,10 +1070,11 @@ request: ['BTCUSDT']
 respose:
 {
 	'id': 1,
+	'ttl': 1000,
 	'result': {
-		'index': '112.28',
-		'name': 'LTCUSDT',
-		'timestamp': 1558945160
+		'index': '8705.37',
+		'name': 'BTCUSDT',
+		'time': 1559042980000
 	},
 	'error': null
 }

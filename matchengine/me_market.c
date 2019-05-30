@@ -2100,6 +2100,108 @@ json_t *market_get_fini_order(uint64_t order_id)
     return NULL;
 }
 
+json_t *market_get_summary(market_t *m)
+{
+    int order_ask_users, order_bid_users, stop_ask_users, stop_bid_users = 0;
+    mpd_t *order_ask_amount = mpd_qncopy(mpd_zero);
+    mpd_t *order_bid_amount = mpd_qncopy(mpd_zero);
+    mpd_t *order_ask_left = mpd_qncopy(mpd_zero);
+    mpd_t *order_bid_left = mpd_qncopy(mpd_zero);
+    mpd_t *stop_ask_amount = mpd_qncopy(mpd_zero);
+    mpd_t *stop_bid_amount = mpd_qncopy(mpd_zero);
+
+    //ask orders
+    dict_t *distinct_dict = uint32_set_create();
+    skiplist_node *node;
+    skiplist_iter *iter = skiplist_get_iterator(m->asks);
+    for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
+        order_t *order = node->value;
+        mpd_add(order_ask_amount, order_ask_amount, order->amount, &mpd_ctx);
+        mpd_add(order_ask_left, order_ask_left, order->left, &mpd_ctx);
+        if (!uint32_set_exist(distinct_dict, order->user_id)) {
+            uint32_set_add(distinct_dict, order->user_id);
+        }
+    }
+    order_ask_users = uint32_set_num(distinct_dict);
+    uint32_set_clear(distinct_dict);
+    skiplist_release_iterator(iter);
+
+    //bid orders
+    iter = skiplist_get_iterator(m->bids);
+    for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
+        order_t *order = node->value;
+        mpd_add(order_bid_amount, order_bid_amount, order->amount, &mpd_ctx);
+        mpd_add(order_bid_left, order_bid_left, order->left, &mpd_ctx);
+        if (!uint32_set_exist(distinct_dict, order->user_id)) {
+            uint32_set_add(distinct_dict, order->user_id);
+        }
+    }
+    order_bid_users = uint32_set_num(distinct_dict);
+    uint32_set_clear(distinct_dict);
+    skiplist_release_iterator(iter);
+
+    //ask stops
+    iter = skiplist_get_iterator(m->stop_asks);
+    for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
+        stop_t *stop = node->value;
+        mpd_add(stop_ask_amount, stop_ask_amount, stop->amount, &mpd_ctx);
+        if (!uint32_set_exist(distinct_dict, stop->user_id)) {
+            uint32_set_add(distinct_dict, stop->user_id);
+        }
+    }
+    stop_ask_users = uint32_set_num(distinct_dict);
+    uint32_set_clear(distinct_dict);
+    skiplist_release_iterator(iter);
+
+    //bid stops
+    iter = skiplist_get_iterator(m->stop_bids);
+    for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
+        stop_t *stop = node->value;
+        mpd_add(stop_bid_amount, stop_bid_amount, stop->amount, &mpd_ctx);
+        if (!uint32_set_exist(distinct_dict, stop->user_id)) {
+            uint32_set_add(distinct_dict, stop->user_id);
+        }
+    }
+    stop_bid_users = uint32_set_num(distinct_dict);
+    uint32_set_release(distinct_dict);
+    skiplist_release_iterator(iter);
+
+    json_t *result = json_object();
+
+    json_object_set_new(result, "order_users", json_integer(dict_size(m->user_orders)));
+    json_object_set_new(result, "order_ask_users", json_integer(order_ask_users));
+    json_object_set_new(result, "order_bid_users", json_integer(order_bid_users));
+
+    json_object_set_new(result, "stop_users", json_integer(dict_size(m->user_stops)));
+    json_object_set_new(result, "stop_ask_users", json_integer(stop_ask_users));
+    json_object_set_new(result, "stop_bid_users", json_integer(stop_bid_users));
+
+    json_object_set_new(result, "orders", json_integer(dict_size(m->orders)));
+    json_object_set_new(result, "stops", json_integer(dict_size(m->stops)));
+
+    json_object_set_new(result, "order_asks", json_integer(skiplist_len(m->asks)));
+    json_object_set_new_mpd(result, "order_ask_amount", order_ask_amount);
+    json_object_set_new_mpd(result, "order_ask_left", order_ask_left);
+
+    json_object_set_new(result, "order_bids", json_integer(skiplist_len(m->bids)));
+    json_object_set_new_mpd(result, "order_bid_amount", order_bid_amount);
+    json_object_set_new_mpd(result, "order_bid_left", order_bid_left);
+
+    json_object_set_new(result, "stop_asks", json_integer(skiplist_len(m->stop_asks)));
+    json_object_set_new_mpd(result, "stop_ask_amount", stop_ask_amount);
+
+    json_object_set_new(result, "stop_bids", json_integer(skiplist_len(m->stop_bids)));
+    json_object_set_new_mpd(result, "stop_bid_amount", stop_bid_amount);
+
+    mpd_del(order_ask_amount);
+    mpd_del(order_bid_amount);
+    mpd_del(order_ask_left);
+    mpd_del(order_bid_left);
+    mpd_del(stop_ask_amount);
+    mpd_del(stop_bid_amount);
+    return result;
+}
+
 int market_set_reader()
 {
     is_reader = true;
