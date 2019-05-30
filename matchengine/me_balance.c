@@ -624,7 +624,7 @@ json_t *balance_get_summary(const char *asset)
         dict_entry *entry_user;
         dict_iterator *iter_user = dict_get_iterator(dict_user);
         while ((entry_user = dict_next(iter_user)) != NULL) {
-            uint32_t account = (uintptr_t)entry->key;
+            uint32_t account = (uintptr_t)entry_user->key;
             if (!asset_exist(account, asset)) {
                 continue;
             }
@@ -632,7 +632,7 @@ json_t *balance_get_summary(const char *asset)
             int prec_save = asset_prec_save(account, asset);
             int prec_show = asset_prec_show(account, asset);
 
-            dict_t *dict_account = entry->val;
+            dict_t *dict_account = entry_user->val;
             dict_entry *entry_account;
             dict_iterator *iter_account = dict_get_iterator(dict_account);
             while ((entry_account = dict_next(iter_account)) != NULL) {
@@ -641,7 +641,7 @@ json_t *balance_get_summary(const char *asset)
                     continue;
                 }
 
-                mpd_t *balance = mpd_qncopy(entry->val);
+                mpd_t *balance = mpd_qncopy(entry_account->val);
                 if (prec_save != prec_show) {
                     mpd_rescale(balance, balance, -prec_show, &mpd_ctx);
                 }
@@ -651,17 +651,15 @@ json_t *balance_get_summary(const char *asset)
                     available_users++;
                     mpd_add(available, available, balance, &mpd_ctx);
                 } else if (key->type == BALANCE_TYPE_FROZEN) {
-                    lock_users++;
+                    frozen_users++;
                     mpd_add(frozen, frozen, balance, &mpd_ctx);
                 } else {
-                    frozen_users++;
+                    lock_users++;
                     mpd_add(lock, lock, balance, &mpd_ctx);
                 }
                 mpd_del(balance);
 
-                if (!uint32_set_exist(distinct_dict, user_id)) {
-                    uint32_set_add(distinct_dict, user_id);
-                }
+                uint32_set_add(distinct_dict, user_id);
             }
             dict_release_iterator(iter_account);
         }
