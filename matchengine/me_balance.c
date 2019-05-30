@@ -651,10 +651,10 @@ json_t *balance_get_summary(const char *asset)
                     available_users++;
                     mpd_add(available, available, balance, &mpd_ctx);
                 } else if (key->type == BALANCE_TYPE_FROZEN) {
-                    lock_users++;
+                    frozen_users++;
                     mpd_add(frozen, frozen, balance, &mpd_ctx);
                 } else {
-                    frozen_users++;
+                    lock_users++;
                     mpd_add(lock, lock, balance, &mpd_ctx);
                 }
                 mpd_del(balance);
