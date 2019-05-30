@@ -659,9 +659,7 @@ json_t *balance_get_summary(const char *asset)
                 }
                 mpd_del(balance);
 
-                if (!uint32_set_exist(distinct_dict, user_id)) {
-                    uint32_set_add(distinct_dict, user_id);
-                }
+                uint32_set_add(distinct_dict, user_id);
             }
             dict_release_iterator(iter_account);
         }
