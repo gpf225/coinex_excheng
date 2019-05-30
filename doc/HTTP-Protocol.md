@@ -313,21 +313,22 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `order.put_stop_limit`
 * params:
 1. user_id: user ID, Integer
-2. market: market name, String
-3. side: 1: sell, 2: buy, Integer
-4. amount: count, String
-5. stop_price: price, String
-6. price: price, String
-7. taker_fee_rate: String, taker fee
-8. maker_fee_rate: String, maker fee
-9. source: String, source, up to 30 bytes
-10. fee_asset: String, asset to use as fee
-11. fee_discount: String, 0~1
+2. account: account ID, Integer, 0 is compatible with the original
+3. market: market name, String
+4. side: 1: sell, 2: buy, Integer
+5. amount: count, String
+6. stop_price: price, String
+7. price: price, String
+8. taker_fee_rate: String, taker fee
+9. maker_fee_rate: String, maker fee
+10. source: String, source, up to 30 bytes
+11. fee_asset: String, asset to use as fee
+12. fee_discount: String, 0~1
 * result: order detail
 * error:
-10. balance not enough
-11. invalid stop price
-12. amount too small
+    10. balance not enough
+    11. invalid stop price
+    12. amount too small
 
 **Place stop market order**
 * method: `order.put_stop_market`
