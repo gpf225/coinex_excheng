@@ -326,9 +326,9 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 12. fee_discount: String, 0~1
 * result: order detail
 * error:
-    1. balance not enough
-    2. invalid stop price
-    3. amount too small
+    10. balance not enough
+    11. invalid stop price
+    12. amount too small
 
 **Place stop market order**
 * method: `order.put_stop_market`

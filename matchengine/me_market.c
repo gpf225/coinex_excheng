@@ -2118,9 +2118,7 @@ json_t *market_get_summary(market_t *m)
         order_t *order = node->value;
         mpd_add(order_ask_amount, order_ask_amount, order->amount, &mpd_ctx);
         mpd_add(order_ask_left, order_ask_left, order->left, &mpd_ctx);
-        if (!uint32_set_exist(distinct_dict, order->user_id)) {
-            uint32_set_add(distinct_dict, order->user_id);
-        }
+        uint32_set_add(distinct_dict, order->user_id);
     }
     order_ask_users = uint32_set_num(distinct_dict);
     uint32_set_clear(distinct_dict);
@@ -2132,9 +2130,7 @@ json_t *market_get_summary(market_t *m)
         order_t *order = node->value;
         mpd_add(order_bid_amount, order_bid_amount, order->amount, &mpd_ctx);
         mpd_add(order_bid_left, order_bid_left, order->left, &mpd_ctx);
-        if (!uint32_set_exist(distinct_dict, order->user_id)) {
-            uint32_set_add(distinct_dict, order->user_id);
-        }
+        uint32_set_add(distinct_dict, order->user_id);
     }
     order_bid_users = uint32_set_num(distinct_dict);
     uint32_set_clear(distinct_dict);
@@ -2145,9 +2141,7 @@ json_t *market_get_summary(market_t *m)
     for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
         stop_t *stop = node->value;
         mpd_add(stop_ask_amount, stop_ask_amount, stop->amount, &mpd_ctx);
-        if (!uint32_set_exist(distinct_dict, stop->user_id)) {
-            uint32_set_add(distinct_dict, stop->user_id);
-        }
+        uint32_set_add(distinct_dict, stop->user_id);
     }
     stop_ask_users = uint32_set_num(distinct_dict);
     uint32_set_clear(distinct_dict);
@@ -2158,9 +2152,7 @@ json_t *market_get_summary(market_t *m)
     for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
         stop_t *stop = node->value;
         mpd_add(stop_bid_amount, stop_bid_amount, stop->amount, &mpd_ctx);
-        if (!uint32_set_exist(distinct_dict, stop->user_id)) {
-            uint32_set_add(distinct_dict, stop->user_id);
-        }
+        uint32_set_add(distinct_dict, stop->user_id);
     }
     stop_bid_users = uint32_set_num(distinct_dict);
     uint32_set_release(distinct_dict);

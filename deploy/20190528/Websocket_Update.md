@@ -6,32 +6,29 @@
 
 * method: `order.account_query`
 * params:
-	1. user_id: user ID, Integer
-	2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
-	3. market: market name，String
-	4. side: 0 no limit, 1 sell, 2 buy
-	5. offset: offset，Integer
-	6. limit: limit，Integer
+	1. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+	2. market: market name，String
+	3. side: 0 no limit, 1 sell, 2 buy
+	4. offset: offset，Integer
+	5. limit: limit，Integer
 * result: see HTTP protocol(order.pending)
 
 **Unexecuted stop order inquiry**
 
 * method: `order.account_query_stop`
 * params:
-	1. user_id: user ID, Integer
-	2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
-	3. market: market name，String
-	4. side: 0 no limit, 1 sell, 2 buy
-	5. offset: offset，Integer
-	6. limit: limit，Integer
+	1. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+	2. market: market name，String
+	3. side: 0 no limit, 1 sell, 2 buy
+	4. offset: offset，Integer
+	5. limit: limit，Integer
 * result: see HTTP protocol(order.pending_stop)
 
 **All Account Asset inquiry**
 
 * method: `asset.account_query_all`
 * params: 
-	1. user_id: user ID, Integer
-	2. asset list, null for inquire all
+	1. asset list, null for inquire all
 * result: see HTTP protocol(asset.query_all)
 
 ```
@@ -74,9 +71,8 @@ response:
 
 * method: `asset.account_query`
 * params:
-    1. user_id: user ID, Integer
-    2. account: account ID, Integer, 0 is compatible with the original
-    3. asset list, null for inquire all
+    1. account: account ID, Integer, 0 is compatible with the original
+    2. asset list, null for inquire all
 * result: see HTTP protocol(asset.query)
 
 ```
