@@ -50,10 +50,6 @@
 # define MAX_PENDING_MESSAGE    10000
 # define MAX_PENDING_HISTORY    100000
 
-# define HISTORY_MODE_DIRECT    1
-# define HISTORY_MODE_KAFKA     2
-# define HISTORY_MODE_DOUBLE    3
-
 # define QUEUE_MEM_SIZE         500000
 # define QUEUE_MEM_MIN          100000
 # define QUEUE_SHMKEY_START     0x16120802
