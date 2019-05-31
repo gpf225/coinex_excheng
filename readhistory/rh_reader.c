@@ -65,7 +65,7 @@ json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id, uint32_t account
         json_object_set_new(record, "time", json_real(timestamp));
         json_object_set_new(record, "asset", json_string(row[3]));
         json_object_set_new(record, "business", json_string(row[4]));
-        json_object_set_new(record, "change", json_string(rstripzero(row[4])));
+        json_object_set_new(record, "change", json_string(rstripzero(row[5])));
         json_object_set_new(record, "balance", json_string(rstripzero(row[6])));
         json_t *detail = json_loads(row[5], 0, NULL);
         if (detail == NULL || !json_is_object(detail)) {

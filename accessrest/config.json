@@ -29,6 +29,13 @@
         ],
         "max_pkg_size": 2000000
     },
+    "marketindex": {
+        "name": "marketindex",
+        "addr": [
+            "tcp@127.0.0.1:7901"
+        ],
+        "max_pkg_size": 2000000
+    },
     "marketprice": {
         "name": "marketprice",
         "addr": [
