@@ -94,7 +94,7 @@ static void on_request_finished(const char *market, time_t timestamp)
     dict_release_iterator(iter);
 
     if (mpd_cmp(total_index, mpd_zero, &mpd_ctx) == 0) {
-        log_error("update market: %s, timestamp: %ld fail", market, timestamp);
+        log_fatal("update market: %s, timestamp: %ld fail", market, timestamp);
         goto cleanup;
     }
 
@@ -172,7 +172,7 @@ static void on_request_callback(uint32_t id, const char *exchange, json_t *reply
         int ret = exchange_parse_response(exchange, reply, &price, &price_time);
         if (ret < 0) {
             char *reply_str = json_dumps(reply, 0);
-            log_error("parse exchange: %s response: %s fail: %d", exchange, reply_str, ret);
+            log_fatal("parse exchange: %s response: %s fail: %d", exchange, reply_str, ret);
             free(reply_str);
         } else {
             char buf[100];

@@ -1180,7 +1180,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             return -1;
         }
 
-        if ((fee_asset != NULL) && (strcmp(m->money, fee_asset) == 0) ) {
+        if ((fee_asset != NULL) && (strcmp(m->money, fee_asset) == 0)) {
             if (!check_fee_asset(require, balance, taker_fee, fee_asset, fee_discount)) {
                 fee_asset = NULL;
             }
