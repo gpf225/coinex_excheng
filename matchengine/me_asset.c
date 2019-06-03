@@ -50,7 +50,7 @@ static int init_account(uint32_t account, json_t *assets)
     json_object_foreach(assets, key, asset) {
         struct asset_type at;
         ERR_RET_LN(read_cfg_int(asset, "prec_save", &at.prec_save, true, 0));
-        ERR_RET_LN(read_cfg_int(asset, "prec_save", &at.prec_show, true, 0));
+        ERR_RET_LN(read_cfg_int(asset, "prec_show", &at.prec_show, true, 0));
         at.min = mpd_new(&mpd_ctx);
         mpd_set_i32(at.min, -at.prec_show, &mpd_ctx);
         mpd_pow(at.min, mpd_ten, at.min, &mpd_ctx);

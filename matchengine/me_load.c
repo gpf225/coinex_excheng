@@ -33,7 +33,7 @@ int load_orders(MYSQL *conn, const char *table)
         for (size_t i = 0; i < num_rows; ++i) {
             MYSQL_ROW row = mysql_fetch_row(result);
             last_id = strtoull(row[0], NULL, 0);
-            market_t *market = get_market(row[6]);
+            market_t *market = get_market(row[7]);
             if (market == NULL)
                 continue;
 
@@ -119,7 +119,7 @@ int load_stops(MYSQL *conn, const char *table)
         for (size_t i = 0; i < num_rows; ++i) {
             MYSQL_ROW row = mysql_fetch_row(result);
             last_id = strtoull(row[0], NULL, 0);
-            market_t *market = get_market(row[6]);
+            market_t *market = get_market(row[7]);
             if (market == NULL)
                 continue;
 

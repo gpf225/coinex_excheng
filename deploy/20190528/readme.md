@@ -67,15 +67,11 @@
 * 9 部署tradesummary，配置文件无需修改
 
 #三. 数据切片，升级数据库
-* 1 升级history数据库表：去掉balance_history旧的索引，可能比较耗时放到该第一步
->. 在mulitaccount/alter_table.sh 只调用alter\_history\_table\_drop\_index
-
-* 2 在sql/create\_trade\_log.sql 下复制 indexlog\_example表创建语句，在trade\_log库中创建indexlog\_example表。
-
-* 3 暂停交易，数据切片。
-* 4 停止matchengine。
-* 5 升级trade_log数据库(不会耗时)：增加account字段默认为0(包括slice example表与 最后一个时间的slice相关表)
-	 > . 修改alter_table.sh的slice_time为最后切片的时间
+* 1 在sql/create\_trade\_log.sql 下复制 indexlog\_example表创建语句，在trade\_log库中创建indexlog\_example表。
+* 2 暂停交易与充值提现，数据切片。
+* 3 停止matchengine。
+* 4 升级trade_log数据库(不会耗时)：增加account字段默认为0(包括slice example表与 最后一个时间的slice相关表)
+	 > . 修改alter\_table.sh的slice_time为最后切片的时间
 	
     > . 修改alter_table.sh只调用alter\_log\_table\_add\_account函数
     
@@ -90,4 +86,11 @@
 * 7 readhistory
 * 8 historywrite
 * 9	tradesummary
+
+# 五：删除balance_history旧索引
+```
+在确认升级与测试没问题后进行该操作
+```
+* 升级history数据库表：去掉balance\_history旧的索引：在mulitaccount/alter_table.sh 只调用alter\_history\_table\_drop\_index。
+
 

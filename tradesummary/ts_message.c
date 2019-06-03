@@ -1336,6 +1336,9 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
     st.free = trade_rank_val_free;
     st.compare = trade_net_rank_val_compare;
 
+    mpd_t *total_net = mpd_qncopy(mpd_zero);
+    mpd_t *total_amount = mpd_qncopy(mpd_zero);
+
     skiplist_t *buy_list = skiplist_create(&st);
     skiplist_t *sell_list = skiplist_create(&st);
 
@@ -1353,10 +1356,13 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
         if (mpd_cmp(user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx) >= 0) {
             mpd_sub(rank_detail->amount_net, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
             skiplist_insert(buy_list, rank_detail);
+            mpd_add(total_net, total_net, rank_detail->amount_net, &mpd_ctx);
         } else {
             mpd_sub(rank_detail->amount_net, user_detail->sell_amount, user_detail->buy_amount, &mpd_ctx);
             skiplist_insert(sell_list, rank_detail);
         }
+
+        mpd_add(total_amount, total_amount, user_detail->buy_amount, &mpd_ctx);
     }
     dict_release_iterator(diter);
     dict_release(dict);
@@ -1405,6 +1411,11 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
     json_t *result = json_object();
     json_object_set_new(result, "buy", net_buy);
     json_object_set_new(result, "sell", net_sell);
+    json_object_set_new_mpd(result, "total_net", total_net);
+    json_object_set_new_mpd(result, "total_amount", total_amount);
+
+    mpd_del(total_net);
+    mpd_del(total_amount);
 
     return result;
 }
