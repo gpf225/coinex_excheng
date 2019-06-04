@@ -273,6 +273,16 @@ int reload_index_config(void)
         dict_replace(dict_market, (void *)key, minfo);
     }
 
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        const char *market = entry->key;
+        if (json_object_get(settings.index_cfg, market) == NULL) {
+            dict_delete(dict_market, market);
+        }
+    }
+    dict_release_iterator(iter);
+
     time_t now = time(NULL);
     request_index(now);
 
