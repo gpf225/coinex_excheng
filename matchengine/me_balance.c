@@ -337,7 +337,7 @@ mpd_t *balance_unfreeze(uint32_t user_id, uint32_t account, uint32_t type, const
     if (mpd_cmp(frozen, amount, &mpd_ctx) < 0)
         return NULL;
 
-    if (balance_add(user_id, account, BALANCE_TYPE_AVAILABLE, asset, amount) == 0)
+    if (balance_add(user_id, account, BALANCE_TYPE_AVAILABLE, asset, amount) == NULL)
         return NULL;
     mpd_sub(frozen, frozen, amount, &mpd_ctx);
     if (mpd_cmp(frozen, mpd_zero, &mpd_ctx) == 0) {
