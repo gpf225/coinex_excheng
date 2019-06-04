@@ -109,7 +109,7 @@ static void on_result(struct state_data *state, request_data_t *data, json_t *re
     }
 
     json_t *users = json_object_get(result, "data");
-    if (users == NULL || !json_is_array(users) || json_array_size(users) == 0) {
+    if (users == NULL || !json_is_array(users)) {
         goto error;
     }
 

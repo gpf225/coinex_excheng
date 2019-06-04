@@ -61,29 +61,23 @@ static dict_t* create_user_id_dict()
 
 int sub_user_add(uint32_t user_id, nw_ses *ses, json_t *params)
 {
-    dict_t *sub_users = create_user_id_dict();
-    if (sub_users == NULL) {
-        return -__LINE__;
-    }
-
-    for (size_t i = 0; i < json_array_size(params); ++i) {
-        uint32_t user_id = json_integer_value(json_array_get(params, i));
-        void *key = (void *)(uintptr_t)user_id;
-        if (dict_add(sub_users, key, NULL) == NULL) {
-            dict_release(sub_users);
-            return -__LINE__;
-        }
-    }
-
     user_key key;
-    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     key.ses = ses;
-    if (dict_find(dict_users, &key) != NULL) {
-        log_warn("user_id:%u has subscribed, maybe it did not remove before", user_id);
+    dict_entry *entry = dict_find(dict_users, &key);
+    if (entry == NULL) {
+        dict_t *dict = create_user_id_dict();
+        if (dict == NULL)
+            return -__LINE__;
+        entry = dict_add(dict_users, &key, dict);
     }
 
-    dict_replace(dict_users, &key, sub_users);
+    dict_t *sub_users= entry->val;
+    for (size_t i = 0; i < json_array_size(params); ++i) {
+        uint32_t user_id = json_integer_value(json_array_get(params, i));
+        dict_add(sub_users, (void *)(uintptr_t)user_id, NULL);
+    }
+
     return 0;
 }
 
