@@ -186,7 +186,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
 static void on_timeout(nw_state_entry *entry)
 {
-    log_fatal("query kline timeout, state id: %u", entry->id);
+    profile_inc("query_kline_timeout", 1);
+    log_error("query kline timeout, state id: %u", entry->id);
 }
 
 static void on_timer(nw_timer *timer, void *privdata)

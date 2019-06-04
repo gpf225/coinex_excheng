@@ -618,7 +618,11 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
 static void on_timeout(nw_state_entry *entry)
 {
     struct state_data *state = entry->data;
-    log_fatal("query timeout, state id: %u, command: %u", entry->id, state->cmd);
+    char buf[100];
+    snprintf(buf, sizeof(buf), "on_timeout_cmd_%u", state->cmd);
+    profile_inc(buf, 1);
+
+    log_error("query timeout, state id: %u, command: %u", entry->id, state->cmd);
     if (state->ses && state->ses->id == state->ses_id) {
         reply_time_out(state->ses);
     }

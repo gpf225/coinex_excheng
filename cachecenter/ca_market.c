@@ -141,7 +141,8 @@ static void on_market_timer(nw_timer *timer, void *privdata)
 
 static void on_timeout(nw_state_entry *entry)
 {
-    log_fatal("query timeout, state id: %u", entry->id);
+    profile_inc("query_market_timeout", 1);
+    log_error("query timeout, state id: %u", entry->id);
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)

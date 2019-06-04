@@ -87,7 +87,7 @@ static void notify_state(void)
 static void on_timeout(nw_state_entry *entry)
 {
     struct state_data *state = entry->data;
-    log_fatal("query timeout, state id: %u, command: %u", entry->id, state->cmd);
+    log_error("query timeout, state id: %u, command: %u", entry->id, state->cmd);
     if(nw_state_count(state_context) == 1) {
         notify_state();
     }

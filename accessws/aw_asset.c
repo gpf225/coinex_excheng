@@ -56,7 +56,8 @@ static void list_node_free(void *value)
 
 static void on_timeout(nw_state_entry *entry)
 {
-    log_fatal("query balance timeout, state id: %u", entry->id);
+    profile_inc("query_balance_timeout", 1);
+    log_error("query balance timeout, state id: %u", entry->id);
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)
