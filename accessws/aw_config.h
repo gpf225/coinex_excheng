@@ -78,6 +78,7 @@ struct settings {
     kafka_consumer_cfg  deals;
     kafka_consumer_cfg  stops;
     kafka_consumer_cfg  orders;
+    kafka_consumer_cfg  indexs;
     kafka_consumer_cfg  balances;
 
     int                 worker_num;

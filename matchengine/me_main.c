@@ -14,6 +14,7 @@
 # include "me_reader.h"
 # include "me_writer.h"
 # include "me_access.h"
+# include "me_asset.h"
 
 const char *__process__ = "matchengine";
 const char *__version__ = "0.1.0";
@@ -98,6 +99,10 @@ int main(int argc, char *argv[])
     ret = init_update();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init update fail: %d", ret);
+    }
+    ret = init_asset();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init asset fail: %d", ret);
     }
     ret = init_trade();
     if (ret < 0) {

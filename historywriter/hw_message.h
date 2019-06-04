@@ -9,12 +9,10 @@
 # include "hw_config.h"
 
 int init_message(void);
+void fini_message(void);
 
-int64_t get_last_order_offset(void);
-int64_t get_last_stop_offset(void);
-int64_t get_last_deal_offset(void);
-int64_t get_last_balance_offset(void);
-void message_stop(int flag);
+void suspend_message(void);
+void resume_message(void);
 sds message_status(sds reply);
 
 # endif

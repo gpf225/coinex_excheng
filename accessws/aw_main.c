@@ -20,6 +20,7 @@
 # include "aw_message.h"
 # include "aw_listener.h"
 # include "aw_sub_user.h"
+# include "aw_index.h"
 
 const char *__process__ = "accessws";
 const char *__version__ = "0.1.0";
@@ -182,6 +183,10 @@ server:
     ret = sub_user_init();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init sub_user_init fail: %d", ret);
+    }
+    ret = init_index();
+    if(ret < 0) {
+        error(EXIT_FAILURE, errno, "init init_index fail: %d", ret);
     }
     ret = init_message();
     if (ret < 0) {

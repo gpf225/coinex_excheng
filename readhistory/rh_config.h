@@ -34,16 +34,12 @@
 # include "ut_config.h"
 # include "ut_define.h"
 # include "ut_decimal.h"
+# include "ut_profile.h"
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
 
 # define QUERY_LIMIT    1001
-
-typedef struct ut_mysql_slice {
-    uint32_t count;
-    mysql_cfg *configs;
-}ut_mysql_slice;
 
 struct settings {
     bool                debug;
@@ -51,7 +47,9 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
-    ut_mysql_slice      db_histories;
+
+    mysql_cfg           *db_histories;
+    int                 db_history_count;
     int                 worker_num;
 };
 

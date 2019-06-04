@@ -44,6 +44,8 @@ static int init_log(void)
     default_dlog_flag = dlog_read_flag(settings.log.flag);
     if (alert_init(&settings.alert) < 0)
         return -__LINE__;
+    if (profile_init(__process__, settings.alert.host) < 0)
+        return -__LINE__;
 
     return 0;
 }

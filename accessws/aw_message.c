@@ -7,12 +7,14 @@
 # include "aw_message.h"
 # include "aw_deals.h"
 # include "aw_asset.h"
-# include "aw_asset_sub.h"
 # include "aw_order.h"
+# include "aw_index.h"
+# include "aw_asset_sub.h"
 
 static kafka_consumer_t *kafka_deals;
 static kafka_consumer_t *kafka_stops;
 static kafka_consumer_t *kafka_orders;
+static kafka_consumer_t *kafka_indexs;
 static kafka_consumer_t *kafka_balances;
 
 static int process_deals_message(json_t *msg)
@@ -37,7 +39,7 @@ static void on_deals_message(sds message, int64_t offset)
     profile_inc("message_deal ", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
-        log_error("invalid balance message: %s", message);
+        log_error("invalid deal message: %s", message);
         return;
     }
 
@@ -72,7 +74,7 @@ static void on_stops_message(sds message, int64_t offset)
     profile_inc("message_stop", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
-        log_error("invalid balance message: %s", message);
+        log_error("invalid stops message: %s", message);
         return;
     }
 
@@ -95,6 +97,7 @@ static int process_orders_message(json_t *msg)
         return -__LINE__;
 
     uint32_t user_id = json_integer_value(json_object_get(order, "user"));
+    uint32_t account = json_integer_value(json_object_get(order, "account"));
     const char *stock = json_string_value(json_object_get(msg, "stock"));
     const char *money = json_string_value(json_object_get(msg, "money"));
     const char *fee_asset = json_string_value(json_object_get(order, "fee_asset"));
@@ -103,14 +106,18 @@ static int process_orders_message(json_t *msg)
 
     order_on_update(user_id, event, order);
 
-    asset_on_update(user_id, stock);
-    asset_on_update(user_id, money);
-    
-    asset_on_update_sub(user_id, stock);
-    asset_on_update_sub(user_id, money);
+    asset_on_update(user_id, account, stock);
+    asset_on_update(user_id, account, money);
+    if (account == 0) {
+        asset_on_update_sub(user_id, stock);
+        asset_on_update_sub(user_id, money);
+    }
+
     if (fee_asset && strcmp(fee_asset, stock) != 0 && strcmp(fee_asset, money) != 0) {
-        asset_on_update(user_id, fee_asset);
-        asset_on_update_sub(user_id, fee_asset);
+        asset_on_update(user_id, account, fee_asset);
+        if (account == 0) {
+            asset_on_update_sub(user_id, fee_asset);
+        }
     }
 
     return 0;
@@ -122,7 +129,7 @@ static void on_orders_message(sds message, int64_t offset)
     profile_inc("message_order", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
-        log_error("invalid balance message: %s", message);
+        log_error("invalid order message: %s", message);
         return;
     }
 
@@ -134,16 +141,46 @@ static void on_orders_message(sds message, int64_t offset)
     json_decref(msg);
 }
 
+static int process_indexs_message(json_t *msg)
+{
+    const char *market = json_string_value(json_object_get(msg, "market"));
+    const char *price  = json_string_value(json_object_get(msg, "price"));
+
+    return index_on_update(market, price);
+}
+
+static void on_indexs_message(sds message, int64_t offset)
+{
+    log_trace("index message: %s", message);
+    profile_inc("message_index", 1);
+
+    json_t *msg = json_loads(message, 0, NULL);
+    if (!msg) {
+        log_error("invalid index message: %s", message);
+        return;
+    }
+
+    int ret = process_indexs_message(msg);
+    if (ret < 0) {
+        log_error("process_indexs_message: %s fail: %d", message, ret);
+    }
+
+    json_decref(msg);
+}
+
 static int process_balances_message(json_t *msg)
 {
     uint32_t user_id = json_integer_value(json_object_get(msg, "user_id"));
+    uint32_t account = json_integer_value(json_object_get(msg, "account"));
     const char *asset = json_string_value(json_object_get(msg, "asset"));
     if (user_id == 0 || asset == NULL) {
         return -__LINE__;
     }
 
-    asset_on_update(user_id, asset);
-    asset_on_update_sub(user_id, asset);
+    asset_on_update(user_id, account, asset);
+    if (account == 0) {
+        asset_on_update_sub(user_id, asset);
+    }
 
     return 0;
 }
@@ -183,6 +220,12 @@ int init_message(void)
     settings.orders.offset = RD_KAFKA_OFFSET_END;
     kafka_orders = kafka_consumer_create(&settings.orders, on_orders_message);
     if (kafka_orders == NULL) {
+        return -__LINE__;
+    }
+
+    settings.indexs.offset = RD_KAFKA_OFFSET_END;
+    kafka_indexs = kafka_consumer_create(&settings.indexs, on_indexs_message);
+    if (kafka_indexs == NULL) {
         return -__LINE__;
     }
 

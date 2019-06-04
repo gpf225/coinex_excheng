@@ -67,12 +67,10 @@ static json_t *http_request(const char *url, double timeout)
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, (long)(timeout * 1000));
 
-    profile_inc("request", 1);
     double start = current_timestamp();
     CURLcode ret = curl_easy_perform(curl);
     if (ret != CURLE_OK) {
         log_error("curl_easy_perform fail: %s, url: %s, timeout: %f", curl_easy_strerror(ret), url, timeout);
-        profile_inc("request_fail", 1);
         goto cleanup;
     }
 
@@ -83,7 +81,6 @@ static json_t *http_request(const char *url, double timeout)
         goto cleanup;
     }
 
-    profile_inc("request_success", 1);
     log_trace("cost %f, url: %s, reply:\n%s", current_timestamp() - start, url, reply_str);
 cleanup:
     sdsfree(reply_str);
@@ -142,6 +139,7 @@ int fini_request(void)
 
 int send_request(uint32_t id, const char *exchange, const char *url, double timeout, request_callback callback)
 {
+    profile_inc("request", 1);
     struct request_context *req = malloc(sizeof(struct request_context));
     req->id         = id;
     req->exchange   = strdup(exchange);

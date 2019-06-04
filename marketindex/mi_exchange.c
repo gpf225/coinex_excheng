@@ -10,6 +10,27 @@ static dict_t *dict_exchange;
 
 typedef int (*exchange_parser)(json_t *response, mpd_t **price, double *timestamp);
 
+static int convent_str_to_timestamp(const char *str, double *timestamp)
+{
+    int year, month, day, hour, minute, second, milsec;
+    int ret = sscanf(str, "%d-%d-%dT%d:%d:%d.%dZ", &year, &month, &day, &hour, &minute, &second, &milsec);
+    if (ret != 7)
+        return -__LINE__;
+
+    struct tm dtm;
+    memset(&dtm, 0, sizeof(dtm));
+    dtm.tm_year = year - 1900;
+    dtm.tm_mon  = month - 1;
+    dtm.tm_mday = day;
+    dtm.tm_hour = hour;
+    dtm.tm_min  = minute;
+    dtm.tm_sec  = second;
+
+    *timestamp = mktime(&dtm) - timezone + (double)milsec / 1000;
+
+    return 0;
+}
+
 int parse_coinex_response(json_t *response, mpd_t **price, double *timestamp)
 {
     json_t *data = json_object_get(response, "data");
@@ -23,6 +44,25 @@ int parse_coinex_response(json_t *response, mpd_t **price, double *timestamp)
     if (time_ms == 0)
         return -__LINE__;
     *timestamp = time_ms / 1000;
+
+    ERR_RET_LN(read_cfg_mpd(item, "price", price, ""));
+
+    return 0;
+}
+
+int parse_okex_response(json_t *response, mpd_t **price, double *timestamp)
+{
+    if (!json_is_array(response))
+        return -__LINE__;
+    json_t *item = json_array_get(response, 0);
+    if (item == NULL || !json_is_object(item))
+        return -__LINE__;
+
+    const char *time_str = json_string_value(json_object_get(item, "time"));
+    if (time_str == NULL)
+        return -__LINE__;
+    if (convent_str_to_timestamp(time_str, timestamp) < 0)
+        return -__LINE__;
 
     ERR_RET_LN(read_cfg_mpd(item, "price", price, ""));
 
@@ -85,6 +125,7 @@ int init_exchange()
         return -__LINE__;
 
     dict_add(dict_exchange, "coinex",       parse_coinex_response);
+    dict_add(dict_exchange, "okex",         parse_okex_response);
     dict_add(dict_exchange, "binance",      parse_binance_response);
     dict_add(dict_exchange, "huobiglobal",  parse_huobiglobal_response);
 
