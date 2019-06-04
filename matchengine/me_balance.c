@@ -209,7 +209,7 @@ mpd_t *balance_set(uint32_t user_id, uint32_t account, uint32_t type, const char
     if (entry == NULL)
         return NULL;
     result = entry->val;
-    mpd_rescale(result, amount, -at->prec_save, &mpd_ctx);
+    mpd_rescale(result, result, -at->prec_save, &mpd_ctx);
 
     return result;
 }
@@ -308,7 +308,7 @@ mpd_t *balance_freeze(uint32_t user_id, uint32_t account, uint32_t type, const c
     if (mpd_cmp(available, amount, &mpd_ctx) < 0)
         return NULL;
 
-    if (balance_add(user_id, account, type, asset, amount) == 0)
+    if (balance_add(user_id, account, type, asset, amount) == NULL)
         return NULL;
     mpd_sub(available, available, amount, &mpd_ctx);
     if (mpd_cmp(available, mpd_zero, &mpd_ctx) == 0) {
