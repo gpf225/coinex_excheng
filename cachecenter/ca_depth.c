@@ -99,7 +99,7 @@ static void on_timeout(nw_state_entry *entry)
 {
     profile_inc("query_depth_timeout", 1);
     struct state_data *state = entry->data;
-    log_fatal("query timeout, state id: %u", entry->id);
+    log_error("query timeout, state id: %u", entry->id);
 
     sds filter_key = get_depth_key(state->market, state->interval);
     delete_filter_queue(filter_key);

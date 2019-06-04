@@ -87,7 +87,8 @@ static dict_t* create_ses_dict()
 
 static void on_timeout(nw_state_entry *entry)
 {
-    log_fatal("query balance timeout, state id: %u", entry->id);
+    profile_inc("query_sub_balance_timeout", 1);
+    log_error("query sub balance timeout, state id: %u", entry->id);
 }
 
 static void on_backend_connect(nw_ses *ses, bool result)

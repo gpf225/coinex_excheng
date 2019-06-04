@@ -561,6 +561,7 @@ int depth_unsubscribe(nw_ses *ses)
             int count = depth_sub_counter_dec(key->market, key->interval);
             if (count == 0) {
                 ERR_RET(send_depth_request(CMD_CACHE_DEPTH_UNSUBSCRIBE, key));
+                dict_delete(dict_depth_sub, key);
             }
         }
     }

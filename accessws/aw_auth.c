@@ -110,7 +110,7 @@ static void on_result(struct state_data *state, sds token, json_t *result)
 error:
     if (result) {
         char *reply = json_dumps(result, 0);
-        log_fatal("invalid reply: %s", reply);
+        log_error("invalid reply: %s", reply);
         free(reply);
     }
     send_error_internal_error(state->ses, state->request_id);

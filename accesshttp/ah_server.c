@@ -230,6 +230,7 @@ clean:
 
 static void on_state_timeout(nw_state_entry *entry)
 {
+    profile_inc("on_state_timeout", 1);
     log_error("state id: %u timeout", entry->id);
     struct state_info *info = entry->data;
     if (info->ses->id == info->ses_id) {
