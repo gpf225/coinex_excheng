@@ -541,7 +541,6 @@ int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char 
     if (dict_find(obj->sessions, ses) != NULL)
         return 0;
 
-
     dict_add(obj->sessions, ses, NULL);
     int count = depth_sub_counter_inc(market, interval);
     if (count == 1) {
@@ -560,7 +559,10 @@ int depth_unsubscribe(nw_ses *ses)
             struct depth_key *key = entry->key;
             int count = depth_sub_counter_dec(key->market, key->interval);
             if (count == 0) {
-                ERR_RET(send_depth_request(CMD_CACHE_DEPTH_UNSUBSCRIBE, key));
+                send_depth_request(CMD_CACHE_DEPTH_UNSUBSCRIBE, key);
+            }
+
+            if (dict_size(obj->sessions) == 0) {
                 dict_delete(dict_depth_sub, key);
             }
         }
