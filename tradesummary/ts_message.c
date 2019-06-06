@@ -1482,7 +1482,6 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
         memset(sell_rank_detail, 0, sizeof(struct trade_amount_rank_val));
         sell_rank_detail->user_id = ukey->user_id;
         sell_rank_detail->amount = mpd_qncopy(user_detail->sell_amount);
-        sell_rank_detail->amount_total = mpd_qncopy(mpd_zero);
         sell_rank_detail->amount_total = mpd_qncopy(buy_rank_detail->amount_total);
         skiplist_insert(sell_amount_list, sell_rank_detail);
     }
