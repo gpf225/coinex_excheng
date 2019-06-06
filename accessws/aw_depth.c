@@ -561,10 +561,6 @@ int depth_unsubscribe(nw_ses *ses)
             if (count == 0) {
                 send_depth_request(CMD_CACHE_DEPTH_UNSUBSCRIBE, key);
             }
-
-            if (dict_size(obj->sessions) == 0) {
-                dict_delete(dict_depth_sub, key);
-            }
         }
     }
     dict_release_iterator(iter);
@@ -575,10 +571,7 @@ int depth_unsubscribe(nw_ses *ses)
 int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
 {
     struct depth_key key;
-    memset(&key, 0, sizeof(key));
-    sstrncpy(key.market, market, MARKET_NAME_MAX_LEN);
-    sstrncpy(key.interval, interval, INTERVAL_MAX_LEN);
-    key.limit = limit;
+    depth_set_key(&key, market, interval, limit);
 
     dict_entry *entry = dict_find(dict_depth_sub, &key);
     if (entry == NULL)

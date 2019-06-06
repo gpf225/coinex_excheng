@@ -79,7 +79,7 @@ static sds http_get(const char *url)
 
     CURLcode ret = curl_easy_perform(curl);
     if (ret != CURLE_OK) {
-        log_fatal("get %s fail: %s", url, curl_easy_strerror(ret));
+        log_error("get %s fail: %s", url, curl_easy_strerror(ret));
     }
     
     curl_easy_cleanup(curl);
