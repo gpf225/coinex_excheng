@@ -405,42 +405,36 @@ static void on_job(nw_job_entry *entry, void *privdata)
     int ret;
     switch (req->command) {
     case CMD_ASSET_HISTORY:
-        profile_inc("query_balance_history", 1);
         ret = on_cmd_balance_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_balance_history fail: %d", ret);
         }
         break;
     case CMD_ORDER_FINISHED:
-        profile_inc("query_order_history", 1);
         ret = on_cmd_order_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_history fail: %d", ret);
         }
         break;
     case CMD_ORDER_FINISHED_STOP:
-        profile_inc("query_stop_history", 1);
         ret = on_cmd_stop_history(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_stop_history fail: %d", ret);
         }
         break;
     case CMD_ORDER_FINISHED_DETAIL:
-        profile_inc("query_order_detail", 1);
         ret = on_cmd_order_detail(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_detail fail: %d", ret);
         }
         break;
     case CMD_ORDER_DEALS:
-        profile_inc("query_order_deals", 1);
         ret = on_cmd_order_deals(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_order_deals fail: %d", ret);
         }
         break;
     case CMD_MARKET_USER_DEALS:
-        profile_inc("query_user_deals", 1);
         ret = on_cmd_user_deals(conn, req->params, rsp);
         if (ret < 0) {
             log_error("on_cmd_user_deals fail: %d", ret);
@@ -496,6 +490,23 @@ static void on_job_release(void *privdata)
     };
 }
 
+static void profile_inc_process(uint32_t command)
+{
+    if (command == CMD_ASSET_HISTORY) {
+        profile_inc("query_balance_history", 1);
+    } else if (command == CMD_ORDER_FINISHED) {
+        profile_inc("query_order_history", 1);
+    } else if (command == CMD_ORDER_FINISHED_STOP) {
+        profile_inc("query_stop_history", 1);
+    } else if (command == CMD_ORDER_FINISHED_DETAIL) {
+        profile_inc("query_order_detail", 1);
+    } else if (command == CMD_ORDER_DEALS) {
+        profile_inc("query_order_deals", 1);
+    } else if (command == CMD_MARKET_USER_DEALS) {
+        profile_inc("query_user_deals", 1);
+    }
+}
+
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     json_t *params = json_loadb(pkg->body, pkg->body_size, 0, NULL);
@@ -536,6 +547,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     req->user_id = user_id;
     req->params = params;
     nw_job_add(job, 0, req);
+    profile_inc_process(req->command);
 
     return;
 }

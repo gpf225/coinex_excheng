@@ -64,7 +64,7 @@ static void on_job(nw_job_entry *entry, void *privdata)
 
     CURLcode ret = curl_easy_perform(curl);
     if (ret != CURLE_OK) {
-        log_fatal("curl_easy_perform fail: %s", curl_easy_strerror(ret));
+        log_error("curl_easy_perform fail: %s", curl_easy_strerror(ret));
         goto cleanup;
     }
 
