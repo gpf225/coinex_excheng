@@ -43,7 +43,7 @@ int index_on_update(const char *market, const char *price)
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_session);
     while ((entry = dict_next(iter)) != NULL) {
-        send_notify(entry->key, "index.update", params);
+        ws_send_notify(entry->key, "index.update", params);
     }
     dict_release_iterator(iter);
 

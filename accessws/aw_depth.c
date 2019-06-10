@@ -29,16 +29,6 @@ struct depth_sub_counter{
     uint32_t count;
 };
 
-static uint32_t dict_ses_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, sizeof(void *));
-}
-
-static int dict_ses_key_compare(const void *key1, const void *key2)
-{
-    return key1 == key2 ? 0 : 1;
-}
-
 static uint32_t dict_depth_hash_func(const void *key)
 {
     return dict_generic_hash_function(key, sizeof(struct depth_key));
@@ -268,16 +258,7 @@ static int send_depth_request(int command, struct depth_key *key)
     json_array_append_new(params, json_string(key->market));
     json_array_append_new(params, json_string(key->interval));
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = command;
-    pkg.body      = json_dumps(params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(clt, &pkg);
-    log_trace("send request to %s, cmd: %u, params: %s", clt->name, pkg.command, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(clt, command, 0, 0, params);
     json_decref(params);
 
     return 0;
@@ -293,7 +274,7 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
     dict_iterator *iter = dict_get_iterator(sessions);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
-        send_notify(entry->key, "depth.update", params);
+        ws_send_notify(entry->key, "depth.update", params);
     }
     dict_release_iterator(iter);
     json_decref(params);
@@ -524,8 +505,8 @@ int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char 
 
         dict_types dt;
         memset(&dt, 0, sizeof(dt));
-        dt.hash_function = dict_ses_hash_func;
-        dt.key_compare = dict_ses_key_compare;
+        dt.hash_function = ptr_dict_hash_func;
+        dt.key_compare = ptr_dict_key_compare;
         val.sessions = dict_create(&dt, 1024);
         if (val.sessions == NULL)
             return -__LINE__;
@@ -583,7 +564,7 @@ int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char
         json_array_append_new(params, json_boolean(true));
         json_array_append(params, obj->last);
         json_array_append_new(params, json_string(market));
-        send_notify(ses, "depth.update", params);
+        ws_send_notify(ses, "depth.update", params);
         json_decref(params);
         profile_inc("depth.update", 1);
     }

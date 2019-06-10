@@ -102,7 +102,7 @@ static void on_result(struct state_data *state, struct sign_request *request, js
             goto error;
         log_error("sign fail, access_id: %s, authorisation: %s, token: %"PRIu64" code: %d, message: %s",
                 request->access_id, request->authorisation, request->tonce, error_code, message);
-        send_error(state->ses, state->request_id, 11, message);
+        ws_send_error(state->ses, state->request_id, 11, message);
         profile_inc("sign_fail", 1);
         return;
     }
@@ -123,7 +123,7 @@ static void on_result(struct state_data *state, struct sign_request *request, js
     info->auth = true;
     info->user_id = user_id;
     log_info("sign success, access_id: %s, user_id: %u", request->access_id, user_id);
-    send_success(state->ses, state->request_id);
+    ws_send_success(state->ses, state->request_id);
     profile_inc("sign_success", 1);
 
     return;
@@ -134,7 +134,7 @@ error:
         log_error("invalid reply: %s", reply);
         free(reply);
     }
-    send_error_internal_error(state->ses, state->request_id);
+    ws_send_error_internal_error(state->ses, state->request_id);
 }
 
 static void on_finish(nw_job_entry *entry)
@@ -161,23 +161,23 @@ static void on_timeout(nw_state_entry *entry)
 {
     struct state_data *state = entry->data;
     if (state->ses->id == state->ses_id) {
-        send_error_service_timeout(state->ses, state->request_id);
+        ws_send_error_service_timeout(state->ses, state->request_id);
     }
 }
 
 int send_sign_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (json_array_size(params) != 3)
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     const char *access_id = json_string_value(json_array_get(params, 0));
     if (access_id == NULL)
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     const char *authorisation = json_string_value(json_array_get(params, 1));
     if (authorisation == NULL)
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     uint64_t tonce = json_integer_value(json_array_get(params, 2));
     if (tonce == 0)
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;

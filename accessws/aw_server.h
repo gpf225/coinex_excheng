@@ -16,17 +16,6 @@ struct clt_info {
 };
 
 int init_server(void);
-
-int send_error(nw_ses *ses, uint64_t id, int code, const char *message);
-int send_error_invalid_argument(nw_ses *ses, uint64_t id);
-int send_error_internal_error(nw_ses *ses, uint64_t id);
-int send_error_service_unavailable(nw_ses *ses, uint64_t id);
-int send_error_method_notfound(nw_ses *ses, uint64_t id);
-int send_error_service_timeout(nw_ses *ses, uint64_t id);
-int send_result(nw_ses *ses, uint64_t id, json_t *result);
-int send_success(nw_ses *ses, uint64_t id);
-int reply_result_null(nw_ses *ses, int64_t id);
-int send_notify(nw_ses *ses, const char *method, json_t *params);
 void update_depth_cache(json_t *depth_data, const char *market, const char *interval, int ttl);
 
 # endif

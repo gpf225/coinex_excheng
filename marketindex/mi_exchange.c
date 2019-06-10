@@ -4,7 +4,6 @@
  */
 
 # include "mi_exchange.h"
-# include "ut_comm_dict.h"
 
 static dict_t *dict_exchange;
 

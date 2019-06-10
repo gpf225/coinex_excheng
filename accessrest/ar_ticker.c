@@ -16,26 +16,6 @@ struct state_val {
     json_t  *data;
 };
 
-static uint32_t dict_market_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, strlen(key));
-}
-
-static int dict_market_key_compare(const void *key1, const void *key2)
-{
-    return strcmp(key1, key2);
-}
-
-static void *dict_market_key_dup(const void *key)
-{
-    return strdup(key);
-}
-
-static void dict_market_key_free(void *key)
-{
-    free(key);
-}
-
 static void *dict_state_val_dup(const void *key)
 {
     struct state_val *obj = malloc(sizeof(struct state_val));
@@ -233,10 +213,10 @@ int init_ticker(void)
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = dict_market_hash_func;
-    dt.key_dup        = dict_market_key_dup;
-    dt.key_destructor = dict_market_key_free;
-    dt.key_compare    = dict_market_key_compare;
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_dup        = str_dict_key_dup;
+    dt.key_destructor = str_dict_key_free;
+    dt.key_compare    = str_dict_key_compare;
     dt.val_dup        = dict_state_val_dup;
     dt.val_destructor = dict_state_val_free;
 

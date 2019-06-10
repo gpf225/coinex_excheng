@@ -34,26 +34,6 @@ struct cache_val {
 
 typedef int (*on_request_method)(nw_ses *ses, dict_t *params);
 
-static uint32_t cache_dict_hash_function(const void *key)
-{
-    return dict_generic_hash_function(key, sdslen((sds)key));
-}
-
-static int cache_dict_key_compare(const void *key1, const void *key2)
-{
-    return sdscmp((sds)key1, (sds)key2);
-}
-
-static void *cache_dict_key_dup(const void *key)
-{
-    return sdsdup((const sds)key);
-}
-
-static void cache_dict_key_free(void *key)
-{
-    sdsfree(key);
-}
-
 static void *cache_dict_val_dup(const void *val)
 {
     struct cache_val *obj = malloc(sizeof(struct cache_val));
@@ -379,25 +359,14 @@ static int on_market_depth(nw_ses *ses, dict_t *params)
     state->ses_id = ses->id;
     state->cache_key = cache_key;
     state->depth_limit = limit;
+    state->cmd = CMD_CACHE_DEPTH;  
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_string(market));
     json_array_append_new(query_params, json_integer(limit));
     json_array_append_new(query_params, json_string(merge));
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_CACHE_DEPTH;
-    pkg.sequence  = state_entry->id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    state->cmd = pkg.command;
-    rpc_clt_send(clt, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(clt)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(clt, state->cmd, state_entry->id, 0, query_params);
     json_decref(query_params);
 
     return 0;
@@ -525,6 +494,7 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     state->ses = ses;
     state->ses_id = ses->id;
     state->cache_key = cache_key;
+    state->cmd = CMD_MARKET_KLINE;
 
     time_t timestatmp = time(NULL);
     json_t *query_params = json_array();
@@ -533,19 +503,7 @@ static int on_market_kline(nw_ses *ses, dict_t *params)
     json_array_append_new(query_params, json_integer(timestatmp));
     json_array_append_new(query_params, json_integer(interval));
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_MARKET_KLINE;
-    pkg.sequence  = state_entry->id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    state->cmd = pkg.command;
-    rpc_clt_send(marketprice, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(marketprice, state->cmd, state_entry->id, 0, query_params);
     json_decref(query_params);
 
     return 0;
@@ -570,21 +528,10 @@ static int on_market_index(nw_ses *ses, dict_t *params)
     state->ses = ses;
     state->ses_id = ses->id;
     state->cache_key = cache_key;
+    state->cmd = CMD_INDEX_LIST;
 
     json_t *query_params = json_array();
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_INDEX_LIST;
-    pkg.sequence  = state_entry->id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    state->cmd = pkg.command;
-    rpc_clt_send(marketindex, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(marketindex)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(marketindex, state->cmd, state_entry->id, 0, query_params);
     json_decref(query_params);
 
     return 0;
@@ -840,10 +787,10 @@ static int init_backend(void)
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = cache_dict_hash_function;
-    dt.key_compare    = cache_dict_key_compare;
-    dt.key_dup        = cache_dict_key_dup;
-    dt.key_destructor = cache_dict_key_free;
+    dt.hash_function  = sds_dict_hash_function;
+    dt.key_compare    = sds_dict_key_compare;
+    dt.key_dup        = sds_dict_key_dup;
+    dt.key_destructor = sds_dict_key_free;
     dt.val_dup        = cache_dict_val_dup;
     dt.val_destructor = cache_dict_val_free;
     backend_cache = dict_create(&dt, 64);

@@ -14,7 +14,6 @@
 # include "aw_deals.h"
 # include "aw_order.h"
 # include "aw_asset.h"
-# include "aw_common.h"
 # include "aw_state.h"
 # include "aw_index.h"
 # include "aw_sub_user.h"
@@ -48,148 +47,51 @@ struct cache_val {
 
 typedef int (*on_request_method)(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params);
 
-static int send_json(nw_ses *ses, const json_t *json)
+static bool is_good_limit(int limit)
 {
-    char *message_data = json_dumps(json, 0);
-    if (message_data == NULL)
-        return -__LINE__;
-    log_trace("send to: %"PRIu64", size: %zu, message: %s", ses->id, strlen(message_data), message_data);
-    int ret = ws_send_text(ses, message_data);
-    free(message_data);
-    return ret;
+    for (int i = 0; i < settings.depth_limit.count; ++i) {
+        if (settings.depth_limit.limit[i] == limit) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
-int send_error(nw_ses *ses, uint64_t id, int code, const char *message)
+static bool is_good_interval(const char *interval)
 {
-    json_t *error = json_object();
-    json_object_set_new(error, "code", json_integer(code));
-    json_object_set_new(error, "message", json_string(message));
+    if (interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+        return false; 
+    }
 
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", error);
-    json_object_set_new(reply, "result", json_null());
-    json_object_set_new(reply, "id", json_integer(id));
+    mpd_t *merge = decimal(interval, 0);
+    if (merge == NULL)
+        return false;
 
-    int ret = send_json(ses, reply);
-    json_decref(reply);
+    for (int i = 0; i < settings.depth_merge.count; ++i) {
+        if (mpd_cmp(settings.depth_merge.limit[i], merge, &mpd_ctx) == 0) {
+            mpd_del(merge);
+            return true;
+        }
+    }
 
-    return ret;
+    mpd_del(merge);
+    return false;
 }
 
-int send_error_invalid_argument(nw_ses *ses, uint64_t id)
+static bool is_good_market(const char *market)
 {
-    profile_inc("error_invalid_argument", 1);
-    return send_error(ses, id, 1, "invalid argument");
-}
+    if (market == NULL || strlen(market) == 0 || strlen(market) >= MARKET_NAME_MAX_LEN) {
+        return false;     
+    }
 
-int send_error_invalid_argument_depth(nw_ses *ses, uint64_t id, const char *market, int limit, const char *interval)
-{
-    profile_inc("error_invalid_argument", 1);
-
-    const char *interval_ = (interval != NULL) ? interval : "null";
-    sds msg = sdsempty();
-    msg = sdscatprintf(msg, "invalid argument, market:%s limit:%d interval:%s, please check your parameters", market, limit, interval_);
-    int ret = send_error(ses, id, 1, msg);
-    sdsfree(msg);
-    return ret;
-}
-
-int send_error_subscribe_depth_failed(nw_ses *ses, uint64_t id, const char *market, int limit, const char *interval)
-{
-    profile_inc("error_internal_error", 1);
-
-    const char *interval_ = (interval != NULL) ? interval : "null";
-    sds msg = sdsempty();
-    msg = sdscatprintf(msg, "internal error: subscribe market:%s limit:%d interval:%s failed, please try again later", market, limit, interval_);
-    int ret = send_error(ses, id, 2, msg);
-    sdsfree(msg);
-    return ret;
-}
-
-int send_error_internal_error(nw_ses *ses, uint64_t id)
-{
-    profile_inc("error_internal_error", 1);
-    return send_error(ses, id, 2, "internal error");
-}
-
-int send_error_service_unavailable(nw_ses *ses, uint64_t id)
-{
-    profile_inc("error_service_unavailable", 1);
-    return send_error(ses, id, 3, "service unavailable");
-}
-
-int send_error_method_notfound(nw_ses *ses, uint64_t id)
-{
-    profile_inc("error_method_notfound", 1);
-    return send_error(ses, id, 4, "method not found");
-}
-
-int send_error_service_timeout(nw_ses *ses, uint64_t id)
-{
-    profile_inc("error_service_timeout", 1);
-    return send_error(ses, id, 5, "service timeout");
-}
-
-int send_error_require_auth(nw_ses *ses, uint64_t id)
-{
-    profile_inc("error_require_auth", 1);
-    return send_error(ses, id, 6, "require authentication");
-}
-
-int send_error_require_auth_sub(nw_ses *ses, uint64_t id)
-{
-    profile_inc("error_require_auth_sub", 1);
-    return send_error(ses, id, 7, "sub users require authentication");
-}
-
-int reply_result_null(nw_ses *ses, int64_t id)
-{
-    profile_inc("get_result_null", 1);
-    return send_error(ses, id, 8, "get result null");
-}
-
-int send_result(nw_ses *ses, uint64_t id, json_t *result)
-{
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", json_null());
-    json_object_set    (reply, "result", result);
-    json_object_set_new(reply, "id", json_integer(id));
-
-    int ret = send_json(ses, reply);
-    json_decref(reply);
-
-    return ret;
-}
-
-int send_success(nw_ses *ses, uint64_t id)
-{
-    json_t *result = json_object();
-    json_object_set_new(result, "status", json_string("success"));
-
-    int ret = send_result(ses, id, result);
-    json_decref(result);
-    profile_inc("success", 1);
-
-    return ret;
-}
-
-int send_notify(nw_ses *ses, const char *method, json_t *params)
-{
-    json_t *notify = json_object();
-    json_object_set_new(notify, "method", json_string(method));
-    json_object_set    (notify, "params", params);
-    json_object_set_new(notify, "id", json_null());
-
-    int ret = send_json(ses, notify);
-    json_decref(notify);
-
-    return ret;
+    return true;
 }
 
 static int on_method_server_ping(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     json_t *result = json_string("pong");
-    int ret = send_result(ses, id, result);
+    int ret = ws_send_result(ses, id, result);
     json_decref(result);
     return ret;
 }
@@ -197,7 +99,7 @@ static int on_method_server_ping(nw_ses *ses, uint64_t id, struct clt_info *info
 static int on_method_server_time(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     json_t *result = json_integer(time(NULL));
-    int ret = send_result(ses, id, result);
+    int ret = ws_send_result(ses, id, result);
     json_decref(result);
     return ret;
 }
@@ -229,7 +131,7 @@ static int check_cache(nw_ses *ses, uint64_t id, sds key)
         return 0;
     }
 
-    send_result(ses, id, cache->result);
+    ws_send_result(ses, id, cache->result);
     profile_inc("hit_cache", 1);
 
     return 1;
@@ -254,7 +156,7 @@ static int check_depth_cache(nw_ses *ses, uint64_t id, sds key, int limit)
     }
 
     json_t *result = pack_depth_result(cache->result, limit);
-    send_result(ses, id, result);
+    ws_send_result(ses, id, result);
     json_decref(result);
     profile_inc("hit_cache", 1);
 
@@ -277,7 +179,7 @@ void update_depth_cache(json_t *data, const char *market, const char *interval, 
 static int on_method_kline_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!rpc_clt_connected(marketprice))
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
     sds key = sdsempty();
     char *params_str = json_dumps(params, 0);
@@ -296,19 +198,8 @@ static int on_method_kline_query(nw_ses *ses, uint64_t id, struct clt_info *info
     state->request_id = id;
     state->cache_key = key;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_MARKET_KLINE;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = params_str;
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(marketprice, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(marketprice, CMD_MARKET_KLINE, entry->id, id, params);
+    free(params_str);
 
     return 0;
 }
@@ -316,24 +207,24 @@ static int on_method_kline_query(nw_ses *ses, uint64_t id, struct clt_info *info
 static int on_method_kline_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (json_array_size(params) != 2)
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
 
     const char *market = json_string_value(json_array_get(params, 0));
     int interval = json_integer_value(json_array_get(params, 1));
     if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval <= 0)
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
 
     kline_unsubscribe(ses);
     if (kline_subscribe(ses, market, interval) < 0)
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_kline_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     kline_unsubscribe(ses);
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static rpc_clt *get_cache_clt(const char *market)
@@ -345,12 +236,12 @@ static rpc_clt *get_cache_clt(const char *market)
 static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (json_array_size(params) != 3) {
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     }
 
     const char *market = json_string_value(json_array_get(params, 0));
     if (market == NULL || !market_exists(market)) {
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     }
 
     uint32_t limit = json_integer_value(json_array_get(params, 1));
@@ -359,7 +250,7 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
     }
     const char *interval = json_string_value(json_array_get(params, 2));
     if (interval == NULL || !is_good_interval(interval)) {
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     }
 
     sds key = get_depth_cache_key(market, interval);
@@ -371,7 +262,7 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
 
     rpc_clt *clt = get_cache_clt(market);
     if (!rpc_clt_connected(clt)) {
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
     }
 
     json_t *new_params = json_array();
@@ -387,19 +278,7 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
     state->cache_key = key;
     state->depth_limit = limit;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_CACHE_DEPTH;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(new_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(clt, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(clt)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(clt, CMD_CACHE_DEPTH, entry->id, id, new_params);
     json_decref(new_params);
 
     return 0;
@@ -408,28 +287,28 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
 static int on_method_depth_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (json_array_size(params) != 3)
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
 
     const char *market = json_string_value(json_array_get(params, 0));
     if (market == NULL || !market_exists(market)) {
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     }
 
     int limit = json_integer_value(json_array_get(params, 1));
     const char *interval = json_string_value(json_array_get(params, 2));
-    if ( !is_good_market(market) || !is_good_interval(interval) || !is_good_limit(limit) ) {
-        return send_error_invalid_argument(ses, id);
+    if (!is_good_market(market) || !is_good_interval(interval) || !is_good_limit(limit)) {
+        return ws_send_error_invalid_argument(ses, id);
     }
 
     depth_unsubscribe(ses);
     int ret = depth_subscribe(ses, market, limit, interval);
     if (ret == -1) {
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     } else if (ret < 0) {
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
     }
 
-    send_success(ses, id);
+    ws_send_success(ses, id);
     depth_send_clean(ses, market, limit, interval);
     return 0;
 }
@@ -437,14 +316,14 @@ static int on_method_depth_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
 static int on_method_depth_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     depth_unsubscribe(ses);
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     const size_t sub_size = json_array_size(params);
     if (sub_size == 0) {
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     }
 
     depth_unsubscribe(ses);
@@ -453,29 +332,29 @@ static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_
         const char *market = json_string_value(json_array_get(item, 0));
         int limit = json_integer_value(json_array_get(item, 1));
         const char *interval = json_string_value(json_array_get(item, 2));
-        if (is_empty_string(market)) {
+        if (market == NULL || strlen(market) == 0) {
             continue;  // ignore empty market
         }
 
-        if ( !is_good_market(market) || !is_good_interval(interval) || !is_good_limit(limit) ) {
+        if (!is_good_market(market) || !is_good_interval(interval) || !is_good_limit(limit)) {
             depth_unsubscribe(ses);
-            return send_error_invalid_argument_depth(ses, id, market, limit, interval);
+            return ws_send_error_invalid_argument(ses, id);
         }
 
         int ret = depth_subscribe(ses, market, limit, interval);
         if (ret < 0) {
             depth_unsubscribe(ses);
-            return send_error_subscribe_depth_failed(ses, id, market, limit, interval);
-        } 
+            return ws_send_error_internal_error(ses, id);
+        }
     }
 
-    send_success(ses, id);
+    ws_send_success(ses, id);
     for (size_t i = 0; i < sub_size; ++i) {
         json_t *item = json_array_get(params, i);
         const char *market = json_string_value(json_array_get(item, 0));
         int limit = json_integer_value(json_array_get(item, 1));
         const char *interval = json_string_value(json_array_get(item, 2));
-        if (is_empty_string(market)) {
+        if (market == NULL || strlen(market) == 0) {
             continue;  // ignore empty market
         }
         depth_send_clean(ses, market, limit, interval);
@@ -487,7 +366,7 @@ static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_
 static int on_method_depth_unsubscribe_multi(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     depth_unsubscribe(ses);
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_state_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
@@ -498,7 +377,7 @@ static int on_method_state_query(nw_ses *ses, uint64_t id, struct clt_info *info
     }
 
     if (!rpc_clt_connected(marketprice))
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
     sds key = sdsempty();
     char *params_str = json_dumps(params, 0);
@@ -517,19 +396,8 @@ static int on_method_state_query(nw_ses *ses, uint64_t id, struct clt_info *info
     state->request_id = id;
     state->cache_key = key;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_MARKET_STATUS;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = params_str;
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(marketprice, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(marketprice, CMD_MARKET_STATUS, entry->id, id, params);
+    free(params_str);
 
     return 0;
 }
@@ -537,8 +405,8 @@ static int on_method_state_query(nw_ses *ses, uint64_t id, struct clt_info *info
 static int on_method_state_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (state_subscribe(ses, params) < 0)
-        return send_error_internal_error(ses, id);
-    send_success(ses, id);
+        return ws_send_error_internal_error(ses, id);
+    ws_send_success(ses, id);
     state_send_last(ses);
 
     return 0;
@@ -547,7 +415,7 @@ static int on_method_state_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
 static int on_method_state_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     state_unsubscribe(ses);
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_deals_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
@@ -559,10 +427,10 @@ static int on_method_deals_query(nw_ses *ses, uint64_t id, struct clt_info *info
 static int on_method_deals_query_user(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!rpc_clt_connected(readhistory))
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_integer(info->user_id));
@@ -574,19 +442,7 @@ static int on_method_deals_query_user(nw_ses *ses, uint64_t id, struct clt_info 
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_MARKET_USER_DEALS;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(readhistory, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(readhistory)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(readhistory, CMD_MARKET_USER_DEALS, entry->id, id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -599,12 +455,12 @@ static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
     for (size_t i = 0; i < params_size; ++i) {
         const char *market = json_string_value(json_array_get(params, i));
         if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN)
-            return send_error_invalid_argument(ses, id);
+            return ws_send_error_invalid_argument(ses, id);
         if (deals_subscribe(ses, market, info->user_id) < 0)
-            return send_error_internal_error(ses, id);
+            return ws_send_error_internal_error(ses, id);
     }
 
-    send_success(ses, id);
+    ws_send_success(ses, id);
     for (size_t i = 0; i < params_size; ++i) {
         deals_sub_send_full(ses, json_string_value(json_array_get(params, i)));
     }
@@ -615,16 +471,16 @@ static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
 static int on_method_deals_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     deals_unsubscribe(ses, info->user_id);
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!rpc_clt_connected(matchengine))
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_integer(info->user_id));
@@ -637,19 +493,7 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ORDER_PENDING;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, CMD_ORDER_PENDING, entry->id, id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -658,10 +502,10 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
 static int on_method_order_query_stop(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!rpc_clt_connected(matchengine))
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_integer(info->user_id));
@@ -674,19 +518,7 @@ static int on_method_order_query_stop(nw_ses *ses, uint64_t id, struct clt_info 
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ORDER_PENDING_STOP;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, CMD_ORDER_PENDING_STOP, entry->id, id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -695,10 +527,10 @@ static int on_method_order_query_stop(nw_ses *ses, uint64_t id, struct clt_info 
 static int on_method_order_account_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!rpc_clt_connected(matchengine))
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_integer(info->user_id));
@@ -710,19 +542,7 @@ static int on_method_order_account_query(nw_ses *ses, uint64_t id, struct clt_in
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ORDER_PENDING;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, CMD_ORDER_PENDING, entry->id, id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -731,10 +551,10 @@ static int on_method_order_account_query(nw_ses *ses, uint64_t id, struct clt_in
 static int on_method_order_account_query_stop(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!rpc_clt_connected(matchengine))
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_integer(info->user_id));
@@ -746,19 +566,7 @@ static int on_method_order_account_query_stop(nw_ses *ses, uint64_t id, struct c
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ORDER_PENDING_STOP;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, CMD_ORDER_PENDING_STOP, entry->id, id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -767,37 +575,37 @@ static int on_method_order_account_query_stop(nw_ses *ses, uint64_t id, struct c
 static int on_method_order_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     order_unsubscribe(info->user_id, ses);
     size_t params_size = json_array_size(params);
     for (size_t i = 0; i < params_size; ++i) {
         const char *market = json_string_value(json_array_get(params, i));
         if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN)
-            return send_error_invalid_argument(ses, id);
+            return ws_send_error_invalid_argument(ses, id);
         if (order_subscribe(info->user_id, ses, market) < 0)
-            return send_error_internal_error(ses, id);
+            return ws_send_error_internal_error(ses, id);
     }
 
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_order_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     order_unsubscribe(info->user_id, ses);
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     if (!rpc_clt_connected(matchengine))
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_integer(info->user_id));
@@ -810,19 +618,7 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ASSET_QUERY;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, CMD_ASSET_QUERY, entry->id, id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -831,24 +627,24 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
 static int on_method_asset_query_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth) {
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
     }
 
     if (!rpc_clt_connected(matchengine)) {
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
     }
 
     if (json_array_size(params) != 2) {
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     }
 
     uint32_t sub_user_id = json_integer_value(json_array_get(params, 0));
     if (!sub_user_has(info->user_id, ses, sub_user_id)) {
-        return send_error_require_auth_sub(ses, id);
+        return ws_send_error_unknown_sub_user(ses, id);
     }
     json_t *asset_list = json_array_get(params, 1);
     if (!json_is_null(asset_list) && !json_is_array(asset_list)) {
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     }
 
     json_t *query_params = json_array();
@@ -862,19 +658,7 @@ static int on_method_asset_query_sub(nw_ses *ses, uint64_t id, struct clt_info *
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ASSET_QUERY;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, CMD_ASSET_QUERY, entry->id, id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -883,10 +667,10 @@ static int on_method_asset_query_sub(nw_ses *ses, uint64_t id, struct clt_info *
 static int on_method_asset_account_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     if (!rpc_clt_connected(matchengine))
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_integer(info->user_id));
@@ -898,19 +682,7 @@ static int on_method_asset_account_query(nw_ses *ses, uint64_t id, struct clt_in
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ASSET_QUERY;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, CMD_ASSET_QUERY, entry->id, id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -919,10 +691,10 @@ static int on_method_asset_account_query(nw_ses *ses, uint64_t id, struct clt_in
 static int on_method_asset_account_query_all(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     if (!rpc_clt_connected(matchengine))
-        return send_error_internal_error(ses, id);
+        return ws_send_error_internal_error(ses, id);
 
     json_t *query_params = json_array();
     json_array_append_new(query_params, json_integer(info->user_id));
@@ -933,19 +705,7 @@ static int on_method_asset_account_query_all(nw_ses *ses, uint64_t id, struct cl
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ASSET_QUERY_ALL;
-    pkg.sequence  = entry->id;
-    pkg.req_id    = id;
-    pkg.body      = json_dumps(query_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, CMD_ASSET_QUERY_ALL, entry->id, id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -954,70 +714,70 @@ static int on_method_asset_account_query_all(nw_ses *ses, uint64_t id, struct cl
 static int on_method_asset_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     asset_unsubscribe(info->user_id, ses);
     size_t params_size = json_array_size(params);
     if (params_size == 0) {
         // subscribe all
         if (asset_subscribe(info->user_id, ses, "") < 0)
-            return send_error_internal_error(ses, id);
+            return ws_send_error_internal_error(ses, id);
     } else {
         for (size_t i = 0; i < params_size; ++i) {
             const char *asset = json_string_value(json_array_get(params, i));
             if (asset == NULL || strlen(asset) >= ASSET_NAME_MAX_LEN)
-                return send_error_invalid_argument(ses, id);
+                return ws_send_error_invalid_argument(ses, id);
             if (asset_subscribe(info->user_id, ses, asset) < 0)
-                return send_error_internal_error(ses, id);
+                return ws_send_error_internal_error(ses, id);
         }
     }
 
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_asset_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     asset_unsubscribe(info->user_id, ses);
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth) {
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
     }
 
     if (json_array_size(params) != 0) {
         if (!sub_user_auth(info->user_id, ses, params)) {
-            return send_error_require_auth_sub(ses, id);
+            return ws_send_error_unknown_sub_user(ses, id);
         }
 
         asset_unsubscribe_sub(ses);
         asset_subscribe_sub(ses, params);
-        return send_success(ses, id);
+        return ws_send_success(ses, id);
     }
 
     json_t *sub_users = sub_user_get_sub_uses(info->user_id, ses);
     if (sub_users == NULL) {
-        return send_error_require_auth_sub(ses, id);
+        return ws_send_error_unknown_sub_user(ses, id);
     }
 
     asset_unsubscribe_sub(ses);
     asset_subscribe_sub(ses, sub_users);
     json_decref(sub_users);
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_asset_unsubscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
-        return send_error_require_auth(ses, id);
+        return ws_send_error_require_auth(ses, id);
 
     asset_unsubscribe_sub(ses);
-    return send_success(ses, id);
+    return ws_send_success(ses, id);
 }
 
 static int on_method_index_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
@@ -1068,7 +828,7 @@ static int on_message(nw_ses *ses, const char *remote, const char *url, void *me
         }
     } else {
         log_error("remote: %"PRIu64":%s, unknown method, request: %s", ses->id, remote, _msg);
-        send_error_method_notfound(ses, json_integer_value(id));
+        ws_send_error_unknown_method(ses, json_integer_value(id));
     }
 
     sdsfree(_msg);
@@ -1161,7 +921,7 @@ static void on_timeout(nw_state_entry *entry)
     log_error("state id: %u timeout", entry->id);
     struct state_data *state = entry->data;
     if (state->ses->id == state->ses_id) {
-        send_error_service_timeout(state->ses, state->request_id);
+        ws_send_error_service_timeout(state->ses, state->request_id);
     }
 }
 
@@ -1262,13 +1022,13 @@ static int ws_send_depth(struct state_data *state, rpc_pkg *pkg, sds message)
     int ret = 0;
     json_t *reply_json = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (!reply_json) {
-        ret = send_error_internal_error(state->ses, state->request_id);
+        ret = ws_send_error_internal_error(state->ses, state->request_id);
         goto clean;
     }
 
     json_t *error = json_object_get(reply_json, "error");
     if (!error) {
-        ret = send_error_internal_error(state->ses, state->request_id);
+        ret = ws_send_error_internal_error(state->ses, state->request_id);
         goto clean;
     }
     if (!json_is_null(error)) {
@@ -1278,12 +1038,12 @@ static int ws_send_depth(struct state_data *state, rpc_pkg *pkg, sds message)
 
     json_t *result = json_object_get(reply_json, "result");
     if (!result) {
-        ret = send_error_internal_error(state->ses, state->request_id);
+        ret = ws_send_error_internal_error(state->ses, state->request_id);
         goto clean;
     }
 
     json_t *reply_depth = pack_depth_result(result, state->depth_limit);
-    ret = send_result(state->ses, state->request_id, reply_depth);
+    ret = ws_send_result(state->ses, state->request_id, reply_depth);
     json_decref(reply_depth);
 
 clean:

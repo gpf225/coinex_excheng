@@ -144,19 +144,7 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             info->depth_limit = json_integer_value(json_array_get(params, 1));
         }
 
-        rpc_pkg pkg;
-        memset(&pkg, 0, sizeof(pkg));
-        pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-        pkg.command   = req->cmd;
-        pkg.sequence  = entry->id;
-        pkg.req_id    = json_integer_value(id);
-        pkg.body      = json_dumps(params, 0);
-        pkg.body_size = strlen(pkg.body);
-
-        rpc_clt_send(req->clt, &pkg);
-        log_debug("send request to %s, cmd: %u, sequence: %u",
-                nw_sock_human_addr(rpc_clt_peer_addr(req->clt)), pkg.command, pkg.sequence);
-        free(pkg.body);
+        rpc_request_json(req->clt, req->cmd, entry->id, json_integer_value(id), params);
     }
 
     json_decref(body);
@@ -170,26 +158,6 @@ decode_error:
     sdsfree(hex);
     http_reply_error_bad_request(ses);
     return -__LINE__;
-}
-
-static uint32_t dict_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, strlen(key));
-}
-
-static int dict_key_compare(const void *key1, const void *key2)
-{
-    return strcmp(key1, key2);
-}
-
-static void *dict_key_dup(const void *key)
-{
-    return strdup(key);
-}
-
-static void dict_key_free(void *key)
-{
-    free(key);
 }
 
 static void *dict_val_dup(const void *val)
@@ -456,11 +424,11 @@ int init_server(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_hash_func;
-    dt.key_compare = dict_key_compare;
-    dt.key_dup = dict_key_dup;
-    dt.val_dup = dict_val_dup;
-    dt.key_destructor = dict_key_free;
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_compare    = str_dict_key_compare;
+    dt.key_dup        = str_dict_key_dup;
+    dt.val_dup        = dict_val_dup;
+    dt.key_destructor = str_dict_key_free;
     dt.val_destructor = dict_val_free;
     methods = dict_create(&dt, 64);
     if (methods == NULL)

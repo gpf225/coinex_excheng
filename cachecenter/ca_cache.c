@@ -9,25 +9,6 @@
 static dict_t *dict_cache;
 static nw_timer cache_timer;
 
-static uint32_t dict_cache_hash_function(const void *key)
-{
-    return dict_generic_hash_function(key, sdslen((sds)key));
-}
-
-static int dict_cache_key_compare(const void *key1, const void *key2)
-{
-    return sdscmp((sds)key1, (sds)key2);
-}
-
-static void *dict_cache_key_dup(const void *key)
-{
-    return sdsdup((const sds)key);
-}
-
-static void dict_cache_key_free(void *key)
-{
-    sdsfree(key);
-}
 
 static void *dict_cache_val_dup(const void *val)
 {
@@ -91,10 +72,10 @@ int init_cache(void)
 	dict_types dt;
     memset(&dt, 0, sizeof(dt));
 
-    dt.hash_function  = dict_cache_hash_function;
-    dt.key_compare    = dict_cache_key_compare;
-    dt.key_dup        = dict_cache_key_dup;
-    dt.key_destructor = dict_cache_key_free;
+    dt.hash_function  = sds_dict_hash_function;
+    dt.key_compare    = sds_dict_key_compare;
+    dt.key_dup        = sds_dict_key_dup;
+    dt.key_destructor = sds_dict_key_free;
     dt.val_dup        = dict_cache_val_dup;
     dt.val_destructor = dict_cache_val_free;
 

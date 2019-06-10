@@ -49,43 +49,6 @@ static nw_timer clear_timer;
 static nw_timer redis_timer;
 static nw_timer market_timer;
 
-static uint32_t dict_sds_key_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, sdslen((sds)key));
-}
-
-static int dict_sds_key_compare(const void *key1, const void *key2)
-{
-    return sdscmp((sds)key1, (sds)key2);
-}
-
-static void dict_sds_key_free(void *key)
-{
-    sdsfree(key);
-}
-
-static uint32_t dict_time_key_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, sizeof(time_t));
-}
-
-static int dict_time_key_compare(const void *key1, const void *key2)
-{
-    return *(time_t *)key1 - *(time_t *)key2;
-}
-
-static void *dict_time_key_dup(const void *key)
-{
-    time_t *obj = malloc(sizeof(time_t));
-    *obj = *(time_t *)key;
-    return obj;
-}
-
-static void dict_time_key_free(void *key)
-{
-    free(key);
-}
-
 static void dict_kline_val_free(void *val)
 {
     kline_info_free(val);
@@ -248,10 +211,10 @@ static struct market_info *create_market(const char *market)
     dict_types dt;
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_time_key_hash_func;
-    dt.key_compare = dict_time_key_compare;
-    dt.key_dup = dict_time_key_dup;
-    dt.key_destructor = dict_time_key_free;
+    dt.hash_function  = time_dict_key_hash_func;
+    dt.key_compare    = time_dict_key_compare;
+    dt.key_dup        = time_dict_key_dup;
+    dt.key_destructor = time_dict_key_free;
     dt.val_destructor = dict_kline_val_free;
 
     info->sec = dict_create(&dt, 1024);
@@ -262,9 +225,9 @@ static struct market_info *create_market(const char *market)
         return NULL;
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_update_key_hash_func;
-    dt.key_compare = dict_update_key_compare;
-    dt.key_dup = dict_update_key_dup;
+    dt.hash_function  = dict_update_key_hash_func;
+    dt.key_compare    = dict_update_key_compare;
+    dt.key_dup        = dict_update_key_dup;
     dt.key_destructor = dict_update_key_free;
     info->update = dict_create(&dt, 1024);
     if (info->update == NULL)
@@ -381,9 +344,9 @@ static int init_market(void)
 {
     dict_types type;
     memset(&type, 0, sizeof(type));
-    type.hash_function = dict_sds_key_hash_func;
-    type.key_compare = dict_sds_key_compare;
-    type.key_destructor = dict_sds_key_free;
+    type.hash_function  = sds_dict_hash_function;
+    type.key_compare    = sds_dict_key_compare;
+    type.key_destructor = sds_dict_key_free;
     dict_market = dict_create(&type, 64);
     if (dict_market == NULL)
         return -__LINE__;

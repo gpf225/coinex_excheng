@@ -93,27 +93,6 @@ struct trade_amount_rank_val {
     mpd_t    *amount_total;
 };
 
-// str key
-static uint32_t dict_str_key_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, strlen((char *)key));
-}
-
-static int dict_str_key_compare(const void *key1, const void *key2)
-{
-    return strcmp((char *)key1, (char *)key2);
-}
-
-static void *dict_str_key_dup(const void *key)
-{
-    return strdup((char *)key);
-}
-
-static void dict_str_key_free(void *key)
-{
-    free(key);
-}
-
 // fee key
 static uint32_t dict_fee_key_hash_func(const void *key)
 {
@@ -159,29 +138,6 @@ static void *dict_user_key_dup(const void *key)
 }
 
 static void dict_user_key_free(void *key)
-{
-    free(key);
-}
-
-// time key
-static uint32_t dict_time_key_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, sizeof(struct time_key));
-}
-
-static int dict_time_key_compare(const void *key1, const void *key2)
-{
-    return memcmp(key1, key2, sizeof(struct time_key));
-}
-
-static void *dict_time_key_dup(const void *key)
-{
-    struct time_key *obj = malloc(sizeof(struct time_key));
-    memcpy(obj, key, sizeof(struct time_key));
-    return obj;
-}
-
-static void dict_time_key_free(void *key)
 {
     free(key);
 }
@@ -343,20 +299,20 @@ static struct market_info_val *get_market_info(char *market)
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = dict_time_key_hash_func;
-    dt.key_compare      = dict_time_key_compare;
-    dt.key_dup          = dict_time_key_dup;
-    dt.key_destructor   = dict_time_key_free;
+    dt.hash_function    = time_dict_key_hash_func;
+    dt.key_compare      = time_dict_key_compare;
+    dt.key_dup          = time_dict_key_dup;
+    dt.key_destructor   = time_dict_key_free;
     dt.val_destructor   = dict_daily_trade_val_free;
     market_info->daily_trade = dict_create(&dt, 64);
     if (market_info->daily_trade == NULL)
         return NULL;
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = dict_time_key_hash_func;
-    dt.key_compare      = dict_time_key_compare;
-    dt.key_dup          = dict_time_key_dup;
-    dt.key_destructor   = dict_time_key_free;
+    dt.hash_function    = time_dict_key_hash_func;
+    dt.key_compare      = time_dict_key_compare;
+    dt.key_dup          = time_dict_key_dup;
+    dt.key_destructor   = time_dict_key_free;
     dt.val_destructor   = dict_user_detail_dict_free;
     market_info->users_detail = dict_create(&dt, 64);
     if (market_info->users_detail == NULL)
@@ -369,7 +325,7 @@ static struct market_info_val *get_market_info(char *market)
 struct daily_trade_val *get_daily_trade_info(dict_t *dict, time_t timestamp)
 {
     time_t day_start = timestamp / 86400 * 86400;
-    struct time_key key = { .timestamp = day_start };
+    time_t key = day_start;
     dict_entry *entry = dict_find(dict, &key);
     if (entry)
         return entry->val;
@@ -434,7 +390,7 @@ struct users_trade_val *get_user_trade_info(dict_t *dict, uint32_t user_id)
 struct user_detail_val *get_user_detail_info(dict_t *dict, uint32_t user_id, time_t timestamp)
 {
     dict_t *user_dict = NULL;
-    struct time_key tkey = { .timestamp = timestamp / 60 * 60 };
+    time_t tkey = timestamp / 60 * 60;
     dict_entry *entry = dict_find(dict, &tkey);
     if (entry != NULL) {
         user_dict = entry->val;
@@ -1059,7 +1015,7 @@ static int dump_market(MYSQL *conn, json_t *markets, time_t timestamp)
         const char *money = json_string_value(json_object_get(attr, "money"));
 
         struct market_info_val *market_info = entry->val;
-        struct time_key tkey = { .timestamp = timestamp };
+        time_t tkey = timestamp;
         dict_entry *result = dict_find(market_info->daily_trade, &tkey);
         if (result == NULL)
             continue;
@@ -1196,18 +1152,18 @@ static void clear_market(struct market_info_val *market_info, time_t end)
 
     iter = dict_get_iterator(market_info->daily_trade);
     while ((entry = dict_next(iter)) != NULL) {
-        struct time_key *key = entry->key;
-        if (key->timestamp < end) {
-            dict_delete(market_info->daily_trade, key);
+        time_t *key_time = entry->key;
+        if (*key_time < end) {
+            dict_delete(market_info->daily_trade, key_time);
         }
     }
     dict_release_iterator(iter);
 
     iter = dict_get_iterator(market_info->users_detail);
     while ((entry = dict_next(iter)) != NULL) {
-        struct time_key *key = entry->key;
-        if (key->timestamp < end) {
-            dict_delete(market_info->users_detail, key);
+        time_t *key_time = entry->key;
+        if (*key_time < end) {
+            dict_delete(market_info->users_detail, key_time);
         }
     }
     dict_release_iterator(iter);
@@ -1269,10 +1225,10 @@ int init_message(void)
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = dict_str_key_hash_func;
-    dt.key_compare      = dict_str_key_compare;
-    dt.key_dup          = dict_str_key_dup;
-    dt.key_destructor   = dict_str_key_free;
+    dt.hash_function    = str_dict_hash_function;
+    dt.key_compare      = str_dict_key_compare;
+    dt.key_dup          = str_dict_key_dup;
+    dt.key_destructor   = str_dict_key_free;
     dt.val_destructor   = dict_market_info_val_free;
 
     dict_market_info = dict_create(&dt, 64);
@@ -1299,7 +1255,7 @@ static int update_trade_detail(dict_t *dict, time_t start_time, time_t end_time,
     struct market_info_val *market_info = entry->val;
 
     for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60) {
-        struct time_key tkey = { .timestamp = timestamp };
+        time_t tkey = timestamp;
         entry = dict_find(market_info->users_detail, &tkey);
         if (entry == NULL)
             continue;

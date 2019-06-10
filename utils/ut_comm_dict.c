@@ -7,6 +7,7 @@
 # include <string.h>
 # include "ut_comm_dict.h"
 
+// uint32
 uint32_t uint32_dict_hash_func(const void *key)
 {
     return (uint32_t)(uintptr_t)key;
@@ -17,6 +18,7 @@ int uint32_dict_key_compare(const void *key1, const void *key2)
     return key1 == key2 ? 0 : 1;
 }
 
+// uint32_set
 dict_t *uint32_set_create(void)
 {
     dict_types type;
@@ -55,6 +57,7 @@ void uint32_set_release(dict_t *set)
     dict_release(set);
 }
 
+// str
 uint32_t str_dict_hash_function(const void *key)
 {
     return dict_generic_hash_function(key, strlen(key));
@@ -75,6 +78,7 @@ void str_dict_key_free(void *key)
     free(key);
 }
 
+// sds
 uint32_t sds_dict_hash_function(const void *key)
 {
     return dict_generic_hash_function(key, sdslen((sds)key));
@@ -95,6 +99,7 @@ void sds_dict_key_free(void *key)
     sdsfree((sds)key);
 }
 
+// ptr
 uint32_t ptr_dict_hash_func(const void *key)
 {
     return dict_generic_hash_function(key, sizeof(void *));
@@ -103,5 +108,51 @@ uint32_t ptr_dict_hash_func(const void *key)
 int ptr_dict_key_compare(const void *key1, const void *key2)
 {
     return key1 == key2 ? 0 : 1;
+}
+
+// time_t
+uint32_t time_dict_key_hash_func(const void *key)
+{
+    return dict_generic_hash_function(key, sizeof(time_t));
+}
+
+int time_dict_key_compare(const void *key1, const void *key2)
+{
+    return *(time_t *)key1 - *(time_t *)key2;
+}
+
+void *time_dict_key_dup(const void *key)
+{
+    time_t *obj = malloc(sizeof(time_t));
+    *obj = *(time_t *)key;
+    return obj;
+}
+
+void time_dict_key_free(void *key)
+{
+    free(key);
+}
+
+// uint64
+uint32_t uint64_dict_key_hash_func(const void *key)
+{
+    return dict_generic_hash_function(key, sizeof(uint64_t));
+}
+
+int uint64_dict_key_compare(const void *key1, const void *key2)
+{
+    return *(uint64_t *)key1 - *(uint64_t *)key2;
+}
+
+void *uint64_dict_key_dup(const void *key)
+{
+    uint64_t *obj = malloc(sizeof(uint64_t));
+    *obj = *(uint64_t *)key;
+    return obj;
+}
+
+void uint64_dict_key_free(void *key)
+{
+    free(key);
 }
 

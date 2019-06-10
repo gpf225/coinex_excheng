@@ -37,6 +37,8 @@
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
 # include "ut_http_svr.h"
+# include "ut_comm_dict.h"
+# include "ut_json_rpc.h"
 
 # define MARKET_NAME_MAX_LEN    16
 # define AR_LISTENER_BIND       "seqpacket@/tmp/accessrest_listener.sock"

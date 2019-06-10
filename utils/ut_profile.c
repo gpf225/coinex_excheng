@@ -174,6 +174,9 @@ void profile_set(const char *key, uint64_t val)
 
 void profile_inc(const char *key, uint64_t val)
 {
+    if (dict_profile == NULL)
+        return;
+
     dict_entry *entry = dict_find(dict_profile, key);
     if (entry) {
         struct profile_val *obj = entry->val;
