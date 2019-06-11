@@ -143,7 +143,7 @@ json_t* sub_user_get_sub_uses(uint32_t user_id, nw_ses *ses)
     dict_t *sub_users = entry->val;  
     dict_iterator *iter = dict_get_iterator(sub_users);  
     while ((entry = dict_next(iter)) != NULL) {
-        uint32_t sub_user_id = (uint32_t)entry->key;
+        uint32_t sub_user_id = (uint64_t)entry->key;
         json_array_append_new(json, json_integer(sub_user_id));
     }
 
