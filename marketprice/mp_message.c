@@ -103,7 +103,8 @@ static int load_market_kline(redisContext *context, sds key, dict_t *dict, time_
             continue;
         struct kline_info *info = kline_from_str(reply->element[i + 1]->str);
         if (info) {
-            dict_add(dict, &timestamp, info);
+            void *key = (void *)(uintptr_t)timestamp;
+            dict_add(dict, key, info);
         }
     }
     freeReplyObject(reply);
@@ -213,8 +214,6 @@ static struct market_info *create_market(const char *market)
     memset(&dt, 0, sizeof(dt));
     dt.hash_function  = time_dict_key_hash_func;
     dt.key_compare    = time_dict_key_compare;
-    dt.key_dup        = time_dict_key_dup;
-    dt.key_destructor = time_dict_key_free;
     dt.val_destructor = dict_kline_val_free;
 
     info->sec = dict_create(&dt, 1024);
@@ -414,7 +413,8 @@ static struct market_info *market_query(const char *market)
 
 static struct kline_info *kline_query(dict_t *dict, time_t timestamp)
 {
-    dict_entry *entry = dict_find(dict, &timestamp);
+    void *key = (void *)(uintptr_t)timestamp;
+    dict_entry *entry = dict_find(dict, key);
     if (entry == NULL)
         return NULL;
     return entry->val;
@@ -441,58 +441,62 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
 
     // update sec
     time_t time_sec = (time_t)timestamp;
+    void *time_sec_key = (void *)(uintptr_t)time_sec;
     dict_entry *entry;
     struct kline_info *kinfo = NULL;
-    entry = dict_find(info->sec, &time_sec);
+    entry = dict_find(info->sec, time_sec_key);
     if (entry) {
         kinfo = entry->val;
     } else {
         kinfo = kline_info_new(price);
         if (kinfo == NULL)
             return -__LINE__;
-        dict_add(info->sec, &time_sec, kinfo);
+        dict_add(info->sec, time_sec_key, kinfo);
     }
     kline_info_update(kinfo, price, amount);
     add_kline_update(info, INTERVAL_SEC, time_sec);
 
     // update min
     time_t time_min = time_sec / 60 * 60;
-    entry = dict_find(info->min, &time_min);
+    void *time_min_key = (void *)(uintptr_t)time_min;
+    entry = dict_find(info->min, time_min_key);
     if (entry) {
         kinfo = entry->val;
     } else {
         kinfo = kline_info_new(price);
         if (kinfo == NULL)
             return -__LINE__;
-        dict_add(info->min, &time_min, kinfo);
+        dict_add(info->min, time_min_key, kinfo);
     }
     kline_info_update(kinfo, price, amount);
     add_kline_update(info, INTERVAL_MIN, time_min);
 
     // update hour
     time_t time_hour = time_sec / 3600 * 3600;
-    entry = dict_find(info->hour, &time_hour);
+    void *time_hour_key = (void *)(uintptr_t)time_hour;
+    entry = dict_find(info->hour, time_hour_key);
     if (entry) {
         kinfo = entry->val;
     } else {
         kinfo = kline_info_new(price);
         if (kinfo == NULL)
             return -__LINE__;
-        dict_add(info->hour, &time_hour, kinfo);
+        dict_add(info->hour, time_hour_key, kinfo);
     }
     kline_info_update(kinfo, price, amount);
     add_kline_update(info, INTERVAL_HOUR, time_hour);
 
     // update day
     time_t time_day = time_sec / 86400 * 86400;
-    entry = dict_find(info->day, &time_day);
+    void *time_day_key = (void *)(uintptr_t)time_day;
+    entry = dict_find(info->day, time_day_key);
     if (entry) {
         kinfo = entry->val;
     } else {
         kinfo = kline_info_new(price);
         if (kinfo == NULL)
             return -__LINE__;
-        dict_add(info->day, &time_day, kinfo);
+        dict_add(info->day, time_day_key, kinfo);
     }
     kline_info_update(kinfo, price, amount);
     add_kline_update(info, INTERVAL_DAY, time_day);
@@ -886,7 +890,7 @@ static void clear_dict(dict_t *dict, time_t start)
     dict_iterator *iter = dict_get_iterator(dict);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
-        time_t timestamp = *(time_t *)entry->key;
+        time_t timestamp = (uintptr_t)entry->key;
         if (timestamp < start) {
             dict_delete(dict, entry->key);
         }
@@ -1106,7 +1110,8 @@ bool market_exist(const char *market)
 static struct kline_info *get_last_kline(dict_t *dict, time_t start, time_t end, int interval)
 {
     for (; start >= end; start -= interval) {
-        dict_entry *entry = dict_find(dict, &start);
+        void *key = (void *)(uintptr_t)start;
+        dict_entry *entry = dict_find(dict, key);
         if (entry) {
             return entry->val;
         }
@@ -1128,7 +1133,8 @@ json_t *get_market_status(const char *market, int period)
     time_t start_hour = start / 3600 * 3600 + 3600;
 
     for (time_t timestamp = start; timestamp < start_min; timestamp++) {
-        dict_entry *entry = dict_find(info->sec, &timestamp);
+        void *key = (void *)(uintptr_t)timestamp;
+        dict_entry *entry = dict_find(info->sec, key);
         if (!entry)
             continue;
         struct kline_info *sinfo = entry->val;
@@ -1139,7 +1145,8 @@ json_t *get_market_status(const char *market, int period)
     }
 
     for (time_t timestamp = start_min; timestamp < start_hour; timestamp += 60) {
-        dict_entry *entry = dict_find(info->min, &timestamp);
+        void *key = (void *)(uintptr_t)timestamp;
+        dict_entry *entry = dict_find(info->min, key);
         if (!entry)
             continue;
         struct kline_info *sinfo = entry->val;
@@ -1150,7 +1157,8 @@ json_t *get_market_status(const char *market, int period)
     }
 
     for (time_t timestamp = start_hour; timestamp < now; timestamp += 3600) {
-        dict_entry *entry = dict_find(info->hour, &timestamp);
+        void *key = (void *)(uintptr_t)timestamp;
+        dict_entry *entry = dict_find(info->hour, key);
         if (!entry)
             continue;
         struct kline_info *sinfo = entry->val;
@@ -1211,7 +1219,8 @@ json_t *get_market_kline_sec(const char *market, time_t start, time_t end, int i
         struct kline_info *kinfo = NULL;
         for (int i = 0; i < interval; ++i) {
             time_t timestamp = start + i;
-            dict_entry *entry = dict_find(info->sec, &timestamp);
+            void *key = (void *)(uintptr_t)timestamp;
+            dict_entry *entry = dict_find(info->sec, key);
             if (entry == NULL)
                 continue;
             struct kline_info *item = entry->val;
@@ -1255,7 +1264,8 @@ json_t *get_market_kline_min(const char *market, time_t start, time_t end, int i
         struct kline_info *kinfo = NULL;
         for (int i = 0; i < step; ++i) {
             time_t timestamp = start + i * 60;
-            dict_entry *entry = dict_find(info->min, &timestamp);
+            void *key = (void *)(uintptr_t)timestamp;
+            dict_entry *entry = dict_find(info->min, key);
             if (entry == NULL)
                 continue;
             struct kline_info *item = entry->val;
@@ -1303,7 +1313,8 @@ json_t *get_market_kline_hour(const char *market, time_t start, time_t end, int 
         struct kline_info *kinfo = NULL;
         for (int i = 0; i < step; ++i) {
             time_t timestamp = start + i * 3600;
-            dict_entry *entry = dict_find(info->hour, &timestamp);
+            void *key = (void *)(uintptr_t)timestamp;
+            dict_entry *entry = dict_find(info->hour, key);
             if (entry == NULL)
                 continue;
             struct kline_info *item = entry->val;
@@ -1344,7 +1355,8 @@ json_t *get_market_kline_day(const char *market, time_t start, time_t end, int i
         struct kline_info *kinfo = NULL;
         for (int i = 0; i < step; ++i) {
             time_t timestamp = start + i * 86400;
-            dict_entry *entry = dict_find(info->day, &timestamp);
+            void *key = (void *)(uintptr_t)timestamp;
+            dict_entry *entry = dict_find(info->day, key);
             if (entry == NULL)
                 continue;
             struct kline_info *item = entry->val;
@@ -1388,7 +1400,8 @@ json_t *get_market_kline_week(const char *market, time_t start, time_t end, int 
         struct kline_info *kinfo = NULL;
         for (int i = 0; i < step; ++i) {
             time_t timestamp = start + i * 86400;
-            dict_entry *entry = dict_find(info->day, &timestamp);
+            void *key = (void *)(uintptr_t)timestamp;
+            dict_entry *entry = dict_find(info->day, key);
             if (entry == NULL)
                 continue;
             struct kline_info *item = entry->val;
@@ -1458,7 +1471,8 @@ json_t *get_market_kline_month(const char *market, time_t start, time_t end, int
         time_t mon_next = get_next_month(&tm_year, &tm_mon);
         time_t timestamp = mon_start;
         for (; timestamp < mon_next && timestamp <= end; timestamp += 86400) {
-            dict_entry *entry = dict_find(info->day, &timestamp);
+            void *key = (void *)(uintptr_t)timestamp;
+            dict_entry *entry = dict_find(info->day, key);
             if (entry == NULL)
                 continue;
             struct kline_info *item = entry->val;

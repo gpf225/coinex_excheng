@@ -78,6 +78,12 @@ static void on_cache_timer(nw_timer *timer, void *privdata)
     dict_clear(dict_cache);
 }
 
+static rpc_push_error_reader_unavailable(nw_ses *ses, uint32_t command)
+{
+    profile_inc("error_reader_unavailable", 1);
+    return rpc_push_error(ses, command, 1, "reader unavailable");
+}
+
 static int init_cache()
 {
     dict_types dt;

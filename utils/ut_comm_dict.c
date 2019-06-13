@@ -113,24 +113,12 @@ int ptr_dict_key_compare(const void *key1, const void *key2)
 // time_t
 uint32_t time_dict_key_hash_func(const void *key)
 {
-    return dict_generic_hash_function(key, sizeof(time_t));
+    return (uint32_t)(uintptr_t)key;
 }
 
 int time_dict_key_compare(const void *key1, const void *key2)
 {
-    return *(time_t *)key1 - *(time_t *)key2;
-}
-
-void *time_dict_key_dup(const void *key)
-{
-    time_t *obj = malloc(sizeof(time_t));
-    *obj = *(time_t *)key;
-    return obj;
-}
-
-void time_dict_key_free(void *key)
-{
-    free(key);
+    return key1 == key2 ? 0 : 1;
 }
 
 // uint64

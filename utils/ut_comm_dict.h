@@ -38,8 +38,6 @@ int ptr_dict_key_compare(const void *key1, const void *key2);
 
 uint32_t time_dict_key_hash_func(const void *key);
 int time_dict_key_compare(const void *key1, const void *key2);
-void *time_dict_key_dup(const void *key);
-void time_dict_key_free(void *key);
 
 uint32_t uint64_dict_key_hash_func(const void *key);
 int uint64_dict_key_compare(const void *key1, const void *key2);

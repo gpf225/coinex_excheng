@@ -133,10 +133,10 @@ int rpc_reply_error_unknown_command(nw_ses *ses, rpc_pkg *pkg)
     return rpc_reply_error(ses, pkg, 5, "unknown command");
 }
 
-int rpc_push_error_reader_unavailable(nw_ses *ses, uint32_t command)
+int rpc_reply_error_require_auth(nw_ses *ses, rpc_pkg *pkg)
 {
-    profile_inc("error_reader_unavailable", 1);
-    return rpc_push_error(ses, command, 6, "reader unavailable");
+    profile_inc("error_require_auth", 1);
+    return rpc_reply_error(ses, pkg, 6, "require auth");
 }
 
 int rpc_reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
@@ -225,18 +225,6 @@ int ws_send_error_require_auth(nw_ses *ses, uint64_t id)
     return ws_send_error(ses, id, 6, "require auth");
 }
 
-int ws_send_error_unknown_sub_user(nw_ses *ses, uint64_t id)
-{
-    profile_inc("error_unknown_sub_user", 1);
-    return ws_send_error(ses, id, 7, "unknown sub user");
-}
-
-int ws_send_error_direct_result_null(nw_ses *ses, int64_t id)
-{
-    profile_inc("error_direct_result_null", 1);
-    return ws_send_error(ses, id, 8, "direct result null");
-}
-
 int ws_send_result(nw_ses *ses, uint64_t id, json_t *result)
 {
     json_t *reply = json_object();
@@ -302,36 +290,43 @@ int http_reply_error(nw_ses *ses, int64_t id, int code, const char *message, uin
 
 int http_reply_error_bad_request(nw_ses *ses)
 {
+    profile_inc("error_bad_request", 1);
     return send_http_response_simple(ses, 400, NULL, 0);
 }
 
 int http_reply_error_invalid_argument(nw_ses *ses, int64_t id)
 {
+    profile_inc("error_invalid_argument", 1);
     return http_reply_error(ses, id, 1, "invalid argument", 400);
 }
 
 int http_reply_error_internal_error(nw_ses *ses, int64_t id)
 {
+    profile_inc("error_internal_error", 1);
     return http_reply_error(ses, id, 2, "internal error", 500);
 }
 
 int http_reply_error_service_unavailable(nw_ses *ses, int64_t id)
 {
+    profile_inc("error_service_unavailable", 1);
     return http_reply_error(ses, id, 3, "service unavailable", 500);
 }
 
 int http_reply_error_service_timeout(nw_ses *ses, int64_t id)
 {
+    profile_inc("error_service_timeout", 1);
     return http_reply_error(ses, id, 4, "service timeout", 504);
 }
 
 int http_reply_error_not_found(nw_ses *ses, int64_t id)
 {
+    profile_inc("error_not_found", 1);
     return http_reply_error(ses, id, 5, "not found", 404);
 }
 
 int http_reply_error_require_auth(nw_ses *ses, int64_t id)
 {
+    profile_inc("error_require_auth", 1);
     return http_reply_error(ses, id, 6, "require auth", 401);
 }
 
@@ -349,6 +344,7 @@ int http_reply_result(nw_ses *ses, int64_t id, json_t *result)
 
 int http_reply_success(nw_ses *ses, int64_t id)
 {
+    profile_inc("reply_success", 1);
     json_t *result = json_object();
     json_object_set_new(result, "status", json_string("success"));
 

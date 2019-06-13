@@ -88,6 +88,18 @@ static bool is_good_market(const char *market)
     return true;
 }
 
+int ws_send_error_unknown_sub_user(nw_ses *ses, uint64_t id)
+{
+    profile_inc("error_unknown_sub_user", 1);
+    return ws_send_error(ses, id, 1, "unknown sub user");
+}
+
+int ws_send_error_direct_result_null(nw_ses *ses, int64_t id)
+{
+    profile_inc("error_direct_result_null", 1);
+    return ws_send_error(ses, id, 2, "direct result null");
+}
+
 static int on_method_server_ping(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     json_t *result = json_string("pong");

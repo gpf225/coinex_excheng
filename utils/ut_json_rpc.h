@@ -22,7 +22,7 @@ int rpc_reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg);
 int rpc_reply_error_service_unavailable(nw_ses *ses, rpc_pkg *pkg);
 int rpc_reply_error_service_timeout(nw_ses *ses, rpc_pkg *pkg);
 int rpc_reply_error_unknown_command(nw_ses *ses, rpc_pkg *pkg);
-int rpc_push_error_reader_unavailable(nw_ses *ses, uint32_t command);
+int rpc_reply_error_require_auth(nw_ses *ses, rpc_pkg *pkg);
 int rpc_reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result);
 int rpc_reply_success(nw_ses *ses, rpc_pkg *pkg);
 
@@ -34,8 +34,6 @@ int ws_send_error_service_unavailable(nw_ses *ses, uint64_t id);
 int ws_send_error_service_timeout(nw_ses *ses, uint64_t id);
 int ws_send_error_unknown_method(nw_ses *ses, uint64_t id);
 int ws_send_error_require_auth(nw_ses *ses, uint64_t id);
-int ws_send_error_unknown_sub_user(nw_ses *ses, uint64_t id);
-int ws_send_error_direct_result_null(nw_ses *ses, int64_t id);
 int ws_send_result(nw_ses *ses, uint64_t id, json_t *result);
 int ws_send_success(nw_ses *ses, uint64_t id);
 int ws_send_notify(nw_ses *ses, const char *method, json_t *params);

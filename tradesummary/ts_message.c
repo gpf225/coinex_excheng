@@ -29,14 +29,6 @@ struct fee_key {
     char asset[ASSET_NAME_MAX_LEN];
 };
 
-struct user_key {
-    uint32_t user_id;
-};
-
-struct time_key {
-    time_t timestamp;
-};
-
 struct fee_val {
     mpd_t *value;
 };
@@ -112,32 +104,6 @@ static void *dict_fee_key_dup(const void *key)
 }
 
 static void dict_fee_key_free(void *key)
-{
-    free(key);
-}
-
-// user key
-static uint32_t dict_user_key_hash_func(const void *key)
-{
-    struct user_key *obj = (void *)key;
-    return obj->user_id;
-}
-
-static int dict_user_key_compare(const void *key1, const void *key2)
-{
-    struct user_key *obj1 = (void *)key1;
-    struct user_key *obj2 = (void *)key2;
-    return obj1->user_id == obj2->user_id ? 0 : 1;
-}
-
-static void *dict_user_key_dup(const void *key)
-{
-    struct user_key *obj = malloc(sizeof(struct user_key));
-    memcpy(obj, key, sizeof(struct user_key));
-    return obj;
-}
-
-static void dict_user_key_free(void *key)
 {
     free(key);
 }
@@ -301,8 +267,6 @@ static struct market_info_val *get_market_info(char *market)
     memset(&dt, 0, sizeof(dt));
     dt.hash_function    = time_dict_key_hash_func;
     dt.key_compare      = time_dict_key_compare;
-    dt.key_dup          = time_dict_key_dup;
-    dt.key_destructor   = time_dict_key_free;
     dt.val_destructor   = dict_daily_trade_val_free;
     market_info->daily_trade = dict_create(&dt, 64);
     if (market_info->daily_trade == NULL)
@@ -311,8 +275,6 @@ static struct market_info_val *get_market_info(char *market)
     memset(&dt, 0, sizeof(dt));
     dt.hash_function    = time_dict_key_hash_func;
     dt.key_compare      = time_dict_key_compare;
-    dt.key_dup          = time_dict_key_dup;
-    dt.key_destructor   = time_dict_key_free;
     dt.val_destructor   = dict_user_detail_dict_free;
     market_info->users_detail = dict_create(&dt, 64);
     if (market_info->users_detail == NULL)
@@ -325,8 +287,8 @@ static struct market_info_val *get_market_info(char *market)
 struct daily_trade_val *get_daily_trade_info(dict_t *dict, time_t timestamp)
 {
     time_t day_start = timestamp / 86400 * 86400;
-    time_t key = day_start;
-    dict_entry *entry = dict_find(dict, &key);
+    void *key = (void *)(uintptr_t)day_start;
+    dict_entry *entry = dict_find(dict, key);
     if (entry)
         return entry->val;
 
@@ -342,11 +304,9 @@ struct daily_trade_val *get_daily_trade_info(dict_t *dict, time_t timestamp)
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = dict_user_key_hash_func;
-    dt.key_compare      = dict_user_key_compare;
-    dt.key_dup          = dict_user_key_dup;
-    dt.key_destructor   = dict_user_key_free;
-    dt.val_destructor   = dict_users_trade_val_free;
+    dt.hash_function  = uint32_dict_hash_func; 
+    dt.key_compare    = uint32_dict_key_compare;
+    dt.val_destructor = dict_users_trade_val_free;
     trade_info->users_trade = dict_create(&dt, 1024);
     if (trade_info->users_trade == NULL)
         return NULL;
@@ -361,14 +321,14 @@ struct daily_trade_val *get_daily_trade_info(dict_t *dict, time_t timestamp)
     if (trade_info->fees_detail == NULL)
         return NULL;
 
-    dict_add(dict, &key, trade_info);
+    dict_add(dict, key, trade_info);
     return trade_info;
 }
 
 struct users_trade_val *get_user_trade_info(dict_t *dict, uint32_t user_id)
 {
-    struct user_key key = { .user_id = user_id };
-    dict_entry *entry = dict_find(dict, &key);
+    void *key = (void *)(uintptr_t)user_id;
+    dict_entry *entry = dict_find(dict, key);
     if (entry != NULL) {
         return entry->val;
     }
@@ -382,7 +342,7 @@ struct users_trade_val *get_user_trade_info(dict_t *dict, uint32_t user_id)
     user_info->buy_volume  = mpd_qncopy(mpd_zero);
     user_info->sell_amount = mpd_qncopy(mpd_zero);
     user_info->sell_volume = mpd_qncopy(mpd_zero);
-    dict_add(dict, &key, user_info);
+    dict_add(dict, key, user_info);
 
     return user_info;
 }
@@ -390,27 +350,25 @@ struct users_trade_val *get_user_trade_info(dict_t *dict, uint32_t user_id)
 struct user_detail_val *get_user_detail_info(dict_t *dict, uint32_t user_id, time_t timestamp)
 {
     dict_t *user_dict = NULL;
-    time_t tkey = timestamp / 60 * 60;
-    dict_entry *entry = dict_find(dict, &tkey);
+    void *tkey = (void *)(uintptr_t)(timestamp / 60 * 60);
+    dict_entry *entry = dict_find(dict, tkey);
     if (entry != NULL) {
         user_dict = entry->val;
     } else {
         dict_types dt;
         memset(&dt, 0, sizeof(dt));
-        dt.hash_function    = dict_user_key_hash_func;
-        dt.key_compare      = dict_user_key_compare;
-        dt.key_dup          = dict_user_key_dup;
-        dt.key_destructor   = dict_user_key_free;
-        dt.val_destructor   = dict_user_detail_val_free;
+        dt.hash_function   = uint32_dict_hash_func; 
+        dt.key_compare     = uint32_dict_key_compare;
+        dt.val_destructor  = dict_user_detail_val_free;
         user_dict = dict_create(&dt, 1024);
         if (user_dict == NULL) {
             return NULL;
         }
-        dict_add(dict, &tkey, user_dict);
+        dict_add(dict, tkey, user_dict);
     }
 
-    struct user_key ukey = { .user_id = user_id };
-    entry = dict_find(user_dict, &ukey);
+    void *ukey = (void *)(uintptr_t)user_id;
+    entry = dict_find(user_dict, ukey);
     if (entry != NULL) {
         return entry->val;
     }
@@ -421,7 +379,7 @@ struct user_detail_val *get_user_detail_info(dict_t *dict, uint32_t user_id, tim
     memset(user_detail, 0, sizeof(struct user_detail_val));
     user_detail->buy_amount  = mpd_qncopy(mpd_zero);
     user_detail->sell_amount = mpd_qncopy(mpd_zero);
-    dict_add(user_dict, &ukey, user_detail);
+    dict_add(user_dict, ukey, user_detail);
 
     return user_detail;
 }
@@ -824,10 +782,10 @@ static int dump_market_info(MYSQL *conn, const char *market_name, const char *st
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(trade_info->users_trade);
     while ((entry = dict_next(iter)) != NULL) {
-        struct user_key *ukey = entry->key;
+        uint32_t user_id = (uintptr_t)entry->key;
         struct users_trade_val *val = entry->val;
         if (mpd_cmp(val->deal_volume, mpd_zero, &mpd_ctx) > 0) {
-            json_array_append_new(user_list, json_integer(ukey->user_id));
+            json_array_append_new(user_list, json_integer(user_id));
         }
     }
     dict_release_iterator(iter);
@@ -887,7 +845,7 @@ static int dump_user_dict_info(MYSQL *conn, const char *market_name, const char 
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(users_trade);
     while ((entry = dict_next(iter)) != NULL) {
-        struct user_key *ukey = entry->key;
+        uint32_t user_id = (uintptr_t)entry->key;
         struct users_trade_val *user_info = entry->val;
 
         if (index == 0) {
@@ -898,7 +856,7 @@ static int dump_user_dict_info(MYSQL *conn, const char *market_name, const char 
             sql = sdscatprintf(sql, ", ");
         }
 
-        sql = sdscatprintf(sql, "(NULL, '%s', %u, '%s', '%s', '%s', ", get_utc_date_from_time(timestamp, "%Y-%m-%d"), ukey->user_id, market_name, stock, money);
+        sql = sdscatprintf(sql, "(NULL, '%s', %u, '%s', '%s', '%s', ", get_utc_date_from_time(timestamp, "%Y-%m-%d"), user_id, market_name, stock, money);
         sql = sql_append_mpd(sql, user_info->deal_amount, true);
         sql = sql_append_mpd(sql, user_info->deal_volume, true);
         sql = sql_append_mpd(sql, user_info->buy_amount, true);
@@ -1015,8 +973,8 @@ static int dump_market(MYSQL *conn, json_t *markets, time_t timestamp)
         const char *money = json_string_value(json_object_get(attr, "money"));
 
         struct market_info_val *market_info = entry->val;
-        time_t tkey = timestamp;
-        dict_entry *result = dict_find(market_info->daily_trade, &tkey);
+        void *tkey = (void *)(uintptr_t)timestamp;
+        dict_entry *result = dict_find(market_info->daily_trade, tkey);
         if (result == NULL)
             continue;
 
@@ -1152,18 +1110,18 @@ static void clear_market(struct market_info_val *market_info, time_t end)
 
     iter = dict_get_iterator(market_info->daily_trade);
     while ((entry = dict_next(iter)) != NULL) {
-        time_t *key_time = entry->key;
-        if (*key_time < end) {
-            dict_delete(market_info->daily_trade, key_time);
+        time_t key_time = (uintptr_t)entry->key;
+        if (key_time < end) {
+            dict_delete(market_info->daily_trade, entry->key);
         }
     }
     dict_release_iterator(iter);
 
     iter = dict_get_iterator(market_info->users_detail);
     while ((entry = dict_next(iter)) != NULL) {
-        time_t *key_time = entry->key;
-        if (*key_time < end) {
-            dict_delete(market_info->users_detail, key_time);
+        time_t key_time = (uintptr_t)entry->key;
+        if (key_time < end) {
+            dict_delete(market_info->users_detail, entry->key);
         }
     }
     dict_release_iterator(iter);
@@ -1255,15 +1213,15 @@ static int update_trade_detail(dict_t *dict, time_t start_time, time_t end_time,
     struct market_info_val *market_info = entry->val;
 
     for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60) {
-        time_t tkey = timestamp;
-        entry = dict_find(market_info->users_detail, &tkey);
+        void *tkey = (void *)(uintptr_t)timestamp;
+        entry = dict_find(market_info->users_detail, tkey);
         if (entry == NULL)
             continue;
 
         dict_t *user_dict = entry->val;
         dict_iterator *iter = dict_get_iterator(user_dict);
         while ((entry = dict_next(iter)) != NULL) {
-            struct user_key *ukey = entry->key;
+            void *ukey = entry->key;
             struct user_detail_val *user_detail = entry->val;
 
             dict_entry *result = dict_find(dict, ukey);
@@ -1289,11 +1247,9 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = dict_user_key_hash_func;
-    dt.key_compare      = dict_user_key_compare;
-    dt.key_dup          = dict_user_key_dup;
-    dt.key_destructor   = dict_user_key_free;
-    dt.val_destructor   = dict_user_detail_val_free;
+    dt.hash_function   = uint32_dict_hash_func; 
+    dt.key_compare     = uint32_dict_key_compare;
+    dt.val_destructor  = dict_user_detail_val_free;
 
     dict_t *dict = dict_create(&dt, 1024);
     if (dict == NULL)
@@ -1318,11 +1274,11 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
     dict_entry *entry;
     dict_iterator *diter = dict_get_iterator(dict);
     while ((entry = dict_next(diter)) != NULL) {
-        struct user_key *ukey = entry->key;
+        uint32_t user_id = (uintptr_t)entry->key;
         struct user_detail_val *user_detail = entry->val;
 
         struct trade_net_rank_val *rank_detail = malloc(sizeof(struct trade_net_rank_val));
-        rank_detail->user_id = ukey->user_id;
+        rank_detail->user_id = user_id;
         rank_detail->amount = mpd_qncopy(mpd_zero);
         rank_detail->amount_net = mpd_qncopy(mpd_zero);
         mpd_add(rank_detail->amount, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
@@ -1397,11 +1353,9 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = dict_user_key_hash_func;
-    dt.key_compare      = dict_user_key_compare;
-    dt.key_dup          = dict_user_key_dup;
-    dt.key_destructor   = dict_user_key_free;
-    dt.val_destructor   = dict_user_detail_val_free;
+    dt.hash_function  = uint32_dict_hash_func; 
+    dt.key_compare    = uint32_dict_key_compare;
+    dt.val_destructor = dict_user_detail_val_free;
 
     dict_t *dict = dict_create(&dt, 1024);
     if (dict == NULL)
@@ -1423,12 +1377,12 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
     dict_entry *entry;
     dict_iterator *diter = dict_get_iterator(dict);
     while ((entry = dict_next(diter)) != NULL) {
-        struct user_key *ukey = entry->key;
+        uint32_t user_id = (uintptr_t)entry->key;
         struct user_detail_val *user_detail = entry->val;
 
         struct trade_amount_rank_val *buy_rank_detail = malloc(sizeof(struct trade_amount_rank_val));
         memset(buy_rank_detail, 0, sizeof(struct trade_amount_rank_val));
-        buy_rank_detail->user_id = ukey->user_id;
+        buy_rank_detail->user_id = user_id;
         buy_rank_detail->amount = mpd_qncopy(user_detail->buy_amount);
         buy_rank_detail->amount_total = mpd_qncopy(mpd_zero);
         mpd_add(buy_rank_detail->amount_total, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
@@ -1436,7 +1390,7 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
 
         struct trade_amount_rank_val *sell_rank_detail = malloc(sizeof(struct trade_amount_rank_val));
         memset(sell_rank_detail, 0, sizeof(struct trade_amount_rank_val));
-        sell_rank_detail->user_id = ukey->user_id;
+        sell_rank_detail->user_id = user_id;
         sell_rank_detail->amount = mpd_qncopy(user_detail->sell_amount);
         sell_rank_detail->amount_total = mpd_qncopy(buy_rank_detail->amount_total);
         skiplist_insert(sell_amount_list, sell_rank_detail);
