@@ -2013,8 +2013,68 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
         push_order_message(ORDER_EVENT_FINISH, order, m);
         *result = get_order_info(order);
     }
-    finish_order(real, m, order);
-    return 0;
+
+    return finish_order(real, m, order);
+}
+
+int market_cancel_order_all(bool real, uint32_t user_id, market_t *m)
+{
+    int ret = 0;
+    skiplist_t *order_list = get_user_order_list(m, user_id, -1);
+    if (order_list != NULL) {
+        skiplist_node *node;
+        skiplist_iter *iter = skiplist_get_iterator(order_list);
+        while ((node = skiplist_next(iter)) != NULL) {
+            order_t *order = node->value;
+            if (real) {
+                push_order_message(ORDER_EVENT_FINISH, order, m);
+            }
+
+            int list_len = skiplist_len(order_list);
+            ret = finish_order(real, m, order);
+            if (ret < 0) {
+                log_fatal("cancel order: %"PRIu64" fail: %d", order->id, ret);
+                skiplist_release_iterator(iter);
+                return ret;
+            }
+
+            if (list_len == 1) {
+                break;
+            } else {
+                skiplist_reset_iterator(order_list, iter);
+            }
+        }
+        skiplist_release_iterator(iter);
+    }
+
+    skiplist_t *stop_list = get_user_stop_list(m, user_id, -1);
+    if (stop_list != NULL) {
+        skiplist_node *node;
+        skiplist_iter *iter = skiplist_get_iterator(stop_list);
+        while ((node = skiplist_next(iter)) != NULL) {
+            stop_t *stop = node->value;
+            if (real) {
+                push_stop_message(STOP_EVENT_CANCEL, stop, m, 0);
+            }
+
+            int list_len = skiplist_len(stop_list);
+            ret = finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
+            if (ret < 0) {
+                log_fatal("cancel stop: %"PRIu64" fail: %d", stop->id, ret);
+                skiplist_release_iterator(iter);
+                return ret;
+            }
+
+            if (list_len == 1) {
+                break;
+            } else {
+                skiplist_reset_iterator(stop_list, iter);
+            }
+        }
+        skiplist_release_iterator(iter);
+    }
+
+    return ret;
 }
 
 int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop)

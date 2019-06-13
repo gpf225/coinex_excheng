@@ -669,6 +669,33 @@ static int load_cancel_order(json_t *params)
     return 0;
 }
 
+static int load_cancel_all_order(json_t *params)
+{
+    if (json_array_size(params) != 2)
+        return -__LINE__;
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return -__LINE__;
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // market
+    if (!json_is_string(json_array_get(params, 1)))
+        return -__LINE__;
+    const char *market_name = json_string_value(json_array_get(params, 1));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return 0;
+
+    int ret = market_cancel_order_all(false, user_id, market);
+    if (ret < 0) {
+        log_error("market_cancel_all_order id: user id: %u, market: %s", user_id, market_name);
+        return -__LINE__;
+    }
+
+    return 0;
+}
+
 static int load_stop_limit(json_t *params)
 {
     if (json_array_size(params) != 12)
@@ -1025,6 +1052,8 @@ int load_oper(json_t *detail)
         ret = load_market_order(params);
     } else if (strcmp(method, "cancel_order") == 0) {
         ret = load_cancel_order(params);
+    } else if (strcmp(method, "cancel_all_order") == 0) {
+        ret = load_cancel_all_order(params);
     } else if (strcmp(method, "stop_limit") == 0) {
         ret = load_stop_limit(params);
     } else if (strcmp(method, "stop_market") == 0) {

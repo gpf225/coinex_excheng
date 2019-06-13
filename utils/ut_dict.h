@@ -60,6 +60,7 @@ void dict_mark_clear(dict_t *dt);
 
 dict_iterator *dict_get_iterator(dict_t *dt);
 dict_entry *dict_next(dict_iterator *iter);
+void dict_reset_iterator(dict_iterator *iter);
 void dict_release_iterator(dict_iterator *iter);
 
 # endif

@@ -104,6 +104,7 @@ order_t *market_get_order(market_t *m, uint64_t order_id);
 stop_t *market_get_stop(market_t *m, uint64_t order_id);
 
 int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order);
+int market_cancel_order_all(bool real, uint32_t user_id, market_t *m);
 int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop);
 
 int market_put_order(market_t *m, order_t *order);

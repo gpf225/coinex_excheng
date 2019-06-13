@@ -32,13 +32,12 @@ mpd_t *balance_freeze(uint32_t user_id, uint32_t account, uint32_t type, const c
 mpd_t *balance_unfreeze(uint32_t user_id, uint32_t account, uint32_t type, const char *asset, mpd_t *amount);
 
 mpd_t *balance_available(uint32_t user_id, uint32_t account, const char *asset);
-mpd_t *balance_frozen(uint32_t user_id, uint32_t account, const char *asset);
-mpd_t *balance_lock(uint32_t user_id, uint32_t account, const char *asset);
 mpd_t *balance_total(uint32_t user_id, uint32_t account, const char *asset);
 
 json_t *balance_query_list(uint32_t user_id, uint32_t account, json_t *params);
 json_t *balance_query_lock_list(uint32_t user_id, uint32_t account, json_t *params);
 json_t *balance_query_all(uint32_t user_id);
+json_t *balance_query_users(uint32_t account, json_t *params);
 
 json_t *balance_get_summary(const char *asset);
 

@@ -21,6 +21,8 @@ static nw_timer cache_timer;
 static int reader_id;
 static queue_t queue_reader;
 
+#define MAX_QUERY_ASSET_USER_NUM 2000
+
 struct cache_val {
     double      time;
     json_t      *result;
@@ -136,6 +138,33 @@ static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return reply_error_invalid_argument(ses, pkg);
 
     json_t *result = balance_query_list(user_id, account, params);
+    if (result == NULL)
+        return reply_error_internal_error(ses, pkg);
+
+    int ret = reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
+static int on_cmd_asset_query_users(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 2)
+        return reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_integer(json_array_get(params, 0)))
+        return reply_error_invalid_argument(ses, pkg);
+    uint32_t account = json_integer_value(json_array_get(params, 0));
+    if (account == 0 || !account_exist(account))
+        return reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_array(json_array_get(params, 1)))
+        return reply_error_invalid_argument(ses, pkg);
+    json_t *users = json_array_get(params, 1);
+
+    if (json_array_size(users) > MAX_QUERY_ASSET_USER_NUM)
+        return reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = balance_query_users(account, users);
     if (result == NULL)
         return reply_error_internal_error(ses, pkg);
 
@@ -835,6 +864,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_asset_query(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_query %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_QUERY_USERS:
+        profile_inc("cmd_asset_query_users", 1);
+        ret = on_cmd_asset_query_users(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_query_users %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ASSET_QUERY_ALL:

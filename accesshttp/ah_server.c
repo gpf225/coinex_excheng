@@ -360,6 +360,7 @@ static int init_methods_handler(void)
 {
     ERR_RET_LN(add_handler("asset.list", matchengine, CMD_ASSET_LIST));
     ERR_RET_LN(add_handler("asset.query", matchengine, CMD_ASSET_QUERY));
+    ERR_RET_LN(add_handler("asset.query_users", matchengine, CMD_ASSET_QUERY_USERS));
     ERR_RET_LN(add_handler("asset.query_all", matchengine, CMD_ASSET_QUERY_ALL));
     ERR_RET_LN(add_handler("asset.update", matchengine, CMD_ASSET_UPDATE));
     ERR_RET_LN(add_handler("asset.summary", matchengine, CMD_ASSET_SUMMARY));
@@ -372,6 +373,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.put_limit", matchengine, CMD_ORDER_PUT_LIMIT));
     ERR_RET_LN(add_handler("order.put_market", matchengine, CMD_ORDER_PUT_MARKET));
     ERR_RET_LN(add_handler("order.cancel", matchengine, CMD_ORDER_CANCEL));
+    ERR_RET_LN(add_handler("order.cancel_all", matchengine, CMD_ORDER_CANCEL_ALL));
     ERR_RET_LN(add_handler("order.book", matchengine, CMD_ORDER_BOOK));
     ERR_RET_LN(add_handler("order.depth", NULL, CMD_CACHE_DEPTH));
     ERR_RET_LN(add_handler("order.pending", matchengine, CMD_ORDER_PENDING));

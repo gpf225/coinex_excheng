@@ -196,7 +196,7 @@ static int on_sub_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
         }
 
         struct state_val *info = entry->val;
-        info ->id = update_id;
+        info->id = update_id;
 
         char *last_str = NULL;
         if (info->last)

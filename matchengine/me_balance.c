@@ -369,7 +369,7 @@ mpd_t *balance_available(uint32_t user_id, uint32_t account, const char *asset)
     return balance;
 }
 
-mpd_t *balance_frozen(uint32_t user_id, uint32_t account, const char *asset)
+static mpd_t *balance_frozen_lock(uint32_t user_id, uint32_t account, const char *asset)
 {
     mpd_t *balance = mpd_qncopy(mpd_zero);
     dict_t *dict = dict_account_query(user_id, account);
@@ -395,7 +395,27 @@ mpd_t *balance_frozen(uint32_t user_id, uint32_t account, const char *asset)
     return balance;
 }
 
-mpd_t *balance_lock(uint32_t user_id, uint32_t account, const char *asset)
+static mpd_t *balance_frozen(uint32_t user_id, uint32_t account, const char *asset)
+{
+    mpd_t *balance = mpd_qncopy(mpd_zero);
+    dict_t *dict = dict_account_query(user_id, account);
+    if (dict == NULL)
+        return balance;
+
+    struct balance_key key;
+    memset(&key, 0, sizeof(key));
+    sstrncpy(key.asset, asset, sizeof(key.asset));
+
+    key.type = BALANCE_TYPE_FROZEN;
+    dict_entry *entry = dict_find(dict, &key);
+    if (entry) {
+        mpd_add(balance, balance, entry->val, &mpd_ctx);
+    }
+
+    return balance;
+}
+
+static mpd_t *balance_lock(uint32_t user_id, uint32_t account, const char *asset)
 {
     mpd_t *balance = mpd_qncopy(mpd_zero);
     dict_t *dict = dict_account_query(user_id, account);
@@ -454,7 +474,7 @@ json_t *balance_query_list(uint32_t user_id, uint32_t account, json_t *params)
     if (array_size == 2) {
         dict_entry *entry = dict_find(dict_asset, (void *)(uintptr_t)account);
         if (entry == NULL)
-            return NULL;
+            return result;
 
         dict_iterator *iter = dict_get_iterator(entry->val);
         while ((entry = dict_next(iter)) != NULL) {
@@ -469,7 +489,7 @@ json_t *balance_query_list(uint32_t user_id, uint32_t account, json_t *params)
             json_object_set_new_mpd(unit, "available", available);
             mpd_del(available);
 
-            mpd_t *frozen = balance_frozen(user_id, account, asset);
+            mpd_t *frozen = balance_frozen_lock(user_id, account, asset);
             if (type->prec_save != type->prec_show) {
                 mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
             }
@@ -495,7 +515,7 @@ json_t *balance_query_list(uint32_t user_id, uint32_t account, json_t *params)
             json_object_set_new_mpd(unit, "available", available);
             mpd_del(available);
 
-            mpd_t *frozen = balance_frozen(user_id, account, asset);
+            mpd_t *frozen = balance_frozen_lock(user_id, account, asset);
             if (type->prec_save != type->prec_show) {
                 mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
             }
@@ -508,6 +528,51 @@ json_t *balance_query_list(uint32_t user_id, uint32_t account, json_t *params)
     return result;
 }
 
+json_t *balance_query_users(uint32_t account, json_t *users)
+{
+    json_t *result = json_object();
+    size_t array_size = json_array_size(users);
+    dict_entry *entry = dict_find(dict_asset, (void *)(uintptr_t)account);
+    if (entry == NULL)
+        return result;
+
+    dict_iterator *iter = dict_get_iterator(entry->val);
+    for (size_t i = 0; i < array_size; ++i) {
+        uint32_t user_id = json_integer_value(json_array_get(users, i));
+
+        json_t *item = json_object();
+        while ((entry = dict_next(iter)) != NULL) {
+            const char *asset = entry->key;
+            const struct asset_type *type = entry->val;
+
+            json_t *unit = json_object();
+            mpd_t *available = balance_available(user_id, account, asset);
+            if (type->prec_save != type->prec_show) {
+                mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
+            }
+            json_object_set_new_mpd(unit, "available", available);
+            mpd_del(available);
+
+            mpd_t *frozen = balance_frozen(user_id, account, asset);
+            if (type->prec_save != type->prec_show) {
+                mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
+            }
+            json_object_set_new_mpd(unit, "frozen", frozen);
+            mpd_del(frozen);
+
+            json_object_set_new(item, asset, unit);
+        }
+        dict_reset_iterator(iter);
+
+        char user_id_str[20];
+        snprintf(user_id_str, sizeof(user_id_str), "%u", user_id);
+        json_object_set_new(result, user_id_str, item);
+    }
+    dict_release_iterator(iter);
+
+    return result;
+}
+
 json_t *balance_query_lock_list(uint32_t user_id, uint32_t account, json_t *params)
 {
     json_t *result = json_object();
@@ -515,7 +580,7 @@ json_t *balance_query_lock_list(uint32_t user_id, uint32_t account, json_t *para
     if (array_size == 2) {
         dict_entry *entry = dict_find(dict_asset, (void *)(uintptr_t)account);
         if (entry == NULL)
-            return NULL;
+            return result;
 
         dict_iterator *iter = dict_get_iterator(entry->val);
         while ((entry = dict_next(iter)) != NULL) {
@@ -587,7 +652,7 @@ json_t *balance_query_all(uint32_t user_id)
             json_object_set_new_mpd(unit, "available", available);
             mpd_del(available);
 
-            mpd_t *frozen = balance_frozen(user_id, account, key->asset);
+            mpd_t *frozen = balance_frozen_lock(user_id, account, key->asset);
             if (type->prec_save != type->prec_show) {
                 mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
             }

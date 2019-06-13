@@ -143,6 +143,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_ORDER_PUT_STOP_MARKET:
     case CMD_ORDER_CANCEL_STOP:
     case CMD_MARKET_SELF_DEAL:
+    case CMD_ORDER_CANCEL_ALL:
         sendto_writer(ses, pkg);
         break;
 
@@ -177,6 +178,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     case CMD_MARKET_LIST:
     case CMD_ASSET_LIST:
+    case CMD_ASSET_QUERY_USERS:
         sendto_reader(ses, pkg, NULL, 0);
         break;
 
@@ -292,7 +294,7 @@ static rpc_clt *init_clt(char *name, int port_offset)
     memcpy(cfg.addr_arr, &settings.svr.bind_arr->addr, sizeof(nw_addr_t));
     cfg.addr_arr->in.sin_port = htons(ntohs(cfg.addr_arr->in.sin_port) + port_offset);
     cfg.sock_type = settings.svr.bind_arr->sock_type;
-    cfg.max_pkg_size = 1024 * 1024;
+    cfg.max_pkg_size = settings.svr.max_pkg_size;
 
     rpc_clt_type ct;
     memset(&ct, 0, sizeof(ct));

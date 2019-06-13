@@ -26,6 +26,7 @@
 # define CMD_ASSET_QUERY_LOCK           108
 # define CMD_ASSET_BACKUP               109
 # define CMD_ASSET_QUERY_ALL            110
+# define CMD_ASSET_QUERY_USERS      	111
 
 // trade
 # define CMD_ORDER_PUT_LIMIT            201
@@ -45,6 +46,7 @@
 # define CMD_ORDER_FINISHED_STOP        215
 # define CMD_ORDER_STOP_BOOK            216
 # define CMD_ORDER_DEPTH_REST           217
+# define CMD_ORDER_CANCEL_ALL           218
 
 // market
 # define CMD_MARKET_LIST                301
