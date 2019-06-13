@@ -538,8 +538,10 @@ json_t *balance_query_users(uint32_t account, json_t *users)
 
     dict_iterator *iter = dict_get_iterator(entry->val);
     for (size_t i = 0; i < array_size; ++i) {
-        uint32_t user_id = json_integer_value(json_array_get(users, i));
+        if (!json_is_integer(json_array_get(users, i)))
+            continue;
 
+        uint32_t user_id = json_integer_value(json_array_get(users, i));
         json_t *item = json_object();
         while ((entry = dict_next(iter)) != NULL) {
             const char *asset = entry->key;
