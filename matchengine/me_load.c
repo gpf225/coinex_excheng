@@ -669,6 +669,38 @@ static int load_cancel_order(json_t *params)
     return 0;
 }
 
+static int load_cancel_order_all(json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return -__LINE__;
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return -__LINE__;
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // account
+    if (!json_is_integer(json_array_get(params, 1)))
+        return -__LINE__;
+    int32_t account = json_integer_value(json_array_get(params, 1));
+
+    // market
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *market_name = json_string_value(json_array_get(params, 2));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return 0;
+
+    int ret = market_cancel_order_all(false, user_id, account, market);
+    if (ret < 0) {
+        log_error("market_cancel_order_all user id: %u, account: %d, market: %s", user_id, account, market_name);
+        return -__LINE__;
+    }
+
+    return 0;
+}
+
 static int load_stop_limit(json_t *params)
 {
     if (json_array_size(params) != 12)
@@ -948,6 +980,38 @@ static int load_cancel_stop(json_t *params)
     return 0;
 }
 
+static int load_cancel_stop_all(json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return -__LINE__;
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return -__LINE__;
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // account
+    if (!json_is_integer(json_array_get(params, 1)))
+        return -__LINE__;
+    int32_t account = json_integer_value(json_array_get(params, 1));
+
+    // market
+    if (!json_is_string(json_array_get(params, 2)))
+        return -__LINE__;
+    const char *market_name = json_string_value(json_array_get(params, 2));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return 0;
+
+    int ret = market_cancel_stop_all(false, user_id, account, market);
+    if (ret < 0) {
+        log_error("market_cancel_stop_all user id: %u, account: %d, market: %s", user_id, account, market_name);
+        return -__LINE__;
+    }
+
+    return 0;
+}
+
 static int load_self_deal(json_t *params)
 {
     if (json_array_size(params) != 4)
@@ -1025,12 +1089,16 @@ int load_oper(json_t *detail)
         ret = load_market_order(params);
     } else if (strcmp(method, "cancel_order") == 0) {
         ret = load_cancel_order(params);
+    } else if (strcmp(method, "cancel_order_all") == 0) {
+        ret = load_cancel_order_all(params);
     } else if (strcmp(method, "stop_limit") == 0) {
         ret = load_stop_limit(params);
     } else if (strcmp(method, "stop_market") == 0) {
         ret = load_stop_market(params);
     } else if (strcmp(method, "cancel_stop") == 0) {
         ret = load_cancel_stop(params);
+    } else if (strcmp(method, "cancel_stop_all") == 0) {
+        ret = load_cancel_stop_all(params);
     } else if (strcmp(method, "self_deal") == 0) {
         ret = load_self_deal(params);
     } else {

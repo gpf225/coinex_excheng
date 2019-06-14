@@ -129,6 +129,41 @@ asset list(optional, if no asset special, return all asset)
 }
 ```
 
+**Asset query users**
+* method: `asset.query_users`
+* params:
+1. account: account ID, Integer, greater than 0
+2. user list: array
+* result:
+```
+{
+    "error": null,
+    "result": {
+        "553": {
+            "BTC": {
+                "available": "1.106000000",
+                "frozen": "2.01000000"
+            },
+            "USDT": {
+                "available": "0.00000000",
+                "frozen": "0.00000000"
+            }
+        },
+        "554": {
+            "BTC": {
+                "available": "1.00000000",
+                "frozen": "0.01000000"
+            },
+            "USDT": {
+                "available": "0.00000000",
+                "frozen": "0.00000000"
+            }
+        }
+    },
+    "id": 11111
+}
+```
+
 **Asset summary**
 * method: `asset.summary`
 * params:
@@ -309,6 +344,16 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 10. order not found
 11. user not match
 
+
+**Cancel all order**
+* method: `order.cancel_all`
+* params:
+1. user_id: user ID
+2. account: cancel all orders belong to account, -1 for cancel all orders
+3. market：market
+* result: "success"
+
+
 **Place limit stop order**
 * method: `order.put_stop_limit`
 * params:
@@ -371,6 +416,14 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 10. order not found
 11. user not match
 
+**Cancel all stop order**
+* method: `order.cancel_stop_all`
+* params:
+1. user_id: user ID
+2. account: cancel the all stop orders belong to account, -1 for cancel all stop orders
+3. market：market
+* result: "success"
+  
 **Order details**
 * method: `order.deals`
 * params:
