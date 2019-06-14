@@ -9,7 +9,6 @@
 # include "me_trade.h"
 # include "me_asset.h"
 # include "me_reader.h"
-# include "me_reply.h"
 # include "me_load.h"
 # include "ut_queue.h"
 # include "ut_comm_dict.h"
@@ -45,7 +44,7 @@ static bool check_cache(nw_ses *ses, rpc_pkg *pkg, sds *cache_key)
         return false;
     }
 
-    reply_result(ses, pkg, cache->result);
+    rpc_reply_result(ses, pkg, cache->result);
     sdsfree(key);
     return true;
 }
@@ -77,6 +76,12 @@ static void cache_dict_val_free(void *val)
 static void on_cache_timer(nw_timer *timer, void *privdata)
 {
     dict_clear(dict_cache);
+}
+
+static rpc_push_error_reader_unavailable(nw_ses *ses, uint32_t command)
+{
+    profile_inc("error_reader_unavailable", 1);
+    return rpc_push_error(ses, command, 1, "reader unavailable");
 }
 
 static int init_cache()
@@ -113,9 +118,9 @@ static int on_cmd_asset_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     json_t *result = get_asset_config();
     if (result == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -123,23 +128,23 @@ static int on_cmd_asset_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) < 2)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_integer(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
     if (!json_is_integer(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t account = json_integer_value(json_array_get(params, 1));
     if (!account_exist(account))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     json_t *result = balance_query_list(user_id, account, params);
     if (result == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -147,17 +152,17 @@ static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_asset_query_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 1)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_integer(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
     json_t *result = balance_query_all(user_id);
     if (result == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -165,23 +170,23 @@ static int on_cmd_asset_query_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) < 2)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_integer(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
     if (!json_is_integer(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t account = json_integer_value(json_array_get(params, 1));
     if (!account_exist(account))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     json_t *result = balance_query_lock_list(user_id, account, params);
     if (result == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -189,15 +194,15 @@ static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 1)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     const char *asset = json_string_value(json_array_get(params, 0));
     if (!asset) {
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     }
 
     json_t *result = balance_get_summary(asset);
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -205,16 +210,16 @@ static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 6)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // user_id
     if (!json_is_integer(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
     // account 
     if (!json_is_integer(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     int account = json_integer_value(json_array_get(params, 1));
 
     // market
@@ -223,27 +228,27 @@ static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         const char *market_name = json_string_value(json_array_get(params, 2));
         market = get_market(market_name);
         if (market == NULL)
-            return reply_error_invalid_argument(ses, pkg);
+            return rpc_reply_error_invalid_argument(ses, pkg);
     }
 
     // side
     if (!json_is_integer(json_array_get(params, 3)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t side = json_integer_value(json_array_get(params, 3));
     if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // offset
     if (!json_is_integer(json_array_get(params, 4)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t offset = json_integer_value(json_array_get(params, 4));
 
     // limit
     if (!json_is_integer(json_array_get(params, 5)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t limit = json_integer_value(json_array_get(params, 5));
     if (limit > ORDER_LIST_MAX_LEN)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     json_t *result = json_object();
     json_object_set_new(result, "limit", json_integer(limit));
@@ -273,7 +278,7 @@ static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
 
     json_object_set_new(result, "records", orders);
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -281,34 +286,34 @@ static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_order_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 4)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // market
     if (!json_is_string(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *market_name = json_string_value(json_array_get(params, 0));
     market_t *market = get_market(market_name);
     if (market == NULL)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // side
     if (!json_is_integer(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t side = json_integer_value(json_array_get(params, 1));
     if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // offset
     if (!json_is_integer(json_array_get(params, 2)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t offset = json_integer_value(json_array_get(params, 2));
 
     // limit
     if (!json_is_integer(json_array_get(params, 3)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t limit = json_integer_value(json_array_get(params, 3));
     if (limit > ORDER_BOOK_MAX_LEN)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     json_t *result = json_object();
     json_object_set_new(result, "offset", json_integer(offset));
@@ -343,7 +348,7 @@ static int on_cmd_order_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     skiplist_release_iterator(iter);
 
     json_object_set_new(result, "orders", orders);
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -351,34 +356,34 @@ static int on_cmd_order_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_stop_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 4)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // market
     if (!json_is_string(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *market_name = json_string_value(json_array_get(params, 0));
     market_t *market = get_market(market_name);
     if (market == NULL)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // side
     if (!json_is_integer(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t side = json_integer_value(json_array_get(params, 1));
     if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // offset
     if (!json_is_integer(json_array_get(params, 2)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t offset = json_integer_value(json_array_get(params, 2));
 
     // limit
     if (!json_is_integer(json_array_get(params, 3)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t limit = json_integer_value(json_array_get(params, 3));
     if (limit > ORDER_BOOK_MAX_LEN)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     json_t *result = json_object();
     json_object_set_new(result, "offset", json_integer(offset));
@@ -413,7 +418,7 @@ static int on_cmd_stop_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     skiplist_release_iterator(iter);
 
     json_object_set_new(result, "orders", orders);
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -590,32 +595,32 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
 static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 3)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // market
     if (!json_is_string(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *market_name = json_string_value(json_array_get(params, 0));
     market_t *market = get_market(market_name);
     if (market == NULL)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // limit
     if (!json_is_integer(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t limit = json_integer_value(json_array_get(params, 1));
     if (limit > ORDER_BOOK_MAX_LEN)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // interval
     if (!json_is_string(json_array_get(params, 2)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     mpd_t *interval = decimal(json_string_value(json_array_get(params, 2)), market->money_prec);
     if (!interval)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     if (mpd_cmp(interval, mpd_zero, &mpd_ctx) < 0) {
         mpd_del(interval);
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     }
 
     sds cache_key = NULL;
@@ -635,13 +640,13 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     if (result == NULL) {
         sdsfree(cache_key);
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     }
 
     add_cache(cache_key, result);
     sdsfree(cache_key);
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -649,19 +654,19 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_order_detail(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 2)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // market
     if (!json_is_string(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *market_name = json_string_value(json_array_get(params, 0));
     market_t *market = get_market(market_name);
     if (market == NULL)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // order_id
     if (!json_is_integer(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint64_t order_id = json_integer_value(json_array_get(params, 1));
 
     json_t *result = NULL;
@@ -675,7 +680,7 @@ static int on_cmd_order_detail(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         result = get_order_info(order);
     }
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -683,16 +688,16 @@ static int on_cmd_order_detail(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 6)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // user_id
     if (!json_is_integer(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
     // account 
     if (!json_is_integer(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     int account = json_integer_value(json_array_get(params, 1));
 
     // market
@@ -701,27 +706,27 @@ static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         const char *market_name = json_string_value(json_array_get(params, 2));
         market = get_market(market_name);
         if (market == NULL)
-            return reply_error_invalid_argument(ses, pkg);
+            return rpc_reply_error_invalid_argument(ses, pkg);
     }
 
     // side
     if (!json_is_integer(json_array_get(params, 3)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t side = json_integer_value(json_array_get(params, 3));
     if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // offset
     if (!json_is_integer(json_array_get(params, 4)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t offset = json_integer_value(json_array_get(params, 4));
 
     // limit
     if (!json_is_integer(json_array_get(params, 5)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t limit = json_integer_value(json_array_get(params, 5));
     if (limit > ORDER_LIST_MAX_LEN)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     json_t *result = json_object();
     json_object_set_new(result, "limit", json_integer(limit));
@@ -751,7 +756,7 @@ static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
 
     json_object_set_new(result, "records", stops);
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -760,9 +765,9 @@ static int on_cmd_market_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     json_t *result = get_market_config();
     if (result == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -770,18 +775,18 @@ static int on_cmd_market_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_market_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 1)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // market
     if (!json_is_string(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *market_name = json_string_value(json_array_get(params, 0));
     market_t *market = get_market(market_name);
     if (market == NULL)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     json_t *result = market_get_summary(market);
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
@@ -791,12 +796,12 @@ static int on_cmd_update_asset_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     int ret;
     ret = update_asset_config();
     if (ret < 0)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     ret = update_asset();
     if (ret < 0)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     log_info("update asset config success!");
-    return reply_success(ses, pkg);
+    return rpc_reply_success(ses, pkg);
 }
 
 static int on_cmd_update_market_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -804,12 +809,12 @@ static int on_cmd_update_market_config(nw_ses *ses, rpc_pkg *pkg, json_t *params
     int ret;
     ret = update_market_config();
     if (ret < 0)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     ret = update_trade();
     if (ret < 0)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     log_info("update market config success!");
-    return reply_success(ses, pkg);
+    return rpc_reply_success(ses, pkg);
 }
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
@@ -1041,13 +1046,9 @@ static int init_cli()
 
 static int send_reader_error()
 {
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.command = CMD_REDER_ERROR;
-
     nw_ses *curr = svr->raw_svr->clt_list_head;
     while (curr) {
-        push_error_reader_unavailable(curr, &pkg);
+        rpc_push_error_reader_unavailable(curr, CMD_REDER_ERROR);
         curr = curr->next;
     }
     return 0;

@@ -117,18 +117,7 @@ static int query_market_list(void)
     json_t *params = json_array();
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_MARKET_LIST;
-    pkg.sequence  = state_entry->id;
-    pkg.body      = json_dumps(params, 0);
-    pkg.body_size = strlen(pkg.body); 
-
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, CMD_MARKET_LIST, state_entry->id, 0, params);
     json_decref(params);
 
     return 0;
@@ -160,12 +149,12 @@ int init_market(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_str_hash_func;
-    dt.key_compare = dict_str_compare;
-    dt.key_dup = dict_str_dup;
-    dt.key_destructor = dict_str_free;
-    dt.val_dup = dict_market_val_dup;
-    dt.val_destructor = dict_market_val_free;
+    dt.hash_function    = str_dict_hash_function;
+    dt.key_compare      = str_dict_key_compare;
+    dt.key_dup          = str_dict_key_dup;
+    dt.key_destructor   = str_dict_key_free;
+    dt.val_dup          = dict_market_val_dup;
+    dt.val_destructor   = dict_market_val_free;
 
     dict_market = dict_create(&dt, 128);
     if (dict_market == NULL) {

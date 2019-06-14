@@ -60,79 +60,6 @@ static bool is_good_host(const char *value)
     return true;
 }
 
-static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
-{
-    char *message_data;
-    if (settings.debug) {
-        message_data = json_dumps(json, JSON_INDENT(4));
-    } else {
-        message_data = json_dumps(json, 0);
-    }
-    if (message_data == NULL)
-        return -__LINE__;
-    log_trace("connection: %s send: %s", nw_sock_human_addr(&ses->peer_addr), message_data);
-
-    rpc_pkg reply;
-    memcpy(&reply, pkg, sizeof(reply));
-    reply.pkg_type = RPC_PKG_TYPE_REPLY;
-    reply.body = message_data;
-    reply.body_size = strlen(message_data);
-    rpc_send(ses, &reply);
-    free(message_data);
-
-    return 0;
-}
-
-static int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
-{
-    json_t *error = json_object();
-    json_object_set_new(error, "code", json_integer(code));
-    json_object_set_new(error, "message", json_string(message));
-
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", error);
-    json_object_set_new(reply, "result", json_null());
-    json_object_set_new(reply, "id", json_integer(pkg->req_id));
-
-    int ret = reply_json(ses, pkg, reply);
-    json_decref(reply);
-
-    return ret;
-}
-
-static int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
-{
-    return reply_error(ses, pkg, 1, "invalid argument");
-}
-
-static int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)
-{
-    return reply_error(ses, pkg, 2, "internal error");
-}
-
-static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result)
-{
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", json_null());
-    json_object_set    (reply, "result", result);
-    json_object_set_new(reply, "id", json_integer(pkg->req_id));
-
-    int ret = reply_json(ses, pkg, reply);
-    json_decref(reply);
-
-    return ret;
-}
-
-static int reply_success(nw_ses *ses, rpc_pkg *pkg)
-{
-    json_t *result = json_object();
-    json_object_set_new(result, "status", json_string("success"));
-
-    int ret = reply_result(ses, pkg, result);
-    json_decref(result);
-    return ret;
-}
-
 void *redis_query(const char *format, ...)
 {
     for (int i = 0; i < 2; ++i) {
@@ -231,19 +158,19 @@ static int update_key_set(struct monitor_key *mkey, uint64_t val)
 static int on_cmd_monitor_inc(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 4)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *scope = json_string_value(json_array_get(params, 0));
     if (!scope || !is_good_scope(scope))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *key = json_string_value(json_array_get(params, 1));
     if (!key || !is_good_key(key))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *host = json_string_value(json_array_get(params, 2));
     if (!host || !is_good_host(host))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint64_t val = json_integer_value(json_array_get(params, 3));
     if (val > UINT32_MAX)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     struct monitor_key mkey;
     snprintf(mkey.key, sizeof(mkey.key), "%s:%s:%s", scope, key, host);
@@ -253,33 +180,33 @@ static int on_cmd_monitor_inc(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     ret = update_key_list(mkey.key, scope, key, host);
     if (ret < 0) {
         log_error("update_key_list fail: %d", ret);
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     }
     ret = update_key_inc(&mkey, val);
     if (ret < 0) {
         log_error("update_key_inc fail: %d", ret);
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     }
 
-    return reply_success(ses, pkg);
+    return rpc_reply_success(ses, pkg);
 }
 
 static int on_cmd_monitor_set(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 4)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *scope = json_string_value(json_array_get(params, 0));
     if (!scope || !is_good_scope(scope))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *key = json_string_value(json_array_get(params, 1));
     if (!key || !is_good_key(key))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *host = json_string_value(json_array_get(params, 2));
     if (!host || !is_good_host(host))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint64_t val = json_integer_value(json_array_get(params, 3));
     if (val > UINT32_MAX)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     struct monitor_key mkey;
     snprintf(mkey.key, sizeof(mkey.key), "%s:%s:%s", scope, key, host);
@@ -289,28 +216,28 @@ static int on_cmd_monitor_set(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     ret = update_key_list(mkey.key, scope, key, host);
     if (ret < 0) {
         log_error("update_key_list fail: %d", ret);
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     }
     ret = update_key_set(&mkey, val);
     if (ret < 0) {
         log_error("update_key_inc fail: %d", ret);
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     }
 
-    return reply_success(ses, pkg);
+    return rpc_reply_success(ses, pkg);
 }
 
 static int on_cmd_monitor_list_scope(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     redisReply *reply = redis_query("SMEMBERS m:scopes");
     if (reply == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     json_t *result = json_array();
     for (size_t i = 0; i < reply->elements; i += 1) {
         json_array_append_new(result, json_string(reply->element[i]->str));
     }
 
-    reply_result(ses, pkg, result);
+    rpc_reply_result(ses, pkg, result);
     json_decref(result);
     freeReplyObject(reply);
 
@@ -320,20 +247,20 @@ static int on_cmd_monitor_list_scope(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_monitor_list_key(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 1)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *scope = json_string_value(json_array_get(params, 0));
     if (!scope || !is_good_scope(scope))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     redisReply *reply = redis_query("SMEMBERS m:%s:keys", scope);
     if (reply == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     json_t *result = json_array();
     for (size_t i = 0; i < reply->elements; i += 1) {
         json_array_append_new(result, json_string(reply->element[i]->str));
     }
 
-    reply_result(ses, pkg, result);
+    rpc_reply_result(ses, pkg, result);
     json_decref(result);
     freeReplyObject(reply);
 
@@ -343,23 +270,23 @@ static int on_cmd_monitor_list_key(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_monitor_list_host(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 2)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *scope = json_string_value(json_array_get(params, 0));
     if (!scope || !is_good_scope(scope))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *key = json_string_value(json_array_get(params, 1));
     if (!key || !is_good_key(key))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     redisReply *reply = redis_query("SMEMBERS m:%s:%s:hosts", scope, key);
     if (reply == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     json_t *result = json_array();
     for (size_t i = 0; i < reply->elements; i += 1) {
         json_array_append_new(result, json_string(reply->element[i]->str));
     }
 
-    reply_result(ses, pkg, result);
+    rpc_reply_result(ses, pkg, result);
     json_decref(result);
     freeReplyObject(reply);
 
@@ -369,19 +296,19 @@ static int on_cmd_monitor_list_host(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_monitor_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 4)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *scope = json_string_value(json_array_get(params, 0));
     if (!scope || !is_good_scope(scope))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *key = json_string_value(json_array_get(params, 1));
     if (!key || !is_good_key(key))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *host = json_string_value(json_array_get(params, 2));
     if (!host || (strlen(host) > 0 && !is_good_host(host)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t points = json_integer_value(json_array_get(params, 3));
     if (points == 0 || points > MAX_QUERY_POINTS)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     sds cmd = sdsempty();
     time_t start = time(NULL) / 60 * 60 - 60 * points;
@@ -393,7 +320,7 @@ static int on_cmd_monitor_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     redisReply *reply = redis_query(cmd);
     sdsfree(cmd);
     if (reply == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
 
     json_t *result = json_array();
     for (size_t i = 0; i < reply->elements; ++i) {
@@ -409,7 +336,7 @@ static int on_cmd_monitor_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         json_array_append_new(result, unit);
     }
 
-    reply_result(ses, pkg, result);
+    rpc_reply_result(ses, pkg, result);
     json_decref(result);
     freeReplyObject(reply);
 
@@ -419,19 +346,19 @@ static int on_cmd_monitor_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_monitor_daily(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 4)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *scope = json_string_value(json_array_get(params, 0));
     if (!scope || !is_good_scope(scope))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *key = json_string_value(json_array_get(params, 1));
     if (!key || !is_good_key(key))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     const char *host = json_string_value(json_array_get(params, 2));
     if (!host || (strlen(host) > 0 && !is_good_host(host)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     size_t points = json_integer_value(json_array_get(params, 3));
     if (points == 0 || points > MAX_QUERY_POINTS)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     sds cmd = sdsempty();
     time_t now = time(NULL);
@@ -444,7 +371,7 @@ static int on_cmd_monitor_daily(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     redisReply *reply = redis_query(cmd);
     sdsfree(cmd);
     if (reply == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
 
     json_t *result = json_array();
     for (size_t i = 0; i < reply->elements; ++i) {
@@ -460,7 +387,7 @@ static int on_cmd_monitor_daily(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         json_array_append_new(result, unit);
     }
 
-    reply_result(ses, pkg, result);
+    rpc_reply_result(ses, pkg, result);
     json_decref(result);
     freeReplyObject(reply);
 

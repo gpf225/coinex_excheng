@@ -8,7 +8,6 @@
 # include "mi_history.h"
 # include "mi_message.h"
 # include "mi_index.h"
-# include "ut_comm_dict.h"
 
 static nw_timer timer;
 static nw_state *state_context;

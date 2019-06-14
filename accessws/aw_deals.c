@@ -15,10 +15,6 @@ static dict_t  *dict_deals;
 
 static rpc_clt *cache_deals;
 
-struct user_key {
-    uint32_t user_id;
-};
-
 struct user_val {
     dict_t *sessions;
 };
@@ -32,36 +28,6 @@ struct deals_val {
 struct sub_deals_val {
     dict_t *sessions;
 };
-
-static uint32_t dict_ses_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, sizeof(void *));
-}
-
-static int dict_ses_key_compare(const void *key1, const void *key2)
-{
-    return key1 == key2 ? 0 : 1;
-}
-
-static uint32_t dict_market_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, strlen(key));
-}
-
-static int dict_market_key_compare(const void *key1, const void *key2)
-{
-    return strcmp(key1, key2);
-}
-
-static void *dict_market_key_dup(const void *key)
-{
-    return strdup(key);
-}
-
-static void dict_market_key_free(void *key)
-{
-    free(key);
-}
 
 static void *dict_market_val_dup(const void *val)
 {
@@ -79,30 +45,6 @@ static void dict_market_val_free(void *val)
 }
 
 // dict user
-static uint32_t dict_user_hash_func(const void *key)
-{
-    return ((struct user_key *)key)->user_id;
-}
-
-static int dict_user_key_compare(const void *key1, const void *key2)
-{
-    uint32_t user_1 = ((struct user_key *)key1)->user_id;
-    uint32_t user_2 = ((struct user_key *)key2)->user_id;
-    return user_1 == user_2 ? 0 : 1;
-}
-
-static void *dict_user_key_dup(const void *key)
-{
-    struct user_key *obj = malloc(sizeof(struct user_key));
-    memcpy(obj, key, sizeof(struct user_key));
-    return obj;
-}
-
-static void dict_user_key_free(void *key)
-{
-    free(key);
-}
-
 static void *dict_user_val_dup(const void *key)
 {
     struct user_val *obj = malloc(sizeof(struct user_val));
@@ -140,21 +82,21 @@ static void list_free(void *value)
 
 static int subscribe_user(nw_ses *ses, uint32_t user_id)
 {
-    struct user_key key = { .user_id = user_id };
-    dict_entry *entry = dict_find(dict_user, &key);
+    void *key = (void *)(uintptr_t)user_id;
+    dict_entry *entry = dict_find(dict_user, key);
     if (entry == NULL) {
         struct user_val val;
         memset(&val, 0, sizeof(val));
 
         dict_types dt;
         memset(&dt, 0, sizeof(dt));
-        dt.hash_function = dict_ses_hash_func;
-        dt.key_compare = dict_ses_key_compare;
+        dt.hash_function = ptr_dict_hash_func;
+        dt.key_compare = ptr_dict_key_compare;
         val.sessions = dict_create(&dt, 1024);
         if (val.sessions == NULL)
             return -__LINE__;
 
-        entry = dict_add(dict_user, &key, &val);
+        entry = dict_add(dict_user, key, &val);
         if (entry == NULL)
             return -__LINE__;
     }
@@ -174,8 +116,8 @@ int deals_subscribe(nw_ses *ses, const char *market, uint32_t user_id)
 
         dict_types dt;
         memset(&dt, 0, sizeof(dt));
-        dt.hash_function = dict_ses_hash_func;
-        dt.key_compare = dict_ses_key_compare;
+        dt.hash_function = ptr_dict_hash_func;
+        dt.key_compare = ptr_dict_key_compare;
         val.sessions = dict_create(&dt, 1024);
         if (val.sessions == NULL)
             return -__LINE__;
@@ -199,8 +141,8 @@ int deals_subscribe(nw_ses *ses, const char *market, uint32_t user_id)
 
 static int unsubscribe_user(nw_ses *ses, uint32_t user_id)
 {
-    struct user_key key = { .user_id = user_id };
-    dict_entry *entry = dict_find(dict_user, &key);
+    void *key = (void *)(uintptr_t)user_id;
+    dict_entry *entry = dict_find(dict_user, key);
     if (entry) {
         struct user_val *obj = entry->val;
         dict_delete(obj->sessions, ses);
@@ -228,8 +170,8 @@ int deals_unsubscribe(nw_ses *ses, uint32_t user_id)
 
 int deals_new(uint32_t user_id, uint64_t id, double timestamp, int type, const char *market, const char *amount, const char *price)
 {
-    struct user_key key = { .user_id = user_id };
-    dict_entry *entry = dict_find(dict_user, &key);
+    void *key = (void *)(uintptr_t)user_id;
+    dict_entry *entry = dict_find(dict_user, key);
     if (entry == NULL)
         return 0;
 
@@ -256,7 +198,7 @@ int deals_new(uint32_t user_id, uint64_t id, double timestamp, int type, const c
     struct user_val *obj = entry->val;
     dict_iterator *iter = dict_get_iterator(obj->sessions);
     while ((entry = dict_next(iter)) != NULL) {
-        send_notify(entry->key, "deals.update", params);
+        ws_send_notify(entry->key, "deals.update", params);
         count += 1;
     }
     dict_release_iterator(iter);
@@ -294,7 +236,7 @@ int deals_sub_send_full(nw_ses *ses, const char *market)
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, deals);
 
-    send_notify(ses, "deals.update", params);
+    ws_send_notify(ses, "deals.update", params);
     json_decref(params);
 
     return 0;
@@ -313,7 +255,7 @@ static int deals_sub_update(const char *market, json_t *result)
     struct sub_deals_val *obj = entry->val;
     dict_iterator *iter = dict_get_iterator(obj->sessions);
     while ((entry = dict_next(iter)) != NULL) {
-        send_notify(entry->key, "deals.update", params);
+        ws_send_notify(entry->key, "deals.update", params);
     }
     dict_release_iterator(iter);
 
@@ -466,25 +408,25 @@ static json_t *pack_deals_result(list_t *deals, uint32_t limit, int64_t last_id)
 void direct_deals_reply(nw_ses *ses, json_t *params, int64_t id)
 {
     if (json_array_size(params) != 3) {
-        send_error_invalid_argument(ses, id);
+        ws_send_error_invalid_argument(ses, id);
         return;
     }
 
     const char *market = json_string_value(json_array_get(params, 0));
     if (!market) {
-        send_error_invalid_argument(ses, id);
+        ws_send_error_invalid_argument(ses, id);
         return;
     }
 
     int limit = json_integer_value(json_array_get(params, 1));
     if (limit <= 0 || limit > settings.deal_max) {
         log_error("exceed deals max limit, limit: %d, max_limit: %d", limit, settings.deal_max);
-        send_error_invalid_argument(ses, id);
+        ws_send_error_invalid_argument(ses, id);
         return;
     }
 
     if (!json_is_integer(json_array_get(params, 2))) {
-        send_error_invalid_argument(ses, id);
+        ws_send_error_invalid_argument(ses, id);
         return;
     }
     uint64_t last_id = json_integer_value(json_array_get(params, 2));
@@ -496,13 +438,13 @@ void direct_deals_reply(nw_ses *ses, json_t *params, int64_t id)
         if (val->deals != NULL) {
             is_reply = true;
             json_t *result = pack_deals_result(val->deals, limit, last_id);
-            send_result(ses, id, result);
+            ws_send_result(ses, id, result);
             json_decref(result);
         }
     }
 
     if (!is_reply) {
-        reply_result_null(ses, id);
+        ws_send_error_direct_result_null(ses, id);
         log_error("deals not find result, market: %s", market);
     }
 
@@ -513,32 +455,30 @@ int init_deals(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_market_hash_func;
-    dt.key_compare = dict_market_key_compare;
-    dt.key_dup = dict_market_key_dup;
-    dt.key_destructor = dict_market_key_free;
-    dt.val_dup = dict_market_val_dup;
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_compare    = str_dict_key_compare;
+    dt.key_dup        = str_dict_key_dup;
+    dt.key_destructor = str_dict_key_free;
+    dt.val_dup        = dict_market_val_dup;
     dt.val_destructor = dict_market_val_free;
     dict_sub_deals = dict_create(&dt, 64);
     if (dict_sub_deals == NULL)
         return -__LINE__;
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_user_hash_func;
-    dt.key_compare = dict_user_key_compare;
-    dt.key_dup = dict_user_key_dup;
-    dt.key_destructor = dict_user_key_free;
-    dt.val_dup = dict_user_val_dup;
+    dt.hash_function  = uint32_dict_hash_func;
+    dt.key_compare    = uint32_dict_key_compare;
+    dt.val_dup        = dict_user_val_dup;
     dt.val_destructor = dict_user_val_free;
     dict_user = dict_create(&dt, 64);
     if (dict_user == NULL)
         return -__LINE__;
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = dict_market_hash_func;
-    dt.key_compare    = dict_market_key_compare;
-    dt.key_dup        = dict_market_key_dup;
-    dt.key_destructor = dict_market_key_free;
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_compare    = str_dict_key_compare;
+    dt.key_dup        = str_dict_key_dup;
+    dt.key_destructor = str_dict_key_free;
     dt.val_dup        = dict_deals_val_dup;
     dt.val_destructor = dict_deals_val_free;
     dict_deals = dict_create(&dt, 64);

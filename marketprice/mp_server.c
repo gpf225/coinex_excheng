@@ -16,58 +16,6 @@ struct cache_val {
     json_t      *result;
 };
 
-static int reply_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
-{
-    char *message_data;
-    if (settings.debug) {
-        message_data = json_dumps(json, JSON_INDENT(4));
-    } else {
-        message_data = json_dumps(json, 0);
-    }
-    if (message_data == NULL)
-        return -__LINE__;
-    log_trace("connection: %s send: %s", nw_sock_human_addr(&ses->peer_addr), message_data);
-
-    rpc_pkg reply;
-    memcpy(&reply, pkg, sizeof(reply));
-    reply.pkg_type = RPC_PKG_TYPE_REPLY;
-    reply.body = message_data;
-    reply.body_size = strlen(message_data);
-    rpc_send(ses, &reply);
-    free(message_data);
-
-    return 0;
-}
-
-static int reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
-{
-    json_t *error = json_object();
-    json_object_set_new(error, "code", json_integer(code));
-    json_object_set_new(error, "message", json_string(message));
-
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", error);
-    json_object_set_new(reply, "result", json_null());
-    json_object_set_new(reply, "id", json_integer(pkg->req_id));
-
-    int ret = reply_json(ses, pkg, reply);
-    json_decref(reply);
-
-    return ret;
-}
-
-static int reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
-{
-    profile_inc("error_invalid_argument", 1);
-    return reply_error(ses, pkg, 1, "invalid argument");
-}
-
-static int reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)
-{
-    profile_inc("error_internal_error", 1);
-    return reply_error(ses, pkg, 2, "internal error");
-}
-
 static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result, double ttl)
 {
     json_t *reply = json_object();
@@ -76,7 +24,7 @@ static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result, double ttl)
     json_object_set_new(reply, "id", json_integer(pkg->req_id));
     json_object_set_new(reply, "ttl", json_integer((int)(ttl * 1000)));
 
-    int ret = reply_json(ses, pkg, reply);
+    int ret = rpc_reply_json(ses, pkg, reply);
     json_decref(reply);
 
     return ret;
@@ -122,22 +70,22 @@ static int add_cache(sds cache_key, json_t *result)
 static int on_cmd_market_status(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 2)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     const char *market = json_string_value(json_array_get(params, 0));
     if (!market)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     if (!market_exist(market))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     int period = json_integer_value(json_array_get(params, 1));
     if (period <= 0 || period > settings.sec_max)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     double task_start = current_timestamp();
     json_t *result = get_market_status(market, period);
     if (result == NULL) {
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     }
     profile_inc("profile_status_times", 1);
     profile_inc("profile_status_costs", (int)((current_timestamp() - task_start) * 1000000));
@@ -150,17 +98,17 @@ static int on_cmd_market_status(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_market_last(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 1)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     const char *market = json_string_value(json_array_get(params, 0));
     if (!market)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     if (!market_exist(market))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     mpd_t *last = get_market_last_price(market);
     if (last == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
 
     json_t *result = json_string_mpd(last);
 
@@ -172,28 +120,28 @@ static int on_cmd_market_last(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_market_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 4)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     const char *market = json_string_value(json_array_get(params, 0));
     if (!market)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     if (!market_exist(market))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     time_t start = json_integer_value(json_array_get(params, 1));
     if (start <= 0)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     time_t end = json_integer_value(json_array_get(params, 2));
     time_t now = time(NULL);
     if (end > now)
         end = now;
     if (end <= 0 || start > end)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     int interval = json_integer_value(json_array_get(params, 3));
     if (interval <= 0)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     if ((end - start) > (int64_t)interval * settings.kline_max)
         start = end - (int64_t)interval * settings.kline_max;
 
@@ -206,25 +154,25 @@ static int on_cmd_market_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (interval < 60) {
         if (60 % interval != 0) {
             sdsfree(cache_key);
-            return reply_error_invalid_argument(ses, pkg);
+            return rpc_reply_error_invalid_argument(ses, pkg);
         }
         result = get_market_kline_sec(market, start, end, interval);
     } else if (interval < 3600) {
         if (interval % 60 != 0 || 3600 % interval != 0) {
             sdsfree(cache_key);
-            return reply_error_invalid_argument(ses, pkg);
+            return rpc_reply_error_invalid_argument(ses, pkg);
         }
         result = get_market_kline_min(market, start, end, interval);
     } else if (interval < 86400) {
         if (interval % 3600 != 0 || 86400 % interval != 0) {
             sdsfree(cache_key);
-            return reply_error_invalid_argument(ses, pkg);
+            return rpc_reply_error_invalid_argument(ses, pkg);
         }
         result = get_market_kline_hour(market, start, end, interval);
     } else if (interval < 86400 * 7) {
         if (interval % 86400 != 0) {
             sdsfree(cache_key);
-            return reply_error_invalid_argument(ses, pkg);
+            return rpc_reply_error_invalid_argument(ses, pkg);
         }
         result = get_market_kline_day(market, start, end, interval);
     } else if (interval == 86400 * 7) {
@@ -233,12 +181,12 @@ static int on_cmd_market_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         result = get_market_kline_month(market, start, end, interval);
     } else {
         sdsfree(cache_key);
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     }
 
     if (result == NULL) {
         sdsfree(cache_key);
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     }
 
     profile_inc("profile_kline_times", 1);
@@ -255,20 +203,20 @@ static int on_cmd_market_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 3)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     const char *market = json_string_value(json_array_get(params, 0));
     if (!market)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     if (!market_exist(market))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     int limit = json_integer_value(json_array_get(params, 1));
     if (limit <= 0 || limit > MARKET_DEALS_MAX)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_integer(json_array_get(params, 2)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint64_t last_id = json_integer_value(json_array_get(params, 2));
 
     sds cache_key = NULL;
@@ -278,7 +226,7 @@ static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     json_t *result = get_market_deals(market, limit, last_id);
     if (result == NULL) {
         sdsfree(cache_key);
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     }
 
     add_cache(cache_key, result);
@@ -292,25 +240,25 @@ static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_market_deals_ext(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 3)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     const char *market = json_string_value(json_array_get(params, 0));
     if (!market)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     if (!market_exist(market))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     int limit = json_integer_value(json_array_get(params, 1));
     if (limit <= 0 || limit > MARKET_DEALS_MAX)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_integer(json_array_get(params, 2)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint64_t last_id = json_integer_value(json_array_get(params, 2));
 
     json_t *result = get_market_deals_ext(market, limit, last_id);
     if (result == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
 
     int ret = reply_result(ses, pkg, result, settings.cache_timeout);
     json_decref(result);
@@ -395,26 +343,6 @@ static void svr_on_connection_close(nw_ses *ses)
     log_trace("connection: %s close", nw_sock_human_addr(&ses->peer_addr));
 }
 
-static uint32_t cache_dict_hash_function(const void *key)
-{
-    return dict_generic_hash_function(key, sdslen((sds)key));
-}
-
-static int cache_dict_key_compare(const void *key1, const void *key2)
-{
-    return sdscmp((sds)key1, (sds)key2);
-}
-
-static void *cache_dict_key_dup(const void *key)
-{
-    return sdsdup((const sds)key);
-}
-
-static void cache_dict_key_free(void *key)
-{
-    sdsfree(key);
-}
-
 static void *cache_dict_val_dup(const void *val)
 {
     struct cache_val *obj = malloc(sizeof(struct cache_val));
@@ -457,10 +385,10 @@ int init_server(int worker_id)
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = cache_dict_hash_function;
-    dt.key_compare    = cache_dict_key_compare;
-    dt.key_dup        = cache_dict_key_dup;
-    dt.key_destructor = cache_dict_key_free;
+    dt.hash_function  = sds_dict_hash_function;
+    dt.key_compare    = sds_dict_key_compare;
+    dt.key_dup        = sds_dict_key_dup;
+    dt.key_destructor = sds_dict_key_free;
     dt.val_dup        = cache_dict_val_dup;
     dt.val_destructor = cache_dict_val_free;
 

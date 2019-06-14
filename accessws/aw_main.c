@@ -205,9 +205,6 @@ server:
     nw_loop_run();
     log_vip("server stop");
 
-    fini_asset();
-    fini_order();
-
 end:
     return 0;
 }

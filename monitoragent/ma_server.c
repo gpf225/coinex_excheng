@@ -228,15 +228,8 @@ int report_to_center(const char *key, uint64_t val)
     json_array_append_new(params, json_integer(val));
     sdsfreesplitres(tokens, token_count);
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_MONITOR_INC;
-    pkg.body      = json_dumps(params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    int ret = rpc_clt_send(clt, &pkg);
-    free(pkg.body);
+    int ret = rpc_request_json(clt, CMD_MONITOR_INC, 0, 0, params);
+    json_decref(params);
 
     return ret;
 }

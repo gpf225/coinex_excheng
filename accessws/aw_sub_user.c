@@ -39,22 +39,12 @@ static void dict_user_val_free(void *val)
     dict_release(val);
 }
 
-static uint32_t dict_user_id_hash_func(const void *key)
-{
-    return (uintptr_t)key;
-}
-
-static int dict_user_id_compare(const void *key1, const void *key2)
-{
-    return (uintptr_t)key1 == (uintptr_t)key2 ? 0 : 1;
-}
-
 static dict_t* create_user_id_dict()
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_user_id_hash_func;
-    dt.key_compare = dict_user_id_compare;
+    dt.hash_function = uint32_dict_hash_func;
+    dt.key_compare   = uint32_dict_key_compare;
 
     return dict_create(&dt, 8);
 }
@@ -152,8 +142,8 @@ json_t* sub_user_get_sub_uses(uint32_t user_id, nw_ses *ses)
     json_t *json = json_array();
     dict_t *sub_users = entry->val;  
     dict_iterator *iter = dict_get_iterator(sub_users);  
-    while ( (entry = dict_next(iter)) != NULL) {
-        uint32_t sub_user_id = (uintptr_t)entry->key;
+    while ((entry = dict_next(iter)) != NULL) {
+        uint32_t sub_user_id = (uint64_t)entry->key;
         json_array_append_new(json, json_integer(sub_user_id));
     }
 
