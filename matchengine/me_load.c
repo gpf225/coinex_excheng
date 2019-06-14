@@ -669,7 +669,7 @@ static int load_cancel_order(json_t *params)
     return 0;
 }
 
-static int load_cancel_all_order(json_t *params)
+static int load_cancel_order_all(json_t *params)
 {
     if (json_array_size(params) != 3)
         return -__LINE__;
@@ -694,7 +694,7 @@ static int load_cancel_all_order(json_t *params)
 
     int ret = market_cancel_order_all(false, user_id, account, market);
     if (ret < 0) {
-        log_error("market_cancel_all_order id: user id: %u, account: %d, market: %s", user_id, account, market_name);
+        log_error("market_cancel_order_all user id: %u, account: %d, market: %s", user_id, account, market_name);
         return -__LINE__;
     }
 
@@ -1089,8 +1089,8 @@ int load_oper(json_t *detail)
         ret = load_market_order(params);
     } else if (strcmp(method, "cancel_order") == 0) {
         ret = load_cancel_order(params);
-    } else if (strcmp(method, "cancel_all_order") == 0) {
-        ret = load_cancel_all_order(params);
+    } else if (strcmp(method, "cancel_order_all") == 0) {
+        ret = load_cancel_order_all(params);
     } else if (strcmp(method, "stop_limit") == 0) {
         ret = load_stop_limit(params);
     } else if (strcmp(method, "stop_market") == 0) {
