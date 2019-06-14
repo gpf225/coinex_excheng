@@ -2017,10 +2017,10 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
     return finish_order(real, m, order);
 }
 
-int market_cancel_order_all(bool real, uint32_t user_id, market_t *m)
+int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market_t *m)
 {
     int ret = 0;
-    skiplist_t *order_list = get_user_order_list(m, user_id, -1);
+    skiplist_t *order_list = get_user_order_list(m, user_id, account);
     if (order_list != NULL) {
         skiplist_node *node;
         skiplist_iter *iter = skiplist_get_iterator(order_list);
@@ -2040,14 +2040,29 @@ int market_cancel_order_all(bool real, uint32_t user_id, market_t *m)
 
             if (list_len == 1) {
                 break;
-            } else {
-                skiplist_reset_iterator(order_list, iter);
             }
+            skiplist_reset_iterator(order_list, iter);
         }
         skiplist_release_iterator(iter);
     }
 
-    skiplist_t *stop_list = get_user_stop_list(m, user_id, -1);
+    return ret;
+}
+
+int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop)
+{
+    if (real) {
+        push_stop_message(STOP_EVENT_CANCEL, stop, m, 0);
+        *result = get_stop_info(stop);
+    }
+    finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
+    return 0;
+}
+
+int market_cancel_stop_all(bool real, uint32_t user_id, int32_t account, market_t *m)
+{
+    int ret = 0;
+    skiplist_t *stop_list = get_user_stop_list(m, user_id, account);
     if (stop_list != NULL) {
         skiplist_node *node;
         skiplist_iter *iter = skiplist_get_iterator(stop_list);
@@ -2067,24 +2082,12 @@ int market_cancel_order_all(bool real, uint32_t user_id, market_t *m)
 
             if (list_len == 1) {
                 break;
-            } else {
-                skiplist_reset_iterator(stop_list, iter);
             }
+            skiplist_reset_iterator(stop_list, iter);
         }
         skiplist_release_iterator(iter);
     }
-
     return ret;
-}
-
-int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop)
-{
-    if (real) {
-        push_stop_message(STOP_EVENT_CANCEL, stop, m, 0);
-        *result = get_stop_info(stop);
-    }
-    finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
-    return 0;
 }
 
 int market_put_order(market_t *m, order_t *order)

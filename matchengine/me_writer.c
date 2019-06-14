@@ -519,29 +519,33 @@ static int on_cmd_order_cancel(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_order_cancel_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 2)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     // user_id
     if (!json_is_integer(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
+    //account
+    if (!json_is_integer(json_array_get(params, 1)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    int32_t account = json_integer_value(json_array_get(params, 1));
+
     // market
-    if (!json_is_string(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
-    const char *market_name = json_string_value(json_array_get(params, 1));
+    if (!json_is_string(json_array_get(params, 2)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    const char *market_name = json_string_value(json_array_get(params, 2));
     market_t *market = get_market(market_name);
     if (market == NULL)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
-    int ret = market_cancel_order_all(true, user_id, market);
+    int ret = market_cancel_order_all(true, user_id, account, market);
     if (ret < 0) {
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
     }
 
     push_operlog("cancel_all_order", params);
-    ret = reply_success(ses, pkg);
-    return ret;
+    return rpc_reply_success(ses, pkg);
 }
 
 static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -840,6 +844,38 @@ static int on_cmd_cancel_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+static int on_cmd_cancel_stop_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 2)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    //account
+    if (!json_is_integer(json_array_get(params, 1)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    int32_t account = json_integer_value(json_array_get(params, 1));
+
+    //market
+    if (!json_is_string(json_array_get(params, 2)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    const char *market_name = json_string_value(json_array_get(params, 2));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    int ret = market_cancel_stop_all(true, user_id, account, market);
+    if (ret < 0) {
+        return rpc_reply_error_internal_error(ses, pkg);
+    }
+
+    push_operlog("cancel_all_stop_order", params);
+    return rpc_reply_success(ses, pkg);
+}
+
 static int on_cmd_update_asset_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     int ret;
@@ -1042,7 +1078,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     case CMD_ORDER_CANCEL_ALL:
         if (!is_service_availablce()) {
-            reply_error_service_unavailable(ses, pkg);
+            rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
         profile_inc("cmd_order_cancel_all", 1);
@@ -1082,6 +1118,17 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_cancel_stop(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_cancel_stop%s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ORDER_CANCEL_STOP_ALL:
+        if (!is_service_availablce()) {
+            rpc_reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
+        profile_inc("cmd_order_cancel_stop_all", 1);
+        ret = on_cmd_cancel_stop_all(ses, pkg, params);
+        if (ret < 0) {
+            log_error("cmd_order_cancel_stop_all %s fail: %d", params_str, ret);
         }
         break;
     case CMD_CONFIG_UPDATE_ASSET:

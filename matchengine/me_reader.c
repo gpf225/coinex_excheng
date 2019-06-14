@@ -80,7 +80,7 @@ static void on_cache_timer(nw_timer *timer, void *privdata)
     dict_clear(dict_cache);
 }
 
-static rpc_push_error_reader_unavailable(nw_ses *ses, uint32_t command)
+static int rpc_push_error_reader_unavailable(nw_ses *ses, uint32_t command)
 {
     profile_inc("error_reader_unavailable", 1);
     return rpc_push_error(ses, command, 1, "reader unavailable");
@@ -154,26 +154,26 @@ static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 static int on_cmd_asset_query_users(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 2)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_integer(json_array_get(params, 0)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     uint32_t account = json_integer_value(json_array_get(params, 0));
     if (account == 0 || !account_exist(account))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     if (!json_is_array(json_array_get(params, 1)))
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
     json_t *users = json_array_get(params, 1);
 
     if (json_array_size(users) > MAX_QUERY_ASSET_USER_NUM)
-        return reply_error_invalid_argument(ses, pkg);
+        return rpc_reply_error_invalid_argument(ses, pkg);
 
     json_t *result = balance_query_users(account, users);
     if (result == NULL)
-        return reply_error_internal_error(ses, pkg);
+        return rpc_reply_error_internal_error(ses, pkg);
 
-    int ret = reply_result(ses, pkg, result);
+    int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;
 }
