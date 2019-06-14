@@ -2021,9 +2021,9 @@ int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market
 {
     int ret = 0;
     skiplist_t *order_list = get_user_order_list(m, user_id, account);
-    if (order_list == NULL) {
+    if (order_list == NULL)
         return ret;
-    }
+
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(order_list);
     while ((node = skiplist_next(iter)) != NULL) {
@@ -2045,6 +2045,7 @@ int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market
         }
     }
     skiplist_release_iterator(iter);
+
     return ret;
 }
 
@@ -2054,17 +2055,15 @@ int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop)
         push_stop_message(STOP_EVENT_CANCEL, stop, m, 0);
         *result = get_stop_info(stop);
     }
-    finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
-    return 0;
+    return finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
 }
 
 int market_cancel_stop_all(bool real, uint32_t user_id, int32_t account, market_t *m)
 {
     int ret = 0;
     skiplist_t *stop_list = get_user_stop_list(m, user_id, account);
-    if( stop_list == NULL){
+    if( stop_list == NULL)
         return ret;
-    }
 
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(stop_list);
