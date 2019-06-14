@@ -518,7 +518,7 @@ static int on_cmd_order_cancel(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_order_cancel_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 2)
+    if (json_array_size(params) != 3)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -846,7 +846,7 @@ static int on_cmd_cancel_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_cancel_stop_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 2)
+    if (json_array_size(params) != 3)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -872,7 +872,7 @@ static int on_cmd_cancel_stop_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return rpc_reply_error_internal_error(ses, pkg);
     }
 
-    push_operlog("cancel_all_stop_order", params);
+    push_operlog("cancel_stop_all", params);
     return rpc_reply_success(ses, pkg);
 }
 

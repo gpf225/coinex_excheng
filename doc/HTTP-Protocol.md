@@ -349,7 +349,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `order.cancel_all`
 * params:
 1. user_id: user ID
-2. market：market
+2. account: cancel all orders belong to account, -1 for cancel all orders
+3. market：market
 * result: "success"
 
 
@@ -415,6 +416,14 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 10. order not found
 11. user not match
 
+**Cancel all stop order**
+* method: `order.cancel_stop_all`
+* params:
+1. user_id: user ID
+2. account: cancel the all stop orders belong to account, -1 for cancel all stop orders
+3. market：market
+* result: "success"
+  
 **Order details**
 * method: `order.deals`
 * params:

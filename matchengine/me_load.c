@@ -671,7 +671,7 @@ static int load_cancel_order(json_t *params)
 
 static int load_cancel_all_order(json_t *params)
 {
-    if (json_array_size(params) != 2)
+    if (json_array_size(params) != 3)
         return -__LINE__;
 
     // user_id
@@ -982,7 +982,7 @@ static int load_cancel_stop(json_t *params)
 
 static int load_cancel_stop_all(json_t *params)
 {
-    if (json_array_size(params) != 2)
+    if (json_array_size(params) != 3)
         return -__LINE__;
 
     // user_id
@@ -1005,7 +1005,7 @@ static int load_cancel_stop_all(json_t *params)
 
     int ret = market_cancel_stop_all(false, user_id, account, market);
     if (ret < 0) {
-        log_error("market_cancel_stop_all id: user id: %u, account: %d, market: %s", user_id, account, market_name);
+        log_error("market_cancel_stop_all user id: %u, account: %d, market: %s", user_id, account, market_name);
         return -__LINE__;
     }
 
