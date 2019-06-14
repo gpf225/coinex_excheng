@@ -45,15 +45,6 @@ static void dict_status_sub_val_free(void *key)
     free(obj);
 }
 
-static int notify_message(nw_ses *ses, int command, json_t *message)
-{
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.command = command;
-
-    return reply_result(ses, &pkg, message);
-}
-
 static void notify_state(void)
 {
     dict_entry *entry;
@@ -78,7 +69,7 @@ static void notify_state(void)
     iter = dict_get_iterator(dict_session);
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
-        notify_message(ses, CMD_CACHE_STATUS_UPDATE, result);
+        rpc_push_json(ses, CMD_CACHE_STATUS_UPDATE, result);
     }
     dict_release_iterator(iter);
     json_decref(result);
@@ -239,16 +230,7 @@ static int query_market_status(const char *market)
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, json_integer(86400));
 
-    rpc_pkg req_pkg;
-    memset(&req_pkg, 0, sizeof(req_pkg));
-    req_pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    req_pkg.command   = CMD_MARKET_STATUS;
-    req_pkg.sequence  = state_entry->id;
-    req_pkg.body      = json_dumps(params, 0);
-    req_pkg.body_size = strlen(req_pkg.body);
-
-    rpc_clt_send(marketprice, &req_pkg);
-    free(req_pkg.body);
+    rpc_request_json(marketprice, state->cmd, state_entry->id, 0, params);
     json_decref(params);
     profile_inc("request_state", 1);
 
@@ -267,19 +249,7 @@ static int query_market_depth(const char *market)
     sstrncpy(state->market, market, MARKET_NAME_MAX_LEN);
     state->cmd = CMD_ORDER_DEPTH;
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ORDER_DEPTH;
-    pkg.sequence  = state_entry->id;
-    pkg.body      = json_dumps(params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    state->cmd = pkg.command;
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, state->cmd, state_entry->id, 0, params);
     json_decref(params);
     profile_inc("request_depth", 1);
 
@@ -372,18 +342,18 @@ int init_status(void)
     // sub session
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_ses_hash_func;
-    dt.key_compare   = dict_ses_hash_compare;
+    dt.hash_function = ptr_dict_hash_func;
+    dt.key_compare   = ptr_dict_key_compare;
     dict_session     = dict_create(&dt, 32);
     if (dict_session == NULL)
         return -__LINE__;
 
     // dict_state
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function   = dict_str_hash_func;
-    dt.key_compare     = dict_str_compare;
-    dt.key_dup         = dict_str_dup;
-    dt.key_destructor  = dict_str_free;
+    dt.hash_function   = str_dict_hash_function;
+    dt.key_compare     = str_dict_key_compare;
+    dt.key_dup         = str_dict_key_dup;
+    dt.key_destructor  = str_dict_key_free;
     dt.val_dup         = dict_status_sub_val_dup;
     dt.val_destructor  = dict_status_sub_val_free;
     dict_state = dict_create(&dt, 256);

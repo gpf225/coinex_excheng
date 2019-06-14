@@ -8,26 +8,6 @@
 static nw_timer cache_timer;
 static dict_t *backend_cache;
 
-static uint32_t cache_dict_hash_function(const void *key)
-{
-    return dict_generic_hash_function(key, sdslen((sds)key));
-}
-
-static int cache_dict_key_compare(const void *key1, const void *key2)
-{
-    return sdscmp((sds)key1, (sds)key2);
-}
-
-static void *cache_dict_key_dup(const void *key)
-{
-    return sdsdup((const sds)key);
-}
-
-static void cache_dict_key_free(void *key)
-{
-    sdsfree(key);
-}
-
 static void *cache_dict_val_dup(const void *val)
 {
     struct cache_val *obj = malloc(sizeof(struct cache_val));
@@ -97,10 +77,8 @@ int check_depth_cache(nw_ses *ses, uint64_t id, sds key, int limit)
     json_object_set    (reply, "result", result);
     json_object_set_new(reply, "id", json_integer(id));   
 
-    char *reply_str = json_dumps(reply, 0);
-    send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
+    http_reply_json(ses, reply, 200);
     json_decref(reply);
-    free(reply_str);
     profile_inc("hit_cache", 1);
 
     return 1;
@@ -124,10 +102,8 @@ int check_cache(nw_ses *ses, uint64_t id, sds key)
     json_object_set    (reply, "result", cache->result);
     json_object_set_new(reply, "id", json_integer(id));   
 
-    char *reply_str = json_dumps(reply, 0);
-    send_http_response_simple(ses, 200, reply_str, strlen(reply_str));
+    http_reply_json(ses, reply, 200);
     json_decref(reply);
-    free(reply_str);
     profile_inc("hit_cache", 1);
 
     return 1;
@@ -152,10 +128,10 @@ int init_cache(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = cache_dict_hash_function;
-    dt.key_compare    = cache_dict_key_compare;
-    dt.key_dup        = cache_dict_key_dup;
-    dt.key_destructor = cache_dict_key_free;
+    dt.hash_function  = sds_dict_hash_function;
+    dt.key_compare    = sds_dict_key_compare;
+    dt.key_dup        = sds_dict_key_dup;
+    dt.key_destructor = sds_dict_key_free;
     dt.val_dup        = cache_dict_val_dup;
     dt.val_destructor = cache_dict_val_free;
     backend_cache = dict_create(&dt, 64);

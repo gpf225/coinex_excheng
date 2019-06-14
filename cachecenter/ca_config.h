@@ -34,6 +34,8 @@
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
+# include "ut_comm_dict.h"
+# include "ut_json_rpc.h"
 
 # define MARKET_NAME_MAX_LEN    16
 # define INTERVAL_MAX_LEN       16
@@ -66,14 +68,6 @@ struct settings {
 
 extern struct settings settings;
 int init_config(const char *path);
-
-uint32_t dict_ses_hash_func(const void *key);
-int dict_ses_hash_compare(const void *key1, const void *key2);
-
-uint32_t dict_str_hash_func(const void *key);
-int dict_str_compare(const void *value1, const void *value2);
-void *dict_str_dup(const void *value);
-void dict_str_free(void *value);
 
 # endif
 

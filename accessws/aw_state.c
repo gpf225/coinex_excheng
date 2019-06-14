@@ -19,26 +19,6 @@ struct state_val {
     double  update_time;
 };
 
-static uint32_t dict_market_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, strlen(key));
-}
-
-static int dict_market_key_compare(const void *key1, const void *key2)
-{
-    return strcmp(key1, key2);
-}
-
-static void *dict_market_key_dup(const void *key)
-{
-    return strdup(key);
-}
-
-static void dict_market_key_free(void *key)
-{
-    free(key);
-}
-
 static void *list_market_dup(void *val)
 {
     return strdup(val);
@@ -47,17 +27,6 @@ static void *list_market_dup(void *val)
 static void list_market_free(void *val)
 {
     free(val);
-}
-
-// ses
-static uint32_t dict_ses_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, sizeof(void *));
-}
-
-static int dict_ses_key_compare(const void *key1, const void *key2)
-{
-    return key1 == key2 ? 0 : 1;
 }
 
 static void dict_ses_val_free(void *val)
@@ -139,7 +108,7 @@ static void notify_state_update(void)
         if (json_object_size(result) != 0) {
             json_t *params = json_array();
             json_array_append(params, result);
-            send_notify(entry->key, "state.update", params);
+            ws_send_notify(entry->key, "state.update", params);
             json_decref(params);
             count += 1;
         }
@@ -285,13 +254,13 @@ clean:
 void direct_state_reply(nw_ses *ses, json_t *params, int64_t id)
 {
     if (json_array_size(params) != 2) {
-        send_error_invalid_argument(ses, id);
+        ws_send_error_invalid_argument(ses, id);
         return;
     }
 
     const char *market = json_string_value(json_array_get(params, 0));
     if (!market) {
-        send_error_invalid_argument(ses, id);
+        ws_send_error_invalid_argument(ses, id);
         return;
     }
 
@@ -301,12 +270,12 @@ void direct_state_reply(nw_ses *ses, json_t *params, int64_t id)
         struct state_val *val = entry->val;
         if (val->last != NULL) {
             is_reply = true;
-            send_result(ses, id, val->last);
+            ws_send_result(ses, id, val->last);
         }
     }
 
     if (!is_reply) {
-        reply_result_null(ses, id);
+        ws_send_error_direct_result_null(ses, id);
         log_error("state not find result, market: %s", market);
     }
 
@@ -341,10 +310,10 @@ int init_state(void)
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = dict_market_hash_func;
-    dt.key_compare    = dict_market_key_compare;
-    dt.key_dup        = dict_market_key_dup;
-    dt.key_destructor = dict_market_key_free;
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_compare    = str_dict_key_compare;
+    dt.key_dup        = str_dict_key_dup;
+    dt.key_destructor = str_dict_key_free;
     dt.val_dup        = dict_state_val_dup;
     dt.val_destructor = dict_state_val_free;
     dict_state = dict_create(&dt, 64);
@@ -353,8 +322,8 @@ int init_state(void)
 
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_ses_hash_func;
-    dt.key_compare = dict_ses_key_compare;
+    dt.hash_function  = ptr_dict_hash_func;
+    dt.key_compare    = ptr_dict_key_compare;
     dt.val_destructor = dict_ses_val_free;
 
     dict_session = dict_create(&dt, 64);
@@ -451,7 +420,7 @@ int state_send_last(nw_ses *ses)
 
     json_t *params = json_array();
     json_array_append_new(params, result);
-    send_notify(ses, "state.update", params);
+    ws_send_notify(ses, "state.update", params);
     json_decref(params);
 
     return 0;

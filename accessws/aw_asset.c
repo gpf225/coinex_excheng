@@ -22,16 +22,6 @@ struct state_data {
     char asset[ASSET_NAME_MAX_LEN];
 };
 
-static uint32_t dict_sub_hash_func(const void *key)
-{
-    return (uintptr_t)key;
-}
-
-static int dict_sub_key_compare(const void *key1, const void *key2)
-{
-    return (uintptr_t)key1 == (uintptr_t)key2 ? 0 : 1;
-}
-
 static void dict_sub_val_free(void *val)
 {
     list_release(val);
@@ -88,7 +78,7 @@ static int on_balance_query_reply(struct state_data *state, json_t *result)
     while ((node = list_next(iter)) != NULL) {
         struct sub_unit *unit = node->value;
         if (strlen(unit->asset) == 0 || strcmp(unit->asset, state->asset) == 0) {
-            send_notify(unit->ses, "asset.update", params);
+            ws_send_notify(unit->ses, "asset.update", params);
             count += 1;
         }
     }
@@ -153,8 +143,8 @@ int init_asset(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_sub_hash_func;
-    dt.key_compare = dict_sub_key_compare;
+    dt.hash_function  = uint32_dict_hash_func; 
+    dt.key_compare    = uint32_dict_key_compare;
     dt.val_destructor = dict_sub_val_free;
 
     dict_sub = dict_create(&dt, 1024);
@@ -273,18 +263,7 @@ int asset_on_update(uint32_t user_id, uint32_t account, const char *asset)
     state->account = account;
     sstrncpy(state->asset, asset, ASSET_NAME_MAX_LEN);
 
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    pkg.command   = CMD_ASSET_QUERY;
-    pkg.sequence  = state_entry->id;
-    pkg.body      = json_dumps(trade_params, 0);
-    pkg.body_size = strlen(pkg.body);
-
-    rpc_clt_send(matchengine, &pkg);
-    log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-            nw_sock_human_addr(rpc_clt_peer_addr(matchengine)), pkg.command, pkg.sequence, (char *)pkg.body);
-    free(pkg.body);
+    rpc_request_json(matchengine, CMD_ASSET_QUERY, state_entry->id, 0, trade_params);
     json_decref(trade_params);
 
     return 0;
@@ -293,10 +272,5 @@ int asset_on_update(uint32_t user_id, uint32_t account, const char *asset)
 size_t asset_subscribe_number(void)
 {
     return dict_size(dict_sub);
-}
-
-void fini_asset(void)
-{
-    dict_release(dict_sub);
 }
 

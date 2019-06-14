@@ -6,7 +6,6 @@
 # include "me_config.h"
 # include "nw_state.h"
 # include "me_access.h"
-# include "me_reply.h"
 
 static rpc_svr *svr;
 static cli_svr *svrcli;
@@ -38,7 +37,7 @@ static void sendto_clt_pkg(rpc_clt *clt, nw_ses *ses, rpc_pkg *pkg)
 static void sendto_writer(nw_ses *ses, rpc_pkg *pkg)
 {
     if (!rpc_clt_connected(writer_clt)) {
-        reply_error_internal_error(ses, pkg);
+        rpc_reply_error_internal_error(ses, pkg);
         log_fatal("lose connection to writer");
         return;
     }
@@ -60,7 +59,7 @@ static void sendto_reader(nw_ses *ses, rpc_pkg *pkg, const char *market, uint64_
     }
 
     if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
-        reply_error_internal_error(ses, pkg);
+        rpc_reply_error_internal_error(ses, pkg);
         log_fatal("lose connection to reader: %d", reader_id);
         return;
     }
@@ -75,7 +74,7 @@ static void sendto_reader_summary(nw_ses *ses, rpc_pkg *pkg)
 {
     int reader_id = settings.reader_num - 1;
     if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
-        reply_error_internal_error(ses, pkg);
+        rpc_reply_error_internal_error(ses, pkg);
         log_fatal("lose connection to summary reader: %d", reader_id);
         return;
     }
@@ -89,14 +88,14 @@ static void sendto_reader_summary(nw_ses *ses, rpc_pkg *pkg)
 static void sendto_all(nw_ses *ses, rpc_pkg *pkg)
 {
     if (!rpc_clt_connected(writer_clt)) {
-        reply_error_internal_error(ses, pkg);
+        rpc_reply_error_internal_error(ses, pkg);
         log_fatal("lose connection to writer");
         return;
     }
 
     for (int i = 0; i < settings.reader_num; ++i) {
         if (!rpc_clt_connected(reader_clt_arr[i])) {
-            reply_error_internal_error(ses, pkg);
+            rpc_reply_error_internal_error(ses, pkg);
             log_fatal("lose connection to reader: %d", i);
             return;
         }
@@ -126,7 +125,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     if (!available) {
-        reply_error_service_unavailable(ses, pkg);
+        rpc_reply_error_service_unavailable(ses, pkg);
         json_decref(params);
         return;
     }
@@ -153,7 +152,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_ORDER_PENDING:
     case CMD_ORDER_PENDING_STOP:
         if (!json_is_integer(json_array_get(params, 0))) {
-            reply_error_invalid_argument(ses, pkg);
+            rpc_reply_error_invalid_argument(ses, pkg);
             break;
         }
         uint32_t user_id = json_integer_value(json_array_get(params, 0));
@@ -164,7 +163,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_ORDER_STOP_BOOK:
     case CMD_ORDER_DEPTH:
         if (!json_is_string(json_array_get(params, 0))) {
-            reply_error_invalid_argument(ses, pkg);
+            rpc_reply_error_invalid_argument(ses, pkg);
             break;
         }
         const char *market_name = json_string_value(json_array_get(params, 0));
@@ -189,7 +188,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     case CMD_ORDER_PENDING_DETAIL:
         if (json_array_size(params) != 2 || !json_is_integer(json_array_get(params, 1))) {
-            reply_error_invalid_argument(ses, pkg);
+            rpc_reply_error_invalid_argument(ses, pkg);
             break;
         }
         uint64_t order_id = json_integer_value(json_array_get(params, 1));
@@ -242,7 +241,7 @@ static void on_state_timeout(nw_state_entry *entry)
         rpc_pkg pkg;
         memset(&pkg, 0, sizeof(pkg));
         pkg.sequence = info->sequence;
-        reply_error_timeout(info->ses, &pkg);
+        rpc_reply_error_service_timeout(info->ses, &pkg);
     }
 }
 

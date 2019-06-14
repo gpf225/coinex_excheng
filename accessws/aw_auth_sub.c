@@ -103,7 +103,7 @@ static void on_result(struct state_data *state, request_data_t *data, json_t *re
         char *sub_users = json_dumps(data->sub_users, 0);
         log_error("auth sub account fail, user_id: %u, code: %d, message: %s, sub users: %s", data->user_id, error_code, message, sub_users);
         free(sub_users);
-        send_error(state->ses, state->request_id, 11, "subscribe sub-account failed");
+        ws_send_error(state->ses, state->request_id, 11, "subscribe sub-account failed");
         profile_inc("auth_sub_fail", 1);
         return;
     }
@@ -117,7 +117,7 @@ static void on_result(struct state_data *state, request_data_t *data, json_t *re
     sub_user_add(info->user_id, state->ses, users);
 
     log_info("auth sub user success, user_id: %u", info->user_id);
-    send_success(state->ses, state->request_id);
+    ws_send_success(state->ses, state->request_id);
     profile_inc("auth_sub_success", 1);
 
     return;
@@ -128,7 +128,7 @@ error:
         log_error("invalid reply: %s", reply);
         free(reply);
     }
-    send_error_internal_error(state->ses, state->request_id);
+    ws_send_error_internal_error(state->ses, state->request_id);
 }
 
 static void on_finish(nw_job_entry *entry)
@@ -153,7 +153,7 @@ static void on_timeout(nw_state_entry *entry)
 {
     struct state_data *state = entry->data;
     if (state->ses->id == state->ses_id) {
-        send_error_service_timeout(state->ses, state->request_id);
+        ws_send_error_service_timeout(state->ses, state->request_id);
     }
 }
 

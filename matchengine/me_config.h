@@ -38,6 +38,7 @@
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
 # include "ut_skiplist.h"
+# include "ut_json_rpc.h"
 
 # define ASSET_NAME_MAX_LEN     15
 # define BUSINESS_NAME_MAX_LEN  31
