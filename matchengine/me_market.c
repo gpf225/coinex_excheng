@@ -2032,16 +2032,11 @@ int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market
             push_order_message(ORDER_EVENT_FINISH, order, m);
         }
 
-        int list_len = skiplist_len(order_list);
         ret = finish_order(real, m, order);
         if (ret < 0) {
             log_fatal("cancel order: %"PRIu64" fail: %d", order->id, ret);
             skiplist_release_iterator(iter);
             return ret;
-        }
-
-        if (list_len == 1) {
-            break;
         }
     }
     skiplist_release_iterator(iter);
@@ -2073,16 +2068,11 @@ int market_cancel_stop_all(bool real, uint32_t user_id, int32_t account, market_
             push_stop_message(STOP_EVENT_CANCEL, stop, m, 0);
         }
 
-        int list_len = skiplist_len(stop_list);
         ret = finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
         if (ret < 0) {
             log_fatal("cancel stop: %"PRIu64" fail: %d", stop->id, ret);
             skiplist_release_iterator(iter);
             return ret;
-        }
-
-        if (list_len == 1) {
-            break;
         }
     }
     skiplist_release_iterator(iter);
