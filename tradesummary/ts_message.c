@@ -1093,6 +1093,9 @@ static void on_dump_timer(nw_timer *timer, void *privdata)
 
     time_t day_start = get_utc_day_start(now);
     time_t last_dump = get_last_dump_time();
+    if (last_dump < 0)
+        return;
+
     if (last_dump == 0) {
         last_dump = day_start - 86400 * 2;
     }
