@@ -23,10 +23,6 @@ static nw_timer timer_status;
 static nw_timer timer_fini_order;
 static bool is_reader;
 
-struct dict_order_key {
-    uint64_t order_id;
-};
-
 struct dict_user_val {
     skiplist_t *full_list;
     dict_t *accounts;
@@ -49,28 +45,6 @@ static void dict_user_val_free(void *val)
 static void dict_skiplist_val_free(void *val)
 {
     skiplist_release(val);
-}
-
-static uint32_t dict_order_hash_function(const void *key)
-{
-    return dict_generic_hash_function(key, sizeof(struct dict_order_key));
-}
-
-static int dict_order_key_compare(const void *key1, const void *key2)
-{
-    return memcmp(key1, key2, sizeof(struct dict_order_key));
-}
-
-static void *dict_order_key_dup(const void *key)
-{
-    struct dict_order_key *obj = malloc(sizeof(struct dict_order_key));
-    memcpy(obj, key, sizeof(struct dict_order_key));
-    return obj;
-}
-
-static void dict_order_key_free(void *key)
-{
-    free(key);
 }
 
 static void dict_order_value_free(void *value)
@@ -252,7 +226,7 @@ static int record_fini_order(order_t *order)
 {
     json_t *order_info = get_order_info(order);
     json_object_set_new(order_info, "finished", json_true());
-    struct dict_order_key order_key = { .order_id = order->id };
+    uint64_t order_key = order->id;
     dict_add(dict_fini_orders, &order_key, order_info);
 
     return 0;
@@ -349,7 +323,7 @@ static int put_order(market_t *m, order_t *order)
     if (order->type != MARKET_ORDER_TYPE_LIMIT)
         return -__LINE__;
 
-    struct dict_order_key order_key = { .order_id = order->id };
+    uint64_t order_key = order->id;
     if (dict_add(m->orders, &order_key, order) == NULL)
         return -__LINE__;
 
@@ -388,7 +362,7 @@ static int finish_order(bool real, market_t *m, order_t *order)
 {
     order->update_time = current_timestamp();
 
-    struct dict_order_key order_key = { .order_id = order->id };
+    uint64_t order_key = order->id;
     dict_delete(m->orders, &order_key);
 
     if (order->side == MARKET_ORDER_SIDE_ASK) {
@@ -437,7 +411,7 @@ static int finish_order(bool real, market_t *m, order_t *order)
 
 static int put_stop(market_t *m, stop_t *stop)
 {
-    struct dict_order_key order_key = { .order_id = stop->id };
+    uint64_t order_key = stop->id;
     if (dict_add(m->stops, &order_key, stop) == NULL)
         return -__LINE__;
 
@@ -465,7 +439,7 @@ static int finish_stop(bool real, market_t *m, stop_t *stop, int status)
 {
     stop->update_time = current_timestamp();
 
-    struct dict_order_key order_key = { .order_id = stop->id };
+    uint64_t order_key = stop->id;
     dict_delete(m->stops, &order_key);
 
     if (stop->side == MARKET_ORDER_SIDE_ASK) {
@@ -612,10 +586,10 @@ market_t *market_create(json_t *conf)
         return NULL;
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = dict_order_hash_function;
-    dt.key_compare      = dict_order_key_compare;
-    dt.key_dup          = dict_order_key_dup;
-    dt.key_destructor   = dict_order_key_free;
+    dt.hash_function    = uint64_dict_key_hash_func;
+    dt.key_compare      = uint64_dict_key_compare;
+    dt.key_dup          = uint64_dict_key_dup;
+    dt.key_destructor   = uint64_dict_key_free;
 
     m->orders = dict_create(&dt, 1024);
     if (m->orders == NULL)
@@ -2092,7 +2066,7 @@ int market_put_stop(market_t *m, stop_t *stop)
 
 order_t *market_get_order(market_t *m, uint64_t order_id)
 {
-    struct dict_order_key key = { .order_id = order_id };
+    uint64_t key = order_id;
     dict_entry *entry = dict_find(m->orders, &key);
     if (entry) {
         return entry->val;
@@ -2102,7 +2076,7 @@ order_t *market_get_order(market_t *m, uint64_t order_id)
 
 stop_t *market_get_stop(market_t *m, uint64_t order_id)
 {
-    struct dict_order_key key = { .order_id = order_id };
+    uint64_t key = order_id;
     dict_entry *entry = dict_find(m->stops, &key);
     if (entry) {
         return entry->val;
@@ -2142,7 +2116,7 @@ json_t *market_get_fini_order(uint64_t order_id)
     if (!is_reader)
         return NULL;
 
-    struct dict_order_key order_key = { .order_id = order_id };
+    uint64_t order_key = order_id;
     dict_entry *entry = dict_find(dict_fini_orders, &order_key);
     if (entry) {
         json_t *order = entry->val;
@@ -2253,10 +2227,10 @@ int market_set_reader()
 
     dict_types types_order;
     memset(&types_order, 0, sizeof(types_order));
-    types_order.hash_function  = dict_order_hash_function;
-    types_order.key_compare    = dict_order_key_compare;
-    types_order.key_dup        = dict_order_key_dup;
-    types_order.key_destructor = dict_order_key_free;
+    types_order.hash_function  = uint64_dict_key_hash_func;
+    types_order.key_compare    = uint64_dict_key_compare;
+    types_order.key_dup        = uint64_dict_key_dup;
+    types_order.key_destructor = uint64_dict_key_free;
     types_order.val_destructor = dict_order_value_free;
 
     dict_fini_orders = dict_create(&types_order, 1024);
