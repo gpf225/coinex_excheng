@@ -657,7 +657,7 @@ static int append_balance_trade_sub(order_t *order, const char *asset, mpd_t *ch
     return ret;
 }
 
-static int append_balance_trade_fee(order_t *order, const char *asset, mpd_t *change, mpd_t *price, mpd_t *amount, mpd_t *fee_rate)
+static int append_balance_trade_fee(order_t *order, uint32_t fee_account, const char *asset, mpd_t *change, mpd_t *price, mpd_t *amount, mpd_t *fee_rate)
 {
     json_t *detail = json_object();
     json_object_set_new(detail, "m", json_string(order->market));
@@ -668,10 +668,6 @@ static int append_balance_trade_fee(order_t *order, const char *asset, mpd_t *ch
     char *detail_str = json_dumps(detail, JSON_SORT_KEYS);
     mpd_t *real_change = mpd_new(&mpd_ctx);
     mpd_copy_negate(real_change, change, &mpd_ctx);
-    uint32_t fee_account = order->account;
-    if (strcmp(asset, SYSTEM_FEE_TOKEN) == 0) {
-        fee_account = 0;
-    }
     int ret = append_user_balance_history(order->update_time, order->user_id, fee_account, asset, "trade", real_change, detail_str);
     mpd_del(real_change);
     free(detail_str);
@@ -882,7 +878,7 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
             balance_sub(taker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
             if (real) {
-                append_balance_trade_fee(taker, ask_fee_asset, ask_fee, price, amount, taker->taker_fee);
+                append_balance_trade_fee(taker, ask_fee_account, ask_fee_asset, ask_fee, price, amount, taker->taker_fee);
             }
         }
 
@@ -908,7 +904,7 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
             balance_sub(maker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
             if (real) {
-                append_balance_trade_fee(maker, bid_fee_asset, bid_fee, price, amount, maker->maker_fee);
+                append_balance_trade_fee(maker, bid_fee_account, bid_fee_asset, bid_fee, price, amount, maker->maker_fee);
             }
         }
 
@@ -1061,7 +1057,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
             balance_sub(taker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
             if (real) {
-                append_balance_trade_fee(taker, bid_fee_asset, bid_fee, price, amount, taker->taker_fee);
+                append_balance_trade_fee(taker, bid_fee_account, bid_fee_asset, bid_fee, price, amount, taker->taker_fee);
             }
         }
 
@@ -1087,7 +1083,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
             balance_sub(maker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
             if (real) {
-                append_balance_trade_fee(maker, ask_fee_asset, ask_fee, price, amount, maker->maker_fee);
+                append_balance_trade_fee(maker, ask_fee_account, ask_fee_asset, ask_fee, price, amount, maker->maker_fee);
             }
         }
 
@@ -1395,7 +1391,7 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
             balance_sub(taker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
             if (real) {
-                append_balance_trade_fee(taker, ask_fee_asset, ask_fee, price, amount, taker->taker_fee);
+                append_balance_trade_fee(taker, ask_fee_account, ask_fee_asset, ask_fee, price, amount, taker->taker_fee);
             }
         }
 
@@ -1420,7 +1416,7 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
             balance_sub(maker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
             if (real) {
-                append_balance_trade_fee(maker, bid_fee_asset, bid_fee, price, amount, maker->maker_fee);
+                append_balance_trade_fee(maker, bid_fee_account, bid_fee_asset, bid_fee, price, amount, maker->maker_fee);
             }
         }
 
@@ -1582,7 +1578,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
             balance_sub(taker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
             if (real) {
-                append_balance_trade_fee(taker, bid_fee_asset, bid_fee, price, amount, taker->taker_fee);
+                append_balance_trade_fee(taker, bid_fee_account, bid_fee_asset, bid_fee, price, amount, taker->taker_fee);
             }
         }
 
@@ -1607,7 +1603,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
             balance_sub(maker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
             if (real) {
-                append_balance_trade_fee(maker, ask_fee_asset, ask_fee, price, amount, maker->maker_fee);
+                append_balance_trade_fee(maker, ask_fee_account, ask_fee_asset, ask_fee, price, amount, maker->maker_fee);
             }
         }
 
