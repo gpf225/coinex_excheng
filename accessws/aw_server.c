@@ -278,6 +278,11 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
         return ws_send_error_internal_error(ses, id);
     }
 
+    json_t *new_params = json_array();
+    json_array_append_new(new_params, json_string(market));
+    json_array_append_new(new_params, json_integer(limit));
+    json_array_append_new(new_params, json_string(interval));
+
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;
     state->ses = ses;
@@ -286,7 +291,9 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
     state->cache_key = key;
     state->depth_limit = limit;
 
-    rpc_request_json(clt, CMD_CACHE_DEPTH, entry->id, id, params);
+    rpc_request_json(clt, CMD_CACHE_DEPTH, entry->id, id, new_params);
+    json_decref(new_params);
+
     return 0;
 }
 
