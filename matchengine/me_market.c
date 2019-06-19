@@ -668,7 +668,11 @@ static int append_balance_trade_fee(order_t *order, const char *asset, mpd_t *ch
     char *detail_str = json_dumps(detail, JSON_SORT_KEYS);
     mpd_t *real_change = mpd_new(&mpd_ctx);
     mpd_copy_negate(real_change, change, &mpd_ctx);
-    int ret = append_user_balance_history(order->update_time, order->user_id, order->account, asset, "trade", real_change, detail_str);
+    uint32_t fee_account = order->account;
+    if (strcmp(asset, SYSTEM_FEE_TOKEN) == 0) {
+        fee_account = 0;
+    }
+    int ret = append_user_balance_history(order->update_time, order->user_id, fee_account, asset, "trade", real_change, detail_str);
     mpd_del(real_change);
     free(detail_str);
     json_decref(detail);
@@ -1860,7 +1864,7 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t ac
             return -2;
         }
         if (real && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
-            return -2;
+            return -3;
         }
     } else {
         mpd_t *balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, m->money);
