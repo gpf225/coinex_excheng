@@ -59,6 +59,13 @@
         "max_pkg_size": 2000000,
         "heartbeat_timeout": 30
     },
+    "marketindex": {
+        "name": "marketindex",
+        "addr": [
+            "tcp@127.0.0.1:7901"
+        ],
+        "max_pkg_size": 2000000
+    },
     "deals": {
         "brokers": "127.0.0.1:9092",
         "topic": "deals",

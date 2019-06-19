@@ -427,6 +427,17 @@ response:
 
 ## Iindex API
 
+**index query**
+
+* method: `index.query`
+* params: 
+1. market: market name
+
+**index query list**
+
+* method: `index.query_list`
+* params: 
+
 **index subscription**
 
 * method: `index.subscribe`

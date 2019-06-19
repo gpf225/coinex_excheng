@@ -30,6 +30,7 @@ static nw_timer timer;
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
 static rpc_clt *readhistory;
+static rpc_clt *marketindex;
 static rpc_clt **cachecenter_clt_arr;
 
 struct state_data {
@@ -792,6 +793,48 @@ static int on_method_asset_unsubscribe_sub(nw_ses *ses, uint64_t id, struct clt_
     return ws_send_success(ses, id);
 }
 
+static int on_method_index_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (json_array_size(params) != 1) {
+        return ws_send_error_invalid_argument(ses, id);
+    }
+
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (market == NULL || !market_exists(market)) {
+        return ws_send_error_invalid_argument(ses, id);
+    }
+
+    if (!rpc_clt_connected(marketindex))
+        return ws_send_error_internal_error(ses, id);
+
+    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
+    struct state_data *state = entry->data;
+    state->ses = ses;
+    state->ses_id = ses->id;
+    state->request_id = id;
+
+    rpc_request_json(marketindex, CMD_INDEX_QUERY, entry->id, id, params);
+    return 0;
+}
+
+static int on_method_index_query_list(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!rpc_clt_connected(marketindex))
+        return ws_send_error_internal_error(ses, id);
+
+    json_t *query_params = json_array();
+    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
+    struct state_data *state = entry->data;
+    state->ses = ses;
+    state->ses_id = ses->id;
+    state->request_id = id;
+
+    rpc_request_json(marketindex, CMD_INDEX_LIST, entry->id, id, query_params);
+    json_decref(query_params);
+
+    return 0;
+}
+
 static int on_method_index_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     return index_subscribe(ses);
@@ -1023,6 +1066,8 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("asset.subscribe_sub",       on_method_asset_subscribe_sub));
     ERR_RET_LN(add_handler("asset.unsubscribe_sub",     on_method_asset_unsubscribe_sub));
 
+    ERR_RET_LN(add_handler("index.query",               on_method_index_query));
+    ERR_RET_LN(add_handler("index.query_list",          on_method_index_query_list));
     ERR_RET_LN(add_handler("index.subscribe",           on_method_index_subscribe));
     ERR_RET_LN(add_handler("index.unsubscribe",         on_method_index_unsubscribe));
 
@@ -1250,6 +1295,12 @@ static int init_backend(void)
     if (readhistory == NULL)
         return -__LINE__;
     if (rpc_clt_start(readhistory) < 0)
+        return -__LINE__;
+
+    marketindex = rpc_clt_create(&settings.marketindex, &ct);
+    if (marketindex == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(marketindex) < 0)
         return -__LINE__;
 
     if (init_cache_backend(&ct) < 0)
