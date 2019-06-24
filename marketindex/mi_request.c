@@ -147,6 +147,7 @@ int send_request(uint32_t id, const char *exchange, const char *url, double time
     req->timeout    = timeout;
     req->callback   = callback;
 
+    log_trace("index request id: %u, exchange: %s, url: %s, timeout: %f", id, exchange, url, timeout);
     return nw_job_add(job_context, 0, req);
 }
 
