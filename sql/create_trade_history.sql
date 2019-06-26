@@ -11,7 +11,7 @@ CREATE TABLE `balance_history_example` (
     `detail`        TEXT NOT NULL COMMENT "明细信息",
     INDEX `idx_user_account_time` (`user_id`, `account`, `time`),
     INDEX `idx_user_account_business_time` (`user_id`, `account`, `business`, `time`),
-    INDEX `idx_user_account_asset_business_time` (`user_id`, `account`, `asset`, `business`, `time`),
+    INDEX `idx_user_account_asset_business_time` (`user_id`, `account`, `asset`, `business`, `time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id
@@ -21,6 +21,7 @@ CREATE TABLE `order_history_example` (
     `finish_time`   DOUBLE NOT NULL COMMENT "委托单结束时间",
     `user_id`       INT UNSIGNED NOT NULL COMMENT "用户ID",
     `account`       INT UNSIGNED NOT NULL COMMENT "用户账户ID",
+    `option`        INT UNSIGNED NOT NULL COMMENT "可选字段，按位操作",
     `order_id`      BIGINT UNSIGNED NOT NULL COMMENT "订单ID",
     `market`        VARCHAR(30) NOT NULL COMMENT "市场名称",
     `source`        VARCHAR(30) NOT NULL COMMENT "订单来源",
@@ -51,6 +52,7 @@ CREATE TABLE `stop_history_example` (
     `finish_time`   DOUBLE NOT NULL COMMENT "计划委托单结束时间",
     `user_id`       INT UNSIGNED NOT NULL COMMENT "用户ID",
     `account`       INT UNSIGNED NOT NULL COMMENT "用户账户ID",
+    `option`        INT UNSIGNED NOT NULL COMMENT "可选字段，按位操作",
     `order_id`      BIGINT UNSIGNED NOT NULL COMMENT "订单ID",
     `market`        VARCHAR(30) NOT NULL COMMENT "市场名称",
     `source`        VARCHAR(30) NOT NULL COMMENT "订单来源",
@@ -77,6 +79,7 @@ CREATE TABLE `user_deal_history_example` (
     `time`          DOUBLE NOT NULL COMMENT "交易时间",
     `user_id`       INT UNSIGNED NOT NULL COMMENT "用户id",
     `account`       INT UNSIGNED NOT NULL COMMENT "用户账户ID",
+    `option`        INT UNSIGNED NOT NULL COMMENT "可选字段，按位操作",
     `deal_user_id`  INT UNSIGNED NOT NULL COMMENT "对手用户id",
     `deal_account`  INT UNSIGNED NOT NULL COMMENT "对手账户ID",
     `market`        VARCHAR(30) NOT NULL COMMENT "市场名称",

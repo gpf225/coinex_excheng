@@ -4,7 +4,7 @@ CREATE TABLE `slice_balance_example` (
     `account`       INT UNSIGNED NOT NULL,
     `asset`         VARCHAR(30) NOT NULL,
     `t`             TINYINT UNSIGNED NOT NULL,
-    `balance`       DECIMAL(40,20) NOT NULL
+    `balance`       DECIMAL(40,24) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE `slice_update_example` (
@@ -25,6 +25,7 @@ CREATE TABLE `slice_order_example` (
     `update_time`   DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
     `account`       INT UNSIGNED NOT NULL,
+    `option`        INT UNSIGNED NOT NULL,
     `market`        VARCHAR(30) NOT NULL,
     `source`        VARCHAR(30) NOT NULL,
     `fee_asset`     VARCHAR(30) NOT NULL,
@@ -34,11 +35,11 @@ CREATE TABLE `slice_order_example` (
     `taker_fee`     DECIMAL(40,4) NOT NULL,
     `maker_fee`     DECIMAL(40,4) NOT NULL,
     `left`          DECIMAL(40,8) NOT NULL,
-    `frozen`        DECIMAL(40,8) NOT NULL,
+    `frozen`        DECIMAL(40,24) NOT NULL,
     `deal_stock`    DECIMAL(40,8) NOT NULL,
     `deal_money`    DECIMAL(40,20) NOT NULL,
-    `deal_fee`      DECIMAL(40,20) NOT NULL,
-    `asset_fee`     DECIMAL(40,20) NOT NULL
+    `deal_fee`      DECIMAL(40,24) NOT NULL,
+    `asset_fee`     DECIMAL(40,24) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE `slice_stop_example` (
@@ -49,6 +50,7 @@ CREATE TABLE `slice_stop_example` (
     `update_time`   DOUBLE NOT NULL,
     `user_id`       INT UNSIGNED NOT NULL,
     `account`       INT UNSIGNED NOT NULL,
+    `option`        INT UNSIGNED NOT NULL,
     `market`        VARCHAR(30) NOT NULL,
     `source`        VARCHAR(30) NOT NULL,
     `fee_asset`     VARCHAR(30) NOT NULL,

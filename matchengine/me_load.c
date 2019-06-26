@@ -17,7 +17,7 @@ int load_orders(MYSQL *conn, const char *table)
     while (true) {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `account`, `market`, `source`, `fee_asset`, `fee_discount`, "
-                "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee`, `asset_fee` FROM `%s` "
+                "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee`, `asset_fee`, `option` FROM `%s` "
                 "WHERE `id` > %"PRIu64" ORDER BY `id` LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -72,6 +72,7 @@ int load_orders(MYSQL *conn, const char *table)
             order->deal_money   = decimal(row[18], 0);
             order->deal_fee     = decimal(row[19], 0);
             order->asset_fee    = decimal(row[20], 0);
+            order->option       = strtoul(row[21], NULL, 0);
 
             if (!order->market || !order->source || !order->price || !order->amount || !order->taker_fee || !order->maker_fee ||
                     !order->left || !order->frozen || !order->deal_stock || !order->deal_money || !order->deal_fee || !order->asset_fee) {
@@ -103,7 +104,7 @@ int load_stops(MYSQL *conn, const char *table)
     while (true) {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `account`, `market`, `source`, "
-                "`fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee` FROM `%s` "
+                "`fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `option` FROM `%s` "
                 "WHERE `id` > %"PRIu64" order BY `id` LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -150,6 +151,7 @@ int load_stops(MYSQL *conn, const char *table)
             stop->amount        = decimal(row[13], market->stock_prec);
             stop->taker_fee     = decimal(row[14], market->fee_prec);
             stop->maker_fee     = decimal(row[15], market->fee_prec);
+            stop->option        = strtoul(row[16], NULL, 0);
 
             if (!stop->market || !stop->source || !stop->stop_price || !stop->price || !stop->amount || !stop->taker_fee || !stop->maker_fee) {
                 log_error("get stop detail of stop id: %"PRIu64" fail", stop->id);
@@ -420,7 +422,7 @@ static int load_asset_unlock(json_t *params)
 
 static int load_limit_order(json_t *params)
 {
-    if (json_array_size(params) != 11)
+    if (json_array_size(params) < 11)
         return -__LINE__;
 
     // user_id
@@ -512,7 +514,17 @@ static int load_limit_order(json_t *params)
             goto error;
     }
 
-    int ret = market_put_limit_order(false, NULL, market, user_id, account, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_discount);
+    // option
+    uint32_t option = 0;
+    if (json_array_size(params) >= 12) {
+        if (!json_is_integer(json_array_get(params, 11)))
+            goto error;
+        option = json_integer_value(json_array_get(params, 11));
+        if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+            goto error;
+    }
+
+    int ret = market_put_limit_order(false, NULL, market, user_id, account, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_discount, option);
 
     mpd_del(amount);
     mpd_del(price);
@@ -540,7 +552,7 @@ error:
 
 static int load_market_order(json_t *params)
 {
-    if (json_array_size(params) != 9)
+    if (json_array_size(params) < 9)
         return -__LINE__;
 
     // user_id
@@ -612,7 +624,17 @@ static int load_market_order(json_t *params)
             goto error;
     }
 
-    int ret = market_put_market_order(false, NULL, market, user_id, account, side, amount, taker_fee, source, fee_asset, fee_discount);
+    // option
+    uint32_t option = 0;
+    if (json_array_size(params) >= 10) {
+        if (!json_is_integer(json_array_get(params, 9)))
+            goto error;
+        option = json_integer_value(json_array_get(params, 9));
+        if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+            goto error;
+    }
+
+    int ret = market_put_market_order(false, NULL, market, user_id, account, side, amount, taker_fee, source, fee_asset, fee_discount, option);
 
     mpd_del(amount);
     mpd_del(taker_fee);
@@ -628,7 +650,7 @@ error:
         mpd_del(taker_fee);
     if (fee_discount)
         mpd_del(fee_discount);
-
+  
     return -__LINE__;
 }
 
@@ -703,7 +725,7 @@ static int load_cancel_order_all(json_t *params)
 
 static int load_stop_limit(json_t *params)
 {
-    if (json_array_size(params) != 12)
+    if (json_array_size(params) < 12)
         return -__LINE__;
 
     // user_id
@@ -806,7 +828,17 @@ static int load_stop_limit(json_t *params)
             goto error;
     }
 
-    int ret = market_put_stop_limit(false, market, user_id, account, side, amount, stop_price, price, taker_fee, maker_fee, source, fee_asset, fee_discount);
+    // option
+    uint32_t option = 0;
+    if (json_array_size(params) >= 13) {
+        if (!json_is_integer(json_array_get(params, 12)))
+            goto error;
+        option = json_integer_value(json_array_get(params, 12));
+        if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+            goto error;
+    }
+
+    int ret = market_put_stop_limit(false, market, user_id, account, side, amount, stop_price, price, taker_fee, maker_fee, source, fee_asset, fee_discount, option);
 
     mpd_del(amount);
     mpd_del(stop_price);
@@ -837,7 +869,7 @@ error:
 
 static int load_stop_market(json_t *params)
 {
-    if (json_array_size(params) != 10)
+    if (json_array_size(params) < 10)
         return -__LINE__;
 
     // user_id
@@ -920,7 +952,17 @@ static int load_stop_market(json_t *params)
             goto error;
     }
 
-    int ret = market_put_stop_market(false, market, user_id, account, side, amount, stop_price, taker_fee, source, fee_asset, fee_discount);
+    // option
+    uint32_t option = 0;
+    if (json_array_size(params) >= 11) {
+        if (!json_is_integer(json_array_get(params, 10)))
+            goto error;
+        option = json_integer_value(json_array_get(params, 10));
+        if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+            goto error;
+    }
+
+    int ret = market_put_stop_market(false, market, user_id, account, side, amount, stop_price, taker_fee, source, fee_asset, fee_discount, option);
 
     mpd_del(amount);
     mpd_del(stop_price);
