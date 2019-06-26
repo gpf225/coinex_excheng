@@ -320,6 +320,54 @@ static void user_order_list_delete(dict_t *dict, uint32_t user_id, uint32_t acco
         dict_delete(dict, (void *)(uintptr_t)user_id);
 }
 
+static int frozen_order(market_t *m, order_t *order)
+{
+    if (order->side == MARKET_ORDER_SIDE_ASK) {
+        if (balance_freeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->stock, order->left) == NULL) {
+            return -__LINE__;
+        }
+
+        mpd_copy(order->frozen, order->left, &mpd_ctx);
+        bool use_stock_fee = (order->option & 0x1) ? true : false;
+        if (use_stock_fee) {
+            mpd_t *frozen_stock_fee = mpd_new(&mpd_ctx);
+            mpd_mul(frozen_stock_fee, order->left, order->maker_fee, &mpd_ctx);
+            mpd_rescale(frozen_stock_fee, frozen_stock_fee, -asset_prec_save(order->account, m->stock), &mpd_ctx);
+            if (balance_freeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->stock, frozen_stock_fee) == NULL) {
+                mpd_del(frozen_stock_fee);
+                return -__LINE__;
+            }
+            mpd_add(order->frozen, order->frozen, frozen_stock_fee, &mpd_ctx);
+            mpd_del(frozen_stock_fee);
+        }
+    } else {
+        mpd_t *result = mpd_new(&mpd_ctx);
+        mpd_mul(result, order->price, order->left, &mpd_ctx);
+        if (balance_freeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->money, result) == NULL) {
+            mpd_del(result);
+            return -__LINE__;
+        }
+
+        mpd_copy(order->frozen, result, &mpd_ctx);
+        bool use_money_fee = (order->option & 0x2) ? true : false;
+        if (use_money_fee) {
+            mpd_t *frozen_money_fee = mpd_new(&mpd_ctx);
+            mpd_mul(frozen_money_fee, result, order->maker_fee, &mpd_ctx);
+            mpd_rescale(frozen_money_fee, frozen_money_fee, -asset_prec_save(order->account, m->money), &mpd_ctx);
+            if (balance_freeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->money, frozen_money_fee) == NULL) {
+                mpd_del(result);
+                mpd_del(frozen_money_fee);
+                return -__LINE__;
+            }
+            mpd_add(order->frozen, order->frozen, frozen_money_fee, &mpd_ctx); 
+            mpd_del(frozen_money_fee);
+        }
+        mpd_del(result);
+    }
+
+    return 0;
+}
+
 static int put_order(market_t *m, order_t *order)
 {
     if (order->type != MARKET_ORDER_TYPE_LIMIT)
@@ -338,51 +386,12 @@ static int put_order(market_t *m, order_t *order)
     if (user_order_list_insert(m->user_orders, order->user_id, order->account, &st, order) < 0)
         return -__LINE__;
 
-    bool use_stock_fee = (order->option & 0x1) ? true : false;
-    bool use_money_fee = (order->option & 0x2) ? true : false;
-
     if (order->side == MARKET_ORDER_SIDE_ASK) {
         if (skiplist_insert(m->asks, order) == NULL)
             return -__LINE__;
-        mpd_copy(order->frozen, order->left, &mpd_ctx);
-        if (balance_freeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->stock, order->left) == NULL)
-            return -__LINE__;
-
-        if (use_stock_fee) {
-            mpd_t *frozen_stock_fee = mpd_new(&mpd_ctx);
-            mpd_mul(frozen_stock_fee, order->left, order->maker_fee, &mpd_ctx);
-            mpd_rescale(frozen_stock_fee, frozen_stock_fee, -asset_prec_save(order->account, m->stock), &mpd_ctx);
-            if (balance_freeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->stock, frozen_stock_fee) == NULL) {
-                mpd_del(frozen_stock_fee);
-                return -__LINE__;
-            }
-            mpd_add(order->frozen, order->frozen, frozen_stock_fee, &mpd_ctx);
-            mpd_del(frozen_stock_fee);
-        }
     } else {
         if (skiplist_insert(m->bids, order) == NULL)
             return -__LINE__;
-        mpd_t *result = mpd_new(&mpd_ctx);
-        mpd_mul(result, order->price, order->left, &mpd_ctx);
-        mpd_copy(order->frozen, result, &mpd_ctx);
-        if (balance_freeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->money, result) == NULL) {
-            mpd_del(result);
-            return -__LINE__;
-        }
-
-        if (use_money_fee) {
-            mpd_t *frozen_money_fee = mpd_new(&mpd_ctx);
-            mpd_mul(frozen_money_fee, result, order->maker_fee, &mpd_ctx);
-            mpd_rescale(frozen_money_fee, frozen_money_fee, -asset_prec_save(order->account, m->money), &mpd_ctx);
-            if (balance_freeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->money, frozen_money_fee) == NULL) {
-                mpd_del(result);
-                mpd_del(frozen_money_fee);
-                return -__LINE__;
-            }
-            mpd_add(order->frozen, order->frozen, frozen_money_fee, &mpd_ctx); 
-            mpd_del(frozen_money_fee);
-        }
-        mpd_del(result);
     }
 
     return 0;
@@ -956,6 +965,7 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
             if (maker_use_money_fee) {
                 mpd_sub(maker->frozen, maker->frozen, bid_fee, &mpd_ctx);
+                balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->money, bid_fee);
             } else {
                 balance_sub(maker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
             }
@@ -1160,6 +1170,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
             if (maker_use_stock_fee) {
                 mpd_sub(maker->frozen, maker->frozen, ask_fee, &mpd_ctx);
+                balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->stock, ask_fee);
             } else {
                 balance_sub(maker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
             }
@@ -1364,17 +1375,21 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         }
         order_free(order);
     } else {
-        if (real) {
-            push_order_message(ORDER_EVENT_PUT, order, m);
-            if (result) {
-                *result = get_order_info(order);
-            }
-        }
-        ret = put_order(m, order);
+        ret = frozen_order(m, order);
         if (ret < 0) {
-            log_fatal("put_order fail: %d, order: %"PRIu64"", ret, order->id);
-        } else if (real) {
-            profile_inc("put_order", 1);
+            log_fatal("frozen_order fail: %d", ret);
+            finish_order(real, m, order);
+        } else {
+            ret = put_order(m, order);
+            if (ret < 0) {
+                log_fatal("put_order fail: %d, order: %"PRIu64"", ret, order->id);
+            } else if (real) {
+                profile_inc("put_order", 1);
+                push_order_message(ORDER_EVENT_PUT, order, m);
+                if (result) {
+                    *result = get_order_info(order);
+                }
+            }
         }
     }
 
@@ -1554,6 +1569,7 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
             if (maker_use_money_fee) {
                 mpd_sub(maker->frozen, maker->frozen, bid_fee, &mpd_ctx);
+                balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->money, bid_fee);
             } else {
                 balance_sub(maker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
             }
@@ -1766,6 +1782,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
         if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
             if (maker_use_stock_fee) {
                 mpd_sub(maker->frozen, maker->frozen, ask_fee, &mpd_ctx);
+                balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->stock, ask_fee);
             } else {
                 balance_sub(maker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
             }
