@@ -1239,19 +1239,14 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             return -1;
         }
         if (use_stock_fee) {
-            mpd_t *require = mpd_new(&mpd_ctx);
-            if (mpd_cmp(taker_fee, maker_fee, &mpd_ctx) > 0) {
-                mpd_mul(require, amount, taker_fee, &mpd_ctx);
-            } else {
-                mpd_mul(require, amount, maker_fee, &mpd_ctx);
+            mpd_t *max_fee = taker_fee;
+            if (mpd_cmp(maker_fee, taker_fee, &mpd_ctx) > 0) {
+                max_fee = maker_fee;
             }
-            mpd_add(require, require, amount, &mpd_ctx);
 
-            if (mpd_cmp(balance, require, &mpd_ctx) < 0) {
-                mpd_del(require);
+            if (!check_fee_asset(true, amount, balance, max_fee, mpd_one)) {
                 return -1;
             }
-            mpd_del(require);
         }
     } else {
         mpd_t *balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, m->money);
@@ -1263,20 +1258,15 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         }
 
         if (use_money_fee) {
-            mpd_t *need_fee = mpd_new(&mpd_ctx);
-            if (mpd_cmp(taker_fee, maker_fee, &mpd_ctx) > 0) {
-                mpd_mul(need_fee, require, taker_fee, &mpd_ctx);
-            } else {
-                mpd_mul(need_fee, require, maker_fee, &mpd_ctx);
+            mpd_t *max_fee = taker_fee;
+            if (mpd_cmp(maker_fee, taker_fee, &mpd_ctx) > 0) {
+                max_fee = maker_fee;
             }
-            mpd_add(require, require, need_fee, &mpd_ctx);
 
-            if (mpd_cmp(balance, require, &mpd_ctx) < 0) {
+            if (!check_fee_asset(true, require, balance, max_fee, mpd_one)) {
                 mpd_del(require);
-                mpd_del(need_fee);
                 return -1;
             }
-            mpd_del(need_fee);
         }
 
         if ((fee_asset != NULL) && (strcmp(m->money, fee_asset) == 0)) {
@@ -1900,8 +1890,6 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
 
             if (check_fee_asset(fee_is_stock, require_amount, available_balance, taker_fee, fee_discount)) {
                 fee_asset_enough = true;
-            } else {
-                fee_asset = NULL;
             }
             mpd_del(require_amount);
             mpd_del(available_balance);
