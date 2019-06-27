@@ -79,7 +79,6 @@ CREATE TABLE `user_deal_history_example` (
     `time`          DOUBLE NOT NULL COMMENT "交易时间",
     `user_id`       INT UNSIGNED NOT NULL COMMENT "用户id",
     `account`       INT UNSIGNED NOT NULL COMMENT "用户账户ID",
-    `option`        INT UNSIGNED NOT NULL COMMENT "按位操作",
     `deal_user_id`  INT UNSIGNED NOT NULL COMMENT "对手用户id",
     `deal_account`  INT UNSIGNED NOT NULL COMMENT "对手账户ID",
     `market`        VARCHAR(30) NOT NULL COMMENT "市场名称",

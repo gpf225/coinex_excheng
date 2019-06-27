@@ -39,9 +39,6 @@ function alter_history_table() {
 
 			#stop_history
 	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table stop_history_$i add \`option\` INT UNSIGNED NOT NULL default 0 COMMENT '按位操作' AFTER account;"
-
-			#user_deal_history_
-	    	mysql -h${MYSQL_HISTORY_HOST[x]} -u${MYSQL_HISTORY_USER[x]} -p${MYSQL_HISTORY_PASS[x]} ${MYSQL_HISTORY_DB[x]} -e "alter table user_deal_history_$i add \`option\` INT UNSIGNED NOT NULL default 0 COMMENT '按位操作' AFTER account;"
 	    done
     done
 }

@@ -17,10 +17,8 @@ static json_t* get_deals_json(double t, uint64_t deal_id, order_t *ask, int ask_
     json_object_set_new(obj, "deal_id", json_integer(deal_id));
     json_object_set_new(obj, "ask_user_id", json_integer(ask->user_id));
     json_object_set_new(obj, "ask_account", json_integer(ask->account));
-    json_object_set_new(obj, "ask_option", json_integer(ask->option));
     json_object_set_new(obj, "bid_user_id", json_integer(bid->user_id));
     json_object_set_new(obj, "bid_account", json_integer(bid->account));
-    json_object_set_new(obj, "bid_option", json_integer(bid->option));
     json_object_set_new(obj, "ask_order_id", json_integer(ask->id));
     json_object_set_new(obj, "bid_order_id", json_integer(bid->id));
     json_object_set_new(obj, "ask_side", json_integer(ask->side));

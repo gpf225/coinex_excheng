@@ -81,7 +81,11 @@ int load_orders(MYSQL *conn, const char *table)
                 return -__LINE__;
             }
 
-            market_put_order(market, order);
+            int ret = market_put_order(market, order);
+            if (ret != 0) {
+                log_stderr("market_put_order fail ret: %d", ret);
+                return -__LINE__;
+            }
         }
         mysql_free_result(result);
 
@@ -159,7 +163,11 @@ int load_stops(MYSQL *conn, const char *table)
                 return -__LINE__;
             }
 
-            market_put_stop(market, stop);
+            int ret = market_put_stop(market, stop);
+            if (ret != 0) {
+                log_stderr("market_put_stop fail ret: %d", ret);
+                return -__LINE__;
+            }
         }
         mysql_free_result(result);
 

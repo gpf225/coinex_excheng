@@ -261,7 +261,7 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `account`, `option`, `deal_user_id`, `deal_id`, `order_id`, `market`, `side`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset` "
+    sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `account`, `deal_user_id`, `deal_id`, `order_id`, `market`, `side`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset` "
             "FROM `user_deal_history_%u` where `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
 
     if (account >= 0) {
@@ -313,24 +313,22 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
         json_object_set_new(record, "user", json_integer(user_id));
         uint32_t account = strtoul(row[2], NULL, 0);
         json_object_set_new(record, "account", json_integer(account));
-        uint32_t option = strtoul(row[3], NULL, 0);
-        json_object_set_new(record, "option", json_integer(option));
-        uint32_t deal_user_id = strtoul(row[4], NULL, 0);
+        uint32_t deal_user_id = strtoul(row[3], NULL, 0);
         json_object_set_new(record, "deal_user", json_integer(deal_user_id));
-        uint64_t deal_id = strtoull(row[5], NULL, 0);
+        uint64_t deal_id = strtoull(row[4], NULL, 0);
         json_object_set_new(record, "id", json_integer(deal_id));
-        uint64_t order_id = strtoull(row[6], NULL, 0);
+        uint64_t order_id = strtoull(row[5], NULL, 0);
         json_object_set_new(record, "order_id", json_integer(order_id));
-        json_object_set_new(record, "market", json_string(row[7]));
-        int side = atoi(row[8]);
+        json_object_set_new(record, "market", json_string(row[6]));
+        int side = atoi(row[7]);
         json_object_set_new(record, "side", json_integer(side));
-        int role = atoi(row[9]);
+        int role = atoi(row[8]);
         json_object_set_new(record, "role", json_integer(role));
-        json_object_set_new(record, "price", json_string(rstripzero(row[10])));
-        json_object_set_new(record, "amount", json_string(rstripzero(row[11])));
-        json_object_set_new(record, "deal", json_string(rstripzero(row[12])));
-        json_object_set_new(record, "fee", json_string(rstripzero(row[13])));
-        json_object_set_new(record, "fee_asset", json_string(row[14]));
+        json_object_set_new(record, "price", json_string(rstripzero(row[9])));
+        json_object_set_new(record, "amount", json_string(rstripzero(row[10])));
+        json_object_set_new(record, "deal", json_string(rstripzero(row[11])));
+        json_object_set_new(record, "fee", json_string(rstripzero(row[12])));
+        json_object_set_new(record, "fee_asset", json_string(row[13]));
 
         json_array_append_new(records, record);
     }
@@ -400,7 +398,7 @@ json_t *get_order_detail(MYSQL *conn, uint32_t user_id, uint64_t order_id)
 json_t *get_order_deals(MYSQL *conn, uint32_t user_id, int32_t account, uint64_t order_id, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `account`, `option`, `deal_user_id`, `deal_id`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset`, `deal_order_id` "
+    sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `account`, `deal_user_id`, `deal_id`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset`, `deal_order_id` "
             "FROM `user_deal_history_%u` where `user_id` = '%u' AND `order_id` = %"PRIu64"", user_id % HISTORY_HASH_NUM, user_id, order_id);
 
     if(account >= 0){
@@ -437,20 +435,18 @@ json_t *get_order_deals(MYSQL *conn, uint32_t user_id, int32_t account, uint64_t
         json_object_set_new(record, "user", json_integer(user_id));
         uint32_t account = strtoul(row[2], NULL, 0);
         json_object_set_new(record, "account", json_integer(account));
-        uint32_t option = strtoul(row[3], NULL, 0);
-        json_object_set_new(record, "option", json_integer(option));
-        uint32_t deal_user_id = strtoul(row[4], NULL, 0);
+        uint32_t deal_user_id = strtoul(row[3], NULL, 0);
         json_object_set_new(record, "deal_user", json_integer(deal_user_id));
-        uint64_t deal_id = strtoull(row[5], NULL, 0);
+        uint64_t deal_id = strtoull(row[4], NULL, 0);
         json_object_set_new(record, "id", json_integer(deal_id));
-        int role = atoi(row[6]);
+        int role = atoi(row[5]);
         json_object_set_new(record, "role", json_integer(role));
-        json_object_set_new(record, "price", json_string(rstripzero(row[7])));
-        json_object_set_new(record, "amount", json_string(rstripzero(row[8])));
-        json_object_set_new(record, "deal", json_string(rstripzero(row[9])));
-        json_object_set_new(record, "fee", json_string(rstripzero(row[10])));
-        json_object_set_new(record, "fee_asset", json_string(row[11]));
-        uint64_t deal_order_id = strtoull(row[12], NULL, 0);
+        json_object_set_new(record, "price", json_string(rstripzero(row[6])));
+        json_object_set_new(record, "amount", json_string(rstripzero(row[7])));
+        json_object_set_new(record, "deal", json_string(rstripzero(row[8])));
+        json_object_set_new(record, "fee", json_string(rstripzero(row[9])));
+        json_object_set_new(record, "fee_asset", json_string(row[10]));
+        uint64_t deal_order_id = strtoull(row[11], NULL, 0);
         json_object_set_new(record, "deal_order_id", json_integer(deal_order_id));
 
         json_array_append_new(records, record);
