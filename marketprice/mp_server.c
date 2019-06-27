@@ -237,6 +237,35 @@ static int on_cmd_market_deals(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+static int on_cmd_market_deals_last(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (!market)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    if (!market_exist(market))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    sds cache_key = NULL;
+    if (process_cache(ses, pkg, &cache_key))
+        return 0;
+
+    json_t *result = get_market_deals_last(market);
+    if (result == NULL) {
+        sdsfree(cache_key);
+        return rpc_reply_error_internal_error(ses, pkg);
+    }
+
+    add_cache(cache_key, result);
+    sdsfree(cache_key);
+
+    int ret = reply_result(ses, pkg, result, settings.cache_timeout);
+    json_decref(result);
+    return ret;
+}
+
 static int on_cmd_market_deals_ext(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 3)
@@ -302,6 +331,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_market_deals(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_deals %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_MARKET_DEALS_LAST:
+        profile_inc("cmd_market_deals_last", 1);
+        ret = on_cmd_market_deals_last(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_market_deals_last %s fail: %d", params_str, ret);
         }
         break;
     case CMD_MARKET_DEALS_EXT:

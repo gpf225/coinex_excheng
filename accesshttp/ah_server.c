@@ -363,6 +363,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("market.kline", marketprice, CMD_MARKET_KLINE));
     ERR_RET_LN(add_handler("market.status", marketprice, CMD_MARKET_STATUS));
     ERR_RET_LN(add_handler("market.deals", marketprice, CMD_MARKET_DEALS));
+    ERR_RET_LN(add_handler("market.last_deals", marketprice, CMD_MARKET_DEALS_LAST));
     ERR_RET_LN(add_handler("market.deals_ext", marketprice, CMD_MARKET_DEALS_EXT));
     ERR_RET_LN(add_handler("market.user_deals", readhistory, CMD_MARKET_USER_DEALS));
     ERR_RET_LN(add_handler("market.self_deal", matchengine, CMD_MARKET_SELF_DEAL));
