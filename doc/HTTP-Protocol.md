@@ -857,21 +857,6 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 ]
 ```
 
-* method: `market.last_deals`
-* params:
-1. market:
-* result:
-
-```
-"result": {
-	"id": 184, 
-	"time": 1561626147.615617, 
-	"type": "sell", 
-	"price": "8000.11112222", 
-	"amount": "1.00000000"
-}
-```
-
 **Market summary**
 * method: `market.summary`
 * params:

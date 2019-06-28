@@ -1532,26 +1532,6 @@ json_t *get_market_deals(const char *market, int limit, uint64_t last_id)
     return result;
 }
 
-json_t *get_market_deals_last(const char *market)
-{
-    struct market_info *info = market_query(market);
-    if (info == NULL)
-        return NULL;
-
-    json_t *result = json_object();
-    list_node *node = info->deals_json->head;
-    if (node != NULL) {
-        json_t *deal = node->value;
-        json_object_set(result, "id", json_object_get(deal, "id"));
-        json_object_set(result, "time", json_object_get(deal, "time"));
-        json_object_set(result, "type", json_object_get(deal, "type"));
-        json_object_set(result, "price", json_object_get(deal, "price"));
-        json_object_set(result, "amount", json_object_get(deal, "amount"));
-    }
-
-    return result;
-}
-
 json_t *get_market_deals_ext(const char *market, int limit, uint64_t last_id)
 {
     struct market_info *info = market_query(market);

@@ -83,6 +83,7 @@ struct settings {
     int                 slice_keeptime;
     int                 depth_merge_max;
     int                 min_save_prec;
+    int                 discount_prec;
 
     char               *usdc_assets[32];
     int                 usdc_assets_num;

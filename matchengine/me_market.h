@@ -18,6 +18,7 @@ typedef struct market_t {
     int             stock_prec;
     int             money_prec;
     int             fee_prec;
+    int             account;
     mpd_t           *min_amount;
 
     dict_t          *orders;
