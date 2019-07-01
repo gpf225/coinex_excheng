@@ -895,8 +895,7 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
                 maker_use_money_fee = true;
                 bid_fee_asset = m->money;
                 bid_fee_account = maker->account;
-                mpd_mul(bid_fee, amount, price, &mpd_ctx);
-                mpd_mul(bid_fee, bid_fee, maker->maker_fee, &mpd_ctx);
+                mpd_mul(bid_fee, deal, maker->maker_fee, &mpd_ctx);
             } else {
                 bid_fee_asset = m->stock;
                 bid_fee_account = maker->account;
@@ -1096,8 +1095,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
             if (bid_use_money_fee) {
                 bid_fee_asset = m->money;
                 bid_fee_account = taker->account;
-                mpd_mul(bid_fee, amount, price, &mpd_ctx);
-                mpd_mul(bid_fee, bid_fee, taker->taker_fee, &mpd_ctx);
+                mpd_mul(bid_fee, deal, taker->taker_fee, &mpd_ctx);
             } else {
                 bid_fee_asset = m->stock;
                 bid_fee_account = taker->account;
@@ -1263,12 +1261,6 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             if (mpd_cmp(max_fee, mpd_zero, &mpd_ctx) > 0 && !check_total_fee_asset(require, balance, max_fee, mpd_one)) {
                 mpd_del(require);
                 return -1;
-            }
-        }
-
-        if ((fee_asset != NULL) && (strcmp(m->money, fee_asset) == 0)) {
-            if (!check_total_fee_asset(require, balance, taker_fee, fee_discount)) {
-                fee_asset = NULL;
             }
         }
         mpd_del(require);
