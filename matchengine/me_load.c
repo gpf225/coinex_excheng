@@ -55,11 +55,6 @@ int load_orders(MYSQL *conn, const char *table)
                 order->fee_asset = NULL;
             } else {
                 order->fee_asset = strdup(row[9]);
-                order->fee_price = get_fee_price(market, order->fee_asset);
-                if (order->fee_price == NULL) {
-                    log_stderr("money:%s free_asset:%s:%s order->id:%"PRIu64, market->name, order->fee_asset, row[8], order->id);
-                    return -__LINE__;
-                }
             }
             order->fee_discount = decimal(row[10],  4);
             order->price        = decimal(row[11], market->money_prec);

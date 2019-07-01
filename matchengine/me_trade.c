@@ -158,6 +158,10 @@ static bool need_convert(const char *asset)
 
 mpd_t *get_fee_price(market_t *m, const char *asset)
 {
+    if (asset == NULL) {
+        return NULL;
+    }
+
     if (strcmp(asset, m->money) == 0) {
         return mpd_one;
     }

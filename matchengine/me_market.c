@@ -873,7 +873,8 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
         }
 
         // calculate bid fee
-        if (maker->fee_asset != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        maker->fee_price = get_fee_price(m, maker->fee_asset);
+        if (maker->fee_asset != NULL && maker->fee_price != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             uint32_t fee_account = maker->account;
             if (strcmp(maker->fee_asset, SYSTEM_FEE_TOKEN) == 0) {
                 fee_account = 0;
@@ -1038,7 +1039,8 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
 
         // calculate ask fee
         mpd_mul(deal, price, amount, &mpd_ctx);
-        if (maker->fee_asset != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        maker->fee_price = get_fee_price(m, maker->fee_asset);
+        if (maker->fee_asset != NULL && maker->fee_price != NULL &&  mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             uint32_t fee_account = maker->account;
             if (strcmp(maker->fee_asset, SYSTEM_FEE_TOKEN) == 0) {
                 fee_account = 0;
@@ -1263,6 +1265,12 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
                 return -1;
             }
         }
+
+        if ((fee_asset != NULL) && (strcmp(m->money, fee_asset) == 0)) {   
+            if (!check_total_fee_asset(require, balance, taker_fee, fee_discount)) {    
+                fee_asset = NULL;   
+            }   
+        }
         mpd_del(require);
     }
 
@@ -1456,7 +1464,8 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
         }
 
         // calculate bid fee
-        if (maker->fee_asset != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        maker->fee_price = get_fee_price(m, maker->fee_asset);
+        if (maker->fee_asset != NULL && maker->fee_price != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             uint32_t fee_account = maker->account;
             if (strcmp(maker->fee_asset, SYSTEM_FEE_TOKEN) == 0) {
                 fee_account = 0;
@@ -1621,7 +1630,8 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
 
         // calculate ask fee
         mpd_mul(deal, price, amount, &mpd_ctx);
-        if (maker->fee_asset != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        maker->fee_price = get_fee_price(m, maker->fee_asset);
+        if (maker->fee_asset != NULL && maker->fee_price != NULL && mpd_cmp(maker->fee_price, mpd_zero, &mpd_ctx) > 0) {
             uint32_t fee_account = maker->account;
             if (strcmp(maker->fee_asset, SYSTEM_FEE_TOKEN) == 0) {
                 fee_account = 0;
