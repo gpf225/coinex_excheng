@@ -171,7 +171,6 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init persist fail: %d", ret);
     }
-
     ret = init_writer();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);

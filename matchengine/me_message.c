@@ -107,7 +107,7 @@ int init_message(void)
         log_stderr("Set kafka brokers: %s fail: %s", settings.brokers, errstr);
         return -__LINE__;
     }
-    if (rd_kafka_conf_set(conf, "queue.buffering.max.ms", "1", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+    if (rd_kafka_conf_set(conf, "queue.buffering.max.ms", "10", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
         log_stderr("Set kafka buffering: %s fail: %s", settings.brokers, errstr);
         return -__LINE__;
     }
@@ -282,7 +282,7 @@ int push_stop_message(uint32_t event, stop_t *stop, market_t *market, int status
 
     push_message(json_dumps(message, 0), rkt_stops, list_stops);
     json_decref(message);
-    profile_inc("message_order", 1);
+    profile_inc("message_stop", 1);
 
     return 0;
 }
