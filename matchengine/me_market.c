@@ -591,11 +591,12 @@ market_t *market_create(json_t *conf)
     if (read_cfg_int(money, "prec", &money_prec, true, 0) < 0)
         return NULL;
 
-    if (!asset_exist(0, stock_name) || !asset_exist(0, money_name))
+    int check_account = (account == -1) ? 0 : account;
+    if (!asset_exist(check_account, stock_name) || !asset_exist(check_account, money_name))
         return NULL;
-    if (stock_prec + fee_prec + settings.discount_prec > asset_prec_save(0, stock_name))
+    if (stock_prec + fee_prec + settings.discount_prec > asset_prec_save(check_account, stock_name))
         return NULL;
-    if (stock_prec + money_prec + fee_prec + settings.discount_prec > asset_prec_save(0, money_name))
+    if (stock_prec + money_prec + fee_prec + settings.discount_prec > asset_prec_save(check_account, money_name))
         return NULL;
 
     market_t *m = malloc(sizeof(market_t));
@@ -1194,28 +1195,33 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
     return 0;
 }
 
-static bool check_fee_asset(bool cost_is_fee_asset, mpd_t *trade_amount, mpd_t *balance, mpd_t *taker_fee, mpd_t *fee_discount)
+static bool check_single_fee_asset(mpd_t *amount, mpd_t *balance, mpd_t *fee, mpd_t *fee_discount)
 {
-    mpd_t *fee_amount = mpd_new(&mpd_ctx);
-    mpd_t *multiplier = mpd_new(&mpd_ctx);
-
-    mpd_mul(fee_amount, trade_amount, taker_fee, &mpd_ctx);
+    mpd_t *requery = mpd_new(&mpd_ctx);
+    mpd_mul(requery, amount, fee, &mpd_ctx);
     if (fee_discount != NULL) {
-        mpd_mul(fee_amount, fee_amount, fee_discount, &mpd_ctx);
+        mpd_mul(requery, requery, fee_discount, &mpd_ctx);
     }
 
-    mpd_t *total_amount = mpd_qncopy(fee_amount);
-    if (cost_is_fee_asset) {
-        mpd_add(total_amount, total_amount, trade_amount, &mpd_ctx);
-    }
-
-    int ret = mpd_cmp(balance, total_amount, &mpd_ctx);
-    
-    mpd_del(fee_amount);
-    mpd_del(multiplier);
-    mpd_del(total_amount);
+    int ret = mpd_cmp(balance, requery, &mpd_ctx);
+    mpd_del(requery);
 
     return ret > 0;
+}
+
+static bool check_cost_fee_asset(mpd_t *amount, mpd_t *balance, mpd_t *fee, mpd_t *fee_discount)
+{
+    mpd_t *requery = mpd_new(&mpd_ctx);
+    mpd_mul(requery, amount, fee, &mpd_ctx);
+    if (fee_discount != NULL) {
+        mpd_mul(requery, requery, fee_discount, &mpd_ctx);
+    }
+    mpd_add(requery, requery, amount, &mpd_ctx);
+
+    int ret = mpd_cmp(balance, requery, &mpd_ctx);
+    mpd_del(requery);
+
+    return ret >= 0;
 }
 
 int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
@@ -1235,7 +1241,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
                 max_fee = maker_fee;
             }
 
-            if (mpd_cmp(max_fee, mpd_zero, &mpd_ctx) > 0 && !check_fee_asset(true, amount, balance, max_fee, mpd_one)) {
+            if (mpd_cmp(max_fee, mpd_zero, &mpd_ctx) > 0 && !check_cost_fee_asset(amount, balance, max_fee, mpd_one)) {
                 return -1;
             }
         }
@@ -1254,14 +1260,14 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
                 max_fee = maker_fee;
             }
 
-            if (mpd_cmp(max_fee, mpd_zero, &mpd_ctx) > 0 && !check_fee_asset(true, require, balance, max_fee, mpd_one)) {
+            if (mpd_cmp(max_fee, mpd_zero, &mpd_ctx) > 0 && !check_cost_fee_asset(require, balance, max_fee, mpd_one)) {
                 mpd_del(require);
                 return -1;
             }
         }
 
         if ((fee_asset != NULL) && (strcmp(m->money, fee_asset) == 0)) {
-            if (!check_fee_asset(true, require, balance, taker_fee, fee_discount)) {
+            if (!check_cost_fee_asset(require, balance, taker_fee, fee_discount)) {
                 fee_asset = NULL;
             }
         }
@@ -1844,32 +1850,27 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
 
         bool fee_asset_enough = false;
         if (use_stock_fee && fee_asset && mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(fee_price, mpd_zero, &mpd_ctx) > 0) {
-            bool fee_is_stock = true;
-            mpd_t *require_amount = mpd_qncopy(amount);
-            mpd_t *available_balance = mpd_qncopy(balance);
-
-            if (strcmp(m->stock, fee_asset) != 0) {
-                fee_is_stock = false;
+            if (strcmp(m->stock, fee_asset) == 0) {
+                if (check_cost_fee_asset(amount, balance, taker_fee, fee_discount)) {
+                    fee_asset_enough = true;
+                } else {
+                    fee_asset = NULL;
+                }
+            } else {
                 mpd_t *total_deal = get_market_sell_deal(m, amount);
-                mpd_div(require_amount, total_deal, fee_price, &mpd_ctx);
-                mpd_del(total_deal);
+                mpd_div(total_deal, total_deal, fee_price, &mpd_ctx);
 
                 mpd_t *fee_balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, fee_asset);
-                if (fee_balance) {
-                    available_balance = mpd_qncopy(fee_balance);
+                if (fee_balance && check_single_fee_asset(total_deal, fee_balance, taker_fee, fee_discount)) {
+                    fee_asset_enough = true;
                 } else {
-                    available_balance = mpd_qncopy(mpd_zero);
+                    fee_asset = NULL;
                 }
+                mpd_del(total_deal);
             }
-
-            if (check_fee_asset(fee_is_stock, require_amount, available_balance, taker_fee, fee_discount)) {
-                fee_asset_enough = true;
-            }
-            mpd_del(require_amount);
-            mpd_del(available_balance);
         }
         if (use_stock_fee && mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) > 0 && !fee_asset_enough) {
-            if (!check_fee_asset(true, amount, balance, taker_fee, mpd_one)) {
+            if (!check_cost_fee_asset(amount, balance, taker_fee, mpd_one)) {
                 return -1;
             }
         }
@@ -1881,32 +1882,26 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
 
         bool fee_asset_enough = false;
         if (fee_asset && mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(fee_price, mpd_zero, &mpd_ctx) > 0) {
-            bool fee_asset_is_money = true;
-            mpd_t *require_amount = mpd_qncopy(amount);
-            mpd_t *available_balance = mpd_qncopy(balance);
-
-            if (strcmp(m->money, fee_asset) != 0) {
-                fee_asset_is_money = false;
-                mpd_div(require_amount, amount, fee_price, &mpd_ctx);
-
-                mpd_t *fee_balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, fee_asset);
-                if (fee_balance) {
-                    available_balance = mpd_qncopy(fee_balance);
+            if (strcmp(m->money, fee_asset) == 0) {
+                if (check_cost_fee_asset(amount, balance, taker_fee, fee_discount)) {
+                    fee_asset_enough = true;
                 } else {
-                    available_balance = mpd_qncopy(mpd_zero);
+                    fee_asset = NULL;
                 }
-            }
-
-            if (check_fee_asset(fee_asset_is_money, require_amount, available_balance, taker_fee, fee_discount)) {
-                fee_asset_enough = true;
             } else {
-                fee_asset = NULL;
+                mpd_t *require_amount = mpd_new(&mpd_ctx);
+                mpd_div(require_amount, amount, fee_price, &mpd_ctx);
+                mpd_t *fee_balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, fee_asset);
+                if (fee_balance && check_single_fee_asset(require_amount, fee_balance, taker_fee, fee_discount)) {
+                    fee_asset_enough = true;
+                } else {
+                    fee_asset = NULL;
+                }
+                mpd_del(require_amount);
             }
-            mpd_del(require_amount);
-            mpd_del(available_balance);
         }
         if (use_money_fee && mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) > 0 && !fee_asset_enough) {
-            if (!check_fee_asset(true, amount, balance, taker_fee, mpd_one)) {
+            if (!check_cost_fee_asset(amount, balance, taker_fee, mpd_one)) {
                 return -1;
             }
         }
