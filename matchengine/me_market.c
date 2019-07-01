@@ -1478,8 +1478,7 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
                 maker_use_money_fee = true;
                 bid_fee_asset = m->money;
                 bid_fee_account = maker->account;
-                mpd_mul(bid_fee, amount, price, &mpd_ctx);
-                mpd_mul(bid_fee, bid_fee, maker->maker_fee, &mpd_ctx);
+                mpd_mul(bid_fee, deal, maker->maker_fee, &mpd_ctx);
             } else {
                 bid_fee_asset = m->stock;
                 bid_fee_account = maker->account;
@@ -1678,8 +1677,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
             if (bid_use_money_fee) {
                 bid_fee_asset = m->money;
                 bid_fee_account = taker->account;
-                mpd_mul(bid_fee, amount, price, &mpd_ctx);
-                mpd_mul(bid_fee, bid_fee, taker->taker_fee, &mpd_ctx);
+                mpd_mul(bid_fee, deal, taker->taker_fee, &mpd_ctx);
             } else {
                 bid_fee_asset = m->stock;
                 bid_fee_account = taker->account;
