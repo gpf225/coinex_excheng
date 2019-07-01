@@ -121,6 +121,17 @@ market_t *get_market(const char *name)
     return NULL;
 }
 
+bool check_market_account(uint32_t account, market_t *m)
+{
+    if (m->account == -1) {
+        return true;
+    } else if (account == m->account) {
+        return true;
+    }
+
+    return false;
+}
+
 json_t *get_market_last_info(void)
 {
     json_t *result = json_object();
@@ -147,6 +158,10 @@ static bool need_convert(const char *asset)
 
 mpd_t *get_fee_price(market_t *m, const char *asset)
 {
+    if (asset == NULL) {
+        return NULL;
+    }
+
     if (strcmp(asset, m->money) == 0) {
         return mpd_one;
     }

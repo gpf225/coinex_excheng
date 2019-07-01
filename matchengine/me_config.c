@@ -136,6 +136,8 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_int(root, "slice_interval", &settings.slice_interval, false, 86400));
     ERR_RET_LN(read_cfg_int(root, "slice_keeptime", &settings.slice_keeptime, false, 86400 * 3));
     ERR_RET_LN(read_cfg_int(root, "depth_merge_max", &settings.depth_merge_max, false, 1000));
+    ERR_RET_LN(read_cfg_int(root, "min_save_prec", &settings.min_save_prec, false, 24));
+    ERR_RET_LN(read_cfg_int(root, "discount_prec", &settings.discount_prec, false, 2));
 
     ERR_RET_LN(read_cfg_int(root, "reader_num", &settings.reader_num, false, 2));
     ERR_RET_LN(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.1));

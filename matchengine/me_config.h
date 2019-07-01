@@ -57,6 +57,10 @@
 # define QUEUE_NAME             "matchengine_queue"
 # define QUEUE_PIPE_PATH        "/tmp/matchengine_queue_pipe"
 
+#define OPTION_CHECK_MASK           0x3
+#define OPTION_USE_STOCK_FEE_ONLY   0x1
+#define OPTION_USE_MONEY_FEE_ONLY   0x2
+
 # define SYSTEM_FEE_TOKEN       "CET"
 
 struct settings {
@@ -78,6 +82,8 @@ struct settings {
     int                 slice_interval;
     int                 slice_keeptime;
     int                 depth_merge_max;
+    int                 min_save_prec;
+    int                 discount_prec;
 
     char               *usdc_assets[32];
     int                 usdc_assets_num;

@@ -303,6 +303,7 @@ asset list(optional, if no asset special, return all asset)
 9. source: String, source, up to 30 bytes
 10. fee_asset: String, asset to use as fee
 11. fee_discount: String, 0~1
+12. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only
 * result: order detail
 * error:
 10. balance not enough
@@ -324,6 +325,7 @@ params: [1, 0, "BTCCNY", 1, "10", "8000", "0.002", "0.001"]
 7. source: String, source, up to 30 bytes
 8. fee_asset: String, asset to use as fee
 9. fee_discount: String, 0~1
+10. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only
 * result: order detail
 * error:
 10. balance not enough
@@ -369,6 +371,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 10. source: String, source, up to 30 bytes
 11. fee_asset: String, asset to use as fee
 12. fee_discount: String, 0~1
+13. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only
 * result: order detail
 * error:
     10. balance not enough
@@ -388,6 +391,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 8. source: String, source, up to 30 bytes
 9. fee_asset: String, asset to use as fee
 10. fee_discount: String, 0~1
+11. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only
 * result: order detail
 * error:
 10. balance not enough

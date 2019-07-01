@@ -242,7 +242,7 @@ static int on_cmd_asset_backup(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 11)
+    if (json_array_size(params) < 11)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -260,7 +260,7 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return rpc_reply_error_invalid_argument(ses, pkg);
     const char *market_name = json_string_value(json_array_get(params, 2));
     market_t *market = get_market(market_name);
-    if (market == NULL)
+    if (market == NULL || !check_market_account(account, market))
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // side
@@ -322,13 +322,23 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     // fee discount
     if (fee_asset && json_is_string(json_array_get(params, 10))) {
-        fee_discount = decimal(json_string_value(json_array_get(params, 10)), market->fee_prec);
+        fee_discount = decimal(json_string_value(json_array_get(params, 10)), settings.discount_prec);
         if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
             goto invalid_argument;
     }
 
+    // option
+    uint32_t option = 0;
+    if (json_array_size(params) >= 12) {
+        if (json_is_integer(json_array_get(params, 11))) {
+            option = json_integer_value(json_array_get(params, 11));
+            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+                goto invalid_argument;
+        }
+    }
+
     json_t *result = NULL;
-    int ret = market_put_limit_order(true, &result, market, user_id, account, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_discount);
+    int ret = market_put_limit_order(true, &result, market, user_id, account, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_discount, option);
 
     mpd_del(amount);
     mpd_del(price);
@@ -368,7 +378,7 @@ invalid_argument:
 
 static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 9)
+    if (json_array_size(params) < 9)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -386,7 +396,7 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return rpc_reply_error_invalid_argument(ses, pkg);
     const char *market_name = json_string_value(json_array_get(params, 2));
     market_t *market = get_market(market_name);
-    if (market == NULL)
+    if (market == NULL || !check_market_account(account, market))
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // side
@@ -432,13 +442,23 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     // fee discount
     if (fee_asset && json_is_string(json_array_get(params, 8))) {
-        fee_discount = decimal(json_string_value(json_array_get(params, 8)), market->fee_prec);
+        fee_discount = decimal(json_string_value(json_array_get(params, 8)), settings.discount_prec);
         if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
             goto invalid_argument;
     }
 
+    // option
+    uint32_t option = 0;
+    if (json_array_size(params) >= 10) {
+        if (json_is_integer(json_array_get(params, 9))) {
+            option = json_integer_value(json_array_get(params, 9));
+            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+                goto invalid_argument;
+        }
+    }
+
     json_t *result = NULL;
-    int ret = market_put_market_order(true, &result, market, user_id, account, side, amount, taker_fee, source, fee_asset, fee_discount);
+    int ret = market_put_market_order(true, &result, market, user_id, account, side, amount, taker_fee, source, fee_asset, fee_discount, option);
 
     mpd_del(amount);
     mpd_del(taker_fee);
@@ -550,7 +570,7 @@ static int on_cmd_order_cancel_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 12)
+    if (json_array_size(params) < 12)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -568,7 +588,7 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return rpc_reply_error_invalid_argument(ses, pkg);
     const char *market_name = json_string_value(json_array_get(params, 2));
     market_t *market = get_market(market_name);
-    if (market == NULL)
+    if (market == NULL || !check_market_account(account, market))
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // side
@@ -638,12 +658,22 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     // fee discount
     if (fee_asset && json_is_string(json_array_get(params, 11))) {
-        fee_discount = decimal(json_string_value(json_array_get(params, 11)), market->fee_prec);
+        fee_discount = decimal(json_string_value(json_array_get(params, 11)), settings.discount_prec);
         if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
             goto invalid_argument;
     }
 
-    int ret = market_put_stop_limit(true, market, user_id, account, side, amount, stop_price, price, taker_fee, maker_fee, source, fee_asset, fee_discount);
+    // option
+    uint32_t option = 0;
+    if (json_array_size(params) >= 13) {
+        if (json_is_integer(json_array_get(params, 12))) {
+            option = json_integer_value(json_array_get(params, 12));
+            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+                goto invalid_argument;
+        }
+    }
+
+    int ret = market_put_stop_limit(true, market, user_id, account, side, amount, stop_price, price, taker_fee, maker_fee, source, fee_asset, fee_discount, option);
 
     mpd_del(amount);
     mpd_del(stop_price);
@@ -687,7 +717,7 @@ invalid_argument:
 
 static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 10)
+    if (json_array_size(params) < 10)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // user_id
@@ -705,7 +735,7 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return rpc_reply_error_invalid_argument(ses, pkg);
     const char *market_name = json_string_value(json_array_get(params, 2));
     market_t *market = get_market(market_name);
-    if (market == NULL)
+    if (market == NULL || !check_market_account(account, market))
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // side
@@ -759,12 +789,22 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     // fee discount
     if (fee_asset && json_is_string(json_array_get(params, 9))) {
-        fee_discount = decimal(json_string_value(json_array_get(params, 9)), market->fee_prec);
+        fee_discount = decimal(json_string_value(json_array_get(params, 9)), settings.discount_prec);
         if (fee_discount == NULL || mpd_cmp(fee_discount, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee_discount, mpd_one, &mpd_ctx) > 0)
             goto invalid_argument;
     }
 
-    int ret = market_put_stop_market(true, market, user_id, account, side, amount, stop_price, taker_fee, source, fee_asset, fee_discount);
+    // option
+    uint32_t option = 0;
+    if (json_array_size(params) >= 11) {
+        if (json_is_integer(json_array_get(params, 10))) {
+            option = json_integer_value(json_array_get(params, 10));
+            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+                goto invalid_argument;
+        }
+    }
+
+    int ret = market_put_stop_market(true, market, user_id, account, side, amount, stop_price, taker_fee, source, fee_asset, fee_discount, option);
 
     mpd_del(amount);
     mpd_del(stop_price);
