@@ -593,7 +593,7 @@ market_t *market_create(json_t *conf)
 
     if (!asset_exist(0, stock_name) || !asset_exist(0, money_name))
         return NULL;
-    if (stock_prec + fee_prec > asset_prec_save(0, stock_name))
+    if (stock_prec + fee_prec + settings.discount_prec > asset_prec_save(0, stock_name))
         return NULL;
     if (stock_prec + money_prec + fee_prec + settings.discount_prec > asset_prec_save(0, money_name))
         return NULL;
