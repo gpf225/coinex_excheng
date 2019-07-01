@@ -1209,7 +1209,7 @@ static bool check_only_fee_asset(mpd_t *amount, mpd_t *balance, mpd_t *fee, mpd_
     return ret >= 0;
 }
 
-static bool check_cost_fee_asset(mpd_t *amount, mpd_t *balance, mpd_t *fee, mpd_t *fee_discount)
+static bool check_total_fee_asset(mpd_t *amount, mpd_t *balance, mpd_t *fee, mpd_t *fee_discount)
 {
     mpd_t *requery = mpd_new(&mpd_ctx);
     mpd_mul(requery, amount, fee, &mpd_ctx);
@@ -1241,7 +1241,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
                 max_fee = maker_fee;
             }
 
-            if (mpd_cmp(max_fee, mpd_zero, &mpd_ctx) > 0 && !check_cost_fee_asset(amount, balance, max_fee, mpd_one)) {
+            if (mpd_cmp(max_fee, mpd_zero, &mpd_ctx) > 0 && !check_total_fee_asset(amount, balance, max_fee, mpd_one)) {
                 return -1;
             }
         }
@@ -1260,14 +1260,14 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
                 max_fee = maker_fee;
             }
 
-            if (mpd_cmp(max_fee, mpd_zero, &mpd_ctx) > 0 && !check_cost_fee_asset(require, balance, max_fee, mpd_one)) {
+            if (mpd_cmp(max_fee, mpd_zero, &mpd_ctx) > 0 && !check_total_fee_asset(require, balance, max_fee, mpd_one)) {
                 mpd_del(require);
                 return -1;
             }
         }
 
         if ((fee_asset != NULL) && (strcmp(m->money, fee_asset) == 0)) {
-            if (!check_cost_fee_asset(require, balance, taker_fee, fee_discount)) {
+            if (!check_total_fee_asset(require, balance, taker_fee, fee_discount)) {
                 fee_asset = NULL;
             }
         }
@@ -1851,7 +1851,7 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         bool fee_asset_enough = false;
         if (use_stock_fee && fee_asset && mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(fee_price, mpd_zero, &mpd_ctx) > 0) {
             if (strcmp(m->stock, fee_asset) == 0) {
-                if (check_cost_fee_asset(amount, balance, taker_fee, fee_discount)) {
+                if (check_total_fee_asset(amount, balance, taker_fee, fee_discount)) {
                     fee_asset_enough = true;
                 } else {
                     fee_asset = NULL;
@@ -1870,7 +1870,7 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
             }
         }
         if (use_stock_fee && mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) > 0 && !fee_asset_enough) {
-            if (!check_cost_fee_asset(amount, balance, taker_fee, mpd_one)) {
+            if (!check_total_fee_asset(amount, balance, taker_fee, mpd_one)) {
                 return -1;
             }
         }
@@ -1883,7 +1883,7 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         bool fee_asset_enough = false;
         if (fee_asset && mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(fee_price, mpd_zero, &mpd_ctx) > 0) {
             if (strcmp(m->money, fee_asset) == 0) {
-                if (check_cost_fee_asset(amount, balance, taker_fee, fee_discount)) {
+                if (check_total_fee_asset(amount, balance, taker_fee, fee_discount)) {
                     fee_asset_enough = true;
                 } else {
                     fee_asset = NULL;
@@ -1901,7 +1901,7 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
             }
         }
         if (use_money_fee && mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) > 0 && !fee_asset_enough) {
-            if (!check_cost_fee_asset(amount, balance, taker_fee, mpd_one)) {
+            if (!check_total_fee_asset(amount, balance, taker_fee, mpd_one)) {
                 return -1;
             }
         }
