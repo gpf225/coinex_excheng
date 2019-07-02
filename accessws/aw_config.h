@@ -41,8 +41,6 @@
 # include "ut_comm_dict.h"
 # include "ut_json_rpc.h"
 
-# define ASSET_NAME_MAX_LEN     16
-# define MARKET_NAME_MAX_LEN    16
 # define SOURCE_MAX_LEN         32
 # define INTERVAL_MAX_LEN       16
 

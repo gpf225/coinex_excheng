@@ -2,6 +2,9 @@
 * 1 matchengine： 支持option字段指定使用money或stock扣费
 * 2 historywrite: 增加option字段
 * 3 readhistory:  增加读取option字段
+* 4 accessws:     asset与market长度修改成30
+* 5 cachecenter:  market长度修改成30
+* 6 tradesummary: asset长度修改成30
 
 #二. 配置文件
 * 无需修改

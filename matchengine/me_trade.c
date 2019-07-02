@@ -68,6 +68,12 @@ int init_trade(void)
     for (size_t i = 0; i < json_array_size(settings.market_cfg); ++i) {
         json_t *item = json_array_get(settings.market_cfg, i);
         const char *market_name = json_string_value(json_object_get(item, "name"));
+        size_t market_len = strlen(market_name);
+        if (market_len == 0 || market_len > MARKET_NAME_MAX_LEN) {
+            log_stderr("create market: %s fail", market_name);
+            return -__LINE__;
+        }
+
         log_info("create market: %s", market_name);
         market_t *m = market_create(item);
         if (m == NULL) {
@@ -90,6 +96,12 @@ int update_trade(void)
     for (size_t i = 0; i < json_array_size(settings.market_cfg); ++i) {
         json_t *item = json_array_get(settings.market_cfg, i);
         const char *market_name = json_string_value(json_object_get(item, "name"));
+        size_t market_len = strlen(market_name);
+        if (market_len == 0 || market_len > MARKET_NAME_MAX_LEN) {
+            log_fatal("update market: %s fail", market_name);
+            continue;
+        }
+
         dict_entry *entry = dict_find(dict_market, market_name);
         if (!entry) {
             log_info("create market: %s", market_name);
