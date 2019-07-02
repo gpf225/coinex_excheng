@@ -40,7 +40,6 @@
 # include "ut_skiplist.h"
 # include "ut_json_rpc.h"
 
-# define ASSET_NAME_MAX_LEN     15
 # define BUSINESS_NAME_MAX_LEN  31
 # define SOURCE_MAX_LEN         31
 
@@ -84,6 +83,8 @@ struct settings {
     int                 depth_merge_max;
     int                 min_save_prec;
     int                 discount_prec;
+    int                 market_max_len;
+    int                 asset_max_len;
 
     char               *usdc_assets[32];
     int                 usdc_assets_num;
