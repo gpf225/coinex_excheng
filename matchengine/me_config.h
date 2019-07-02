@@ -83,8 +83,6 @@ struct settings {
     int                 depth_merge_max;
     int                 min_save_prec;
     int                 discount_prec;
-    int                 market_max_len;
-    int                 asset_max_len;
 
     char               *usdc_assets[32];
     int                 usdc_assets_num;
