@@ -28,5 +28,7 @@
     "index_url": "http://120.79.140.118:8000/internal/exchange/market/index/config",
     "request_timeout": 3,
     "update_interval": 10,
-    "expire_interval": 900
+    "expire_interval": 900,
+    "protect_interval": 60,
+    "protect_rate": "0.2"
 }
