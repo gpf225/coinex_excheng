@@ -48,6 +48,9 @@ struct settings {
     char                *index_url;
     json_t              *index_cfg;
 
+    mpd_t               *protect_rate;
+    int                 protect_interval;
+
     int                 update_interval;
     int                 expire_interval;
     double              request_timeout;

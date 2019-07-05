@@ -18,6 +18,8 @@ struct market_info {
     dict_t  *sources;
 
     mpd_t   *last_index;
+    mpd_t   *protect_price;
+    time_t  last_protect_time;
     time_t  last_index_time;
 };
 
@@ -43,6 +45,8 @@ static void market_info_free(void *val)
     struct market_info *info = val;
     if (info->last_index)
         mpd_del(info->last_index);
+    if (info->protect_price)
+        mpd_del(info->protect_price);
     if (info->sources)
         dict_release(info->sources);
     free(info);
@@ -76,6 +80,8 @@ static void on_request_finished(const char *market, time_t timestamp)
     while ((entry = dict_next(iter)) != NULL) {
         const char *exchange = entry->key;
         struct source_info *sinfo = entry->val;
+        if (sinfo->last_price == NULL)
+            continue;
         if (sinfo->last_update != timestamp)
             continue;
         if (sinfo->last_update - sinfo->last_time > settings.expire_interval)
@@ -102,10 +108,16 @@ static void on_request_finished(const char *market, time_t timestamp)
 
     if (minfo->last_index == NULL) {
         minfo->last_index = mpd_qncopy(index);
+        minfo->protect_price = mpd_qncopy(index);
+        minfo->last_protect_time = timestamp;
     } else {
         mpd_copy(minfo->last_index, index, &mpd_ctx);
     }
     minfo->last_index_time = timestamp;
+
+    if (time(NULL) - minfo->last_protect_time >= settings.protect_interval) {
+        mpd_copy(minfo->protect_price, index, &mpd_ctx);
+    }
 
     char *detail_str = json_dumps(detail, 0);
     push_index_message(market, index, detail);
@@ -140,6 +152,22 @@ static int init_state(void)
     return 0;
 }
 
+bool check_price(mpd_t *price, mpd_t *protect_price, mpd_t *protect_rate)
+{
+    if (protect_price == NULL)
+        return true;
+
+    mpd_t *change = mpd_new(&mpd_ctx);
+    mpd_sub(change, price, protect_price, &mpd_ctx);
+    mpd_abs(change, change, &mpd_ctx);
+    mpd_div(change, change, protect_price, &mpd_ctx);
+
+    bool ret = mpd_cmp(change, protect_rate, &mpd_ctx) <= 0;
+    mpd_del(change);
+
+    return ret;
+}
+
 static void update_market_index(const char *market, const char *exchange, time_t timestamp, mpd_t *price, double price_time)
 {
     dict_entry *entry = dict_find(dict_market, market);
@@ -150,9 +178,21 @@ static void update_market_index(const char *market, const char *exchange, time_t
     if (entry == NULL)
         return;
     struct source_info *sinfo = entry->val;
-    if (sinfo->last_price)
-        mpd_del(sinfo->last_price);
+    if (sinfo->last_price == NULL) {
+        sinfo->last_price  = price;
+        sinfo->last_time   = price_time;
+        sinfo->last_update = timestamp;
+        return;
+    }
 
+    if (!check_price(price, minfo->protect_price, settings.protect_rate)) {
+        char buf_price[20], buf_protect_price[20], buf_protect_rate[20];
+        log_fatal("url: %s, protect_interval: %d, price: %s, protect_price: %s, protect_rate: %s", sinfo->url, settings.protect_interval, strmpd(buf_price, sizeof(buf_price), price), 
+                strmpd(buf_protect_price, sizeof(buf_protect_price), minfo->protect_price), strmpd(buf_protect_rate, sizeof(buf_protect_rate), settings.protect_rate));
+        return;
+    }
+
+    mpd_del(sinfo->last_price);
     sinfo->last_price  = price;
     sinfo->last_time   = price_time;
     sinfo->last_update = timestamp;

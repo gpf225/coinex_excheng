@@ -523,11 +523,11 @@ static int load_limit_order(json_t *params)
     // option
     uint32_t option = 0;
     if (json_array_size(params) >= 12) {
-        if (!json_is_integer(json_array_get(params, 11)))
-            goto error;
-        option = json_integer_value(json_array_get(params, 11));
-        if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
-            goto error;
+        if (json_is_integer(json_array_get(params, 11))) {
+            option = json_integer_value(json_array_get(params, 11));
+            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+                goto error;
+        }
     }
 
     int ret = market_put_limit_order(false, NULL, market, user_id, account, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_discount, option);
@@ -633,11 +633,11 @@ static int load_market_order(json_t *params)
     // option
     uint32_t option = 0;
     if (json_array_size(params) >= 10) {
-        if (!json_is_integer(json_array_get(params, 9)))
-            goto error;
-        option = json_integer_value(json_array_get(params, 9));
-        if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
-            goto error;
+        if (json_is_integer(json_array_get(params, 9))) {
+            option = json_integer_value(json_array_get(params, 9));
+            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+                goto error;
+        }
     }
 
     int ret = market_put_market_order(false, NULL, market, user_id, account, side, amount, taker_fee, source, fee_asset, fee_discount, option);
@@ -837,11 +837,11 @@ static int load_stop_limit(json_t *params)
     // option
     uint32_t option = 0;
     if (json_array_size(params) >= 13) {
-        if (!json_is_integer(json_array_get(params, 12)))
-            goto error;
-        option = json_integer_value(json_array_get(params, 12));
-        if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
-            goto error;
+        if (json_is_integer(json_array_get(params, 12))) {
+            option = json_integer_value(json_array_get(params, 12));
+            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+                goto error;
+        }
     }
 
     int ret = market_put_stop_limit(false, market, user_id, account, side, amount, stop_price, price, taker_fee, maker_fee, source, fee_asset, fee_discount, option);
@@ -961,11 +961,11 @@ static int load_stop_market(json_t *params)
     // option
     uint32_t option = 0;
     if (json_array_size(params) >= 11) {
-        if (!json_is_integer(json_array_get(params, 10)))
-            goto error;
-        option = json_integer_value(json_array_get(params, 10));
-        if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
-            goto error;
+        if (json_is_integer(json_array_get(params, 10))) {
+            option = json_integer_value(json_array_get(params, 10));
+            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+                goto error;
+        }
     }
 
     int ret = market_put_stop_market(false, market, user_id, account, side, amount, stop_price, taker_fee, source, fee_asset, fee_discount, option);

@@ -107,6 +107,8 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_int(root, "update_interval", &settings.update_interval, false, 5));
     ERR_RET_LN(read_cfg_int(root, "expire_interval", &settings.expire_interval, false, 900));
     ERR_RET_LN(read_cfg_real(root, "request_timeout", &settings.request_timeout, false, 3.0));
+    ERR_RET_LN(read_cfg_int(root, "protect_interval", &settings.protect_interval, false, 60));
+    ERR_RET_LN(read_cfg_mpd(root, "protect_rate", &settings.protect_rate, "0.2"));
 
     return 0;
 }
