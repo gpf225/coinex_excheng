@@ -35,6 +35,9 @@ enum {
 # define MARKET_STOP_STATUS_FAIL    2
 # define MARKET_STOP_STATUS_CANCEL  3
 
+# define STOP_STATE_LOW             1
+# define STOP_STATE_HIGH            2
+
 # define MARKET_NAME_MAX_LEN        30
 # define ASSET_NAME_MAX_LEN         30
 
