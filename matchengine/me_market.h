@@ -28,8 +28,8 @@ typedef struct market_t {
 
     skiplist_t      *asks;
     skiplist_t      *bids;
-    skiplist_t      *stop_asks;
-    skiplist_t      *stop_bids;
+    skiplist_t      *stop_high;
+    skiplist_t      *stop_low;
 
     mpd_t           *last;
 } market_t;
@@ -70,6 +70,7 @@ typedef struct stop_t {
     uint32_t        user_id;
     uint32_t        account;
     uint32_t        option;
+    uint32_t        state;
     char            *market;
     char            *source;
     char            *fee_asset;
