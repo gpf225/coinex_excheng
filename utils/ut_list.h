@@ -50,6 +50,7 @@ void list_release(list_t *list);
 # define LIST_START_TAIL 1
 
 list_iter *list_get_iterator(list_t *list, int direction);
+list_iter *list_reset_iterator(list_t *list, list_iter *iter);
 list_node *list_next(list_iter *iter);
 void list_rewind_head(list_t *list, list_iter *iter);
 void list_rewind_tail(list_t *list, list_iter *iter);

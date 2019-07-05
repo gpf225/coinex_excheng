@@ -356,6 +356,8 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.pending_stop", matchengine, CMD_ORDER_PENDING_STOP));
     ERR_RET_LN(add_handler("order.finished_stop", readhistory, CMD_ORDER_FINISHED_STOP));
     ERR_RET_LN(add_handler("order.stop_book", matchengine, CMD_ORDER_STOP_BOOK));
+    ERR_RET_LN(add_handler("call.start", matchengine, CMD_CALL_AUCTION_START));
+    ERR_RET_LN(add_handler("call.execute", matchengine, CMD_CALL_AUCTION_EXECUTE));
 
     ERR_RET_LN(add_handler("market.list", matchengine, CMD_MARKET_LIST));
     ERR_RET_LN(add_handler("market.summary", matchengine, CMD_MARKET_SUMMARY));

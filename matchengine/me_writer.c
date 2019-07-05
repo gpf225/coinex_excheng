@@ -1004,6 +1004,58 @@ invalid_argument:
     return rpc_reply_error_invalid_argument(ses, pkg);
 }
 
+static int on_cmd_call_auction_start(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_string(json_array_get(params, 0)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    const char *market_name = json_string_value(json_array_get(params, 0));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    market->call_auction = true;
+
+    push_operlog("call.start", params);
+    return rpc_reply_success(ses, pkg);
+}
+
+static int on_cmd_call_auction_execute(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_string(json_array_get(params, 0)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    const char *market_name = json_string_value(json_array_get(params, 0));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    
+    if (!market->call_auction)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    market->call_auction = false;
+    int ret = execute_call_auction_order(true, market);
+    if(ret < 0) {
+        log_fatal("execute_call_auction_order fail: %d", ret);
+        return rpc_reply_error_internal_error(ses, pkg);
+    }
+    json_t *result = json_object();
+    if(ret == 0){
+        json_object_set_new_mpd(result, "price", market->last);
+    } else {
+        json_object_set_new_mpd(result, "price", mpd_zero);
+    }
+    ret = rpc_reply_result(ses, pkg, result);
+    push_operlog("call.execute", params);
+    json_decref(result);
+    return ret;
+}
+
 static bool is_queue_block()
 {
     for (int i = 0; i < settings.reader_num; i++) {
@@ -1190,6 +1242,20 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_self_market_deal(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_self_market_deal fail: %d", ret);
+        }
+        break;
+    case CMD_CALL_AUCTION_START:
+        profile_inc("cmd_call_auction_start", 1);
+        ret = on_cmd_call_auction_start(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_call_auction_start fail: %d", ret);
+        }
+        break;
+    case CMD_CALL_AUCTION_EXECUTE:
+        profile_inc("cmd_call_auction_execute", 1);
+        ret = on_cmd_call_auction_execute(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_call_auction_execute fail: %d", ret);
         }
         break;
     default:

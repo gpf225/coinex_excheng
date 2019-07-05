@@ -19,6 +19,7 @@ typedef struct market_t {
     int             money_prec;
     int             fee_prec;
     int             account;
+    bool            call_auction;
     mpd_t           *min_amount;
 
     dict_t          *orders;
@@ -46,6 +47,7 @@ typedef struct order_t {
     char            *market;
     char            *source;
     char            *fee_asset;
+    bool            call_auction;
     mpd_t           *fee_discount;
     mpd_t           *price;
     mpd_t           *amount;
@@ -123,6 +125,8 @@ sds market_status(sds reply);
 int market_set_reader();
 json_t *market_get_fini_order(uint64_t order_id);
 json_t *market_get_summary(market_t *m);
+
+int execute_call_auction_order(bool real, market_t *m);
 
 # endif
 

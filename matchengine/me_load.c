@@ -9,6 +9,7 @@
 # include "me_market.h"
 # include "me_update.h"
 # include "me_balance.h"
+# include "me_config.h"
 
 int load_orders(MYSQL *conn, const char *table)
 {
@@ -1114,6 +1115,39 @@ error:
     return __LINE__;
 }
 
+static int load_call_auction_start(json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return -__LINE__;
+
+    if (!json_is_string(json_array_get(params, 0)))
+        return -__LINE__;
+
+    const char *market_name = json_string_value(json_array_get(params, 0));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return __LINE__;
+    market->call_auction = true;
+    return 0;
+}
+
+static int load_call_auction_execute(json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return -__LINE__;
+
+    if (!json_is_string(json_array_get(params, 0)))
+        return -__LINE__;
+
+    const char *market_name = json_string_value(json_array_get(params, 0));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return __LINE__;
+    market->call_auction = false;
+    execute_call_auction_order(false, market);
+    return 0;
+}
+
 int load_oper(json_t *detail)
 {
     const char *method = json_string_value(json_object_get(detail, "method"));
@@ -1148,6 +1182,10 @@ int load_oper(json_t *detail)
         ret = load_cancel_stop_all(params);
     } else if (strcmp(method, "self_deal") == 0) {
         ret = load_self_deal(params);
+    } else if (strcmp(method, "call.start") == 0) {
+        ret = load_call_auction_start(params);
+    } else if (strcmp(method, "call.execute") == 0) {
+        ret = load_call_auction_execute(params);
     } else {
         return -__LINE__;
     }
