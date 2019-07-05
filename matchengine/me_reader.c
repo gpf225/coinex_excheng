@@ -395,11 +395,11 @@ static int on_cmd_stop_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (market == NULL)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
-    // side
+    // state
     if (!json_is_integer(json_array_get(params, 1)))
         return rpc_reply_error_invalid_argument(ses, pkg);
-    uint32_t side = json_integer_value(json_array_get(params, 1));
-    if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+    uint32_t state = json_integer_value(json_array_get(params, 1));
+    if (state != STOP_STATE_LOW && state != STOP_STATE_HIGH)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // offset
@@ -420,13 +420,13 @@ static int on_cmd_stop_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     uint64_t total;
     skiplist_iter *iter;
-    if (side == MARKET_ORDER_SIDE_ASK) {
-        iter = skiplist_get_iterator(market->stop_asks);
-        total = market->asks->len;
+    if (state == STOP_STATE_LOW) {
+        iter = skiplist_get_iterator(market->stop_low);
+        total = market->stop_low->len;
         json_object_set_new(result, "total", json_integer(total));
     } else {
-        iter = skiplist_get_iterator(market->stop_bids);
-        total = market->bids->len;
+        iter = skiplist_get_iterator(market->stop_high);
+        total = market->stop_high->len;
         json_object_set_new(result, "total", json_integer(total));
     }
 
