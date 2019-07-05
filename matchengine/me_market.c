@@ -1242,19 +1242,19 @@ static bool check_total_fee_asset(mpd_t *amount, mpd_t *balance, mpd_t *fee, mpd
 
 static int calc_call_auction_basic_price(market_t *m)
 {
-    if(skiplist_len(m->asks) == 0 && skiplist_len(m->bids) == 0){
+    if (skiplist_len(m->asks) == 0 && skiplist_len(m->bids) == 0) {
         mpd_copy(m->last, mpd_zero, &mpd_ctx);
         return 1;
     }
 
-    if(skiplist_len(m->asks) == 0){
+    if (skiplist_len(m->asks) == 0) {
         skiplist_node *node = skiplist_header(m->bids);
         order_t *order = node->value;
         mpd_copy(m->last, order->price, &mpd_ctx);
         return 1;
     }
 
-    if(skiplist_len(m->bids) == 0){
+    if (skiplist_len(m->bids) == 0) {
         skiplist_node *node = skiplist_header(m->asks);
         order_t *order = node->value;
         mpd_copy(m->last, order->price, &mpd_ctx);
@@ -1270,23 +1270,23 @@ static int calc_call_auction_basic_price(market_t *m)
     mpd_t *ask_amount = mpd_qncopy(mpd_zero);
     mpd_t *bid_amount = mpd_qncopy(mpd_zero);
 
-    while( ask_node != NULL && bid_node != NULL) {
+    while (ask_node != NULL && bid_node != NULL) {
         order_t *ask_order = ask_node->value;
         order_t *bid_order = bid_node->value;
-        if(mpd_cmp(ask_order->price, bid_order->price, &mpd_ctx) > 0)
+        if (mpd_cmp(ask_order->price, bid_order->price, &mpd_ctx) > 0)
             break;
 
-        if(mpd_cmp(ask_amount, mpd_zero, &mpd_ctx) == 0)
+        if (mpd_cmp(ask_amount, mpd_zero, &mpd_ctx) == 0)
             mpd_copy(ask_amount, ask_order->amount, &mpd_ctx);
 
-        if(mpd_cmp(bid_amount, mpd_zero, &mpd_ctx) == 0)
+        if (mpd_cmp(bid_amount, mpd_zero, &mpd_ctx) == 0)
             mpd_copy(bid_amount, bid_order->amount, &mpd_ctx);
 
-        if(mpd_cmp(ask_amount, bid_amount, &mpd_ctx) > 0){
+        if (mpd_cmp(ask_amount, bid_amount, &mpd_ctx) > 0) {
             mpd_sub(ask_amount, ask_amount, bid_amount, &mpd_ctx);
             mpd_copy(bid_amount, mpd_zero, &mpd_ctx);
             bid_node = skiplist_next(bid_iter);
-        } else if(mpd_cmp(bid_amount, ask_amount, &mpd_ctx) > 0) {
+        } else if (mpd_cmp(bid_amount, ask_amount, &mpd_ctx) > 0) {
             mpd_sub(bid_amount, bid_amount, ask_amount, &mpd_ctx);
             mpd_copy(ask_amount, mpd_zero, &mpd_ctx);
             ask_node = skiplist_next(ask_iter);
@@ -1304,7 +1304,7 @@ static int calc_call_auction_basic_price(market_t *m)
     mpd_del(bid_amount);
 
     int ret = 0;
-    if(mpd_cmp(basic_price, mpd_zero, &mpd_ctx) == 0) {
+    if (mpd_cmp(basic_price, mpd_zero, &mpd_ctx) == 0) {
         skiplist_node *node = skiplist_header(m->asks);
         order_t *order = node->value;
         mpd_add(basic_price, basic_price, order->price, &mpd_ctx);
@@ -2632,13 +2632,13 @@ int execute_call_auction_order(bool real, market_t *m)
 
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(m->asks);
-    while((node = skiplist_next(iter)) != NULL){
+    while ((node = skiplist_next(iter)) != NULL) {
         order_t *order = node->value;
         list_add_node_tail(ask_order_list, order);
     }
 
     iter = skiplist_get_iterator(m->bids);
-    while((node = skiplist_next(iter)) != NULL){
+    while ((node = skiplist_next(iter)) != NULL) {
         order_t *order = node->value;
         list_add_node_tail(bid_order_list, order);
     }
@@ -2653,19 +2653,19 @@ int execute_call_auction_order(bool real, market_t *m)
     order_t *bid_order;
     mpd_t *deal_amount = mpd_qncopy(mpd_zero);
 
-    while((ask_node) != NULL && (bid_node) != NULL){
+    while ((ask_node) != NULL && (bid_node) != NULL) {
         ask_order = ask_node->value;
         bid_order = bid_node->value;
-        if(mpd_cmp(ask_order->price, m->last, &mpd_ctx) > 0 || mpd_cmp(bid_order->price, m->last, &mpd_ctx) < 0){
+        if (mpd_cmp(ask_order->price, m->last, &mpd_ctx) > 0 || mpd_cmp(bid_order->price, m->last, &mpd_ctx) < 0) {
             break;
         }
 
-        if(mpd_cmp(ask_order->amount, bid_order->amount, &mpd_ctx) > 0){
+        if (mpd_cmp(ask_order->amount, bid_order->amount, &mpd_ctx) > 0) {
             mpd_copy(deal_amount, bid_order->amount, &mpd_ctx);
             mpd_sub(ask_order->amount, ask_order->amount, deal_amount, &mpd_ctx);
             mpd_sub(bid_order->amount, bid_order->amount, deal_amount, &mpd_ctx);
             bid_node = list_next(bid_iter);
-        } else if(mpd_cmp(bid_order->amount, ask_order->amount, &mpd_ctx) > 0) {
+        } else if (mpd_cmp(bid_order->amount, ask_order->amount, &mpd_ctx) > 0) {
             mpd_copy(deal_amount, ask_order->amount, &mpd_ctx);
             mpd_sub(ask_order->amount, ask_order->amount, deal_amount, &mpd_ctx);
             mpd_sub(bid_order->amount, bid_order->amount, deal_amount, &mpd_ctx);
@@ -2678,7 +2678,7 @@ int execute_call_auction_order(bool real, market_t *m)
             ask_node = list_next(bid_iter);
         }
 
-        if(ask_order->create_time <= bid_order->create_time) {
+        if (ask_order->create_time <= bid_order->create_time) {
             market_put_limit_order(real, NULL, m, ask_order->user_id,
                 ask_order->account, ask_order->side, deal_amount, m->last,
                 ask_order->taker_fee, ask_order->maker_fee, ask_order->source,
@@ -2703,9 +2703,9 @@ int execute_call_auction_order(bool real, market_t *m)
     mpd_del(deal_amount);
 
     ask_iter = list_reset_iterator(ask_order_list, ask_iter);
-    while((ask_node = list_next(ask_iter)) != NULL){
+    while ((ask_node = list_next(ask_iter)) != NULL) {
         ask_order = ask_node->value;
-        if(mpd_cmp(ask_order->amount, mpd_zero, &mpd_ctx) > 0){
+        if (mpd_cmp(ask_order->amount, mpd_zero, &mpd_ctx) > 0) {
             market_put_limit_order(real, NULL, m, ask_order->user_id,
                 ask_order->account, ask_order->side, ask_order->amount, ask_order->price,
                 ask_order->taker_fee, ask_order->maker_fee, ask_order->source,
@@ -2719,9 +2719,9 @@ int execute_call_auction_order(bool real, market_t *m)
     }
 
     bid_iter = list_reset_iterator(bid_order_list, bid_iter);
-    while((bid_node = list_next(bid_iter)) != NULL){
+    while ((bid_node = list_next(bid_iter)) != NULL) {
         bid_order = bid_node->value;
-        if(mpd_cmp(bid_order->amount, mpd_zero, &mpd_ctx) > 0){
+        if (mpd_cmp(bid_order->amount, mpd_zero, &mpd_ctx) > 0) {
             market_put_limit_order(real, NULL, m, bid_order->user_id,
                 bid_order->account, bid_order->side, bid_order->amount, bid_order->price,
                 bid_order->taker_fee, bid_order->maker_fee, bid_order->source,

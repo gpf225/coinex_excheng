@@ -469,7 +469,7 @@ static json_t *get_depth(market_t *market, size_t limit)
         index++;
         order_t *order = node->value;
         mpd_copy(price, order->price, &mpd_ctx);
-        if(mpd_cmp(price, market->last, &mpd_ctx) < 0){
+        if (mpd_cmp(price, market->last, &mpd_ctx) < 0) {
             node = skiplist_next(iter);
             continue;
         }
@@ -506,7 +506,7 @@ static json_t *get_depth(market_t *market, size_t limit)
         index++;
         order_t *order = node->value;
         mpd_copy(price, order->price, &mpd_ctx);
-        if(mpd_cmp(price, market->last, &mpd_ctx) > 0){
+        if (mpd_cmp(price, market->last, &mpd_ctx) > 0) {
             node = skiplist_next(iter);
             continue;
         }
@@ -566,7 +566,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         if (mpd_cmp(r, mpd_zero, &mpd_ctx) != 0) {
             mpd_add(price, price, interval, &mpd_ctx);
         }
-        if(mpd_cmp(price, market->last, &mpd_ctx) < 0){
+        if (mpd_cmp(price, market->last, &mpd_ctx) < 0) {
             node = skiplist_next(iter);
             continue;
         }
@@ -603,7 +603,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         order_t *order = node->value;
         mpd_divmod(q, r, order->price, interval, &mpd_ctx);
         mpd_mul(price, q, interval, &mpd_ctx);
-        if(mpd_cmp(price, market->last, &mpd_ctx) > 0){
+        if (mpd_cmp(price, market->last, &mpd_ctx) > 0) {
             node = skiplist_next(iter);
             continue;
         }
