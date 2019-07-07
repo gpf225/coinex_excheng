@@ -1039,19 +1039,24 @@ static int on_cmd_call_auction_execute(nw_ses *ses, rpc_pkg *pkg, json_t *params
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     market->call_auction = false;
-    int ret = execute_call_auction_order(true, market);
+    mpd_t *volume = mpd_qncopy(mpd_zero);
+    int ret = execute_call_auction_order(true, market, volume);
     if(ret < 0) {
         log_fatal("execute_call_auction_order fail: %d", ret);
+        mpd_del(volume);
         return rpc_reply_error_internal_error(ses, pkg);
     }
     json_t *result = json_object();
     if(ret == 0){
         json_object_set_new_mpd(result, "price", market->last);
+        json_object_set_new_mpd(result, "volume", volume);
     } else {
         json_object_set_new_mpd(result, "price", mpd_zero);
+        json_object_set_new_mpd(result, "volume", mpd_zero);
     }
     ret = rpc_reply_result(ses, pkg, result);
     push_operlog("call.execute", params);
+    mpd_del(volume);
     json_decref(result);
     return ret;
 }

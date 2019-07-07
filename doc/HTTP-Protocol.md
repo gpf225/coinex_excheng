@@ -845,15 +845,17 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `call.execute`
 * params:
 1. market: market name, String
-* result: if price == '0' need to self deal
-
+* result: 
+1. price: string, if price == '0' need to self deal
+2. volume: string deal amount
 	```
 		request: ["BTCUSDT"]
 		response:
     		{
     			"id": 1562296842,
     			"result": {
-    				"price": "3.6500000"
+    				"price": "3.6500000",
+					"volume": "12.00"
     			},
     			"error": null
     		}

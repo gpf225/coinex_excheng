@@ -366,24 +366,6 @@ static int frozen_order(market_t *m, order_t *order)
     return 0;
 }
 
-static int unfrozen_order(market_t *m, order_t *order)
-{
-    if (order->side == MARKET_ORDER_SIDE_ASK) {
-        if (mpd_cmp(order->frozen, mpd_zero, &mpd_ctx) > 0) {
-            if (balance_unfreeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->stock, order->frozen) == NULL)
-                return -__LINE__;
-            balance_reset(order->user_id, order->account, m->stock);
-        }
-    } else {
-        if (mpd_cmp(order->frozen, mpd_zero, &mpd_ctx) > 0) {
-            if (balance_unfreeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->money, order->frozen) == NULL)
-                return -__LINE__;
-            balance_reset(order->user_id, order->account, m->money);
-        }
-    }
-    return 0;
-}
-
 static int put_order(market_t *m, order_t *order)
 {
     if (order->type != MARKET_ORDER_TYPE_LIMIT)
@@ -425,10 +407,20 @@ static int finish_order(bool real, market_t *m, order_t *order)
         if (node) {
             skiplist_delete(m->asks, node);
         }
+        if (mpd_cmp(order->frozen, mpd_zero, &mpd_ctx) > 0) {
+            if (balance_unfreeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->stock, order->frozen) == NULL)
+                return -__LINE__;
+            balance_reset(order->user_id, order->account, m->stock);
+        }
     } else {
         skiplist_node *node = skiplist_find(m->bids, order);
         if (node) {
             skiplist_delete(m->bids, node);
+        }
+        if (mpd_cmp(order->frozen, mpd_zero, &mpd_ctx) > 0) {
+            if (balance_unfreeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->money, order->frozen) == NULL)
+                return -__LINE__;
+            balance_reset(order->user_id, order->account, m->money);
         }
     }
 
@@ -831,9 +823,6 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
 
         // calculate deal price
         order_t *maker = node->value;
-        if(maker->call_auction)
-            continue;
-
         if (mpd_cmp(taker->price, maker->price, &mpd_ctx) > 0) {
             break;
         }
@@ -984,7 +973,6 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, maker, m);
             }
-            unfrozen_order(m, maker);
             finish_order(real, m, maker);
         } else {
             if (real) {
@@ -1035,9 +1023,6 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
 
         // calculate deal price
         order_t *maker = node->value;
-        if(maker->call_auction)
-            continue;
-
         if (mpd_cmp(taker->price, maker->price, &mpd_ctx) < 0) {
             break;
         }
@@ -1189,7 +1174,6 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, maker, m);
             }
-            unfrozen_order(m, maker);
             finish_order(real, m, maker);
         } else {
             if (real) {
@@ -1434,33 +1418,19 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     }
 
     int ret;
-    if(m->call_auction){
-        order->call_auction = true;
-        ret = put_order(m, order);
-        if (ret < 0) {
-            log_fatal("put_order fail: %d, order: %"PRIu64"", ret, order->id);
-        } else if (real) {
-            profile_inc("put_order", 1);
-            push_order_message(ORDER_EVENT_PUT, order, m);
-            if (result) {
-                *result = get_order_info(order);
-            }
+    if (!m->call_auction) {
+        if (side == MARKET_ORDER_SIDE_ASK) {
+            ret = execute_limit_ask_order(real, m, order);
+            balance_reset(user_id, account, m->stock);
+        } else {
+            ret = execute_limit_bid_order(real, m, order);
+            balance_reset(user_id, account, m->money);
         }
-        calc_call_auction_basic_price(m);
-        return ret;
-    }
-
-    if (side == MARKET_ORDER_SIDE_ASK) {
-        ret = execute_limit_ask_order(real, m, order);
-        balance_reset(user_id, account, m->stock);
-    } else {
-        ret = execute_limit_bid_order(real, m, order);
-        balance_reset(user_id, account, m->money);
-    }
-    if (ret < 0) {
-        log_error("execute order: %"PRIu64" fail: %d", order->id, ret);
-        order_free(order);
-        return -__LINE__;
+        if (ret < 0) {
+            log_error("execute order: %"PRIu64" fail: %d", order->id, ret);
+            order_free(order);
+            return -__LINE__;
+        }
     }
 
     if (mpd_cmp(order->left, mpd_zero, &mpd_ctx) == 0) {
@@ -1481,7 +1451,6 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         ret = frozen_order(m, order);
         if (ret < 0) {
             log_fatal("frozen_order fail: %d", ret);
-            unfrozen_order(m, order);
             finish_order(real, m, order);
         } else {
             ret = put_order(m, order);
@@ -1494,6 +1463,9 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
                     *result = get_order_info(order);
                 }
             }
+        }
+        if (m->call_auction && ret == 0) {
+            calc_call_auction_basic_price(m);
         }
     }
 
@@ -1682,7 +1654,6 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, maker, m);
             }
-            unfrozen_order(m, maker);
             finish_order(real, m, maker);
         } else {
             if (real) {
@@ -1883,7 +1854,6 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, maker, m);
             }
-            unfrozen_order(m, maker);
             finish_order(real, m, maker);
         } else {
             if (real) {
@@ -2355,8 +2325,6 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
         push_order_message(ORDER_EVENT_FINISH, order, m);
         *result = get_order_info(order);
     }
-    if(!m->call_auction)
-        unfrozen_order(m, order);
     return finish_order(real, m, order);
 }
 
@@ -2373,14 +2341,6 @@ int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market
         order_t *order = node->value;
         if (real) {
             push_order_message(ORDER_EVENT_FINISH, order, m);
-        }
-        if(!m->call_auction){
-            ret = unfrozen_order(m, order);
-            if (ret < 0) {
-                log_fatal("unfrozen order: %"PRIu64" fail: %d", order->id, ret);
-                skiplist_release_iterator(iter);
-                return ret;
-            }
         }
 
         ret = finish_order(real, m, order);
@@ -2621,37 +2581,206 @@ int market_set_reader()
     return 0;
 }
 
-int execute_call_auction_order(bool real, market_t *m)
+int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order_t *bid, mpd_t* price, mpd_t* amount, uint64_t taker_id)
+{
+    if (mpd_cmp(ask->left, amount, &mpd_ctx) < 0 || mpd_cmp(bid->left, amount, &mpd_ctx) < 0) {
+        return 0;
+    }
+
+    mpd_t *deal     = mpd_new(&mpd_ctx);
+    mpd_t *ask_fee  = mpd_new(&mpd_ctx);
+    mpd_t *bid_fee  = mpd_new(&mpd_ctx);
+    mpd_t *result   = mpd_new(&mpd_ctx);
+
+    mpd_t *ask_role_trade_fee = mpd_new(&mpd_ctx);
+    mpd_t *bid_role_trade_fee = mpd_new(&mpd_ctx);
+
+    int ask_role = 0;
+    int bid_role = 0;
+    int market_side = 0;
+    if (ask->id == taker_id) {
+        ask_role = MARKET_ROLE_TAKER;
+        bid_role = MARKET_ROLE_MAKER;
+        market_side = MARKET_TRADE_SIDE_SELL;
+        mpd_copy(ask_role_trade_fee, ask->taker_fee, &mpd_ctx);
+        mpd_copy(bid_role_trade_fee, bid->maker_fee, &mpd_ctx);
+    } else {
+        ask_role = MARKET_ROLE_MAKER;
+        bid_role = MARKET_ROLE_TAKER;
+        market_side = MARKET_TRADE_SIDE_SELL;
+        mpd_copy(ask_role_trade_fee, ask->maker_fee, &mpd_ctx);
+        mpd_copy(bid_role_trade_fee, bid->taker_fee, &mpd_ctx);
+    }
+
+    uint32_t ask_fee_account = 0;
+    uint32_t bid_fee_account = 0;
+
+    const char *ask_fee_asset = NULL;
+    const char *bid_fee_asset = NULL;
+
+    bool ask_use_stock_fee_option = (ask->option & 0x1) ? true : false;
+    bool bid_use_money_fee_option = (bid->option & 0x2) ? true : false;
+
+    mpd_mul(deal, price, amount, &mpd_ctx);
+    ask->fee_price = get_fee_price(m, ask->fee_asset);
+    if (ask->fee_asset != NULL && ask->fee_price != NULL && mpd_cmp(ask->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        uint32_t fee_account = ask->account;
+        if (strcmp(ask->fee_asset, SYSTEM_FEE_TOKEN) == 0) {
+            fee_account = 0;
+        }
+        mpd_mul(result, deal, ask_role_trade_fee, &mpd_ctx);
+        mpd_div(result, result, ask->fee_price, &mpd_ctx);
+        mpd_mul(result, result, ask->fee_discount, &mpd_ctx);
+        mpd_rescale(result, result, -asset_prec_save(fee_account, ask->fee_asset), &mpd_ctx);
+        mpd_t *fee_balance = balance_get(ask->user_id, fee_account, BALANCE_TYPE_AVAILABLE, ask->fee_asset);
+        if (fee_balance && mpd_cmp(fee_balance, result, &mpd_ctx) >= 0) {
+            ask_fee_asset = ask->fee_asset;
+            ask_fee_account = fee_account;
+            mpd_copy(ask_fee, result, &mpd_ctx);
+        }
+    }
+
+    bool ask_use_stock_fee = false;
+    if (ask_fee_asset == NULL) {
+        if (ask_use_stock_fee_option) {
+            ask_use_stock_fee = true;
+            ask_fee_asset = m->stock;
+            ask_fee_account = ask->account;
+            mpd_mul(ask_fee, amount, ask_role_trade_fee, &mpd_ctx);
+        } else {
+            ask_fee_asset = m->money;
+            ask_fee_account = ask->account;
+            mpd_mul(ask_fee, deal, ask_role_trade_fee, &mpd_ctx);
+        }
+    }
+
+    bid->fee_price = get_fee_price(m, bid->fee_asset);
+    if (bid->fee_asset != NULL && bid->fee_price != NULL && mpd_cmp(bid->fee_price, mpd_zero, &mpd_ctx) > 0) {
+        uint32_t fee_account = bid->account;
+        if (strcmp(bid->fee_asset, SYSTEM_FEE_TOKEN) == 0) {
+            fee_account = 0;
+        }
+        mpd_mul(result, deal, bid_role_trade_fee, &mpd_ctx);
+        mpd_div(result, result, bid->fee_price, &mpd_ctx);
+        mpd_mul(result, result, bid->fee_discount, &mpd_ctx);
+        mpd_rescale(result, result, -asset_prec_save(fee_account, bid->fee_asset), &mpd_ctx);
+        mpd_t *fee_balance = balance_get(bid->user_id, fee_account, BALANCE_TYPE_AVAILABLE, bid->fee_asset);
+        if (fee_balance && mpd_cmp(fee_balance, result, &mpd_ctx) >= 0) {
+            bid_fee_asset = bid->fee_asset;
+            bid_fee_account = fee_account;
+            mpd_copy(bid_fee, result, &mpd_ctx);
+        }
+    }
+    bool bid_use_money_fee = false;
+    if (bid_fee_asset == NULL) {
+        if (bid_use_money_fee_option) {
+            bid_use_money_fee = true;
+            bid_fee_asset = m->money;
+            bid_fee_account = bid->account;
+            mpd_mul(bid_fee, deal, bid_role_trade_fee, &mpd_ctx);
+        } else {
+            bid_fee_asset = m->stock;
+            bid_fee_account = bid->account;
+            mpd_mul(bid_fee, amount, bid_role_trade_fee, &mpd_ctx);
+        }
+    }
+
+    ask->update_time = bid->update_time = current_timestamp();
+    uint64_t deal_id = ++deals_id_start;
+    if (real) {
+        append_deal_history(ask->update_time, deal_id, ask, ask_role, bid, bid_role,
+            price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);
+        push_deal_message(ask->update_time, deal_id, m, market_side,
+            ask, bid, price, amount, deal, ask_fee_asset, ask_fee, bid_fee_asset, bid_fee);
+    }
+
+    mpd_sub(ask->left, ask->left, amount, &mpd_ctx);
+    mpd_sub(ask->frozen, ask->frozen, amount, &mpd_ctx);
+    mpd_add(ask->deal_stock, ask->deal_stock, amount, &mpd_ctx);
+    mpd_add(ask->deal_money, ask->deal_money, deal, &mpd_ctx);
+    if (ask_fee_asset == ask->fee_asset) {
+        mpd_add(ask->asset_fee, ask->asset_fee, ask_fee, &mpd_ctx);
+    } else {
+        mpd_add(ask->deal_fee, ask->deal_fee, ask_fee, &mpd_ctx);
+    }
+
+    balance_sub(ask->user_id, ask->account, BALANCE_TYPE_FROZEN, m->stock, amount);
+    if (real) {
+        append_balance_trade_sub(ask, m->stock, amount, price, amount);
+    }
+
+    balance_add(ask->user_id, ask->account, BALANCE_TYPE_AVAILABLE, m->money, deal);
+    if (real) {
+        append_balance_trade_add(ask, m->money, deal, price, amount);
+    }
+
+    if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
+        if(ask_use_stock_fee) {
+            mpd_sub(ask->frozen, ask->frozen, ask_fee, &mpd_ctx);
+            balance_sub(ask->user_id, ask->account, BALANCE_TYPE_FROZEN, m->stock, ask_fee);
+        } else {
+            balance_sub(ask->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
+        }
+
+        if (real) {
+            append_balance_trade_fee(ask, ask_fee_account, ask_fee_asset, ask_fee, price, amount, ask_role_trade_fee);
+        }
+    }
+
+    mpd_sub(bid->left, bid->left, amount, &mpd_ctx);
+    mpd_sub(bid->frozen, bid->frozen, deal, &mpd_ctx);
+    mpd_add(bid->deal_stock, bid->deal_stock, amount, &mpd_ctx);
+    mpd_add(bid->deal_money, bid->deal_money, deal, &mpd_ctx);
+    if (bid_fee_asset == bid->fee_asset) {
+        mpd_add(bid->asset_fee, bid->asset_fee, bid_fee, &mpd_ctx);
+    } else {
+        mpd_add(bid->deal_fee, bid->deal_fee, bid_fee, &mpd_ctx);
+    }
+
+    balance_sub(bid->user_id, bid->account, BALANCE_TYPE_FROZEN, m->money, deal);
+    if (real) {
+        append_balance_trade_sub(bid, m->money, deal, price, amount);
+    }
+    balance_add(bid->user_id, bid->account, BALANCE_TYPE_AVAILABLE, m->stock, amount);
+    if (real) {
+        append_balance_trade_add(bid, m->stock, amount, price, amount);
+    }
+
+    if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
+        if (bid_use_money_fee) {
+            mpd_sub(bid->frozen, bid->frozen, bid_fee, &mpd_ctx);
+            balance_sub(bid->user_id, bid->account, BALANCE_TYPE_FROZEN, m->money, bid_fee);
+        } else {
+            balance_sub(bid->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
+        }
+
+        if (real) {
+            append_balance_trade_fee(bid, bid_fee_account, bid_fee_asset, bid_fee, price, amount, bid_role_trade_fee);
+        }
+    }
+
+    mpd_del(deal);
+    mpd_del(ask_fee);
+    mpd_del(bid_fee);
+    mpd_del(result);
+    mpd_del(ask_role_trade_fee);
+    mpd_del(bid_role_trade_fee);
+
+    return 0;
+}
+
+int execute_call_auction_order(bool real, market_t *m, mpd_t *volume)
 {
     int ret = calc_call_auction_basic_price(m);
-    list_type lt;
-    memset(&lt, 0, sizeof(lt));
 
-    list_t *ask_order_list = list_create(&lt);
-    list_t *bid_order_list = list_create(&lt);
-
-    skiplist_node *node;
-    skiplist_iter *iter = skiplist_get_iterator(m->asks);
-    while ((node = skiplist_next(iter)) != NULL) {
-        order_t *order = node->value;
-        list_add_node_tail(ask_order_list, order);
-    }
-
-    iter = skiplist_get_iterator(m->bids);
-    while ((node = skiplist_next(iter)) != NULL) {
-        order_t *order = node->value;
-        list_add_node_tail(bid_order_list, order);
-    }
-    skiplist_release_iterator(iter);
-
-    list_iter *ask_iter = list_get_iterator(ask_order_list, LIST_START_HEAD);
-    list_node *ask_node = list_next(ask_iter);
-
-    list_iter *bid_iter = list_get_iterator(bid_order_list, LIST_START_HEAD);
-    list_node *bid_node = list_next(bid_iter);
+    skiplist_iter *ask_iter = skiplist_get_iterator(m->asks);
+    skiplist_iter *bid_iter = skiplist_get_iterator(m->bids);
+    skiplist_node *ask_node = skiplist_next(ask_iter);
+    skiplist_node *bid_node = skiplist_next(bid_iter);
+    mpd_t *deal_amount = mpd_qncopy(mpd_zero);
+    mpd_t *deal_volume = mpd_qncopy(mpd_zero);
     order_t *ask_order;
     order_t *bid_order;
-    mpd_t *deal_amount = mpd_qncopy(mpd_zero);
 
     while ((ask_node) != NULL && (bid_node) != NULL) {
         ask_order = ask_node->value;
@@ -2660,84 +2789,48 @@ int execute_call_auction_order(bool real, market_t *m)
             break;
         }
 
-        if (mpd_cmp(ask_order->amount, bid_order->amount, &mpd_ctx) > 0) {
-            mpd_copy(deal_amount, bid_order->amount, &mpd_ctx);
-            mpd_sub(ask_order->amount, ask_order->amount, deal_amount, &mpd_ctx);
-            mpd_sub(bid_order->amount, bid_order->amount, deal_amount, &mpd_ctx);
-            bid_node = list_next(bid_iter);
-        } else if (mpd_cmp(bid_order->amount, ask_order->amount, &mpd_ctx) > 0) {
-            mpd_copy(deal_amount, ask_order->amount, &mpd_ctx);
-            mpd_sub(ask_order->amount, ask_order->amount, deal_amount, &mpd_ctx);
-            mpd_sub(bid_order->amount, bid_order->amount, deal_amount, &mpd_ctx);
-            ask_node = list_next(bid_iter);
+        if (mpd_cmp(ask_order->left, bid_order->left, &mpd_ctx) > 0) {
+            mpd_copy(deal_amount, bid_order->left, &mpd_ctx);
+            bid_node = skiplist_next(bid_iter);
+        } else if (mpd_cmp(ask_order->left, bid_order->left, &mpd_ctx) < 0) {
+            mpd_copy(deal_amount, ask_order->left, &mpd_ctx);
+            ask_node = skiplist_next(ask_iter);
         } else {
-            mpd_copy(deal_amount, ask_order->amount, &mpd_ctx);
-            mpd_sub(ask_order->amount, ask_order->amount, deal_amount, &mpd_ctx);
-            mpd_sub(bid_order->amount, bid_order->amount, deal_amount, &mpd_ctx);
-            bid_node = list_next(bid_iter);
-            ask_node = list_next(bid_iter);
+            mpd_copy(deal_amount, ask_order->left, &mpd_ctx);
+            bid_node = skiplist_next(bid_iter);
+            ask_node = skiplist_next(ask_iter);
         }
 
+        uint64_t taker_id = 0;
         if (ask_order->create_time <= bid_order->create_time) {
-            market_put_limit_order(real, NULL, m, ask_order->user_id,
-                ask_order->account, ask_order->side, deal_amount, m->last,
-                ask_order->taker_fee, ask_order->maker_fee, ask_order->source,
-                ask_order->fee_asset, ask_order->fee_discount, ask_order->option);
-
-            market_put_limit_order(real, NULL, m, bid_order->user_id,
-                bid_order->account, bid_order->side, deal_amount, m->last,
-                bid_order->taker_fee, bid_order->maker_fee, bid_order->source,
-                bid_order->fee_asset, bid_order->fee_discount, bid_order->option);
+            taker_id = ask_order->id;
         } else {
-            market_put_limit_order(real, NULL, m, bid_order->user_id,
-                bid_order->account, bid_order->side, deal_amount, m->last,
-                bid_order->taker_fee, bid_order->maker_fee, bid_order->source,
-                bid_order->fee_asset, bid_order->fee_discount, bid_order->option);
-
-            market_put_limit_order(real, NULL, m, ask_order->user_id,
-                ask_order->account, ask_order->side, deal_amount, m->last,
-                ask_order->taker_fee, ask_order->maker_fee, ask_order->source,
-                ask_order->fee_asset, ask_order->fee_discount, ask_order->option);
+            taker_id = bid_order->id;
         }
+        execute_ask_bid_order_with_price(real, m, ask_order, bid_order, m->last, deal_amount, taker_id);
+        if (mpd_cmp(ask_order->left, mpd_zero, &mpd_ctx) == 0) {
+            if (real) {
+                push_order_message(ORDER_EVENT_FINISH, ask_order, m);
+            }
+            finish_order(real, m, ask_order);
+        }
+
+        if (mpd_cmp(bid_order->left, mpd_zero, &mpd_ctx) == 0) {
+            if (real) {
+                push_order_message(ORDER_EVENT_FINISH, bid_order, m);
+            }
+            finish_order(real, m, bid_order);
+        }
+        mpd_add(deal_volume, deal_volume, deal_amount, &mpd_ctx);
+    }
+
+    if (real) {
+        mpd_copy(volume, deal_volume, &mpd_ctx);
     }
     mpd_del(deal_amount);
-
-    ask_iter = list_reset_iterator(ask_order_list, ask_iter);
-    while ((ask_node = list_next(ask_iter)) != NULL) {
-        ask_order = ask_node->value;
-        if (mpd_cmp(ask_order->amount, mpd_zero, &mpd_ctx) > 0) {
-            market_put_limit_order(real, NULL, m, ask_order->user_id,
-                ask_order->account, ask_order->side, ask_order->amount, ask_order->price,
-                ask_order->taker_fee, ask_order->maker_fee, ask_order->source,
-                ask_order->fee_asset, ask_order->fee_discount, ask_order->option);
-        }
-
-        if (real) {
-            push_order_message(ORDER_EVENT_FINISH, ask_order, m);
-        }
-        finish_order(real, m, ask_order);
-    }
-
-    bid_iter = list_reset_iterator(bid_order_list, bid_iter);
-    while ((bid_node = list_next(bid_iter)) != NULL) {
-        bid_order = bid_node->value;
-        if (mpd_cmp(bid_order->amount, mpd_zero, &mpd_ctx) > 0) {
-            market_put_limit_order(real, NULL, m, bid_order->user_id,
-                bid_order->account, bid_order->side, bid_order->amount, bid_order->price,
-                bid_order->taker_fee, bid_order->maker_fee, bid_order->source,
-                bid_order->fee_asset, bid_order->fee_discount, bid_order->option);
-        }
-
-        if (real) {
-            push_order_message(ORDER_EVENT_FINISH, bid_order, m);
-        }
-        finish_order(real, m, bid_order);
-    }
-
-    list_release_iterator(ask_iter);
-    list_release_iterator(bid_iter);
-    list_release(ask_order_list);
-    list_release(bid_order_list);
+    mpd_del(deal_volume);
+    skiplist_release_iterator(ask_iter);
+    skiplist_release_iterator(bid_iter);
 
     return ret;
 }

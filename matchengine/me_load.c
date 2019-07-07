@@ -1144,7 +1144,7 @@ static int load_call_auction_execute(json_t *params)
     if (market == NULL)
         return __LINE__;
     market->call_auction = false;
-    execute_call_auction_order(false, market);
+    execute_call_auction_order(false, market, NULL);
     return 0;
 }
 

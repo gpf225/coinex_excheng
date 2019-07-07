@@ -126,7 +126,7 @@ int market_set_reader();
 json_t *market_get_fini_order(uint64_t order_id);
 json_t *market_get_summary(market_t *m);
 
-int execute_call_auction_order(bool real, market_t *m);
+int execute_call_auction_order(bool real, market_t *m, mpd_t *volume);
 
 # endif
 
