@@ -2350,7 +2350,11 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
         push_order_message(ORDER_EVENT_FINISH, order, m);
         *result = get_order_info(order);
     }
-    return finish_order(real, m, order);
+    int ret = finish_order(real, m, order);
+    if (ret == 0 && m->call_auction) {
+        calc_call_auction_basic_price(m);
+    }
+    return ret;
 }
 
 int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market_t *m)
@@ -2376,6 +2380,9 @@ int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market
         }
     }
     skiplist_release_iterator(iter);
+    if (m->call_auction) {
+        calc_call_auction_basic_price(m);
+    }
 
     return ret;
 }
