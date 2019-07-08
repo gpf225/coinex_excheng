@@ -2630,10 +2630,6 @@ int market_set_reader()
 
 int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order_t *bid, mpd_t* price, mpd_t* amount, uint64_t taker_id)
 {
-    if (mpd_cmp(ask->left, amount, &mpd_ctx) < 0 || mpd_cmp(bid->left, amount, &mpd_ctx) < 0) {
-        return 0;
-    }
-
     mpd_t *deal     = mpd_new(&mpd_ctx);
     mpd_t *ask_fee  = mpd_new(&mpd_ctx);
     mpd_t *bid_fee  = mpd_new(&mpd_ctx);
@@ -2852,7 +2848,7 @@ int execute_call_auction_order(bool real, market_t *m, mpd_t *volume)
         }
 
         uint64_t taker_id = 0;
-        if (ask_order->create_time <= bid_order->create_time) {
+        if (ask_order->create_time >= bid_order->create_time) {
             taker_id = ask_order->id;
         } else {
             taker_id = bid_order->id;
