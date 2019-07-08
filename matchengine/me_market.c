@@ -1287,9 +1287,7 @@ static int calc_call_auction_basic_price(market_t *m)
         if (mpd_cmp(ask_order->price, bid_order->price, &mpd_ctx) == 0) {
             mpd_copy(basic_price, bid_order->price, &mpd_ctx);
         } else {
-            mpd_copy(basic_price, mpd_zero, &mpd_ctx);
-            mpd_add(basic_price, basic_price, ask_order->price, &mpd_ctx);
-            mpd_add(basic_price, basic_price, bid_order->price, &mpd_ctx);
+            mpd_add(basic_price, bid_order->price, ask_order->price, &mpd_ctx);
             mpd_div(basic_price, basic_price, mpd_two, &mpd_ctx);
             mpd_rescale(basic_price, basic_price, -m->money_prec, &mpd_ctx);
         }
