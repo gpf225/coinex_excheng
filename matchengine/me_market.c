@@ -2655,7 +2655,7 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
     } else {
         ask_role = MARKET_ROLE_MAKER;
         bid_role = MARKET_ROLE_TAKER;
-        market_side = MARKET_TRADE_SIDE_SELL;
+        market_side = MARKET_TRADE_SIDE_BUY;
         mpd_copy(ask_role_trade_fee, ask->maker_fee, &mpd_ctx);
         mpd_copy(bid_role_trade_fee, bid->taker_fee, &mpd_ctx);
     }
