@@ -1254,6 +1254,8 @@ static int calc_call_auction_basic_price(market_t *m)
 
     mpd_t *ask_amount = mpd_qncopy(mpd_zero);
     mpd_t *bid_amount = mpd_qncopy(mpd_zero);
+    mpd_t *mpd_two = mpd_new(&mpd_ctx);
+    mpd_set_string(mpd_two, "2", &mpd_ctx);
 
     while (ask_node != NULL && bid_node != NULL) {
         order_t *ask_order = ask_node->value;
@@ -1281,7 +1283,16 @@ static int calc_call_auction_basic_price(market_t *m)
             mpd_copy(bid_amount, mpd_zero, &mpd_ctx);
             mpd_copy(ask_amount, mpd_zero, &mpd_ctx);
         }
-        mpd_copy(basic_price, bid_order->price, &mpd_ctx);
+
+        if (mpd_cmp(ask_order->price, bid_order->price, &mpd_ctx) == 0) {
+            mpd_copy(basic_price, bid_order->price, &mpd_ctx);
+        } else {
+            mpd_copy(basic_price, mpd_zero, &mpd_ctx);
+            mpd_add(basic_price, basic_price, ask_order->price, &mpd_ctx);
+            mpd_add(basic_price, basic_price, bid_order->price, &mpd_ctx);
+            mpd_div(basic_price, basic_price, mpd_two, &mpd_ctx);
+            mpd_rescale(basic_price, basic_price, -m->money_prec, &mpd_ctx);
+        }
     }
     skiplist_release_iterator(ask_iter);
     skiplist_release_iterator(bid_iter);
@@ -1297,16 +1308,13 @@ static int calc_call_auction_basic_price(market_t *m)
         node = skiplist_header(m->bids);
         order = node->value;
         mpd_add(basic_price, basic_price, order->price, &mpd_ctx);
-
-        mpd_t *mpd_two = mpd_new(&mpd_ctx);
-        mpd_set_string(mpd_two, "2", &mpd_ctx);
         mpd_div(basic_price, basic_price, mpd_two, &mpd_ctx);
-        mpd_del(mpd_two);
         mpd_rescale(basic_price, basic_price, -m->money_prec, &mpd_ctx);
         ret = 1;
     }
     mpd_copy(m->last, basic_price, &mpd_ctx);
     mpd_del(basic_price);
+    mpd_del(mpd_two);
 
     return ret;
 }
@@ -2822,7 +2830,7 @@ int execute_call_auction_order(bool real, market_t *m, mpd_t *volume)
     order_t *ask_order;
     order_t *bid_order;
 
-    while ((ask_node) != NULL && (bid_node) != NULL) {
+    while (ask_node != NULL && bid_node != NULL) {
         ask_order = ask_node->value;
         bid_order = bid_node->value;
         if (mpd_cmp(ask_order->price, m->last, &mpd_ctx) > 0 || mpd_cmp(bid_order->price, m->last, &mpd_ctx) < 0) {
