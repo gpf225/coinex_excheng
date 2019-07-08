@@ -1472,9 +1472,10 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
                 }
             }
         }
-        if (m->call_auction && ret == 0) {
-            calc_call_auction_basic_price(m);
-        }
+    }
+
+    if (m->call_auction && ret == 0) {
+        calc_call_auction_basic_price(m);
     }
 
     if (mpd_cmp(m->last, pre_last, &mpd_ctx) < 0) {
