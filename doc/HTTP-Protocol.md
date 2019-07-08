@@ -829,17 +829,17 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 1. market: market name, String
 * result:
 
-	```
-		request: ["BTCUSDT"]
-		response:
-			{
-    			"id": 1562296842,
-    			"result": {
-    				"status": "success"
-    			},
-    			"error": null
-    		}
-	```
+```
+request: ["BTCUSDT"]
+response:
+	{
+		"id": 1562296842,
+		"result": {
+			"status": "success"
+		},
+		"error": null
+	}
+```
 
 **call auction execute**
 * method: `call.execute`
@@ -848,18 +848,18 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * result: 
 1. price: string, if price == '0' need to self deal
 2. volume: string deal amount
-	```
-		request: ["BTCUSDT"]
-		response:
-    		{
-    			"id": 1562296842,
-    			"result": {
-    				"price": "3.6500000",
-					"volume": "12.00"
-    			},
-    			"error": null
-    		}
-	```
+```
+request: ["BTCUSDT"]
+response:
+	{
+		"id": 1562296842,
+		"result": {
+			"price": "3.6500000",
+			"volume": "12.00"
+		},
+		"error": null
+	}
+```
 
 ## Market API
 
