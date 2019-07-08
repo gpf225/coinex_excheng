@@ -1390,7 +1390,6 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     order->deal_fee     = mpd_new(&mpd_ctx);
     order->asset_fee    = mpd_new(&mpd_ctx);
     order->fee_discount = mpd_new(&mpd_ctx);
-    order->call_auction = false;
     mpd_copy(order->price, price, &mpd_ctx);
     mpd_copy(order->amount, amount, &mpd_ctx);
     mpd_copy(order->taker_fee, taker_fee, &mpd_ctx);

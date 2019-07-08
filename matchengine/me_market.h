@@ -47,7 +47,6 @@ typedef struct order_t {
     char            *market;
     char            *source;
     char            *fee_asset;
-    bool            call_auction;
     mpd_t           *fee_discount;
     mpd_t           *price;
     mpd_t           *amount;
