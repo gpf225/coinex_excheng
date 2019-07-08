@@ -1132,7 +1132,8 @@ static int load_call_auction_start(json_t *params)
     const char *market_name = json_string_value(json_array_get(params, 0));
     market_t *market = get_market(market_name);
     if (market == NULL)
-        return __LINE__;
+        return 0;
+
     market->call_auction = true;
     return 0;
 }
@@ -1148,7 +1149,8 @@ static int load_call_auction_execute(json_t *params)
     const char *market_name = json_string_value(json_array_get(params, 0));
     market_t *market = get_market(market_name);
     if (market == NULL)
-        return __LINE__;
+        return 0;
+
     market->call_auction = false;
     execute_call_auction_order(false, market, NULL);
     return 0;
