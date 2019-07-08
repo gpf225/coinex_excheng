@@ -512,7 +512,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `order.stop_book`
 * params:
 1. market:
-2. side: side, 1：sell, 2：buy
+2. state:  1：low, 2: high
 3. offset:
 4. limit:
 * result:

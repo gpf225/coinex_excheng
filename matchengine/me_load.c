@@ -154,6 +154,12 @@ int load_stops(MYSQL *conn, const char *table)
             stop->maker_fee     = decimal(row[15], market->fee_prec);
             stop->option        = strtoul(row[16], NULL, 0);
 
+            if (mpd_cmp(stop->stop_price, market->last, &mpd_ctx) < 0) {
+                stop->state = STOP_STATE_LOW;
+            } else {
+                stop->state = STOP_STATE_HIGH;
+            }
+
             if (!stop->market || !stop->source || !stop->stop_price || !stop->price || !stop->amount || !stop->taker_fee || !stop->maker_fee) {
                 log_error("get stop detail of stop id: %"PRIu64" fail", stop->id);
                 mysql_free_result(result);

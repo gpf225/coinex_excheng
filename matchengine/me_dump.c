@@ -105,14 +105,14 @@ int dump_stops(MYSQL *conn, const char *table)
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
         market_t *market = entry->val;
-        int ret = dump_stops_list(conn, table, market->stop_asks);
+        int ret = dump_stops_list(conn, table, market->stop_high);
         if (ret < 0) {
-            log_error("dump market: %s asks stops list fail: %d", market->name, ret);
+            log_error("dump market: %s high stops list fail: %d", market->name, ret);
             return -__LINE__;
         }
-        ret = dump_stops_list(conn, table, market->stop_bids);
+        ret = dump_stops_list(conn, table, market->stop_low);
         if (ret < 0) {
-            log_error("dump market: %s bids stops list fail: %d", market->name, ret);
+            log_error("dump market: %s low stops list fail: %d", market->name, ret);
             return -__LINE__;
         }
     }
