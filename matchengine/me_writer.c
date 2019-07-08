@@ -1041,11 +1041,6 @@ static int on_cmd_call_auction_execute(nw_ses *ses, rpc_pkg *pkg, json_t *params
     market->call_auction = false;
     mpd_t *volume = mpd_qncopy(mpd_zero);
     int ret = execute_call_auction_order(true, market, volume);
-    if(ret < 0) {
-        log_fatal("execute_call_auction_order fail: %d", ret);
-        mpd_del(volume);
-        return rpc_reply_error_internal_error(ses, pkg);
-    }
     json_t *result = json_object();
     if(ret == 0){
         json_object_set_new_mpd(result, "price", market->last);

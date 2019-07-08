@@ -2819,6 +2819,9 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
 int execute_call_auction_order(bool real, market_t *m, mpd_t *volume)
 {
     int ret = calc_call_auction_basic_price(m);
+    if (ret != 0) {
+        return ret;
+    }
 
     skiplist_iter *ask_iter = skiplist_get_iterator(m->asks);
     skiplist_iter *bid_iter = skiplist_get_iterator(m->bids);
