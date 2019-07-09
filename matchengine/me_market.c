@@ -612,6 +612,8 @@ market_t *market_create(json_t *conf)
     m->min_amount       = min_amount;
     m->last             = mpd_qncopy(mpd_zero);
     m->call_auction     = false;
+    m->last_calc_time   = 0;
+
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.hash_function    = uint32_dict_hash_func;
@@ -1227,12 +1229,11 @@ static bool check_total_fee_asset(mpd_t *amount, mpd_t *balance, mpd_t *fee, mpd
 
 static int calc_call_auction_basic_price(market_t *m, bool force_calc)
 {
-    static time_t last_calc_time = 0;
-    time_t now = time(NULL);
-    if (!force_calc && last_calc_time != 0 && last_calc_time > now) {
+    double now = current_timestamp();
+    if (!force_calc && m->last_calc_time != 0 && m->last_calc_time > now) {
         return 0;
     }
-    last_calc_time = now + settings.call_auction_calc_interval;
+    m->last_calc_time = now + settings.call_auction_calc_interval;
 
     if (skiplist_len(m->asks) == 0 && skiplist_len(m->bids) == 0) {
         mpd_copy(m->last, mpd_zero, &mpd_ctx);
@@ -2826,8 +2827,15 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
     return 0;
 }
 
-int execute_call_auction_order(bool real, market_t *m, mpd_t *volume)
+int market_start_call_auction(market_t *m)
 {
+    m->call_auction = true;
+    return 0;
+}
+
+int market_execute_call_auction(bool real, market_t *m, mpd_t *volume)
+{
+    m->call_auction = false;
     int ret = calc_call_auction_basic_price(m, true);
     if (ret != 0) {
         return ret;

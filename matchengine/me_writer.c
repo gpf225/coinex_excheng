@@ -1016,8 +1016,8 @@ static int on_cmd_call_auction_start(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     market_t *market = get_market(market_name);
     if (market == NULL)
         return rpc_reply_error_invalid_argument(ses, pkg);
-    market->call_auction = true;
 
+    market_start_call_auction(market);
     push_operlog("call.start", params);
     return rpc_reply_success(ses, pkg);
 }
@@ -1038,9 +1038,8 @@ static int on_cmd_call_auction_execute(nw_ses *ses, rpc_pkg *pkg, json_t *params
     if (!market->call_auction)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
-    market->call_auction = false;
     mpd_t *volume = mpd_qncopy(mpd_zero);
-    int ret = execute_call_auction_order(true, market, volume);
+    int ret = market_execute_call_auction(true, market, volume);
     json_t *result = json_object();
     if(ret == 0){
         json_object_set_new_mpd(result, "price", market->last);

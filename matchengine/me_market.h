@@ -20,6 +20,7 @@ typedef struct market_t {
     int             fee_prec;
     int             account;
     bool            call_auction;
+    double          last_calc_time;
     mpd_t           *min_amount;
 
     dict_t          *orders;
@@ -126,7 +127,8 @@ int market_set_reader();
 json_t *market_get_fini_order(uint64_t order_id);
 json_t *market_get_summary(market_t *m);
 
-int execute_call_auction_order(bool real, market_t *m, mpd_t *volume);
+int market_start_call_auction(market_t *m);
+int market_execute_call_auction(bool real, market_t *m, mpd_t *volume);
 
 # endif
 
