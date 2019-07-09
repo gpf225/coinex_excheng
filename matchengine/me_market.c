@@ -1225,8 +1225,15 @@ static bool check_total_fee_asset(mpd_t *amount, mpd_t *balance, mpd_t *fee, mpd
     return ret >= 0;
 }
 
-static int calc_call_auction_basic_price(market_t *m)
+static int calc_call_auction_basic_price(market_t *m, bool force_calc)
 {
+    static time_t last_calc_time = 0;
+    time_t now = time(NULL);
+    if (!force_calc && last_calc_time != 0 && last_calc_time > now) {
+        return 0;
+    }
+    last_calc_time = now + settings.call_auction_calc_interval;
+
     if (skiplist_len(m->asks) == 0 && skiplist_len(m->bids) == 0) {
         mpd_copy(m->last, mpd_zero, &mpd_ctx);
         return 1;
@@ -1475,7 +1482,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     }
 
     if (m->call_auction && ret == 0) {
-        calc_call_auction_basic_price(m);
+        calc_call_auction_basic_price(m, false);
     }
 
     if (mpd_cmp(m->last, pre_last, &mpd_ctx) < 0) {
@@ -2352,7 +2359,7 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
     }
     int ret = finish_order(real, m, order);
     if (ret == 0 && m->call_auction) {
-        calc_call_auction_basic_price(m);
+        calc_call_auction_basic_price(m, false);
     }
     return ret;
 }
@@ -2381,7 +2388,7 @@ int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market
     }
     skiplist_release_iterator(iter);
     if (m->call_auction) {
-        calc_call_auction_basic_price(m);
+        calc_call_auction_basic_price(m, false);
     }
 
     return ret;
@@ -2821,7 +2828,7 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
 
 int execute_call_auction_order(bool real, market_t *m, mpd_t *volume)
 {
-    int ret = calc_call_auction_basic_price(m);
+    int ret = calc_call_auction_basic_price(m, true);
     if (ret != 0) {
         return ret;
     }

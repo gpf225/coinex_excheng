@@ -143,6 +143,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.1));
     ERR_RET_LN(read_cfg_real(root, "order_fini_keeptime", &settings.order_fini_keeptime, false, 300.0));
     ERR_RET_LN(read_cfg_real(root, "worker_timeout", &settings.worker_timeout, false, 1.0));
+    ERR_RET_LN(read_cfg_int(root, "call_auction_calc_interval", &settings.call_auction_calc_interval, false, 1));
 
     return 0;
 }
