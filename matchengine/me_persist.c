@@ -44,12 +44,16 @@ static int update_market_last(const char *market_price)
         market_t *m = get_market(key);
         if (m == NULL)
             continue;
-        mpd_t *last = decimal(json_string_value(value), 0);
+        mpd_t *last = decimal(json_string_value(json_object_get(value, "last")), 0);
         if (last) {
             mpd_copy(m->last, last, &mpd_ctx);
             mpd_del(last);
-            log_trace("market: %s last: %s", m->name, json_string_value(value));
+            log_trace("market: %s last: %s", m->name, json_string_value(json_object_get(value, "last")));
         }
+
+        json_t *call_auction = json_object_get(value, "call_auction");
+        if (json_is_boolean(call_auction))
+            m->call_auction = json_boolean_value(call_auction);
     }
     json_decref(info);
 

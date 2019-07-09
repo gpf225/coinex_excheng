@@ -209,6 +209,7 @@ General error code:
 
 ```
 "result": {
+    "last": "7500.00",
     "asks": [
         [
             "8000.00",
@@ -237,6 +238,21 @@ General error code:
 1. clean: Boolean, true: complete result，false: last returned updated result
 2. Same as depth.query，only return what's different from last result, asks 或 bids may not exist. amount == 0 for delete
 3. market name
+
+```
+"result": {
+    "asks": [
+        ["3.70000000", "6.00000000"]
+    ],
+    "bids": [
+        ["3.64000000", "4.00000000"],
+        ["3.62000000", "7.00000000"],
+        ["3.54000000", "6.00000000"]
+    ],
+    "last": "3.66000000",
+    "time": 1562662542872
+}
+```
 
 **Cancel subscription**
 * method: `depth.unsubscribe`

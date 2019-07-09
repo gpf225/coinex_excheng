@@ -144,6 +144,8 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_MARKET_SELF_DEAL:
     case CMD_ORDER_CANCEL_ALL:
     case CMD_ORDER_CANCEL_STOP_ALL:
+    case CMD_CALL_AUCTION_START:
+    case CMD_CALL_AUCTION_EXECUTE:
         sendto_writer(ses, pkg);
         break;
 

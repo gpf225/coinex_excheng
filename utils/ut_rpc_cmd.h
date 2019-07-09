@@ -48,6 +48,8 @@
 # define CMD_ORDER_DEPTH_REST           217
 # define CMD_ORDER_CANCEL_ALL           218
 # define CMD_ORDER_CANCEL_STOP_ALL      219
+# define CMD_CALL_AUCTION_START         220
+# define CMD_CALL_AUCTION_EXECUTE       221
 
 // market
 # define CMD_MARKET_LIST                301

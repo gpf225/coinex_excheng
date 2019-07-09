@@ -89,6 +89,7 @@ struct settings {
 
     int                 fee_prec;
     int                 reader_num;
+    double              call_auction_calc_interval;
     double              cache_timeout;
     double              worker_timeout;
     double              order_fini_keeptime;
