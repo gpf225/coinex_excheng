@@ -157,10 +157,10 @@ int direct_state_reply(nw_ses *ses, json_t *params, int64_t id)
         if (val->last != NULL) {
             ret = http_reply_result(ses, id, val->last);
         } else {
-            ret = http_reply_error_not_found(ses, id);
+            ret = http_reply_error_result_null(ses, id);
         }
     } else {
-        ret = http_reply_error_not_found(ses, id);
+        ret = http_reply_error_result_null(ses, id);
     }
 
     return ret;

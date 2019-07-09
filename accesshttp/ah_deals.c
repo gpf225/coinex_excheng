@@ -182,7 +182,7 @@ int direct_deals_reply(nw_ses *ses, json_t *params, int64_t id)
         ret = http_reply_result(ses, id, result);
         json_decref(result);
     } else {
-        ret = http_reply_error_not_found(ses, id);
+        ret = http_reply_error_result_null(ses, id);
     }
 
     return ret;

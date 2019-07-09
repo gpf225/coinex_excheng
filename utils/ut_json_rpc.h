@@ -47,6 +47,7 @@ int http_reply_error_service_unavailable(nw_ses *ses, int64_t id);
 int http_reply_error_service_timeout(nw_ses *ses, int64_t id);
 int http_reply_error_not_found(nw_ses *ses, int64_t id);
 int http_reply_error_require_auth(nw_ses *ses, int64_t id);
+int http_reply_error_result_null(nw_ses *ses, int64_t id);
 int http_reply_result(nw_ses *ses, int64_t id, json_t *result);
 int http_reply_success(nw_ses *ses, int64_t id);
 
