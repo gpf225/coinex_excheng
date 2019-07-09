@@ -121,16 +121,16 @@ int rpc_reply_error_service_unavailable(nw_ses *ses, rpc_pkg *pkg)
     return rpc_reply_error(ses, pkg, 3, "service unavailable");
 }
 
-int rpc_reply_error_service_timeout(nw_ses *ses, rpc_pkg *pkg)
-{
-    profile_inc("error_service_timeout", 1);
-    return rpc_reply_error(ses, pkg, 4, "service timeout");
-}
-
 int rpc_reply_error_unknown_command(nw_ses *ses, rpc_pkg *pkg)
 {
     profile_inc("error_unknown_command", 1);
-    return rpc_reply_error(ses, pkg, 5, "unknown command");
+    return rpc_reply_error(ses, pkg, 4, "unknown command");
+}
+
+int rpc_reply_error_service_timeout(nw_ses *ses, rpc_pkg *pkg)
+{
+    profile_inc("error_service_timeout", 1);
+    return rpc_reply_error(ses, pkg, 5, "service timeout");
 }
 
 int rpc_reply_error_require_auth(nw_ses *ses, rpc_pkg *pkg)
@@ -207,16 +207,16 @@ int ws_send_error_service_unavailable(nw_ses *ses, uint64_t id)
     return ws_send_error(ses, id, 3, "service unavailable");
 }
 
-int ws_send_error_service_timeout(nw_ses *ses, uint64_t id)
-{
-    profile_inc("error_service_timeout", 1);
-    return ws_send_error(ses, id, 4, "service timeout");
-}
-
 int ws_send_error_unknown_method(nw_ses *ses, uint64_t id)
 {
     profile_inc("error_unknown_method", 1);
-    return ws_send_error(ses, id, 5, "unknown method");
+    return ws_send_error(ses, id, 4, "method not found");
+}
+
+int ws_send_error_service_timeout(nw_ses *ses, uint64_t id)
+{
+    profile_inc("error_service_timeout", 1);
+    return ws_send_error(ses, id, 5, "service timeout");
 }
 
 int ws_send_error_require_auth(nw_ses *ses, uint64_t id)
