@@ -312,22 +312,28 @@ int http_reply_error_service_unavailable(nw_ses *ses, int64_t id)
     return http_reply_error(ses, id, 3, "service unavailable", 500);
 }
 
-int http_reply_error_service_timeout(nw_ses *ses, int64_t id)
-{
-    profile_inc("error_service_timeout", 1);
-    return http_reply_error(ses, id, 4, "service timeout", 504);
-}
-
 int http_reply_error_not_found(nw_ses *ses, int64_t id)
 {
     profile_inc("error_not_found", 1);
-    return http_reply_error(ses, id, 5, "not found", 404);
+    return http_reply_error(ses, id, 4, "method not found", 404);
+}
+
+int http_reply_error_service_timeout(nw_ses *ses, int64_t id)
+{
+    profile_inc("error_service_timeout", 1);
+    return http_reply_error(ses, id, 5, "service timeout", 504);
 }
 
 int http_reply_error_require_auth(nw_ses *ses, int64_t id)
 {
     profile_inc("error_require_auth", 1);
     return http_reply_error(ses, id, 6, "require auth", 401);
+}
+
+int http_reply_error_result_null(nw_ses *ses, int64_t id)
+{
+    profile_inc("error_result_null", 1);
+    return http_reply_error(ses, id, 7, "result null", 500);
 }
 
 int http_reply_result(nw_ses *ses, int64_t id, json_t *result)
