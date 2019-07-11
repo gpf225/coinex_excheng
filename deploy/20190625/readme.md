@@ -15,6 +15,28 @@
     "protect_rate": "0.3"
 ```
 
+* matchengine新增配置: 把已有的usdc_assets转换如下格式price为1.0，并新增FCNY配置
+```
+"convert_fee": {
+        "FCNY": {
+            "money": "USDT",
+            "price": "0.15"
+        },
+        "TUSD": {
+            "money": "USDC",
+            "price": "1.0"
+        },
+        "PAX": {
+            "money": "USDC",
+            "price": "1.0"
+        },
+        "GUSD": {
+            "money": "USDC",
+            "price": "1.0"
+        }
+    },
+```
+
 #三. 升级操作：先升级数据，再重启服务
 * 1 在scripts/option\_fee下: 执行alter\_option.sh脚本: 
   1.1 修改slice\_example表: 1.增加option字段; 2.修改精度20改成24(balance表:balance, order表:frozen, deal\_fee, asset\_fee)  
