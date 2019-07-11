@@ -1216,9 +1216,9 @@ int load_oper(json_t *detail)
         ret = load_cancel_stop_all(params);
     } else if (strcmp(method, "self_deal") == 0) {
         ret = load_self_deal(params);
-    } else if (strcmp(method, "call.start") == 0) {
+    } else if (strcmp(method, "call_start") == 0) {
         ret = load_call_auction_start(params);
-    } else if (strcmp(method, "call.execute") == 0) {
+    } else if (strcmp(method, "call_execute") == 0) {
         ret = load_call_auction_execute(params);
     } else {
         return -__LINE__;

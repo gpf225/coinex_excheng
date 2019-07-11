@@ -1042,7 +1042,7 @@ static int on_cmd_call_auction_start(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     market_start_call_auction(market);
-    push_operlog("call.start", params);
+    push_operlog("call_start", params);
     return rpc_reply_success(ses, pkg);
 }
 
@@ -1073,7 +1073,7 @@ static int on_cmd_call_auction_execute(nw_ses *ses, rpc_pkg *pkg, json_t *params
         json_object_set_new_mpd(result, "volume", mpd_zero);
     }
     ret = rpc_reply_result(ses, pkg, result);
-    push_operlog("call.execute", params);
+    push_operlog("call_execute", params);
     mpd_del(volume);
     json_decref(result);
     return ret;
