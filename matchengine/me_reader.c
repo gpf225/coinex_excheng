@@ -11,7 +11,6 @@
 # include "me_reader.h"
 # include "me_load.h"
 # include "ut_queue.h"
-# include "ut_comm_dict.h"
 
 static rpc_svr *svr;
 static cli_svr *svrcli;

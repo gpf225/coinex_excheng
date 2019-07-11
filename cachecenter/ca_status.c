@@ -66,13 +66,22 @@ static void notify_state(void)
     }
     dict_release_iterator(iter);
 
+    json_t *reply = json_object();
+    json_object_set_new(reply, "error", json_null());
+    json_object_set_new(reply, "result", result);
+    json_object_set_new(reply, "id", json_integer(0));
+
+    char *message = json_dumps(reply, 0);
+    size_t message_len = strlen(message);
+    json_decref(reply);
+
     iter = dict_get_iterator(dict_session);
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
-        rpc_push_json(ses, CMD_CACHE_STATUS_UPDATE, result);
+        rpc_push_date(ses, CMD_CACHE_STATUS_UPDATE, message, message_len);
     }
     dict_release_iterator(iter);
-    json_decref(result);
+    free(message);
 }
 
 static void on_timeout(nw_state_entry *entry)

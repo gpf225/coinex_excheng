@@ -116,14 +116,23 @@ static int deals_reply(const char *market, json_t *result)
     json_array_append_new(params, json_string(market));
     json_array_append(params, result);
 
+    json_t *reply = json_object();
+    json_object_set_new(reply, "error", json_null());
+    json_object_set_new(reply, "result", params);
+    json_object_set_new(reply, "id", json_integer(0));
+
+    char *message = json_dumps(reply, 0);
+    size_t message_len = strlen(message);
+    json_decref(reply);
+
     dict_iterator *iter = dict_get_iterator(dict_session);
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
-        rpc_push_json(ses, CMD_CACHE_DEALS_UPDATE, params);
+        rpc_push_date(ses, CMD_CACHE_DEALS_UPDATE, message, message_len);
     }
     dict_release_iterator(iter);
+    free(message);
 
-    json_decref(params);
     return 0;
 }
 
@@ -233,7 +242,7 @@ static int send_market_deals(nw_ses *ses, const char *market)
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, deals);
-    rpc_push_json(ses, CMD_CACHE_DEALS_UPDATE, params);
+    rpc_push_result(ses, CMD_CACHE_DEALS_UPDATE, params);
 
     json_decref(params);
     return 0;

@@ -39,6 +39,7 @@
 # include "ut_rpc_cmd.h"
 # include "ut_skiplist.h"
 # include "ut_json_rpc.h"
+# include "ut_comm_dict.h"
 
 # define BUSINESS_NAME_MAX_LEN  31
 # define SOURCE_MAX_LEN         31
@@ -84,15 +85,19 @@ struct settings {
     int                 min_save_prec;
     int                 discount_prec;
 
-    char               *usdc_assets[32];
-    int                 usdc_assets_num;
-
     int                 fee_prec;
     int                 reader_num;
     double              call_auction_calc_interval;
     double              cache_timeout;
     double              worker_timeout;
     double              order_fini_keeptime;
+
+    dict_t              *convert_fee_dict;
+};
+
+struct convert_fee {
+    char                *money;
+    mpd_t               *price;
 };
 
 extern struct settings settings;

@@ -30,7 +30,24 @@
     "slice_interval": 3600,
     "slice_keeptime": 259200,
     "depth_merge_max": 800,
-    "usdc_assets": ["TUSD", "PAX", "GUSD"],
+    "convert_fee": {
+        "FCNY": {
+            "money": "USDT",
+            "price": "0.15"
+        },
+        "TUSD": {
+            "money": "USDC",
+            "price": "1.0"
+        },
+        "PAX": {
+            "money": "USDC",
+            "price": "1.0"
+        },
+        "GUSD": {
+            "money": "USDC",
+            "price": "1.0"
+        }
+    },
     "reader_num": 4,
     "worker_timeout": 1.0,
     "order_fini_keeptime": 5

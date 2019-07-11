@@ -6,7 +6,6 @@
 # include "me_asset.h"
 # include "me_config.h"
 # include "me_balance.h"
-# include "ut_comm_dict.h"
 
 dict_t *dict_balance;
 

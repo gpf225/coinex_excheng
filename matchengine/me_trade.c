@@ -161,42 +161,55 @@ json_t *get_market_last_info(void)
     return result;
 }
 
-static bool need_convert(const char *asset)
+static struct convert_fee *get_convert_fee(const char *asset)
 {
-    for (int i = 0; i < settings.usdc_assets_num; ++i) {
-        if (strcmp(asset, settings.usdc_assets[i]) == 0) {
-            return true;
-        }
+    dict_entry *entry = dict_find(settings.convert_fee_dict, asset);
+    if (entry) {
+        return entry->val;
     }
-    return false;
+
+    return NULL;
 }
 
-mpd_t *get_fee_price(market_t *m, const char *asset)
+void get_fee_price(market_t *m, const char *asset, mpd_t *fee_price)
 {
     if (asset == NULL) {
-        return NULL;
+        mpd_copy(fee_price, mpd_zero, &mpd_ctx);
+        return;
     }
 
     if (strcmp(asset, m->money) == 0) {
-        return mpd_one;
+        mpd_copy(fee_price, mpd_one, &mpd_ctx);
+        return;
     }
-    
+
     char name[100];
+    struct convert_fee *convert = NULL;
     if (strcmp(asset, SYSTEM_FEE_TOKEN) == 0) {
-        if (need_convert(m->money)) {
-            snprintf(name, sizeof(name), "%s%s", asset, "USDC");
+        convert = get_convert_fee(m->money);
+        if (convert) {
+            snprintf(name, sizeof(name), "%s%s", asset, convert->money);
         } else {
             snprintf(name, sizeof(name), "%s%s", asset, m->money);
         }
     } else {
         snprintf(name, sizeof(name), "%s%s", asset, m->money);
     }
-    
-    market_t *m_fee = get_market(name);
-    if (m_fee == NULL)
-        return NULL;
 
-    return m_fee->last;
+    market_t *m_fee = get_market(name);
+    if (m_fee == NULL) {
+        mpd_copy(fee_price, mpd_zero, &mpd_ctx);
+        return;
+    }
+
+    if (convert) {
+        mpd_div(fee_price, m_fee->last, convert->price, &mpd_ctx);
+        mpd_rescale(fee_price, fee_price, -m_fee->money_prec, &mpd_ctx);
+    } else {
+        mpd_copy(fee_price, m_fee->last, &mpd_ctx);
+    }
+
+    return;
 }
 
 json_t *get_market_config(void)
@@ -210,6 +223,7 @@ json_t *get_market_config(void)
         json_object_set_new(info, "name", json_string(m->name));
         json_object_set_new(info, "stock", json_string(m->stock));
         json_object_set_new(info, "money", json_string(m->money));
+        json_object_set_new(info, "account", json_integer(m->account));
         json_object_set_new(info, "fee_prec", json_integer(m->fee_prec));
         json_object_set_new(info, "stock_prec", json_integer(m->stock_prec));
         json_object_set_new(info, "money_prec", json_integer(m->money_prec));
