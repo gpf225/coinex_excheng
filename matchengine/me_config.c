@@ -103,7 +103,9 @@ static int load_convert_fee(json_t *node)
         if (dict_add(settings.convert_fee_dict, (void *)key, obj) < 0) {
             return -__LINE__;
         }
-        log_stderr("load convert fee: asset: %s, money: %s", key, money);
+
+        char buf[20];
+        log_stderr("load convert fee: asset: %s, money: %s, price: %s", key, money, strmpd(buf, sizeof(buf), price));
     }
 
     return 0;

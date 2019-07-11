@@ -57,7 +57,7 @@ int load_orders(MYSQL *conn, const char *table)
             } else {
                 order->fee_asset = strdup(row[9]);
             }
-            order->fee_price    = mpd_new(&mpd_ctx);
+            order->fee_price    = mpd_qncopy(mpd_zero);
             order->fee_discount = decimal(row[10], 4);
             order->price        = decimal(row[11], market->money_prec);
             order->amount       = decimal(row[12], market->stock_prec);

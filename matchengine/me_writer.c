@@ -1065,7 +1065,7 @@ static int on_cmd_call_auction_execute(nw_ses *ses, rpc_pkg *pkg, json_t *params
     mpd_t *volume = mpd_qncopy(mpd_zero);
     int ret = market_execute_call_auction(true, market, volume);
     json_t *result = json_object();
-    if(ret == 0){
+    if(ret == 0) {
         json_object_set_new_mpd(result, "price", market->last);
         json_object_set_new_mpd(result, "volume", volume);
     } else {

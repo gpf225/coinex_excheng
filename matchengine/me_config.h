@@ -62,7 +62,6 @@
 #define OPTION_USE_MONEY_FEE_ONLY   0x2
 
 # define SYSTEM_FEE_TOKEN       "CET"
-# define SYSTEM_FCNY_TOKEN      "FCNY"
 
 struct settings {
     bool                debug;
