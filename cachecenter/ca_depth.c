@@ -188,7 +188,7 @@ static int depth_send_last(nw_ses *ses, json_t *data, const char *market, const 
     json_object_set_new(reply, "ttl", json_integer(ttl));
     json_object_set    (reply, "data", data);
 
-    rpc_push_json(ses, CMD_CACHE_DEPTH_UPDATE, reply);
+    rpc_push_result(ses, CMD_CACHE_DEPTH_UPDATE, reply);
     json_decref(reply);
 
     return 0;

@@ -57,7 +57,8 @@ int load_orders(MYSQL *conn, const char *table)
             } else {
                 order->fee_asset = strdup(row[9]);
             }
-            order->fee_discount = decimal(row[10],  4);
+            order->fee_price    = mpd_new(&mpd_ctx);
+            order->fee_discount = decimal(row[10], 4);
             order->price        = decimal(row[11], market->money_prec);
             order->amount       = decimal(row[12], market->stock_prec);
             order->taker_fee    = decimal(row[13], market->fee_prec);
@@ -466,6 +467,7 @@ static int load_limit_order(json_t *params)
     mpd_t *price        = NULL;
     mpd_t *taker_fee    = NULL;
     mpd_t *maker_fee    = NULL;
+    mpd_t *fee_price    = NULL;
     mpd_t *fee_discount = NULL;
 
     // amount
@@ -514,8 +516,10 @@ static int load_limit_order(json_t *params)
     // fee asset
     const char *fee_asset = NULL;
     if (json_is_string(json_array_get(params, 9))) {
+        fee_price = mpd_new(&mpd_ctx);
         fee_asset = json_string_value(json_array_get(params, 9));
-        if (!get_fee_price(market, fee_asset))
+        get_fee_price(market, fee_asset, fee_price);
+        if (mpd_cmp(fee_price, mpd_zero, &mpd_ctx) == 0)
             goto error;
     }
 
@@ -536,12 +540,14 @@ static int load_limit_order(json_t *params)
         }
     }
 
-    int ret = market_put_limit_order(false, NULL, market, user_id, account, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_discount, option);
+    int ret = market_put_limit_order(false, NULL, market, user_id, account, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_price, fee_discount, option);
 
     mpd_del(amount);
     mpd_del(price);
     mpd_del(taker_fee);
     mpd_del(maker_fee);
+    if (fee_price)
+        mpd_del(fee_price);
     if (fee_discount)
         mpd_del(fee_discount);
 
@@ -556,6 +562,8 @@ error:
         mpd_del(taker_fee);
     if (maker_fee)
         mpd_del(maker_fee);
+    if (fee_price)
+        mpd_del(fee_price);
     if (fee_discount)
         mpd_del(fee_discount);
 
@@ -594,6 +602,7 @@ static int load_market_order(json_t *params)
 
     mpd_t *amount       = NULL;
     mpd_t *taker_fee    = NULL;
+    mpd_t *fee_price    = NULL;
     mpd_t *fee_discount = NULL;
 
     // amount
@@ -624,8 +633,10 @@ static int load_market_order(json_t *params)
     // fee asset
     const char *fee_asset = NULL;
     if (json_is_string(json_array_get(params, 7))) {
+        fee_price = mpd_new(&mpd_ctx);
         fee_asset = json_string_value(json_array_get(params, 7));
-        if (!get_fee_price(market, fee_asset))
+        get_fee_price(market, fee_asset, fee_price);
+        if (mpd_cmp(fee_price, mpd_zero, &mpd_ctx) == 0)
             goto error;
     }
 
@@ -646,10 +657,12 @@ static int load_market_order(json_t *params)
         }
     }
 
-    int ret = market_put_market_order(false, NULL, market, user_id, account, side, amount, taker_fee, source, fee_asset, fee_discount, option);
+    int ret = market_put_market_order(false, NULL, market, user_id, account, side, amount, taker_fee, source, fee_asset, fee_price, fee_discount, option);
 
     mpd_del(amount);
     mpd_del(taker_fee);
+    if (fee_price)
+        mpd_del(fee_price);
     if (fee_discount)
         mpd_del(fee_discount);
 
@@ -660,6 +673,8 @@ error:
         mpd_del(amount);
     if (taker_fee)
         mpd_del(taker_fee);
+    if (fee_price)
+        mpd_del(fee_price);
     if (fee_discount)
         mpd_del(fee_discount);
   
@@ -770,6 +785,7 @@ static int load_stop_limit(json_t *params)
     mpd_t *price        = NULL;
     mpd_t *taker_fee    = NULL;
     mpd_t *maker_fee    = NULL;
+    mpd_t *fee_price    = NULL;
     mpd_t *fee_discount = NULL;
 
     // amount
@@ -827,10 +843,11 @@ static int load_stop_limit(json_t *params)
     // fee asset
     const char *fee_asset = NULL;
     if (json_is_string(json_array_get(params, 10))) {
+        fee_price = mpd_new(&mpd_ctx);
         fee_asset = json_string_value(json_array_get(params, 10));
-        if (!get_fee_price(market, fee_asset)) {
+        get_fee_price(market, fee_asset, fee_price);
+        if (mpd_cmp(fee_price, mpd_zero, &mpd_ctx) == 0)
             goto error;
-        }
     }
 
     // fee discount
@@ -857,6 +874,8 @@ static int load_stop_limit(json_t *params)
     mpd_del(price);
     mpd_del(taker_fee);
     mpd_del(maker_fee);
+    if (fee_price)
+        mpd_del(fee_price);
     if (fee_discount)
         mpd_del(fee_discount);
 
@@ -873,6 +892,8 @@ error:
         mpd_del(taker_fee);
     if (maker_fee)
         mpd_del(maker_fee);
+    if (fee_price)
+        mpd_del(fee_price);
     if (fee_discount)
         mpd_del(fee_discount);
 
@@ -912,6 +933,7 @@ static int load_stop_market(json_t *params)
     mpd_t *amount       = NULL;
     mpd_t *stop_price   = NULL;
     mpd_t *taker_fee    = NULL;
+    mpd_t *fee_price    = NULL;
     mpd_t *fee_discount = NULL;
 
     // amount
@@ -951,10 +973,11 @@ static int load_stop_market(json_t *params)
     // fee asset
     const char *fee_asset = NULL;
     if (json_is_string(json_array_get(params, 8))) {
+        fee_price = mpd_new(&mpd_ctx);
         fee_asset = json_string_value(json_array_get(params, 8));
-        if (!get_fee_price(market, fee_asset)) {
+        get_fee_price(market, fee_asset, fee_price);
+        if (mpd_cmp(fee_price, mpd_zero, &mpd_ctx) == 0)
             goto error;
-        }
     }
 
     // fee discount
@@ -979,6 +1002,8 @@ static int load_stop_market(json_t *params)
     mpd_del(amount);
     mpd_del(stop_price);
     mpd_del(taker_fee);
+    if (fee_price)
+        mpd_del(fee_price);
     if (fee_discount)
         mpd_del(fee_discount);
 
@@ -991,6 +1016,8 @@ error:
         mpd_del(stop_price);
     if (taker_fee)
         mpd_del(taker_fee);
+    if (fee_price)
+        mpd_del(fee_price);
     if (fee_discount)
         mpd_del(fee_discount);
 

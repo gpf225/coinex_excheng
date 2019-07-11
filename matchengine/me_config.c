@@ -8,6 +8,16 @@
 
 struct settings settings;
 
+static void convert_fee_dict_val_free(void *val)
+{
+    struct convert_fee *obj = val;
+    if (obj->money)
+        free(obj->money);
+    if (obj->price)
+        mpd_del(obj->price);
+    free(obj);
+}
+
 static size_t write_callback_func(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
     sds *reply = userdata;
@@ -57,31 +67,45 @@ cleanup:
     return result;
 }
 
-static int load_usdc_assets(json_t *node)
+static int load_convert_fee(json_t *node)
 {
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_compare    = str_dict_key_compare;
+    dt.key_dup        = str_dict_key_dup;
+    dt.key_destructor = str_dict_key_free;
+    dt.val_destructor = convert_fee_dict_val_free;
+
+    settings.convert_fee_dict = dict_create(&dt, 8);
     if (node == NULL) {
-        log_stderr("no usdc_assets config");
-        return -__LINE__;
-    }
-    settings.usdc_assets_num = json_array_size(node);
-    if (settings.usdc_assets_num >= 32) {
-        log_stderr("usdc asset num large than 32");
+        log_stderr("no convert fee config");
         return -__LINE__;
     }
 
-    for (size_t i = 0; i < settings.usdc_assets_num; ++i) {
-        const char *market = json_string_value(json_array_get(node, i));
-        if (market == NULL) {
-            log_stderr("usdc asset must been strings");
+    const char *key;
+    json_t *val;
+    json_object_foreach(node, key, val) {
+        char *money;
+        mpd_t *price;
+
+        ERR_RET_LN(read_cfg_str(val, "money", &money, NULL));
+        ERR_RET_LN(read_cfg_mpd(val, "price", &price, NULL));
+
+        if (mpd_cmp(price, mpd_zero, &mpd_ctx) == 0) {
             return -__LINE__;
         }
 
-        settings.usdc_assets[i] = strdup(market); 
+        struct convert_fee *obj = malloc(sizeof(struct convert_fee));
+        obj->money = money;
+        obj->price = price;
+
+        if (dict_add(settings.convert_fee_dict, (void *)key, obj) < 0) {
+            return -__LINE__;
+        }
+        log_stderr("load convert fee: asset: %s, money: %s", key, money);
     }
-    
-    for (int i = 0; i < settings.usdc_assets_num; ++i) {
-        log_stderr("usdc assets:%s\n", settings.usdc_assets[i]);
-    }
+
     return 0;
 }
 
@@ -123,9 +147,9 @@ static int read_config_from_json(json_t *root)
         printf("load log db config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_usdc_assets(json_object_get(root, "usdc_assets"));
+    ret = load_convert_fee(json_object_get(root, "convert_fee"));
     if (ret < 0) {
-        printf("load load_usdc_assets fail: %d", ret);
+        printf("load load_convert_fee fail: %d", ret);
         return -__LINE__;
     }
 

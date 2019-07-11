@@ -29,14 +29,37 @@ int rpc_request_json(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t
     return ret;
 }
 
-int rpc_push_json(nw_ses *ses, uint32_t command, json_t *json)
+int rpc_push_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
 {
+    char *message_str = json_dumps(json, 0);
+    if (message_str == NULL)
+        return -__LINE__;
+    log_trace("connection: %s size: %zu, send: %s", nw_sock_human_addr(&ses->peer_addr), strlen(message_str), message_str);
+
     rpc_pkg reply;
-    memset(&reply, 0, sizeof(reply));
-    reply.pkg_type = RPC_PKG_TYPE_PUSH;
-    reply.command  = command;
-    
-    int ret = rpc_reply_result(ses, &reply, json);
+    memcpy(&reply, pkg, sizeof(reply));
+    reply.pkg_type  = RPC_PKG_TYPE_PUSH;
+    reply.body      = message_str;
+    reply.body_size = strlen(message_str);
+
+    int ret = rpc_send(ses, &reply);
+    free(message_str);
+    return ret;
+}
+
+int rpc_push_result(nw_ses *ses, uint32_t command, json_t *result)
+{
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.command = command;
+
+    json_t *reply = json_object();
+    json_object_set_new(reply, "error", json_null());
+    json_object_set    (reply, "result", result);
+    json_object_set_new(reply, "id", json_null());
+
+    int ret = rpc_push_json(ses, &pkg, reply);
+    json_decref(reply);
     return ret;
 }
 
@@ -64,7 +87,11 @@ int rpc_push_error(nw_ses *ses, uint32_t command, int code, const char *message)
     json_object_set_new(data, "result", json_null());
     json_object_set_new(data, "id", json_null());
 
-    int ret = rpc_push_json(ses, command, data);
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.command = command;
+
+    int ret = rpc_push_json(ses, &pkg, data);
     json_decref(data);
     return ret;
 }
