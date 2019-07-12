@@ -6,7 +6,7 @@
 * 5 cachecenter:  market长度修改成30
 * 6 tradesummary: asset长度修改成30
 * 7 accesshttp:   更新错误码与文档保存一致
-* 8 marketindex:  增加相关交易所指数价格与价格保护机制
+* 8 marketindex:  增加相关交易所指数价格与价格保护机制, 处理浮点数精度
 
 #二. 配置文件
 * marketindex新增配置：
@@ -54,7 +54,7 @@
     注意：
     1. 配置bittrex与bittrex时，例如USDT-BTC：money为USDT， stock为BTC，<span style="color:red">**与普通表示是相反的**</span>
     2. 每配置一个url，最好手动使用curl命令进行访问是否正常，<span style="color:red">**curl访问正常后再配置到后台**</span>
-    
+    3. 配置市场精度为12
     配置url参考：
     
     ```

@@ -26,6 +26,9 @@ function alter_log_table() {
 
 	#slice_stop 增加option
     mysql -h${MYSQL_LOG_HOST} -u${MYSQL_LOG_USER} -p${MYSQL_LOG_PASS} ${MYSQL_LOG_DB} -e "alter table slice_stop_example add \`option\` INT UNSIGNED NOT NULL default 0 AFTER account;"
+
+    #index_log 修改精度为12
+    mysql -h${MYSQL_LOG_HOST} -u${MYSQL_LOG_USER} -p${MYSQL_LOG_PASS} ${MYSQL_LOG_DB} -e "alter table indexlog_example modify price DECIMAL(40,12);"
 }
 
 function alter_history_table() {

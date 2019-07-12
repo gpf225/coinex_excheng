@@ -125,7 +125,7 @@ int parse_huobiglobal_response(json_t *response, mpd_t **price, double *timestam
     *timestamp = time_ms / 1000;
 
     char buf[100];
-    snprintf(buf, sizeof(buf), "%f", json_real_value(json_object_get(item, "price")));
+    snprintf(buf, sizeof(buf), "%.20lf", json_real_value(json_object_get(item, "price")));
     *price = decimal(buf, 0);
 
     return 0;
@@ -224,7 +224,7 @@ int parse_bittrex_response(json_t *response, mpd_t **price, double *timestamp)
         return -__LINE__;
 
     char buf[100];
-    snprintf(buf, sizeof(buf), "%f", json_real_value(json_object_get(item, "Price")));
+    snprintf(buf, sizeof(buf), "%.20lf", json_real_value(json_object_get(item, "Price")));
     *price = decimal(buf, 0);
 
     return 0;

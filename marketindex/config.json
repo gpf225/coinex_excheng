@@ -29,6 +29,6 @@
     "request_timeout": 3,
     "update_interval": 10,
     "expire_interval": 900,
-    "protect_interval": 60,
-    "protect_rate": "0.2"
+    "protect_interval": 300,
+    "protect_rate": "0.3"
 }

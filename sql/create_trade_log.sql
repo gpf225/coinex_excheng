@@ -81,6 +81,6 @@ CREATE TABLE `indexlog_example` (
     `id`            BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `time`          DOUBLE NOT NULL,
     `market`        VARCHAR(30) NOT NULL,
-    `price`         DECIMAL(40,8),
+    `price`         DECIMAL(40,12),
     `detail`        TEXT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

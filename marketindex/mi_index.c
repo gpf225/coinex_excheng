@@ -186,7 +186,7 @@ static void update_market_index(const char *market, const char *exchange, time_t
     }
 
     if (!check_price(price, minfo->protect_price, settings.protect_rate)) {
-        char buf_price[20], buf_protect_price[20], buf_protect_rate[20];
+        char buf_price[30], buf_protect_price[30], buf_protect_rate[30];
         log_fatal("url: %s, protect_interval: %d, price: %s, protect_price: %s, protect_rate: %s", sinfo->url, settings.protect_interval, strmpd(buf_price, sizeof(buf_price), price), 
                 strmpd(buf_protect_price, sizeof(buf_protect_price), minfo->protect_price), strmpd(buf_protect_rate, sizeof(buf_protect_rate), settings.protect_rate));
         return;
