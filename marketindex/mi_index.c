@@ -106,7 +106,7 @@ static void compose_data_free(void *val)
     free(obj);
 }
 
-static void list_compose_free(void *value)
+static void list_compose_info_free(void *value)
 {
     struct compose_info *obj = value;
     if (obj->target_market)
@@ -431,13 +431,13 @@ static struct market_info *market_create(json_t *node, const char *key, dict_t *
         if (!json_object_get(settings.index_cfg, minfo->compose_second_market))
             goto error;
 
-        // first market
+        // calculation compose index, first market
         dict_entry *entry = dict_find(dict, minfo->compose_first_market);
         if (!entry) {
             struct compose_data val;
             list_type lt;
             memset(&lt, 0, sizeof(lt));
-            lt.free = list_compose_free;
+            lt.free = list_compose_info_free;
             val.composes = list_create(&lt);
             entry = dict_add(dict, minfo->compose_first_market, &val);
         }
@@ -450,13 +450,13 @@ static struct market_info *market_create(json_t *node, const char *key, dict_t *
         }
         list_add_node_head(obj->composes, info); 
         
-        // second market
+        // calculation compose index, second market
         entry = dict_find(dict, minfo->compose_second_market);
         if (!entry) {
             struct compose_data val;
             list_type lt;
             memset(&lt, 0, sizeof(lt));
-            lt.free = list_compose_free;
+            lt.free = list_compose_info_free;
             val.composes = list_create(&lt);
             entry = dict_add(dict, minfo->compose_second_market, &val);
         }
@@ -509,7 +509,7 @@ int reload_index_config(void)
             char *str = json_dumps(value, 0);
             log_fatal("update index config fail, market: %s, config: %s", key, str);
             free(str);
-            dict_clear(dict);
+            dict_release(dict);
             return -__LINE__;
         }
         dict_replace(dict_market, (void *)key, minfo);
@@ -520,10 +520,6 @@ int reload_index_config(void)
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
         if (json_object_get(settings.index_cfg, market) == NULL) {
-            struct market_info *obj = entry->val;
-            if (obj->use_compose) {
-                dict_delete(dict_compose, market);
-            }
             dict_delete(dict_market, market);
         }
     }
