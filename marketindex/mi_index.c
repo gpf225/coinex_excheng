@@ -12,15 +12,38 @@
 static nw_timer timer;
 static nw_state *state_context;
 static dict_t *dict_market;
+static dict_t *dict_compose;
+
+#define COMPOSE_METHD_MUL   1
+#define COMPOSE_METHD_DIV   2
+
+#define COMPOSE_DIV_FIRST   1
+#define COMPOSE_DIV_SECOND  2
 
 struct market_info {
-    int     prec;
-    dict_t  *sources;
+    int       prec;
+    dict_t    *sources;
 
-    mpd_t   *last_index;
-    mpd_t   *protect_price;
-    time_t  last_protect_time;
-    time_t  last_index_time;
+    mpd_t     *last_index;
+    mpd_t     *protect_price;
+    time_t    last_protect_time;
+    time_t    last_index_time;
+
+    bool      use_compose;
+    int       compose_methd;
+    char      *compose_first_market;
+    char      *compose_second_market;
+    uint32_t  compose_state_id;
+};
+
+struct compose_info {
+    char      *target_market;
+    char      *other_market;
+    uint32_t  div_seq;
+};
+
+struct compose_data {
+    list_t   *composes;
 };
 
 struct source_info {
@@ -49,6 +72,10 @@ static void market_info_free(void *val)
         mpd_del(info->protect_price);
     if (info->sources)
         dict_release(info->sources);
+    if (info->compose_first_market)
+        free(info->compose_first_market);
+    if (info->compose_second_market)
+        free(info->compose_second_market);
     free(info);
 }
 
@@ -62,6 +89,112 @@ static void source_info_free(void *val)
     free(info->exchange);
     free(info->url);
     free(info);
+}
+
+static void *compose_data_dup(const void *key)
+{
+    struct compose_data *val = malloc(sizeof(struct compose_data));
+    memcpy(val, key, sizeof(struct compose_data));
+    return val;
+}
+
+static void compose_data_free(void *val)
+{
+    struct compose_data *obj = val;
+    if (obj->composes)
+        list_release(obj->composes);
+    free(obj);
+}
+
+static void list_compose_free(void *value)
+{
+    struct compose_info *obj = value;
+    if (obj->target_market)
+        free(obj->target_market);
+    if (obj->other_market)
+        free(obj->other_market);
+    free(obj);
+}
+
+dict_t *create_compose_dict(void)
+{
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_compare    = str_dict_key_compare;
+    dt.key_dup        = str_dict_key_dup;
+    dt.key_destructor = str_dict_key_free;
+    dt.val_dup        = compose_data_dup;
+    dt.val_destructor = compose_data_free;
+
+    dict_t *dict = dict_create(&dt, 16);
+    return dict;
+}
+
+static void update_single_compose_index(struct compose_info *info, const char *market, time_t timestamp, mpd_t *index)
+{
+    dict_entry *entry = dict_find(dict_market, info->other_market);
+    if (entry == NULL) {
+        log_fatal("update compose index fail, no other market, market: %s", market);
+        return;
+    }
+    struct market_info *other_minfo = entry->val;
+    if (other_minfo->last_index_time != timestamp)
+        return;
+
+    entry = dict_find(dict_market, info->target_market);
+    if (entry == NULL) {
+        log_fatal("update compose index fail, no target market, market: %s", market);
+        return;
+    }
+    struct market_info *target_minfo = entry->val;
+
+    mpd_t *index_result = mpd_new(&mpd_ctx);
+    if (target_minfo->compose_methd == COMPOSE_METHD_MUL) {
+        mpd_mul(index_result, index, other_minfo->last_index, &mpd_ctx);
+    } else {
+        if (info->div_seq == COMPOSE_DIV_FIRST) {
+            mpd_div(index_result, index, other_minfo->last_index, &mpd_ctx);
+        } else {
+            mpd_div(index_result, other_minfo->last_index, index, &mpd_ctx);
+        }
+    }
+
+    mpd_rescale(index_result, index_result, -target_minfo->prec, &mpd_ctx);
+    if (target_minfo->last_index) {
+        mpd_del(target_minfo->last_index);
+    }
+    target_minfo->last_index = mpd_qncopy(index_result);
+    target_minfo->last_index_time = timestamp;
+
+    json_t *detail = json_object();
+    json_object_set_new_mpd(detail, market, index);
+    json_object_set_new_mpd(detail, info->other_market, other_minfo->last_index);
+    char *detail_str = json_dumps(detail, 0);
+    push_index_message(info->target_market, index_result, detail);
+    append_index_history(info->target_market, index_result, detail_str);
+    free(detail_str);
+    mpd_del(index_result);
+    nw_state_del(state_context, target_minfo->compose_state_id);
+    profile_inc("update_success", 1);
+}
+
+static void update_compose_index(const char *market, time_t timestamp, mpd_t *index) 
+{
+    dict_entry *entry = dict_find(dict_compose, market);
+    if (!entry)
+        return;
+
+    struct compose_data *obj = entry->val;
+    list_node *node;
+    list_iter *iter = list_get_iterator(obj->composes, LIST_START_HEAD);
+    while ((node = list_next(iter)) != NULL) {
+        struct compose_info *info = node->value;
+        update_single_compose_index(info, market, timestamp, index);
+    }
+    list_release_iterator(iter);
+
+    return;
 }
 
 static void on_request_finished(const char *market, time_t timestamp)
@@ -99,7 +232,7 @@ static void on_request_finished(const char *market, time_t timestamp)
     dict_release_iterator(iter);
 
     if (mpd_cmp(total_index, mpd_zero, &mpd_ctx) == 0) {
-        log_fatal("update market: %s, timestamp: %ld fail", market, timestamp);
+        log_fatal("update market: %s, timestamp: %ld, use_compose: %d fail", market, timestamp, minfo->use_compose);
         goto cleanup;
     }
 
@@ -118,6 +251,8 @@ static void on_request_finished(const char *market, time_t timestamp)
     if (time(NULL) - minfo->last_protect_time >= settings.protect_interval) {
         mpd_copy(minfo->protect_price, index, &mpd_ctx);
     }
+
+    update_compose_index(market, timestamp, index);
 
     char *detail_str = json_dumps(detail, 0);
     push_index_message(market, index, detail);
@@ -236,6 +371,10 @@ static void request_market_index(char *market, struct market_info *info, time_t 
     struct state_data *state = entry->data;
     state->market = market;
     state->request_time = now;
+    if (info->use_compose) {
+        info->compose_state_id = entry->id;
+        return;
+    }
     state->request_count = dict_size(info->sources);
 
     dict_entry *result;
@@ -257,11 +396,13 @@ static void request_index(time_t now)
     dict_release_iterator(iter);
 }
 
-static struct market_info *market_create(json_t *node)
+static struct market_info *market_create(json_t *node, const char *key, dict_t *dict)
 {
     struct market_info *minfo = malloc(sizeof(struct market_info));
     memset(minfo, 0, sizeof(struct market_info));
     if (read_cfg_int(node, "prec", &minfo->prec, true, 0) < 0)
+        goto error;
+    if (read_cfg_bool(node, "use_compose", &minfo->use_compose, false, false) < 0)
         goto error;
 
     dict_types dt;
@@ -274,6 +415,62 @@ static struct market_info *market_create(json_t *node)
     minfo->sources = dict_create(&dt, 16);
     if (minfo->sources == NULL)
         goto error;
+
+    if (minfo->use_compose) {
+        if (read_cfg_str(node, "compose_first_market", &minfo->compose_first_market, NULL) < 0)
+            goto error;
+        if (read_cfg_str(node, "compose_second_market", &minfo->compose_second_market, NULL) < 0)
+            goto error;
+        if (read_cfg_int(node, "compose_methd", &minfo->compose_methd, true, 0) < 0)
+            goto error;
+
+        if (minfo->compose_methd != COMPOSE_METHD_MUL && minfo->compose_methd != COMPOSE_METHD_DIV)
+            goto error;
+        if (!json_object_get(settings.index_cfg, minfo->compose_first_market))
+            goto error;
+        if (!json_object_get(settings.index_cfg, minfo->compose_second_market))
+            goto error;
+
+        // first market
+        dict_entry *entry = dict_find(dict, minfo->compose_first_market);
+        if (!entry) {
+            struct compose_data val;
+            list_type lt;
+            memset(&lt, 0, sizeof(lt));
+            lt.free = list_compose_free;
+            val.composes = list_create(&lt);
+            entry = dict_add(dict, minfo->compose_first_market, &val);
+        }
+        struct compose_data *obj = entry->val;
+        struct compose_info *info = malloc(sizeof(struct compose_info));
+        info->target_market = strdup(key);
+        info->other_market = strdup(minfo->compose_second_market);
+        if (minfo->compose_methd == COMPOSE_METHD_DIV) {
+            info->div_seq = COMPOSE_DIV_FIRST;
+        }
+        list_add_node_head(obj->composes, info); 
+        
+        // second market
+        entry = dict_find(dict, minfo->compose_second_market);
+        if (!entry) {
+            struct compose_data val;
+            list_type lt;
+            memset(&lt, 0, sizeof(lt));
+            lt.free = list_compose_free;
+            val.composes = list_create(&lt);
+            entry = dict_add(dict, minfo->compose_second_market, &val);
+        }
+        obj = entry->val;
+        info = malloc(sizeof(struct compose_info));
+        info->target_market = strdup(key);
+        info->other_market = strdup(minfo->compose_first_market);
+        if (minfo->compose_methd == COMPOSE_METHD_DIV) {
+            info->div_seq = COMPOSE_DIV_SECOND;
+        }
+        list_add_node_head(obj->composes, info); 
+
+        return minfo;
+    }
 
     json_t *sources = json_object_get(node, "sources");
     if (sources == NULL || !json_is_array(sources))
@@ -302,11 +499,17 @@ error:
 
 int reload_index_config(void)
 {
+    log_info("update index config");
+    dict_t *dict = create_compose_dict();
     const char *key;
     json_t *value;
     json_object_foreach(settings.index_cfg, key, value) {
-        struct market_info *minfo = market_create(value);
+        struct market_info *minfo = market_create(value, key, dict);
         if (minfo == NULL) {
+            char *str = json_dumps(value, 0);
+            log_fatal("update index config fail, market: %s, config: %s", key, str);
+            free(str);
+            dict_clear(dict);
             return -__LINE__;
         }
         dict_replace(dict_market, (void *)key, minfo);
@@ -317,10 +520,17 @@ int reload_index_config(void)
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
         if (json_object_get(settings.index_cfg, market) == NULL) {
+            struct market_info *obj = entry->val;
+            if (obj->use_compose) {
+                dict_delete(dict_compose, market);
+            }
             dict_delete(dict_market, market);
         }
     }
     dict_release_iterator(iter);
+
+    dict_release(dict_compose);
+    dict_compose = dict;
 
     time_t now = time(NULL);
     request_index(now);
@@ -339,6 +549,10 @@ static int init_dict(void)
     dt.val_destructor = market_info_free;
     dict_market = dict_create(&dt, 16);
     if (dict_market == NULL)
+        return -__LINE__;
+
+    dict_compose = create_compose_dict();
+    if (dict_compose == NULL)
         return -__LINE__;
 
     int ret = reload_index_config();
