@@ -11,10 +11,6 @@ static rpc_clt *clt;
 static dict_t *monitor;
 static nw_timer timer;
 
-struct monitor_key {
-    char key[160];
-};
-
 struct monitor_val {
     uint64_t val;
 };
@@ -58,9 +54,9 @@ static bool is_good_host(const char *value)
     return true;
 }
 
-static int update_key_inc(struct monitor_key *mkey, uint64_t val)
+static int update_key_inc(char *item, uint64_t val)
 {
-    dict_entry *entry = dict_find(monitor, mkey);
+    dict_entry *entry = dict_find(monitor, item);
     if (entry) {
         struct monitor_val *mval = entry->val;
         mval->val += val;
@@ -68,14 +64,14 @@ static int update_key_inc(struct monitor_key *mkey, uint64_t val)
     }
 
     struct monitor_val mval = { .val = val };
-    dict_add(monitor, mkey, &mval);
+    dict_add(monitor, item, &mval);
 
     return 0;
 }
 
-static int update_key_set(struct monitor_key *mkey, uint64_t val)
+static int update_key_set(char *item, uint64_t val)
 {
-    dict_entry *entry = dict_find(monitor, mkey);
+    dict_entry *entry = dict_find(monitor, item);
     if (entry) {
         struct monitor_val *mval = entry->val;
         mval->val = val;
@@ -83,7 +79,7 @@ static int update_key_set(struct monitor_key *mkey, uint64_t val)
     }
 
     struct monitor_val mval = { .val = val };
-    dict_add(monitor, mkey, &mval);
+    dict_add(monitor, item, &mval);
 
     return 0;
 }
@@ -105,10 +101,10 @@ static int on_cmd_monitor_inc(json_t *params)
     if (val > UINT32_MAX)
         return -__LINE__;
 
-    struct monitor_key mkey;
-    snprintf(mkey.key, sizeof(mkey.key), "%s_%s_%s", scope, key, host);
+    char item[200];
+    snprintf(item, sizeof(item), "%s:%s:%s", scope, key, host);
 
-    int ret = update_key_inc(&mkey, val);
+    int ret = update_key_inc(item, val);
     if (ret < 0) {
         log_error("update_key_inc fail: %d", ret);
         return -__LINE__;
@@ -134,12 +130,12 @@ static int on_cmd_monitor_set(json_t *params)
     if (val > UINT32_MAX)
         return -__LINE__;
 
-    struct monitor_key mkey;
-    snprintf(mkey.key, sizeof(mkey.key), "%s_%s_%s", scope, key, host);
+    char item[200];
+    snprintf(item, sizeof(item), "%s:%s:%s", scope, key, host);
 
-    int ret = update_key_set(&mkey, val);
+    int ret = update_key_set(item, val);
     if (ret < 0) {
-        log_error("update_key_inc fail: %d", ret);
+        log_error("update_key_set fail: %d", ret);
         return -__LINE__;
     }
 
@@ -217,7 +213,7 @@ static void on_svr_error_msg(nw_ses *ses, const char *msg)
 int report_to_center(const char *key, uint64_t val)
 {
     int token_count;
-    sds *tokens = sdssplitlen(key, strlen(key), "_", 1, &token_count);
+    sds *tokens = sdssplitlen(key, strlen(key), ":", 1, &token_count);
     if (token_count != 3) {
         sdsfreesplitres(tokens, token_count);
         return -__LINE__;
@@ -241,15 +237,15 @@ static int flush_dict(void)
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(monitor);
     while ((entry = dict_next(iter)) != NULL) {
-        struct monitor_key *k = entry->key;
+        const char *key = entry->key;
         struct monitor_val *v = entry->val;
         if (v->val) {
-            int ret = report_to_center(k->key, v->val);
+            int ret = report_to_center(key, v->val);
             if (ret < 0) {
-                log_error("report_to_center fail: %d, key: %s, val: %"PRIu64, ret, k->key, v->val);
+                log_error("report_to_center fail: %d, key: %s, val: %"PRIu64, ret, key, v->val);
             }
         }
-        dict_delete(monitor, k);
+        dict_delete(monitor, key);
     }
     dict_release_iterator(iter);
 
@@ -289,28 +285,6 @@ static void on_clt_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     sds reply = sdsnewlen(pkg->body, pkg->body_size);
     log_trace("recv pkg from: %s, cmd: %u, body: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply);
     sdsfree(reply);
-}
-
-static uint32_t val_dict_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, sizeof(struct monitor_key));
-}
-
-static int val_dict_key_compare(const void *key1, const void *key2)
-{
-    return memcmp(key1, key2, sizeof(struct monitor_key));
-}
-
-static void *val_dict_key_dup(const void *key)
-{
-    struct monitor_key *obj = malloc(sizeof(struct monitor_key));
-    memcpy(obj, key, sizeof(struct monitor_key));
-    return obj;
-}
-
-static void val_dict_key_free(void *key)
-{
-    free(key);
 }
 
 static void *val_dict_val_dup(const void *val)
@@ -362,10 +336,10 @@ int init_dict(void)
 {
     dict_types type;
     memset(&type, 0, sizeof(type));
-    type.hash_function  = val_dict_hash_func;
-    type.key_compare    = val_dict_key_compare;
-    type.key_dup        = val_dict_key_dup;
-    type.key_destructor = val_dict_key_free;
+    type.hash_function  = str_dict_hash_function;
+    type.key_compare    = str_dict_key_compare;
+    type.key_dup        = str_dict_key_dup;
+    type.key_destructor = str_dict_key_free;
     type.val_dup        = val_dict_val_dup;
     type.val_destructor = val_dict_val_free;
 
