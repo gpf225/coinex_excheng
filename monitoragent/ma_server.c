@@ -106,7 +106,7 @@ static int on_cmd_monitor_inc(json_t *params)
         return -__LINE__;
 
     struct monitor_key mkey;
-    snprintf(mkey.key, sizeof(mkey.key), "%s:%s:%s", scope, key, host);
+    snprintf(mkey.key, sizeof(mkey.key), "%s_%s_%s", scope, key, host);
 
     int ret = update_key_inc(&mkey, val);
     if (ret < 0) {
@@ -135,7 +135,7 @@ static int on_cmd_monitor_set(json_t *params)
         return -__LINE__;
 
     struct monitor_key mkey;
-    snprintf(mkey.key, sizeof(mkey.key), "%s:%s:%s", scope, key, host);
+    snprintf(mkey.key, sizeof(mkey.key), "%s_%s_%s", scope, key, host);
 
     int ret = update_key_set(&mkey, val);
     if (ret < 0) {
@@ -217,9 +217,11 @@ static void on_svr_error_msg(nw_ses *ses, const char *msg)
 int report_to_center(const char *key, uint64_t val)
 {
     int token_count;
-    sds *tokens = sdssplitlen(key, strlen(key), ":", 1, &token_count);
-    if (token_count != 3)
+    sds *tokens = sdssplitlen(key, strlen(key), "_", 1, &token_count);
+    if (token_count != 3) {
+        sdsfreesplitres(tokens, token_count);
         return -__LINE__;
+    }
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(tokens[0]));
