@@ -156,7 +156,6 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_MARKET_SUMMARY:
         sendto_reader_summary(ses, pkg);
         break;
-
     default:
         profile_inc("method_not_found", 1);
         log_error("from: %s unknown command: %u", nw_sock_human_addr(&ses->peer_addr), pkg->command);
