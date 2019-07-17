@@ -13,6 +13,7 @@ static rpc_clt *writer_clt;
 static rpc_clt **reader_clt_arr;
 static nw_state *state_context;
 static bool available;
+static uint32_t reader_loop;
 
 struct state_info {
     nw_ses  *ses;
@@ -46,21 +47,23 @@ static void sendto_writer(nw_ses *ses, rpc_pkg *pkg)
     profile_inc("access_to_write", 1);
 }
 
-static void sendto_reader(nw_ses *ses, rpc_pkg *pkg, const char *market, uint64_t user_order_id)
+static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
 {
-    int reader_id = -1;
-    if (market == NULL && user_order_id == 0) {
-        reader_id = rand() % (settings.reader_num - 1);
-    } else if (market != NULL) {
-        uint32_t hash = dict_generic_hash_function(market, strlen(market));
-        reader_id = hash % (settings.reader_num - 1);
-    } else {
-        reader_id = user_order_id % (settings.reader_num - 1);
+    int reader_id = 0;
+    bool connected = false;
+
+    for (int i = 0; i < settings.reader_num - 1; ++i) {
+        reader_id = (reader_loop++) % (settings.reader_num - 1);
+        if (rpc_clt_connected(reader_clt_arr[reader_id])) {
+            connected = true;
+            break;
+        }
+        log_error("lose connection to reader: %d", reader_id);
     }
 
-    if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
+    if (!connected) {
         rpc_reply_error_internal_error(ses, pkg);
-        log_fatal("lose connection to reader: %d", reader_id);
+        log_fatal("lose connection to all reader");
         return;
     }
 
@@ -119,14 +122,8 @@ static void svr_on_connection_close(nw_ses *ses)
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
-    json_t *params = json_loadb(pkg->body, pkg->body_size, 0, NULL);
-    if (params == NULL || !json_is_array(params)) {
-        goto decode_error;
-    }
-
     if (!available) {
         rpc_reply_error_service_unavailable(ses, pkg);
-        json_decref(params);
         return;
     }
 
@@ -148,73 +145,33 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_CALL_AUCTION_EXECUTE:
         sendto_writer(ses, pkg);
         break;
-
+    case CMD_CONFIG_UPDATE_ASSET:
+    case CMD_CONFIG_UPDATE_MARKET:
+        sendto_all(ses, pkg);
+        break;
     case CMD_ASSET_QUERY:
     case CMD_ASSET_QUERY_ALL:
     case CMD_ASSET_QUERY_LOCK:
     case CMD_ORDER_PENDING:
     case CMD_ORDER_PENDING_STOP:
-        if (!json_is_integer(json_array_get(params, 0))) {
-            rpc_reply_error_invalid_argument(ses, pkg);
-            break;
-        }
-        uint32_t user_id = json_integer_value(json_array_get(params, 0));
-        sendto_reader(ses, pkg, NULL, user_id);
-        break;
-
     case CMD_ORDER_BOOK:
     case CMD_ORDER_STOP_BOOK:
     case CMD_ORDER_DEPTH:
-        if (!json_is_string(json_array_get(params, 0))) {
-            rpc_reply_error_invalid_argument(ses, pkg);
-            break;
-        }
-        const char *market_name = json_string_value(json_array_get(params, 0));
-        sendto_reader(ses, pkg, market_name, 0);
-        break;
-
-    case CMD_CONFIG_UPDATE_ASSET:
-    case CMD_CONFIG_UPDATE_MARKET:
-        sendto_all(ses, pkg);
-        break;
-
     case CMD_MARKET_LIST:
     case CMD_ASSET_LIST:
     case CMD_ASSET_QUERY_USERS:
-        sendto_reader(ses, pkg, NULL, 0);
+    case CMD_ORDER_PENDING_DETAIL:
+        sendto_reader(ses, pkg);
         break;
-
     case CMD_ASSET_SUMMARY:
     case CMD_MARKET_SUMMARY:
         sendto_reader_summary(ses, pkg);
-        break;
-
-    case CMD_ORDER_PENDING_DETAIL:
-        if (json_array_size(params) != 2 || !json_is_integer(json_array_get(params, 1))) {
-            rpc_reply_error_invalid_argument(ses, pkg);
-            break;
-        }
-        uint64_t order_id = json_integer_value(json_array_get(params, 1));
-        sendto_reader(ses, pkg, NULL, order_id);
         break;
     default:
         profile_inc("method_not_found", 1);
         log_error("from: %s unknown command: %u", nw_sock_human_addr(&ses->peer_addr), pkg->command);
         break;
     }
-
-    json_decref(params);
-    return;
-
-decode_error:
-    if (params) {
-        json_decref(params);
-    }
-    sds hex = hexdump(pkg->body, pkg->body_size);
-    log_error("connection: %s, cmd: %u decode params fail, params data: \n%s", \
-            nw_sock_human_addr(&ses->peer_addr), pkg->command, hex);
-    sdsfree(hex);
-    rpc_svr_close_clt(svr, ses);
 
     return;
 }
