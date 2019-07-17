@@ -430,10 +430,7 @@ static int finish_order(bool real, market_t *m, order_t *order)
 
     if (mpd_cmp(order->deal_stock, mpd_zero, &mpd_ctx) > 0) {
         if (real) {
-            int ret = append_order_history(order);
-            if (ret < 0) {
-                log_fatal("append_order_history fail: %d, order: %"PRIu64"", ret, order->id);
-            }
+            append_order_history(order);
         } else if (is_reader) {
             record_fini_order(order);
         }
@@ -2538,7 +2535,6 @@ json_t *market_get_summary(market_t *m)
         uint32_set_add(distinct_dict, order->user_id);
     }
     order_bid_users = uint32_set_num(distinct_dict);
-    uint32_set_clear(distinct_dict);
     skiplist_release_iterator(iter);
     uint32_set_release(distinct_dict);
 
