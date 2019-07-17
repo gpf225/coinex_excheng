@@ -49,10 +49,21 @@ static void sendto_writer(nw_ses *ses, rpc_pkg *pkg)
 
 static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
 {
-    int reader_id = (reader_loop++) % (settings.reader_num - 1);
-    if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
+    int reader_id = 0;
+    bool connected = false;
+
+    for (int i = 0; i < settings.reader_num - 1; ++i) {
+        reader_id = (reader_loop++) % (settings.reader_num - 1);
+        if (rpc_clt_connected(reader_clt_arr[reader_id])) {
+            connected = true;
+            break;
+        }
+        log_error("lose connection to reader: %d", reader_id);
+    }
+
+    if (!connected) {
         rpc_reply_error_internal_error(ses, pkg);
-        log_fatal("lose connection to reader: %d", reader_id);
+        log_fatal("lose connection to all reader");
         return;
     }
 
