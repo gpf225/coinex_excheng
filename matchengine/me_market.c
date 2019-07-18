@@ -329,7 +329,7 @@ static int frozen_order(market_t *m, order_t *order)
         }
 
         mpd_copy(order->frozen, order->left, &mpd_ctx);
-        bool use_stock_fee = (order->option & 0x1) ? true : false;
+        bool use_stock_fee = (order->option & OPTION_USE_STOCK_FEE_ONLY) ? true : false;
         if (use_stock_fee && mpd_cmp(order->maker_fee, mpd_zero, &mpd_ctx) > 0) {
             mpd_t *frozen_stock_fee = mpd_new(&mpd_ctx);
             mpd_mul(frozen_stock_fee, order->left, order->maker_fee, &mpd_ctx);
@@ -349,7 +349,7 @@ static int frozen_order(market_t *m, order_t *order)
         }
 
         mpd_copy(order->frozen, result, &mpd_ctx);
-        bool use_money_fee = (order->option & 0x2) ? true : false;
+        bool use_money_fee = (order->option & OPTION_USE_MONEY_FEE_ONLY) ? true : false;
         if (use_money_fee && mpd_cmp(order->maker_fee, mpd_zero, &mpd_ctx) > 0) {
             mpd_t *frozen_money_fee = mpd_new(&mpd_ctx);
             mpd_mul(frozen_money_fee, result, order->maker_fee, &mpd_ctx);
@@ -821,7 +821,7 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
     const char *ask_fee_asset = NULL;
     const char *bid_fee_asset = NULL;
 
-    bool ask_use_stock_fee = (taker->option & 0x1) ? true : false;
+    bool ask_use_stock_fee = (taker->option & OPTION_USE_STOCK_FEE_ONLY) ? true : false;
 
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(m->bids);
@@ -847,7 +847,7 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
             mpd_copy(amount, maker->left, &mpd_ctx);
         }
 
-        bool bid_use_money_fee = (maker->option & 0x2) ? true : false;
+        bool bid_use_money_fee = (maker->option & OPTION_USE_MONEY_FEE_ONLY) ? true : false;
 
         // calculate ask fee
         mpd_mul(deal, price, amount, &mpd_ctx);
@@ -1021,7 +1021,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
     const char *ask_fee_asset = NULL;
     const char *bid_fee_asset = NULL;
 
-    bool bid_use_money_fee = (taker->option & 0x2) ? true : false;
+    bool bid_use_money_fee = (taker->option & OPTION_USE_MONEY_FEE_ONLY) ? true : false;
 
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(m->asks);
@@ -1047,7 +1047,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
             mpd_copy(amount, maker->left, &mpd_ctx);
         }
 
-        bool ask_use_stock_fee = (maker->option & 0x1) ? true : false;
+        bool ask_use_stock_fee = (maker->option & OPTION_USE_STOCK_FEE_ONLY) ? true : false;
 
         // calculate ask fee
         mpd_mul(deal, price, amount, &mpd_ctx);
@@ -1337,8 +1337,8 @@ static int calc_call_auction_basic_price(market_t *m, bool force_calc)
 int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
         mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_price, mpd_t *fee_discount, uint32_t option)
 {
-    bool use_stock_fee = (option & 0x1) ? true : false;
-    bool use_money_fee = (option & 0x2) ? true : false;
+    bool use_stock_fee = (option & OPTION_USE_STOCK_FEE_ONLY) ? true : false;
+    bool use_money_fee = (option & OPTION_USE_MONEY_FEE_ONLY) ? true : false;
 
     if (side == MARKET_ORDER_SIDE_ASK) {
         mpd_t *balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, m->stock);
@@ -1384,7 +1384,8 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         mpd_del(require);
     }
 
-    if (real && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
+    bool unlimited_min = (option & OPTION_UNLIMITED_MIN_AMOUNT) ? true : false;
+    if (real && !unlimited_min && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
         return -2;
     }
 
@@ -1521,7 +1522,7 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
     const char *ask_fee_asset = NULL;
     const char *bid_fee_asset = NULL;
 
-    bool ask_use_stock_fee = (taker->option & 0x1) ? true : false;
+    bool ask_use_stock_fee = (taker->option & OPTION_USE_STOCK_FEE_ONLY) ? true : false;
 
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(m->bids);
@@ -1544,7 +1545,7 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
             mpd_copy(amount, maker->left, &mpd_ctx);
         }
 
-        bool bid_use_money_fee = (maker->option & 0x2) ? true : false;
+        bool bid_use_money_fee = (maker->option & OPTION_USE_MONEY_FEE_ONLY) ? true : false;
 
         // calculate ask fee
         mpd_mul(deal, price, amount, &mpd_ctx);
@@ -1718,7 +1719,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
     const char *ask_fee_asset = NULL;
     const char *bid_fee_asset = NULL;
 
-    bool bid_use_money_fee = (taker->option & 0x2) ? true : false;
+    bool bid_use_money_fee = (taker->option & OPTION_USE_MONEY_FEE_ONLY) ? true : false;
 
     skiplist_node *node;
     skiplist_iter *iter = skiplist_get_iterator(m->asks);
@@ -1745,7 +1746,7 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
             break;
         }
 
-        bool ask_use_stock_fee = (maker->option & 0x1) ? true : false;
+        bool ask_use_stock_fee = (maker->option & OPTION_USE_STOCK_FEE_ONLY) ? true : false;
 
         // calculate ask fee
         mpd_mul(deal, price, amount, &mpd_ctx);
@@ -1944,15 +1945,16 @@ static mpd_t *get_market_sell_deal(market_t *m, mpd_t *sell_amount)
 int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
         mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_price, mpd_t *fee_discount, uint32_t option)
 {
-    bool use_stock_fee = (option & 0x1) ? true : false;
-    bool use_money_fee = (option & 0x2) ? true : false;
+    bool unlimited_min = (option & OPTION_UNLIMITED_MIN_AMOUNT) ? true: false;
+    bool use_stock_fee = (option & OPTION_USE_STOCK_FEE_ONLY) ? true : false;
+    bool use_money_fee = (option & OPTION_USE_MONEY_FEE_ONLY) ? true : false;
 
     if (side == MARKET_ORDER_SIDE_ASK) {
         mpd_t *balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, m->stock);
         if (!balance || mpd_cmp(balance, amount, &mpd_ctx) < 0) {
             return -1;
         }
-        if (real && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
+        if (real && !unlimited_min && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
             return -2;
         }
         if (skiplist_len(m->bids) == 0) {
@@ -2025,7 +2027,7 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         }
         skiplist_release_iterator(iter);
 
-        if (real) {
+        if (real && !unlimited_min) {
             order_t *order = node->value;
             mpd_t *require = mpd_new(&mpd_ctx);
             mpd_mul(require, order->price, m->min_amount, &mpd_ctx);
@@ -2153,7 +2155,8 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t acc
         }
     }
 
-    if (real && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
+    bool unlimited_min = (option & OPTION_UNLIMITED_MIN_AMOUNT) ? true : false;
+    if (real && !unlimited_min && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
         return -3;
     }
 
@@ -2215,6 +2218,7 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t acc
 int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount, mpd_t *stop_price,
         mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount, uint32_t option)
 {
+    bool unlimited_min = (option & OPTION_UNLIMITED_MIN_AMOUNT) ? true : false;
     if (side == MARKET_ORDER_SIDE_ASK) {
         mpd_t *balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, m->stock);
         if (!balance || mpd_cmp(balance, amount, &mpd_ctx) < 0) {
@@ -2223,7 +2227,7 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t ac
         if (mpd_cmp(m->last, mpd_zero, &mpd_ctx) == 0 || mpd_cmp(stop_price, m->last, &mpd_ctx) == 0) {
             return -2;
         }
-        if (real && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
+        if (real && !unlimited_min && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
             return -3;
         }
     } else {
@@ -2673,8 +2677,8 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
     const char *ask_fee_asset = NULL;
     const char *bid_fee_asset = NULL;
 
-    bool ask_use_stock_fee_option = (ask->option & 0x1) ? true : false;
-    bool bid_use_money_fee_option = (bid->option & 0x2) ? true : false;
+    bool ask_use_stock_fee_option = (ask->option & OPTION_USE_STOCK_FEE_ONLY) ? true : false;
+    bool bid_use_money_fee_option = (bid->option & OPTION_USE_MONEY_FEE_ONLY) ? true : false;
 
     mpd_mul(deal, price, amount, &mpd_ctx);
     get_fee_price(m, ask->fee_asset, ask->fee_price);

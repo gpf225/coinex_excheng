@@ -57,9 +57,10 @@
 # define QUEUE_NAME             "matchengine_queue"
 # define QUEUE_PIPE_PATH        "/tmp/matchengine_queue_pipe"
 
-#define OPTION_CHECK_MASK           0x3
+#define OPTION_CHECK_MASK           0x7
 #define OPTION_USE_STOCK_FEE_ONLY   0x1
 #define OPTION_USE_MONEY_FEE_ONLY   0x2
+#define OPTION_UNLIMITED_MIN_AMOUNT 0x4
 
 # define SYSTEM_FEE_TOKEN       "CET"
 
