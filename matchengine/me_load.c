@@ -535,7 +535,7 @@ static int load_limit_order(json_t *params)
     if (json_array_size(params) >= 12) {
         if (json_is_integer(json_array_get(params, 11))) {
             option = json_integer_value(json_array_get(params, 11));
-            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+            if ((option & (~OPTION_CHECK_MASK)) != 0)
                 goto error;
         }
     }
@@ -652,7 +652,7 @@ static int load_market_order(json_t *params)
     if (json_array_size(params) >= 10) {
         if (json_is_integer(json_array_get(params, 9))) {
             option = json_integer_value(json_array_get(params, 9));
-            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+            if ((option & (~OPTION_CHECK_MASK)) != 0)
                 goto error;
         }
     }
@@ -862,7 +862,7 @@ static int load_stop_limit(json_t *params)
     if (json_array_size(params) >= 13) {
         if (json_is_integer(json_array_get(params, 12))) {
             option = json_integer_value(json_array_get(params, 12));
-            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+            if ((option & (~OPTION_CHECK_MASK)) != 0)
                 goto error;
         }
     }
@@ -992,7 +992,7 @@ static int load_stop_market(json_t *params)
     if (json_array_size(params) >= 11) {
         if (json_is_integer(json_array_get(params, 10))) {
             option = json_integer_value(json_array_get(params, 10));
-            if ((option & (~OPTION_CHECK_MASK)) != 0 || option == 0x3)
+            if ((option & (~OPTION_CHECK_MASK)) != 0)
                 goto error;
         }
     }
