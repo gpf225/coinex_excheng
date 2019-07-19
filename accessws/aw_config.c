@@ -127,6 +127,11 @@ static int read_config_from_json(json_t *root)
         printf("load kafka balances config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_kafka_consumer(root, "users", &settings.users);
+    if (ret < 0) {
+        printf("load kafka users config fail: %d\n", ret);
+        return -__LINE__;
+    }
 
     ERR_RET_LN(read_cfg_str(root, "cachecenter_host", &settings.cachecenter_host, NULL));
     ERR_RET_LN(read_cfg_int(root, "cachecenter_port", &settings.cachecenter_port, true, 0));

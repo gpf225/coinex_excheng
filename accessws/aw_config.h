@@ -75,12 +75,12 @@ struct settings {
     int                 cachecenter_port;
     int                 cachecenter_worker_num;
 
-    kafka_consumer_cfg  users;
     kafka_consumer_cfg  deals;
     kafka_consumer_cfg  stops;
     kafka_consumer_cfg  orders;
     kafka_consumer_cfg  indexs;
     kafka_consumer_cfg  balances;
+    kafka_consumer_cfg  users;
 
     int                 worker_num;
     int                 depth_limit_default;
