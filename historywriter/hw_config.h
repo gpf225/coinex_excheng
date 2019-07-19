@@ -44,11 +44,6 @@ struct settings {
     cli_svr_cfg         cli;
     char                *brokers;
     
-    kafka_consumer_cfg  deals;
-    kafka_consumer_cfg  stops;
-    kafka_consumer_cfg  orders;
-    kafka_consumer_cfg  balances;
-    
     redis_cfg           redis;
     mysql_cfg           *db_histories;
     int                 db_history_count;

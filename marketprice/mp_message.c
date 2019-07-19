@@ -1058,13 +1058,13 @@ int init_message(int id)
         return ret;
     }
 
+    int64_t offset = 0;
     last_deals_offset = get_deals_offset();
     if (last_deals_offset < 0) {
         return -__LINE__;
     }
-
-    int partition = 0;
-    deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, last_deals_offset + 1, partition, on_deals_message);
+    offset = last_deals_offset == 0 ? RD_KAFKA_OFFSET_END : last_deals_offset + 1;
+    deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, 0, offset, on_deals_message);
     if (deals == NULL) {
         return -__LINE__;
     }
@@ -1073,8 +1073,8 @@ int init_message(int id)
     if (last_indexs_offset < 0) {
         return -__LINE__;
     }
-
-    indexs = kafka_consumer_create(settings.brokers, TOPIC_INDEX, last_indexs_offset + 1, partition, on_indexs_message);
+    offset = last_indexs_offset == 0 ? RD_KAFKA_OFFSET_END : last_indexs_offset + 1;
+    indexs = kafka_consumer_create(settings.brokers, TOPIC_INDEX, 0, offset, on_indexs_message);
     if (indexs == NULL) {
         return -__LINE__;
     }

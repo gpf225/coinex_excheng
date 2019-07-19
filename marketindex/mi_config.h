@@ -21,6 +21,7 @@
 # include "ut_log.h"
 # include "ut_sds.h"
 # include "ut_cli.h"
+# include "ut_list.h"
 # include "ut_mysql.h"
 # include "ut_misc.h"
 # include "ut_signal.h"
