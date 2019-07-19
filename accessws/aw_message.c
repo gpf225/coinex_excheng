@@ -13,12 +13,12 @@
 # include "aw_auth.h"
 # include "aw_asset_sub.h"
 
-static kafka_consumer_t *kafka_users;
 static kafka_consumer_t *kafka_deals;
 static kafka_consumer_t *kafka_stops;
 static kafka_consumer_t *kafka_orders;
 static kafka_consumer_t *kafka_indexs;
 static kafka_consumer_t *kafka_balances;
+static kafka_consumer_t *kafka_users;
 
 static int process_users_message(json_t *msg)
 {
@@ -237,13 +237,6 @@ static void on_balances_message(sds message, int64_t offset)
 
 int init_message(void)
 {
-    
-    settings.users.offset = RD_KAFKA_OFFSET_END;
-    kafka_users = kafka_consumer_create(&settings.users, on_users_message);
-    if (kafka_users == NULL) {
-        return -__LINE__;
-    }
-
     settings.deals.offset = RD_KAFKA_OFFSET_END;
     kafka_deals = kafka_consumer_create(&settings.deals, on_deals_message);
     if (kafka_deals == NULL) {
@@ -271,6 +264,12 @@ int init_message(void)
     settings.balances.offset = RD_KAFKA_OFFSET_END;
     kafka_balances = kafka_consumer_create(&settings.balances, on_balances_message);
     if (kafka_balances == NULL) {
+        return -__LINE__;
+    }
+
+    settings.users.offset = RD_KAFKA_OFFSET_END;
+    kafka_users = kafka_consumer_create(&settings.users, on_users_message);
+    if (kafka_users == NULL) {
         return -__LINE__;
     }
 

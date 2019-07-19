@@ -1203,7 +1203,7 @@ respose:
 **Push user message**
 * method: `push.user_message`
 * params:
-1. message: json format, need user_id param
+1. message: json format, must need user_id param
 
 * result:
 

@@ -98,6 +98,7 @@ static void on_result(struct state_data *state, sds token, json_t *result)
         asset_unsubscribe(info->user_id, state->ses);
         asset_unsubscribe_sub(state->ses);
         order_unsubscribe(info->user_id, state->ses);
+        auth_user_remove(info->user_id);
     }
 
     void *key = (void *)(uintptr_t)user_id;
