@@ -1268,6 +1268,7 @@ static void on_timer(nw_timer *timer, void *privdata)
     profile_set("subscribe_deals", deals_subscribe_number());
     profile_set("subscribe_order", order_subscribe_number());
     profile_set("subscribe_asset", asset_subscribe_number());
+    profile_set("subscribe_notice", notice_subscribe_number());
 }
 
 static int init_cache_backend(rpc_clt_type *ct)

@@ -54,10 +54,10 @@ static int message_offset_load(void)
     if (context == NULL)
         return -__LINE__;
 
-    load_offset(context, "deals", &last_deal_offset);
-    load_offset(context, "stops", &last_stop_offset);
-    load_offset(context, "orders", &last_order_offset);
-    load_offset(context, "balances", &last_balance_offset);
+    load_offset(context, TOPIC_DEAL, &last_deal_offset);
+    load_offset(context, TOPIC_STOP, &last_stop_offset);
+    load_offset(context, TOPIC_ORDER, &last_order_offset);
+    load_offset(context, TOPIC_BALANCE, &last_balance_offset);
 
     redisFree(context);
     return 0;
@@ -69,10 +69,10 @@ static int message_offset_dump(void)
     if (context == NULL)
         return -__LINE__;
 
-    dump_offset(context, "deals", last_deal_offset);
-    dump_offset(context, "stops", last_stop_offset);
-    dump_offset(context, "orders", last_order_offset);
-    dump_offset(context, "balances", last_balance_offset);
+    dump_offset(context, TOPIC_DEAL, last_deal_offset);
+    dump_offset(context, TOPIC_STOP, last_stop_offset);
+    dump_offset(context, TOPIC_ORDER, last_order_offset);
+    dump_offset(context, TOPIC_BALANCE, last_balance_offset);
 
     redisFree(context);
     return 0;
@@ -173,22 +173,22 @@ int init_message(void)
     if (ret < 0)
         return ret;
 
-    kafka_deals = consumer_create(settings.brokers, TOPIC_HIS_DEAL, last_deal_offset + 1, on_deals_message);
+    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_HIS_DEAL, last_deal_offset + 1, on_deals_message);
     if (kafka_deals == NULL) {
         return -__LINE__;
     }
 
-    kafka_stops = consumer_create(settings.brokers, TOPIC_HIS_STOP, last_stop_offset + 1, on_stops_message);
+    kafka_stops = kafka_consumer_create(settings.brokers, TOPIC_HIS_STOP, last_stop_offset + 1, on_stops_message);
     if (kafka_stops == NULL) {
         return -__LINE__;
     }
 
-    kafka_orders = consumer_create(settings.brokers, TOPIC_HIS_ORDER, last_order_offset + 1, on_orders_message);
+    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_HIS_ORDER, last_order_offset + 1, on_orders_message);
     if (kafka_orders == NULL) {
         return -__LINE__;
     }
 
-    kafka_balances = consumer_create(settings.brokers, TOPIC_HIS_BALANCE, last_balance_offset + 1, on_balances_message);
+    kafka_balances = kafka_consumer_create(settings.brokers, TOPIC_HIS_BALANCE, last_balance_offset + 1, on_balances_message);
     if (kafka_balances == NULL) {
         return -__LINE__;
     }

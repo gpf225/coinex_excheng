@@ -8,7 +8,7 @@
 
 static rd_kafka_t *rk;
 static rd_kafka_topic_t *rkt_notice;
-static list_t *list_message;
+static list_t *list_notice;
 static nw_timer timer;
 
 static void on_logger(const rd_kafka_t *rk, int level, const char *fac, const char *buf)
@@ -52,8 +52,8 @@ static void produce_list(list_t *list, rd_kafka_topic_t *topic)
 
 static void on_timer(nw_timer *t, void *privdata)
 {
-    if (list_len(list_message) > 0) {
-        produce_list(list_message, rkt_notice);
+    if (list_len(list_notice) > 0) {
+        produce_list(list_notice, rkt_notice);
     }
 
     rd_kafka_poll(rk, 0);
@@ -90,8 +90,8 @@ int init_message(void)
     memset(&lt, 0, sizeof(lt));
     lt.free = on_list_free;
 
-    list_message = list_create(&lt);
-    if (list_message == NULL)
+    list_notice = list_create(&lt);
+    if (list_notice == NULL)
         return -__LINE__;
 
     nw_timer_set(&timer, 0.1, true, on_timer, NULL);
@@ -131,7 +131,7 @@ int notice_user_message(json_t *message, nw_ses *ses, int64_t id)
         return -__LINE__;
     }
 
-    push_message(json_dumps(message, 0), rkt_notice, list_message);
+    push_message(json_dumps(message, 0), rkt_notice, list_notice);
     http_reply_success(ses, id);
     profile_inc("push_user_message", 1);
 

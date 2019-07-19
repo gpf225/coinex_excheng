@@ -97,8 +97,10 @@ static int subscribe_user(nw_ses *ses, uint32_t user_id)
             return -__LINE__;
 
         entry = dict_add(dict_user, key, &val);
-        if (entry == NULL)
+        if (entry == NULL) {
+            dict_release(val.sessions);
             return -__LINE__;
+        }
     }
 
     struct user_val *obj = entry->val;
@@ -123,8 +125,10 @@ int deals_subscribe(nw_ses *ses, const char *market, uint32_t user_id)
             return -__LINE__;
 
         entry = dict_add(dict_sub_deals, (char *)market, &val);
-        if (entry == NULL)
+        if (entry == NULL) {
+            dict_release(val.sessions);
             return -__LINE__;
+        }
     }
 
     struct sub_deals_val *obj = entry->val;
@@ -146,6 +150,10 @@ static int unsubscribe_user(nw_ses *ses, uint32_t user_id)
     if (entry) {
         struct user_val *obj = entry->val;
         dict_delete(obj->sessions, ses);
+
+        if (dict_size(obj->sessions) == 0) {
+            dict_delete(dict_user, key);
+        }
     }
 
     return 0;

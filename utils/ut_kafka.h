@@ -45,7 +45,7 @@ typedef struct kafka_consumer_t {
     kafka_message_callback callback;
 } kafka_consumer_t;
 
-kafka_consumer_t *consumer_create(const char *brokers, const char *topic, int64_t offset, kafka_message_callback callback);
+kafka_consumer_t *kafka_consumer_create(const char *brokers, const char *topic, int64_t offset, kafka_message_callback callback);
 void kafka_consumer_suspend(kafka_consumer_t *consumer);
 void kafka_consumer_resume(kafka_consumer_t *consumer);
 void kafka_consumer_release(kafka_consumer_t *consumer);

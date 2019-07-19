@@ -150,12 +150,12 @@ int init_message(void)
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_his_orders = rd_kafka_topic_new(rk, TOPIC_ORDER, NULL);
+    rkt_his_orders = rd_kafka_topic_new(rk, TOPIC_HIS_ORDER, NULL);
     if (rkt_his_orders == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_his_balances = rd_kafka_topic_new(rk, TOPIC_BALANCE, NULL);
+    rkt_his_balances = rd_kafka_topic_new(rk, TOPIC_HIS_BALANCE, NULL);
     if (rkt_his_balances == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;

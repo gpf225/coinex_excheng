@@ -93,7 +93,7 @@ static void on_can_read(struct ev_loop *loop, ev_io *watcher, int events)
     }
 }
 
-static kafka_consumer_t *kafka_consumer_create(kafka_consumer_cfg *cfg, kafka_message_callback callback)
+static kafka_consumer_t *kafka_cfg_kafka_consumer_create(kafka_consumer_cfg *cfg, kafka_message_callback callback)
 {
     kafka_consumer_t *consumer = malloc(sizeof(kafka_consumer_t));
     if (consumer == NULL)
@@ -209,13 +209,13 @@ static int kafka_consumer_cfg_release(kafka_consumer_cfg *cfg)
     return 0;
 }
 
-kafka_consumer_t *consumer_create(const char *brokers, const char *topic, int64_t offset, kafka_message_callback callback)
+kafka_consumer_t *kafka_consumer_create(const char *brokers, const char *topic, int64_t offset, kafka_message_callback callback)
 {
     kafka_consumer_cfg *cfg = kafka_consumer_cfg_create(brokers, topic, offset);
     if (cfg == NULL)
         return NULL;
 
-    kafka_consumer_t *consumer = kafka_consumer_create(cfg, callback);
+    kafka_consumer_t *consumer = kafka_cfg_kafka_consumer_create(cfg, callback);
     kafka_consumer_cfg_release(cfg);
     if (consumer == NULL)
         return NULL;

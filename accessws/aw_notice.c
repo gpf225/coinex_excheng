@@ -59,8 +59,10 @@ int notice_subscribe(uint32_t user_id, nw_ses *ses)
             return -__LINE__;
 
         entry = dict_add(dict_sub_notice, key, &val);
-        if (entry == NULL)
+        if (entry == NULL) {
+            dict_release(val.sessions);
             return -__LINE__;
+        }
     }
 
     struct sub_notice_val *obj = entry->val;
@@ -76,6 +78,10 @@ int notice_unsubscribe(uint32_t user_id, nw_ses *ses)
     if (entry) {
         struct sub_notice_val *obj = entry->val;
         dict_delete(obj->sessions, ses);
+
+        if (dict_size(obj->sessions) == 0) {
+            dict_delete(dict_sub_notice, key);
+        }
     }
 
     return 0;
