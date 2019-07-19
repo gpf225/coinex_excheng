@@ -9,13 +9,45 @@
 # include "aw_asset.h"
 # include "aw_order.h"
 # include "aw_index.h"
+# include "aw_server.h"
+# include "aw_auth.h"
 # include "aw_asset_sub.h"
 
+static kafka_consumer_t *kafka_users;
 static kafka_consumer_t *kafka_deals;
 static kafka_consumer_t *kafka_stops;
 static kafka_consumer_t *kafka_orders;
 static kafka_consumer_t *kafka_indexs;
 static kafka_consumer_t *kafka_balances;
+
+static int process_users_message(json_t *msg)
+{
+    uint32_t user_id = json_integer_value(json_object_get(msg, "user_id"));
+    nw_ses *ses = get_auth_user_ses(user_id);
+    if (ses) {
+        ws_send_notify(ses, "user.message", msg);
+    }
+
+    return 0;
+}
+
+static void on_users_message(sds message, int64_t offset)
+{
+    log_trace("users message: %s", message);
+    profile_inc("message_user ", 1);
+    json_t *msg = json_loads(message, 0, NULL);
+    if (!msg) {
+        log_error("invalid user message: %s", message);
+        return;
+    }
+
+    int ret = process_users_message(msg);
+    if (ret < 0) {
+        log_error("process_users_message: %s fail: %d", message, ret);
+    }
+
+    json_decref(msg);
+}
 
 static int process_deals_message(json_t *msg)
 {
@@ -205,6 +237,13 @@ static void on_balances_message(sds message, int64_t offset)
 
 int init_message(void)
 {
+    
+    settings.users.offset = RD_KAFKA_OFFSET_END;
+    kafka_users = kafka_consumer_create(&settings.users, on_users_message);
+    if (kafka_users == NULL) {
+        return -__LINE__;
+    }
+
     settings.deals.offset = RD_KAFKA_OFFSET_END;
     kafka_deals = kafka_consumer_create(&settings.deals, on_deals_message);
     if (kafka_deals == NULL) {

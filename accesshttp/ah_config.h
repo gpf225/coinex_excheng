@@ -67,7 +67,8 @@ struct settings {
     double              timeout;
     int                 worker_num;
     int                 deal_max;
-
+    char                *brokers;
+    
     char               *cachecenter_host;
     int                 cachecenter_port;
     int                 cachecenter_worker_num;

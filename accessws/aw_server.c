@@ -925,6 +925,7 @@ static void on_close(nw_ses *ses, const char *remote)
         asset_unsubscribe(info->user_id, ses);
         asset_unsubscribe_sub(ses);
         sub_user_remove(info->user_id, ses);
+        auth_user_remove(info->user_id);
     }
     profile_inc("connection_close", 1);
 }

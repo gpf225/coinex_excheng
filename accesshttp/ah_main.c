@@ -10,6 +10,7 @@
 # include "ah_state.h"
 # include "ah_deals.h"
 # include "ah_cache.h"
+# include "ah_message.h"
 
 const char *__process__ = "accesshttp";
 const char *__version__ = "0.1.0";
@@ -111,7 +112,10 @@ int main(int argc, char *argv[])
             if (ret < 0) {
                 error(EXIT_FAILURE, errno, "init server fail: %d", ret);
             }
-
+            ret = init_message();
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init message fail: %d", ret);
+            }
             goto run;
         }
     }

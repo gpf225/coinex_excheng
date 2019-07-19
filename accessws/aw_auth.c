@@ -14,6 +14,7 @@
 
 static nw_job *job_context;
 static nw_state *state_context;
+static dict_t *dict_user;
 
 struct state_data {
     nw_ses *ses;
@@ -99,6 +100,9 @@ static void on_result(struct state_data *state, sds token, json_t *result)
         order_unsubscribe(info->user_id, state->ses);
     }
 
+    void *key = (void *)(uintptr_t)user_id;
+    dict_add(dict_user, key, state->ses);
+
     info->auth = true;
     info->user_id = user_id;
     log_info("auth success, token: %s, user_id: %u", token, info->user_id);
@@ -167,6 +171,13 @@ int send_auth_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *p
 
 int init_auth(void)
 {
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function  = uint32_dict_hash_func;
+    dt.key_compare    = uint32_dict_key_compare;
+    dict_user = dict_create(&dt, 64);
+    if (dict_user == NULL)
+        return -__LINE__;
 
     nw_job_type jt;
     memset(&jt, 0, sizeof(jt));
@@ -192,5 +203,20 @@ int init_auth(void)
 size_t pending_auth_request(void)
 {
     return job_context->request_count;
+}
+
+nw_ses *get_auth_user_ses(uint32_t user_id)
+{
+    void *key = (void *)(uintptr_t)user_id;
+    dict_entry *entry = dict_find(dict_user, key);
+    if (!entry)
+        return NULL;
+    return entry->val;
+}
+
+void auth_user_remove(uint32_t user_id)
+{
+    void *key = (void *)(uintptr_t)user_id;
+    dict_delete(dict_user, key);
 }
 

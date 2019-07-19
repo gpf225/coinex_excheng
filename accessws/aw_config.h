@@ -75,6 +75,7 @@ struct settings {
     int                 cachecenter_port;
     int                 cachecenter_worker_num;
 
+    kafka_consumer_cfg  users;
     kafka_consumer_cfg  deals;
     kafka_consumer_cfg  stops;
     kafka_consumer_cfg  orders;
