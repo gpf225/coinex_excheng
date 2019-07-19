@@ -124,17 +124,9 @@ static int push_message(char *message, rd_kafka_topic_t *topic, list_t *list)
     return 0;
 }
 
-int notice_user_message(json_t *message, nw_ses *ses, int64_t id)
+int push_notify_message(json_t *message)
 {
-    if (!message || !json_object_get(message, "user_id")) {
-        http_reply_error_invalid_argument(ses, id);
-        return -__LINE__;
-    }
-
     push_message(json_dumps(message, 0), rkt_notice, list_notice);
-    http_reply_success(ses, id);
-    profile_inc("push_user_message", 1);
-
     return 0;
 }
 

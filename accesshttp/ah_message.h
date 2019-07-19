@@ -9,7 +9,7 @@
 # include "ah_config.h"
 
 int init_message(void);
-int notice_user_message(json_t *message, nw_ses *ses, int64_t id);
+int push_notify_message(json_t *message);
 
 # endif
 

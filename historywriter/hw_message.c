@@ -173,22 +173,23 @@ int init_message(void)
     if (ret < 0)
         return ret;
 
-    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_HIS_DEAL, last_deal_offset + 1, on_deals_message);
+    int partition = 0;
+    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_HIS_DEAL, last_deal_offset + 1, partition, on_deals_message);
     if (kafka_deals == NULL) {
         return -__LINE__;
     }
 
-    kafka_stops = kafka_consumer_create(settings.brokers, TOPIC_HIS_STOP, last_stop_offset + 1, on_stops_message);
+    kafka_stops = kafka_consumer_create(settings.brokers, TOPIC_HIS_STOP, last_stop_offset + 1, partition, on_stops_message);
     if (kafka_stops == NULL) {
         return -__LINE__;
     }
 
-    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_HIS_ORDER, last_order_offset + 1, on_orders_message);
+    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_HIS_ORDER, last_order_offset + 1, partition, on_orders_message);
     if (kafka_orders == NULL) {
         return -__LINE__;
     }
 
-    kafka_balances = kafka_consumer_create(settings.brokers, TOPIC_HIS_BALANCE, last_balance_offset + 1, on_balances_message);
+    kafka_balances = kafka_consumer_create(settings.brokers, TOPIC_HIS_BALANCE, last_balance_offset + 1, partition, on_balances_message);
     if (kafka_balances == NULL) {
         return -__LINE__;
     }

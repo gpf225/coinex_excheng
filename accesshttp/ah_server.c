@@ -127,7 +127,15 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             json_decref(body);
             return 0;
         } else if (req->cmd == CMD_NOTICE_USER_MESSAGE) {
-            notice_user_message(json_array_get(params, 0), ses, json_integer_value(id));
+            json_t *message = json_array_get(params, 0);
+            if (!message || !json_object_get(message, "user_id")) {
+                http_reply_error_invalid_argument(ses, json_integer_value(id));
+                json_decref(body);
+                return 0;
+            }
+
+            push_notify_message(message);
+            http_reply_success(ses, json_integer_value(id));
             json_decref(body);
             return 0;
         }

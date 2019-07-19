@@ -93,7 +93,60 @@ static void on_can_read(struct ev_loop *loop, ev_io *watcher, int events)
     }
 }
 
-static kafka_consumer_t *kafka_cfg_kafka_consumer_create(kafka_consumer_cfg *cfg, kafka_message_callback callback)
+static kafka_consumer_cfg *kafka_consumer_cfg_create(const char *brokers, const char *topic, int64_t offset, int partition)
+{
+    if (!topic || !brokers)
+        return NULL;
+
+    kafka_consumer_cfg *cfg = malloc(sizeof(kafka_consumer_cfg));
+    if (cfg == NULL)
+        return NULL;
+
+    memset(cfg, 0, sizeof(kafka_consumer_cfg));
+    cfg->brokers = strdup(brokers);
+    if (cfg->brokers == NULL){
+        free(cfg);
+        return NULL;
+    }
+    
+    cfg->topic = strdup(topic);
+    if (cfg->topic == NULL) {
+        free(cfg->brokers);
+        free(cfg);
+        return NULL;
+    }
+
+    cfg->partition = partition;
+    cfg->limit = 1000;
+    cfg->offset = offset;
+    return cfg;
+}
+
+static int kafka_consumer_cfg_release(kafka_consumer_cfg *cfg)
+{
+    if (cfg->brokers)
+        free(cfg->brokers);
+    if (cfg->topic)
+        free(cfg->topic);
+    free(cfg);
+    return 0;
+}
+
+kafka_consumer_t *kafka_consumer_create(const char *brokers, const char *topic, int64_t offset, int partition, kafka_message_callback callback)
+{
+    kafka_consumer_cfg *cfg = kafka_consumer_cfg_create(brokers, topic, offset, partition);
+    if (cfg == NULL)
+        return NULL;
+
+    kafka_consumer_t *consumer = kafka_consumer_create_from_cfg(cfg, callback);
+    kafka_consumer_cfg_release(cfg);
+    if (consumer == NULL)
+        return NULL;
+
+    return consumer;
+}
+
+kafka_consumer_t *kafka_consumer_create_from_cfg(kafka_consumer_cfg *cfg, kafka_message_callback callback)
 {
     kafka_consumer_t *consumer = malloc(sizeof(kafka_consumer_t));
     if (consumer == NULL)
@@ -166,59 +219,6 @@ static kafka_consumer_t *kafka_cfg_kafka_consumer_create(kafka_consumer_cfg *cfg
         kafka_consumer_release(consumer);
         return NULL;
     }
-
-    return consumer;
-}
-
-static kafka_consumer_cfg *kafka_consumer_cfg_create(const char *brokers, const char *topic, int64_t offset)
-{
-    if (!topic || !brokers)
-        return NULL;
-
-    kafka_consumer_cfg *cfg = malloc(sizeof(kafka_consumer_cfg));
-    if (cfg == NULL)
-        return NULL;
-
-    memset(cfg, 0, sizeof(kafka_consumer_cfg));
-    cfg->brokers = strdup(brokers);
-    if (cfg->brokers == NULL){
-        free(cfg);
-        return NULL;
-    }
-    
-    cfg->topic = strdup(topic);
-    if (cfg->topic == NULL) {
-        free(cfg->brokers);
-        free(cfg);
-        return NULL;
-    }
-
-    cfg->partition = 0;
-    cfg->limit = 1000;
-    cfg->offset = offset;
-    return cfg;
-}
-
-static int kafka_consumer_cfg_release(kafka_consumer_cfg *cfg)
-{
-    if (cfg->brokers)
-        free(cfg->brokers);
-    if (cfg->topic)
-        free(cfg->topic);
-    free(cfg);
-    return 0;
-}
-
-kafka_consumer_t *kafka_consumer_create(const char *brokers, const char *topic, int64_t offset, kafka_message_callback callback)
-{
-    kafka_consumer_cfg *cfg = kafka_consumer_cfg_create(brokers, topic, offset);
-    if (cfg == NULL)
-        return NULL;
-
-    kafka_consumer_t *consumer = kafka_cfg_kafka_consumer_create(cfg, callback);
-    kafka_consumer_cfg_release(cfg);
-    if (consumer == NULL)
-        return NULL;
 
     return consumer;
 }

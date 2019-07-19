@@ -1169,7 +1169,8 @@ int init_message(void)
         settings.deals.offset = deals_offset + 1;
     }
 
-    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, deals_offset + 1, on_deals_message);
+    int partition = 0;
+    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, deals_offset + 1, partition, on_deals_message);
     if (kafka_deals == NULL)
         return -__LINE__;
 
@@ -1180,7 +1181,7 @@ int init_message(void)
         log_info("orders start offset: %"PRIi64, deals_offset);
         settings.orders.offset = orders_offset + 1;
     }
-    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_ORDER, orders_offset + 1, on_orders_message);
+    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_ORDER, orders_offset + 1, partition, on_orders_message);
     if (kafka_orders == NULL)
         return -__LINE__;
 
