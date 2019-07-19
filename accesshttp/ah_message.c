@@ -7,7 +7,7 @@
 # include <librdkafka/rdkafka.h>
 
 static rd_kafka_t *rk;
-static rd_kafka_topic_t *rkt_message;
+static rd_kafka_topic_t *rkt_notice;
 static list_t *list_message;
 static nw_timer timer;
 
@@ -53,7 +53,7 @@ static void produce_list(list_t *list, rd_kafka_topic_t *topic)
 static void on_timer(nw_timer *t, void *privdata)
 {
     if (list_len(list_message) > 0) {
-        produce_list(list_message, rkt_message);
+        produce_list(list_message, rkt_notice);
     }
 
     rd_kafka_poll(rk, 0);
@@ -80,8 +80,8 @@ int init_message(void)
         return -__LINE__;
     }
 
-    rkt_message = rd_kafka_topic_new(rk, "users", NULL);
-    if (rkt_message == NULL) {
+    rkt_notice = rd_kafka_topic_new(rk, TOPIC_NOTICE, NULL);
+    if (rkt_notice == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
@@ -124,14 +124,14 @@ static int push_message(char *message, rd_kafka_topic_t *topic, list_t *list)
     return 0;
 }
 
-int push_user_message(json_t *message, nw_ses *ses, int64_t id)
+int notice_user_message(json_t *message, nw_ses *ses, int64_t id)
 {
     if (!message || !json_object_get(message, "user_id")) {
         http_reply_error_invalid_argument(ses, id);
         return -__LINE__;
     }
 
-    push_message(json_dumps(message, 0), rkt_message, list_message);
+    push_message(json_dumps(message, 0), rkt_notice, list_message);
     http_reply_success(ses, id);
     profile_inc("push_user_message", 1);
 

@@ -120,42 +120,42 @@ int init_message(void)
         return -__LINE__;
     }
 
-    rkt_balances = rd_kafka_topic_new(rk, "balances", NULL);
+    rkt_balances = rd_kafka_topic_new(rk, TOPIC_BALANCE, NULL);
     if (rkt_balances == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_orders = rd_kafka_topic_new(rk, "orders", NULL);
+    rkt_orders = rd_kafka_topic_new(rk, TOPIC_ORDER, NULL);
     if (rkt_orders == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_deals = rd_kafka_topic_new(rk, "deals", NULL);
+    rkt_deals = rd_kafka_topic_new(rk, TOPIC_DEAL, NULL);
     if (rkt_deals == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_stops = rd_kafka_topic_new(rk, "stops", NULL);
-    if (rkt_deals == NULL) {
+    rkt_stops = rd_kafka_topic_new(rk, TOPIC_STOP, NULL);
+    if (rkt_stops == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_his_deals = rd_kafka_topic_new(rk, "his_deals", NULL);
+    rkt_his_deals = rd_kafka_topic_new(rk, TOPIC_HIS_DEAL, NULL);
     if (rkt_his_deals == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_his_stops = rd_kafka_topic_new(rk, "his_stops", NULL);
+    rkt_his_stops = rd_kafka_topic_new(rk, TOPIC_HIS_STOP, NULL);
     if (rkt_his_stops == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_his_orders = rd_kafka_topic_new(rk, "his_orders", NULL);
+    rkt_his_orders = rd_kafka_topic_new(rk, TOPIC_ORDER, NULL);
     if (rkt_his_orders == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
-    rkt_his_balances = rd_kafka_topic_new(rk, "his_balances", NULL);
+    rkt_his_balances = rd_kafka_topic_new(rk, TOPIC_BALANCE, NULL);
     if (rkt_his_balances == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;

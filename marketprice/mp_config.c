@@ -35,22 +35,13 @@ static int read_config_from_json(json_t *root)
         printf("load svr config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_kafka_consumer(root, "deals", &settings.deals);
-    if (ret < 0) {
-        printf("load kafka deals config fail: %d\n", ret);
-        return -__LINE__;
-    }
-    ret = load_cfg_kafka_consumer(root, "indexs", &settings.indexs);
-    if (ret < 0) {
-        printf("load kafka indexs config fail: %d\n", ret);
-        return -__LINE__;
-    }
     ret = load_cfg_redis(root, "redis", &settings.redis);
     if (ret < 0) {
         printf("load redis deals config fail: %d\n", ret);
         return -__LINE__;
     }
 
+    ERR_RET_LN(read_cfg_str(root, "brokers", &settings.brokers, NULL));
     ERR_RET_LN(read_cfg_int(root, "sec_max", &settings.sec_max, false, 86400 * 3));
     ERR_RET_LN(read_cfg_int(root, "min_max", &settings.min_max, false, 60 * 24 * 30));
     ERR_RET_LN(read_cfg_int(root, "hour_max", &settings.hour_max, false, 24 * 365 * 3));

@@ -41,9 +41,6 @@
 # include "ut_json_rpc.h"
 # include "ut_comm_dict.h"
 
-# define BUSINESS_NAME_MAX_LEN  31
-# define SOURCE_MAX_LEN         31
-
 # define ORDER_BOOK_MAX_LEN     101
 # define ORDER_LIST_MAX_LEN     101
 
@@ -56,11 +53,6 @@
 # define QUEUE_SHMKEY_START     0x16120802
 # define QUEUE_NAME             "matchengine_queue"
 # define QUEUE_PIPE_PATH        "/tmp/matchengine_queue_pipe"
-
-#define OPTION_CHECK_MASK           0x7
-#define OPTION_USE_STOCK_FEE_ONLY   0x1
-#define OPTION_USE_MONEY_FEE_ONLY   0x2
-#define OPTION_UNLIMITED_MIN_AMOUNT 0x4
 
 # define SYSTEM_FEE_TOKEN       "CET"
 

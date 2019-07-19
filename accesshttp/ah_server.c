@@ -126,8 +126,8 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             direct_state_reply(ses, params, json_integer_value(id));
             json_decref(body);
             return 0;
-        } else if (req->cmd == CMD_PUSH_USER_MESSAGE) {
-            push_user_message(json_array_get(params, 0), ses, json_integer_value(id));
+        } else if (req->cmd == CMD_NOTICE_USER_MESSAGE) {
+            notice_user_message(json_array_get(params, 0), ses, json_integer_value(id));
             json_decref(body);
             return 0;
         }
@@ -392,7 +392,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("trade.net_rank", tradesummary, CMD_TRADE_NET_RANK));
     ERR_RET_LN(add_handler("trade.amount_rank", tradesummary, CMD_TRADE_AMOUNT_RANK));
 
-    ERR_RET_LN(add_handler("push.user_message", NULL, CMD_PUSH_USER_MESSAGE));
+    ERR_RET_LN(add_handler("notice.user_message", NULL, CMD_NOTICE_USER_MESSAGE));
     return 0;
 }
 

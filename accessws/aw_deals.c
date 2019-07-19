@@ -11,7 +11,7 @@
 
 static dict_t *dict_sub_deals;
 static dict_t *dict_user;
-static dict_t  *dict_deals;
+static dict_t *dict_deals;
 
 static rpc_clt *cache_deals;
 
@@ -92,7 +92,7 @@ static int subscribe_user(nw_ses *ses, uint32_t user_id)
         memset(&dt, 0, sizeof(dt));
         dt.hash_function = ptr_dict_hash_func;
         dt.key_compare = ptr_dict_key_compare;
-        val.sessions = dict_create(&dt, 1024);
+        val.sessions = dict_create(&dt, 2);
         if (val.sessions == NULL)
             return -__LINE__;
 

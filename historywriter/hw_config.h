@@ -42,7 +42,8 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     cli_svr_cfg         cli;
-
+    char                *brokers;
+    
     kafka_consumer_cfg  deals;
     kafka_consumer_cfg  stops;
     kafka_consumer_cfg  orders;

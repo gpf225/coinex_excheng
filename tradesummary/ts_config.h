@@ -50,6 +50,7 @@ struct settings {
     redis_cfg           redis;
     int                 keep_days;
     char                *accesshttp;
+    char                *brokers;
 };
 
 extern struct settings settings;

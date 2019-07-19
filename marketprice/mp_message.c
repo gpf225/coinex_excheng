@@ -1062,8 +1062,8 @@ int init_message(int id)
     if (last_deals_offset < 0) {
         return -__LINE__;
     }
-    settings.deals.offset = last_deals_offset + 1;
-    deals = kafka_consumer_create(&settings.deals, on_deals_message);
+
+    deals = consumer_create(settings.brokers, TOPIC_DEAL, last_deals_offset + 1, on_deals_message);
     if (deals == NULL) {
         return -__LINE__;
     }
@@ -1072,8 +1072,8 @@ int init_message(int id)
     if (last_indexs_offset < 0) {
         return -__LINE__;
     }
-    settings.indexs.offset = last_indexs_offset + 1;
-    indexs = kafka_consumer_create(&settings.indexs, on_indexs_message);
+
+    indexs = consumer_create(settings.brokers, TOPIC_INDEX, last_indexs_offset + 1, on_indexs_message);
     if (indexs == NULL) {
         return -__LINE__;
     }

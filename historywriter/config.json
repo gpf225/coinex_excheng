@@ -14,26 +14,6 @@
         "addr": "127.0.0.1:4444"
     },
     "cli": "tcp@127.0.0.1:7821",
-    "his_deals": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "his_deals",
-        "partition": 0
-    },
-    "his_stops": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "his_stops",
-        "partition": 0
-    },
-    "his_orders": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "his_orders",
-        "partition": 0
-    },
-    "his_balances": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "his_balances",
-        "partition": 0
-    },
     "redis": {
         "host": "127.0.0.1",
         "port": 6386
@@ -70,6 +50,7 @@
             "name": "trade_history_4"
         }
     ],
+    "brokers": "127.0.0.1:9092",
     "worker_num": 10
 }
 

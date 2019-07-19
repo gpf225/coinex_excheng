@@ -173,26 +173,22 @@ int init_message(void)
     if (ret < 0)
         return ret;
 
-    settings.deals.offset = last_deal_offset + 1;
-    kafka_deals = kafka_consumer_create(&settings.deals, on_deals_message);
+    kafka_deals = consumer_create(settings.brokers, TOPIC_HIS_DEAL, last_deal_offset + 1, on_deals_message);
     if (kafka_deals == NULL) {
         return -__LINE__;
     }
 
-    settings.stops.offset = last_stop_offset + 1;
-    kafka_stops = kafka_consumer_create(&settings.stops, on_stops_message);
+    kafka_stops = consumer_create(settings.brokers, TOPIC_HIS_STOP, last_stop_offset + 1, on_stops_message);
     if (kafka_stops == NULL) {
         return -__LINE__;
     }
 
-    settings.orders.offset = last_order_offset + 1;
-    kafka_orders = kafka_consumer_create(&settings.orders, on_orders_message);
+    kafka_orders = consumer_create(settings.brokers, TOPIC_HIS_ORDER, last_order_offset + 1, on_orders_message);
     if (kafka_orders == NULL) {
         return -__LINE__;
     }
 
-    settings.balances.offset = last_balance_offset + 1;
-    kafka_balances = kafka_consumer_create(&settings.balances, on_balances_message);
+    kafka_balances = consumer_create(settings.brokers, TOPIC_HIS_BALANCE, last_balance_offset + 1, on_balances_message);
     if (kafka_balances == NULL) {
         return -__LINE__;
     }

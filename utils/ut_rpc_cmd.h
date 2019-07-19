@@ -81,7 +81,7 @@
 
 // push
 # define CMD_REDER_ERROR                801
-# define CMD_PUSH_USER_MESSAGE          802
+# define CMD_NOTICE_USER_MESSAGE        802
 
 // marketindex
 # define CMD_INDEX_LIST                 901
