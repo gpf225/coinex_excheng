@@ -71,7 +71,7 @@
 # define CMD_CACHE_DEPTH_UPDATE         502
 # define CMD_CACHE_DEALS_UPDATE     	503
 # define CMD_CACHE_STATUS_UPDATE    	504
-# define CMD_CACHE_DEPTH    			505
+# define CMD_CACHE_DEPTH                505
 # define CMD_CACHE_DEPTH_SUBSCRIBE    	506
 # define CMD_CACHE_DEPTH_UNSUBSCRIBE    507
 
