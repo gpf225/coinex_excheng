@@ -1447,10 +1447,8 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     if (!m->call_auction) {
         if (side == MARKET_ORDER_SIDE_ASK) {
             ret = execute_limit_ask_order(real, m, order);
-            balance_reset(user_id, account, m->stock);
         } else {
             ret = execute_limit_bid_order(real, m, order);
-            balance_reset(user_id, account, m->money);
         }
         if (ret < 0) {
             log_error("execute order: %"PRIu64" fail: %d", order->id, ret);
@@ -1472,6 +1470,11 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             }
         } else if (is_reader) {
             record_fini_order(order);
+        }
+        if (side == MARKET_ORDER_SIDE_ASK) {
+            balance_reset(user_id, account, m->stock);
+        } else {
+            balance_reset(user_id, account, m->money);
         }
         order_free(order);
     } else {
