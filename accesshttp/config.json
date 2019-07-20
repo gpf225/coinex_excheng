@@ -79,6 +79,7 @@
         ],
         "max_pkg_size": 2000000
     },
+    "brokers": "127.0.0.1:9092",
     "cachecenter_host": "127.0.0.1",
     "cachecenter_port": 7810,
     "cachecenter_worker_num": 4,

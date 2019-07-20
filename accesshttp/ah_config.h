@@ -33,6 +33,7 @@
 # include "ut_config.h"
 # include "ut_profile.h"
 # include "ut_decimal.h"
+# include "ut_define.h"
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
@@ -67,7 +68,8 @@ struct settings {
     double              timeout;
     int                 worker_num;
     int                 deal_max;
-
+    char                *brokers;
+    
     char               *cachecenter_host;
     int                 cachecenter_port;
     int                 cachecenter_worker_num;

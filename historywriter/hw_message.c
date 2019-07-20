@@ -54,10 +54,10 @@ static int message_offset_load(void)
     if (context == NULL)
         return -__LINE__;
 
-    load_offset(context, "deals", &last_deal_offset);
-    load_offset(context, "stops", &last_stop_offset);
-    load_offset(context, "orders", &last_order_offset);
-    load_offset(context, "balances", &last_balance_offset);
+    load_offset(context, TOPIC_DEAL, &last_deal_offset);
+    load_offset(context, TOPIC_STOP, &last_stop_offset);
+    load_offset(context, TOPIC_ORDER, &last_order_offset);
+    load_offset(context, TOPIC_BALANCE, &last_balance_offset);
 
     redisFree(context);
     return 0;
@@ -69,10 +69,10 @@ static int message_offset_dump(void)
     if (context == NULL)
         return -__LINE__;
 
-    dump_offset(context, "deals", last_deal_offset);
-    dump_offset(context, "stops", last_stop_offset);
-    dump_offset(context, "orders", last_order_offset);
-    dump_offset(context, "balances", last_balance_offset);
+    dump_offset(context, TOPIC_DEAL, last_deal_offset);
+    dump_offset(context, TOPIC_STOP, last_stop_offset);
+    dump_offset(context, TOPIC_ORDER, last_order_offset);
+    dump_offset(context, TOPIC_BALANCE, last_balance_offset);
 
     redisFree(context);
     return 0;
@@ -173,26 +173,27 @@ int init_message(void)
     if (ret < 0)
         return ret;
 
-    settings.deals.offset = last_deal_offset + 1;
-    kafka_deals = kafka_consumer_create(&settings.deals, on_deals_message);
+    int64_t offset = 0;
+    offset = last_deal_offset == 0 ? RD_KAFKA_OFFSET_END : last_deal_offset + 1;
+    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_HIS_DEAL, 0, offset, on_deals_message);
     if (kafka_deals == NULL) {
         return -__LINE__;
     }
 
-    settings.stops.offset = last_stop_offset + 1;
-    kafka_stops = kafka_consumer_create(&settings.stops, on_stops_message);
+    offset = last_stop_offset == 0 ? RD_KAFKA_OFFSET_END : last_stop_offset + 1;
+    kafka_stops = kafka_consumer_create(settings.brokers, TOPIC_HIS_STOP, 0, offset, on_stops_message);
     if (kafka_stops == NULL) {
         return -__LINE__;
     }
 
-    settings.orders.offset = last_order_offset + 1;
-    kafka_orders = kafka_consumer_create(&settings.orders, on_orders_message);
+    offset = last_order_offset == 0 ? RD_KAFKA_OFFSET_END : last_order_offset + 1;
+    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_HIS_ORDER, 0, offset, on_orders_message);
     if (kafka_orders == NULL) {
         return -__LINE__;
     }
 
-    settings.balances.offset = last_balance_offset + 1;
-    kafka_balances = kafka_consumer_create(&settings.balances, on_balances_message);
+    offset = last_balance_offset == 0 ? RD_KAFKA_OFFSET_END : last_balance_offset + 1;
+    kafka_balances = kafka_consumer_create(settings.brokers, TOPIC_HIS_BALANCE, 0, offset, on_balances_message);
     if (kafka_balances == NULL) {
         return -__LINE__;
     }

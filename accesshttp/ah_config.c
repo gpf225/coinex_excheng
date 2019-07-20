@@ -112,6 +112,7 @@ static int read_config_from_json(json_t *root)
         return -__LINE__;
     }
 
+    ERR_RET_LN(read_cfg_str(root, "brokers", &settings.brokers, NULL));
     ERR_RET_LN(read_cfg_str(root, "cachecenter_host", &settings.cachecenter_host, NULL));
     ERR_RET_LN(read_cfg_int(root, "cachecenter_port", &settings.cachecenter_port, true, 0));
     ERR_RET_LN(read_cfg_int(root, "cachecenter_worker_num", &settings.cachecenter_worker_num, true, 0));

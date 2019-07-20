@@ -11,6 +11,7 @@
 # include "aw_asset_sub.h"
 # include "aw_order.h"
 # include "aw_auth.h"
+# include "aw_notice.h"
 
 static nw_job *job_context;
 static nw_state *state_context;
@@ -97,6 +98,7 @@ static void on_result(struct state_data *state, sds token, json_t *result)
         asset_unsubscribe(info->user_id, state->ses);
         asset_unsubscribe_sub(state->ses);
         order_unsubscribe(info->user_id, state->ses);
+        notice_unsubscribe(info->user_id, state->ses);
     }
 
     info->auth = true;
