@@ -380,9 +380,11 @@ static int init_market(void)
         redisFree(context);
         return -__LINE__;
     }
-    for (size_t i = 0; i < json_array_size(index_list); ++i) {
-        json_t *item = json_array_get(index_list, i);
-        const char *name = json_string_value(json_object_get(item, "name"));
+
+    const char *key;
+    json_t *val;
+    json_object_foreach(index_list, key, val) {
+        const char *name = key;
         char *index_name = convert_index_name(name);
         if (get_market_id(index_name) != worker_id)
             continue;

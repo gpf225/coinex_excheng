@@ -89,12 +89,23 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, `t`, `side`, `price`, `amount`, "
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
-            "FROM `order_history_%u` WHERE `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
+            "FROM `order_history_%u`", user_id % HISTORY_HASH_NUM);
+
+    size_t market_len = strlen(market);
+    if (account >= 0 && market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+    } else if (account >= 0 && market_len) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    } else if (market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_market_side_time)");
+    } else if (market_len) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    }
+    sql = sdscatprintf(sql, " where `user_id` = %u", user_id);
 
     if (account >= 0) {
         sql = sdscatprintf(sql, " AND `account` = %u", account);
     }
-    size_t market_len = strlen(market);
     if (market_len > 0) {
         char _market[2 * market_len + 1];
         mysql_real_escape_string(conn, _market, market, strlen(market));
@@ -174,13 +185,24 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
 {
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, `t`, `side`, "
-            "`stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `fee_asset`, `fee_discount`, `status`"
-            "FROM `stop_history_%u` WHERE `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
+            "`stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `fee_asset`, `fee_discount`, `status` "
+            "FROM `stop_history_%u`", user_id % HISTORY_HASH_NUM);
+
+    size_t market_len = strlen(market);
+    if (account >= 0 && market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+    } else if (account >= 0 && market_len) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    } else if (market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_market_side_time)");
+    } else if (market_len) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    }
+    sql = sdscatprintf(sql, " where `user_id` = %u", user_id);
 
     if (account >= 0) {
         sql = sdscatprintf(sql, " AND `account` = %u", account);
     }
-    size_t market_len = strlen(market);
     if (market_len > 0) {
         char _market[2 * market_len + 1];
         mysql_real_escape_string(conn, _market, market, strlen(market));
@@ -262,18 +284,28 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
 {
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `account`, `deal_user_id`, `deal_id`, `order_id`, `market`, `side`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset` "
-            "FROM `user_deal_history_%u` where `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
+            "FROM `user_deal_history_%u`", user_id % HISTORY_HASH_NUM);
+
+    size_t market_len = strlen(market);
+    if (account >= 0 && market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+    } else if (account >= 0 && market_len > 0) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    } else if (market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_market_side_time)");
+    } else if (market_len) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    }
+    sql = sdscatprintf(sql, " where `user_id` = %u", user_id);
 
     if (account >= 0) {
         sql = sdscatprintf(sql, " AND `account` = %u", account);
     }
-    size_t market_len = strlen(market);
     if (market_len > 0) {
         char _market[2 * market_len + 1];
         mysql_real_escape_string(conn, _market, market, strlen(market));
         sql = sdscatprintf(sql, " AND `market` = '%s'", _market);
     }
-
     if (side) {
         sql = sdscatprintf(sql, " AND `side` = %d", side);
     }
