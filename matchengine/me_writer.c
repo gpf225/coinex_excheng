@@ -1399,7 +1399,6 @@ static int init_cli()
         return -__LINE__;
     }
 
-    
     cli_svr_add_cmd(svrcli, "status", on_cmd_status);
     cli_svr_add_cmd(svrcli, "makeslice", on_cmd_makeslice);
     cli_svr_add_cmd(svrcli, "unfreeze", on_cmd_unfreeze);

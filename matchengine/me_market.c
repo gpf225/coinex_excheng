@@ -2493,7 +2493,7 @@ skiplist_t *get_user_stop_list(market_t *m, uint32_t user_id, int account)
 
 sds market_status(sds reply)
 {
-    reply = sdscatprintf(reply, "total user: %u\n", dict_size(dict_user_orders));
+    reply = sdscatprintf(reply, "total order user: %u\n", dict_size(dict_user_orders));
     reply = sdscatprintf(reply, "total stop user: %u\n", dict_size(dict_user_stops));
     reply = sdscatprintf(reply, "order last ID: %"PRIu64"\n", order_id_start);
     reply = sdscatprintf(reply, "deals last ID: %"PRIu64"\n", deals_id_start);
