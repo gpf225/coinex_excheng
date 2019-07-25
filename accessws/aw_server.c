@@ -62,7 +62,7 @@ static bool is_good_limit(int limit)
 
 static bool is_good_interval(const char *interval)
 {
-    if (interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+    if (interval == NULL || strlen(interval) > INTERVAL_MAX_LEN) {
         return false; 
     }
 
@@ -83,7 +83,7 @@ static bool is_good_interval(const char *interval)
 
 static bool is_good_market(const char *market)
 {
-    if (market == NULL || strlen(market) == 0 || strlen(market) >= MARKET_NAME_MAX_LEN) {
+    if (market == NULL || strlen(market) == 0 || strlen(market) > MARKET_NAME_MAX_LEN) {
         return false;     
     }
 
@@ -225,7 +225,7 @@ static int on_method_kline_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
 
     const char *market = json_string_value(json_array_get(params, 0));
     int interval = json_integer_value(json_array_get(params, 1));
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval <= 0)
+    if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN || interval <= 0)
         return ws_send_error_invalid_argument(ses, id);
 
     kline_unsubscribe(ses);
@@ -468,7 +468,7 @@ static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
     size_t params_size = json_array_size(params);
     for (size_t i = 0; i < params_size; ++i) {
         const char *market = json_string_value(json_array_get(params, i));
-        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN)
+        if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN)
             return ws_send_error_invalid_argument(ses, id);
         if (deals_subscribe(ses, market, info->user_id) < 0)
             return ws_send_error_internal_error(ses, id);
@@ -595,7 +595,7 @@ static int on_method_order_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
     size_t params_size = json_array_size(params);
     for (size_t i = 0; i < params_size; ++i) {
         const char *market = json_string_value(json_array_get(params, i));
-        if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN)
+        if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN)
             return ws_send_error_invalid_argument(ses, id);
         if (order_subscribe(info->user_id, ses, market) < 0)
             return ws_send_error_internal_error(ses, id);
@@ -739,7 +739,7 @@ static int on_method_asset_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
     } else {
         for (size_t i = 0; i < params_size; ++i) {
             const char *asset = json_string_value(json_array_get(params, i));
-            if (asset == NULL || strlen(asset) >= ASSET_NAME_MAX_LEN)
+            if (asset == NULL || strlen(asset) > ASSET_NAME_MAX_LEN)
                 return ws_send_error_invalid_argument(ses, id);
             if (asset_subscribe(info->user_id, ses, asset) < 0)
                 return ws_send_error_internal_error(ses, id);
