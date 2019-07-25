@@ -7,7 +7,7 @@
 # include "ut_rpc.h"
 # include "ut_profile.h"
 # include "ut_rpc_clt.h"
-# include "ut_ws_svr.h"
+# include "ut_ws.h"
 # include "ut_http_svr.h"
 # include "ut_json_rpc.h"
 

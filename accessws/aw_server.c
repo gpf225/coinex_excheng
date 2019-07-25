@@ -18,6 +18,7 @@
 # include "aw_index.h"
 # include "aw_sub_user.h"
 # include "aw_asset_sub.h"
+# include "ut_ws.h"
 
 static ws_svr *svr;
 static dict_t *method_map;

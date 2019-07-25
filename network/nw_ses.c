@@ -8,10 +8,12 @@
 # include <unistd.h>
 
 # include "nw_ses.h"
+# include "nw_ssl.h"
 
 static void libev_on_read_write_evt(struct ev_loop *loop, ev_io *watcher, int events);
 static void libev_on_accept_evt(struct ev_loop *loop, ev_io *watcher, int events);
 static void libev_on_connect_evt(struct ev_loop *loop, ev_io *watcher, int events);
+static void libev_on_ssl_connect_evt(struct ev_loop *loop, ev_io *watcher, int events);
 
 static void watch_stop(nw_ses *ses)
 {
@@ -38,6 +40,15 @@ static void watch_read_write(nw_ses *ses)
     ev_io_start(ses->loop, &ses->ev);
 }
 
+static void watch_ssl_read_write(nw_ses *ses)
+{
+    if (ev_is_active(&ses->ev)) {
+        ev_io_stop(ses->loop, &ses->ev);
+    }
+    ev_io_init(&ses->ev, libev_on_read_write_evt, ses->sockfd, EV_READ | EV_WRITE);
+    ev_io_start(ses->loop, &ses->ev);
+}
+
 static void watch_accept(nw_ses *ses)
 {
     ev_io_init(&ses->ev, libev_on_accept_evt, ses->sockfd, EV_READ);
@@ -50,11 +61,54 @@ static void watch_connect(nw_ses *ses)
     ev_io_start(ses->loop, &ses->ev);
 }
 
+static void watch_ssl_connect(nw_ses *ses)
+{
+    if (ev_is_active(&ses->ev)) {
+        ev_io_stop(ses->loop, &ses->ev);
+    }
+    ev_io_init(&ses->ev, libev_on_ssl_connect_evt, ses->sockfd, EV_READ | EV_WRITE);
+    ev_io_start(ses->loop, &ses->ev);
+}
+
+static int nw_ses_ssl_connect(nw_ses *ses)
+{
+    if(!ses->ssl_ctx) {
+        ses->ssl_ctx = nw_ssl_create(ses->sockfd);
+        if (!ses->ssl_ctx) {
+            ses->on_connect(ses, false);
+            return -1;
+        }
+    }
+
+    if(ses->ssl_ctx->is_connected){
+        ses->on_connect(ses, true);
+    } else {
+        int ret = nw_ssl_connect(ses->ssl_ctx);
+        if(ret < 0) {
+            ses->on_connect(ses, false);
+            return -1;
+        } else {
+            if (ses->ssl_ctx->is_connected) {
+                watch_ssl_read_write(ses);
+            } else {
+                watch_ssl_connect(ses);
+            }
+        }
+    }
+    return 0;
+}
+
 static int nw_write_stream(nw_ses *ses, const void *data, size_t size)
 {
     size_t spos = 0;
     while (spos < size) {
-        int ret = write(ses->sockfd, data + spos, size - spos);
+        int ret = 0;
+        if (ses->is_ssl) {
+            ret = nw_ssl_write(ses->ssl_ctx, data + spos, size - spos);
+        } else {
+            ret = write(ses->sockfd, data + spos, size - spos);
+        }
+
         if (ret > 0) {
             spos += ret;
         } else if (ret < 0) {
@@ -107,7 +161,12 @@ static void on_can_read(nw_ses *ses)
     case SOCK_STREAM:
         {
             while (true) {
-                int ret = read(ses->sockfd, ses->read_buf->data + ses->read_buf->wpos, nw_buf_avail(ses->read_buf));
+                int ret = 0;
+                if (ses->is_ssl){
+                    ret = nw_ssl_read(ses->ssl_ctx, ses->read_buf->data + ses->read_buf->wpos, nw_buf_avail(ses->read_buf));
+                } else {
+                    ret = read(ses->sockfd, ses->read_buf->data + ses->read_buf->wpos, nw_buf_avail(ses->read_buf));
+                }
                 if (ret < 0) {
                     if (errno == EINTR) {
                         continue;
@@ -327,6 +386,10 @@ static void on_can_connect(nw_ses *ses)
         ses->on_connect(ses, false);
         return;
     }
+    if (ses->is_ssl) {
+        nw_ses_ssl_connect(ses);
+        return;
+    }
     watch_read(ses);
     ses->on_connect(ses, true);
 }
@@ -353,6 +416,20 @@ static void libev_on_connect_evt(struct ev_loop *loop, ev_io *watcher, int event
     watch_stop(ses);
     if (events & EV_WRITE)
         on_can_connect(ses);
+}
+
+static void libev_on_ssl_connect_evt(struct ev_loop *loop, ev_io *watcher, int events)
+{
+    nw_ses *ses = (nw_ses *)watcher;
+    int ret = nw_ssl_connect(ses->ssl_ctx);
+    if (ret == 0) {
+        if (ses->ssl_ctx->is_connected) {
+            ses->on_connect(ses, true);
+            watch_ssl_read_write(ses);
+        }
+    } else {
+        ses->on_connect(ses, false);
+    }
 }
 
 int nw_ses_bind(nw_ses *ses, nw_addr_t *addr)
@@ -382,6 +459,9 @@ int nw_ses_connect(nw_ses *ses, nw_addr_t *addr)
 {
     int ret = connect(ses->sockfd, NW_SOCKADDR(addr), addr->addrlen);
     if (ret == 0) {
+        if (ses->is_ssl) {
+            return nw_ses_ssl_connect(ses);
+        }
         watch_read(ses);
         ses->on_connect(ses, true);
         return 0;

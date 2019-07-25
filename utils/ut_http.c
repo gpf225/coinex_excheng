@@ -103,6 +103,26 @@ void http_request_release(http_request_t *request)
     free(request);
 }
 
+sds http_request_encode(http_request_t *request)
+{
+    sds msg = sdsempty();
+    msg = sdscatprintf(msg, "%s %s HTTP/%d.%d\r\n", http_method_str(request->method), request->url, request->version_major, request->version_minor);
+    dict_iterator *iter = dict_get_iterator(request->headers);
+    dict_entry *entry;
+    while((entry = dict_next(iter)) != NULL) {
+        msg = sdscatprintf(msg, "%s: %s\r\n", (char *)entry->key, (char *)entry->val);
+    }
+    dict_release_iterator(iter);
+    if (request->body) {
+        msg = sdscatprintf(msg, "Content-Length: %lu", sdslen(request->body));
+        msg = sdscatprintf(msg, "\r\n");
+        msg = sdscatprintf(msg, request->body, sdslen(request->body));
+    } else {
+        msg = sdscatprintf(msg, "\r\n");
+    }
+    return msg;
+}
+
 http_response_t *http_response_new(void)
 {
     http_response_t *response = malloc(sizeof(http_response_t));
