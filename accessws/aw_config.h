@@ -41,9 +41,6 @@
 # include "ut_comm_dict.h"
 # include "ut_json_rpc.h"
 
-# define SOURCE_MAX_LEN         32
-# define INTERVAL_MAX_LEN       16
-
 # define AW_LISTENER_BIND   "seqpacket@/tmp/accessws_listener.sock"
 
 typedef struct depth_limit_cfg {
@@ -62,6 +59,7 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     ws_svr_cfg          svr;
+    char                *brokers;
 
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
@@ -74,12 +72,6 @@ struct settings {
     char               *cachecenter_host;
     int                 cachecenter_port;
     int                 cachecenter_worker_num;
-
-    kafka_consumer_cfg  deals;
-    kafka_consumer_cfg  stops;
-    kafka_consumer_cfg  orders;
-    kafka_consumer_cfg  indexs;
-    kafka_consumer_cfg  balances;
 
     int                 worker_num;
     int                 depth_limit_default;

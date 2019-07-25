@@ -1197,3 +1197,22 @@ respose:
      'error': null
   
 ```
+
+## Push message API
+
+**Push user message**
+* method: `push.user_message`
+* params:
+1. message: json format, must need user_id param
+
+* result:
+
+```
+ {
+     'id': 1,
+     'result': {
+            'status': 'success'
+     },
+     'error': null
+  
+```

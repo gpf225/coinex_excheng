@@ -8,6 +8,7 @@
 # include "ah_cache.h"
 # include "ah_config.h"
 # include "ah_server.h"
+# include "ah_message.h"
 
 static http_svr *svr;
 static nw_state *state;
@@ -123,6 +124,18 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             return 0;
         } else if (req->cmd == CMD_MARKET_STATUS && judege_state_period_is_day(params)) {
             direct_state_reply(ses, params, json_integer_value(id));
+            json_decref(body);
+            return 0;
+        } else if (req->cmd == CMD_NOTICE_USER_MESSAGE) {
+            json_t *message = json_array_get(params, 0);
+            if (!message || !json_object_get(message, "user_id")) {
+                http_reply_error_invalid_argument(ses, json_integer_value(id));
+                json_decref(body);
+                return 0;
+            }
+
+            push_notify_message(message);
+            http_reply_success(ses, json_integer_value(id));
             json_decref(body);
             return 0;
         }
@@ -387,6 +400,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("trade.net_rank", tradesummary, CMD_TRADE_NET_RANK));
     ERR_RET_LN(add_handler("trade.amount_rank", tradesummary, CMD_TRADE_AMOUNT_RANK));
 
+    ERR_RET_LN(add_handler("notice.user_message", NULL, CMD_NOTICE_USER_MESSAGE));
     return 0;
 }
 

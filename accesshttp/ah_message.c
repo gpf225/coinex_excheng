@@ -3,12 +3,12 @@
  * All rights reserved.
  */
 
-# include "mi_message.h"
+# include "ah_message.h"
 # include <librdkafka/rdkafka.h>
 
 static rd_kafka_t *rk;
-static rd_kafka_topic_t *rkt_indexs;
-static list_t *list_indexs;
+static rd_kafka_topic_t *rkt_notice;
+static list_t *list_notice;
 static nw_timer timer;
 
 static void on_logger(const rd_kafka_t *rk, int level, const char *fac, const char *buf)
@@ -52,8 +52,8 @@ static void produce_list(list_t *list, rd_kafka_topic_t *topic)
 
 static void on_timer(nw_timer *t, void *privdata)
 {
-    if (list_len(list_indexs) > 0) {
-        produce_list(list_indexs, rkt_indexs);
+    if (list_len(list_notice) > 0) {
+        produce_list(list_notice, rkt_notice);
     }
 
     rd_kafka_poll(rk, 0);
@@ -80,8 +80,8 @@ int init_message(void)
         return -__LINE__;
     }
 
-    rkt_indexs = rd_kafka_topic_new(rk, TOPIC_INDEX, NULL);
-    if (rkt_indexs == NULL) {
+    rkt_notice = rd_kafka_topic_new(rk, TOPIC_NOTICE, NULL);
+    if (rkt_notice == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;
     }
@@ -90,8 +90,8 @@ int init_message(void)
     memset(&lt, 0, sizeof(lt));
     lt.free = on_list_free;
 
-    list_indexs = list_create(&lt);
-    if (list_indexs == NULL)
+    list_notice = list_create(&lt);
+    if (list_notice == NULL)
         return -__LINE__;
 
     nw_timer_set(&timer, 0.1, true, on_timer, NULL);
@@ -124,18 +124,9 @@ static int push_message(char *message, rd_kafka_topic_t *topic, list_t *list)
     return 0;
 }
 
-int push_index_message(const char *market, const mpd_t *price, json_t *detail)
+int push_notify_message(json_t *message)
 {
-    json_t *message = json_object();
-    json_object_set_new(message, "timestamp", json_real(current_timestamp()));
-    json_object_set_new(message, "market", json_string(market));
-    json_object_set_new_mpd(message, "price", price);
-    json_object_set(message, "detail", detail);
-
-    push_message(json_dumps(message, 0), rkt_indexs, list_indexs);
-    json_decref(message);
-    profile_inc("message_index", 1);
-
+    push_message(json_dumps(message, 0), rkt_notice, list_notice);
     return 0;
 }
 

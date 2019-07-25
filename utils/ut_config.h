@@ -15,7 +15,6 @@
 # include "nw_clt.h"
 # include "ut_cli.h"
 # include "ut_log.h"
-# include "ut_kafka.h"
 # include "ut_redis.h"
 # include "ut_alert.h"
 # include "ut_decimal.h"
@@ -68,7 +67,6 @@ int load_cfg_ws_svr(json_t *root, const char *key, ws_svr_cfg *cfg);
 int load_cfg_inetv4_list(json_t *root, const char *key, inetv4_list *cfg);
 int load_cfg_mysql(json_t *root, const char *key, mysql_cfg *cfg);
 int load_cfg_mysql_node(json_t *node, mysql_cfg *cfg);
-int load_cfg_kafka_consumer(json_t *root, const char *key, kafka_consumer_cfg *cfg);
 int load_cfg_redis(json_t *root, const char *key, redis_cfg *cfg);
 int read_cfg_str(json_t *root, const char *key, char **val, const char *default_val);
 int read_cfg_mpd(json_t *root, const char *key, mpd_t **val, const char *default_val);

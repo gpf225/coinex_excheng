@@ -102,32 +102,8 @@ static int read_config_from_json(json_t *root)
         printf("load marketindex clt config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_kafka_consumer(root, "deals", &settings.deals);
-    if (ret < 0) {
-        printf("load kafka deals config fail: %d\n", ret);
-        return -__LINE__;
-    }
-    ret = load_cfg_kafka_consumer(root, "stops", &settings.stops);
-    if (ret < 0) {
-        printf("load kafka stops config fail: %d\n", ret);
-        return -__LINE__;
-    }
-    ret = load_cfg_kafka_consumer(root, "orders", &settings.orders);
-    if (ret < 0) {
-        printf("load kafka orders config fail: %d\n", ret);
-        return -__LINE__;
-    }
-    ret = load_cfg_kafka_consumer(root, "indexs", &settings.indexs);
-    if (ret < 0) {
-        printf("load kafka indexs config fail: %d\n", ret);
-        return -__LINE__;
-    }
-    ret = load_cfg_kafka_consumer(root, "balances", &settings.balances);
-    if (ret < 0) {
-        printf("load kafka balances config fail: %d\n", ret);
-        return -__LINE__;
-    }
 
+    ERR_RET_LN(read_cfg_str(root, "brokers", &settings.brokers, NULL));
     ERR_RET_LN(read_cfg_str(root, "cachecenter_host", &settings.cachecenter_host, NULL));
     ERR_RET_LN(read_cfg_int(root, "cachecenter_port", &settings.cachecenter_port, true, 0));
     ERR_RET_LN(read_cfg_int(root, "cachecenter_worker_num", &settings.cachecenter_worker_num, true, 0));

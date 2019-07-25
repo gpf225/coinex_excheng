@@ -23,20 +23,11 @@
         "pass": "shit",
         "name": "trade_summary"
     },
-    "deals": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "deals",
-        "partition": 0
-    },
-    "orders": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "orders",
-        "partition": 0
-    },
     "redis": {
         "host": "127.0.0.1",
         "port": 6379
     },
+    "brokers": "127.0.0.1:9092",
     "keep_day": 7,
     "accesshttp": "http://127.0.0.1:8080"
 }

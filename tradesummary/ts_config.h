@@ -45,11 +45,10 @@ struct settings {
     alert_cfg           alert;
     rpc_svr_cfg         svr;
     mysql_cfg           db_summary;
-    kafka_consumer_cfg  deals;
-    kafka_consumer_cfg  orders;
     redis_cfg           redis;
     int                 keep_days;
     char                *accesshttp;
+    char                *brokers;
 };
 
 extern struct settings settings;

@@ -16,6 +16,7 @@
 # include "aw_asset.h"
 # include "aw_state.h"
 # include "aw_index.h"
+# include "aw_notice.h"
 # include "aw_sub_user.h"
 # include "aw_asset_sub.h"
 # include "ut_ws.h"
@@ -846,6 +847,27 @@ static int on_method_index_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
     return index_unsubscribe(ses);
 }
 
+static int on_method_notice_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!info->auth) {
+        return ws_send_error_require_auth(ses, id);
+    }
+
+    notice_unsubscribe(info->user_id, ses);
+    notice_subscribe(info->user_id, ses);
+    return ws_send_success(ses, id);
+}
+
+static int on_method_notice_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!info->auth) {
+        return ws_send_error_require_auth(ses, id);
+    }
+
+    notice_unsubscribe(info->user_id, ses);
+    return ws_send_success(ses, id);
+}
+
 static int on_message(nw_ses *ses, const char *remote, const char *url, void *message, size_t size)
 {
     struct clt_info *info = ws_ses_privdata(ses);
@@ -924,6 +946,7 @@ static void on_close(nw_ses *ses, const char *remote)
     if (info->auth) {
         order_unsubscribe(info->user_id, ses);
         asset_unsubscribe(info->user_id, ses);
+        notice_unsubscribe(info->user_id, ses);
         asset_unsubscribe_sub(ses);
         sub_user_remove(info->user_id, ses);
     }
@@ -1071,6 +1094,9 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("index.query_list",          on_method_index_query_list));
     ERR_RET_LN(add_handler("index.subscribe",           on_method_index_subscribe));
     ERR_RET_LN(add_handler("index.unsubscribe",         on_method_index_unsubscribe));
+
+    ERR_RET_LN(add_handler("notice.subscribe",          on_method_notice_subscribe));
+    ERR_RET_LN(add_handler("notice.unsubscribe",        on_method_notice_unsubscribe));
 
     return 0;
 }
@@ -1243,6 +1269,7 @@ static void on_timer(nw_timer *timer, void *privdata)
     profile_set("subscribe_deals", deals_subscribe_number());
     profile_set("subscribe_order", order_subscribe_number());
     profile_set("subscribe_asset", asset_subscribe_number());
+    profile_set("subscribe_notice", notice_subscribe_number());
 }
 
 static int init_cache_backend(rpc_clt_type *ct)
