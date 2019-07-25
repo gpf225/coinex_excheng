@@ -13,7 +13,7 @@ static nw_state *state_context;
 
 struct state_data {
     uint32_t user_id;
-    char asset[ASSET_NAME_MAX_LEN];
+    char asset[ASSET_NAME_MAX_LEN + 1];
 };
 
 static dict_t* create_sub_dict()
@@ -303,7 +303,7 @@ int asset_on_update_sub(uint32_t user_id, const char *asset)
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     state->user_id = user_id;
-    sstrncpy(state->asset, asset, ASSET_NAME_MAX_LEN);
+    sstrncpy(state->asset, asset, sizeof(state->asset));
 
     rpc_request_json(matchengine, CMD_ASSET_QUERY, state_entry->id, 0, trade_params);
     json_decref(trade_params);

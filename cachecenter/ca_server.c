@@ -59,7 +59,7 @@ static int on_method_depth_subscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     const char *market = json_string_value(json_array_get(params, 0));
     const char *interval = json_string_value(json_array_get(params, 1));
 
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+    if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) > INTERVAL_MAX_LEN) {
         recv_str = sdsnewlen(pkg->body, pkg->body_size);
         goto error;
     }
@@ -88,7 +88,7 @@ static int on_method_depth_unsubscribe(nw_ses *ses, rpc_pkg *pkg, json_t *params
     const char *market = json_string_value(json_array_get(params, 0));
     const char *interval = json_string_value(json_array_get(params, 1));
 
-    if (market == NULL || strlen(market) >= MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) >= INTERVAL_MAX_LEN) {
+    if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN || interval == NULL || strlen(interval) > INTERVAL_MAX_LEN) {
         recv_str = sdsnewlen(pkg->body, pkg->body_size);
         goto error;
     }

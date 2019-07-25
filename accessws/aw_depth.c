@@ -14,8 +14,8 @@ static dict_t *dict_depth_sub_counter;
 static rpc_clt **cachecenter_clt_arr;
 
 struct depth_key {
-    char     market[MARKET_NAME_MAX_LEN];
-    char     interval[INTERVAL_MAX_LEN];
+    char     market[MARKET_NAME_MAX_LEN + 1];
+    char     interval[INTERVAL_MAX_LEN + 1];
     uint32_t limit;
 };
 
@@ -83,8 +83,8 @@ static void dict_depth_sub_counter_free(void *val)
 static void depth_set_key(struct depth_key *key, const char *market, const char *interval, uint32_t limit)
 {
     memset(key, 0, sizeof(struct depth_key));
-    sstrncpy(key->market, market, MARKET_NAME_MAX_LEN);
-    sstrncpy(key->interval, interval, INTERVAL_MAX_LEN);
+    sstrncpy(key->market, market, sizeof(key->market));
+    sstrncpy(key->interval, interval, sizeof(key->interval));
     key->limit = limit;
 }
 

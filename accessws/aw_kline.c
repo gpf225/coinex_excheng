@@ -13,7 +13,7 @@ static rpc_clt *marketprice;
 static nw_state *state_context;
 
 struct kline_key {
-    char market[MARKET_NAME_MAX_LEN];
+    char market[MARKET_NAME_MAX_LEN + 1];
     int interval;
 };
 
@@ -253,7 +253,7 @@ int kline_subscribe(nw_ses *ses, const char *market, int interval)
 {
     struct kline_key key;
     memset(&key, 0, sizeof(key));
-    sstrncpy(key.market, market, MARKET_NAME_MAX_LEN);
+    sstrncpy(key.market, market, sizeof(key.market));
     key.interval = interval;
 
     dict_entry *entry = dict_find(dict_kline, &key);

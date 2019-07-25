@@ -13,13 +13,13 @@ static nw_state *state_context;
 
 struct sub_unit {
     void *ses;
-    char asset[ASSET_NAME_MAX_LEN];
+    char asset[ASSET_NAME_MAX_LEN + 1];
 };
 
 struct state_data {
     uint32_t user_id;
     uint32_t account;
-    char asset[ASSET_NAME_MAX_LEN];
+    char asset[ASSET_NAME_MAX_LEN + 1];
 };
 
 static void dict_sub_val_free(void *val)
@@ -195,7 +195,7 @@ int asset_subscribe(uint32_t user_id, nw_ses *ses, const char *asset)
     struct sub_unit unit;
     memset(&unit, 0, sizeof(unit));
     unit.ses = ses;
-    sstrncpy(unit.asset, asset, ASSET_NAME_MAX_LEN);
+    sstrncpy(unit.asset, asset, sizeof(unit.asset));
 
     if (list_find(list, &unit) != NULL)
         return 0;
@@ -261,7 +261,7 @@ int asset_on_update(uint32_t user_id, uint32_t account, const char *asset)
     struct state_data *state = state_entry->data;
     state->user_id = user_id;
     state->account = account;
-    sstrncpy(state->asset, asset, ASSET_NAME_MAX_LEN);
+    sstrncpy(state->asset, asset, sizeof(state->asset));
 
     rpc_request_json(matchengine, CMD_ASSET_QUERY, state_entry->id, 0, trade_params);
     json_decref(trade_params);

@@ -24,7 +24,7 @@ struct dict_status_val {
 };
 
 struct state_data {
-    char        market[MARKET_NAME_MAX_LEN];
+    char        market[MARKET_NAME_MAX_LEN + 1];
     uint32_t    cmd;
 };
 
@@ -232,7 +232,7 @@ static int query_market_status(const char *market)
 {
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN);
+    sstrncpy(state->market, market, sizeof(state->market));
     state->cmd = CMD_MARKET_STATUS;
 
     json_t *params = json_array();
@@ -255,7 +255,7 @@ static int query_market_depth(const char *market)
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN);
+    sstrncpy(state->market, market, sizeof(state->market));
     state->cmd = CMD_ORDER_DEPTH;
 
     rpc_request_json(matchengine, state->cmd, state_entry->id, 0, params);

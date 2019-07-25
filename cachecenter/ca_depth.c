@@ -17,8 +17,8 @@ static dict_t *dict_depth_sub;
 static nw_timer timer;
 
 struct dict_depth_key {
-    char    market[MARKET_NAME_MAX_LEN];
-    char    interval[INTERVAL_MAX_LEN];
+    char    market[MARKET_NAME_MAX_LEN + 1];
+    char    interval[INTERVAL_MAX_LEN + 1];
 };
 
 struct dict_depth_sub_val {
@@ -29,8 +29,8 @@ struct dict_depth_sub_val {
 
 struct state_data {
     bool    direct_request;
-    char    market[MARKET_NAME_MAX_LEN];
-    char    interval[INTERVAL_MAX_LEN];
+    char    market[MARKET_NAME_MAX_LEN + 1];
+    char    interval[INTERVAL_MAX_LEN + 1];
 };
 
 static uint32_t dict_depth_hash_func(const void *key)
@@ -85,8 +85,8 @@ static dict_t* dict_create_depth_session(void)
 static void depth_set_key(struct dict_depth_key *key, const char *market, const char *interval)
 {
     memset(key, 0, sizeof(struct dict_depth_key));
-    sstrncpy(key->market, market, MARKET_NAME_MAX_LEN);
-    sstrncpy(key->interval, interval, INTERVAL_MAX_LEN);
+    sstrncpy(key->market, market, sizeof(key->market));
+    sstrncpy(key->interval, interval, sizeof(key->interval));
 }
 
 static sds get_depth_key(const char *market, const char *interval)
@@ -295,8 +295,8 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN);
-    sstrncpy(state->interval, interval, INTERVAL_MAX_LEN);
+    sstrncpy(state->market, market, sizeof(state->market));
+    sstrncpy(state->interval, interval, sizeof(state->interval));
     state->direct_request = (ses != NULL) ? true : false;
 
     json_t *params = json_array();

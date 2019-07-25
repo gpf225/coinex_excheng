@@ -16,7 +16,7 @@ extern dict_t *dict_balance;
 
 struct balance_key {
     uint32_t    type;
-    char        asset[ASSET_NAME_MAX_LEN];
+    char        asset[ASSET_NAME_MAX_LEN + 1];
 };
 
 int init_balance(void);
