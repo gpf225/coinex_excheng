@@ -20,5 +20,4 @@ ssize_t nw_ssl_read(nw_ssl_ctx *ctx, void *buf, size_t count);
 int nw_ssl_connect(nw_ssl_ctx *ctx);
 void nw_ssl_free(nw_ssl_ctx *ssl);
 
-
 # endif

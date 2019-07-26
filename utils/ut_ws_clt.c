@@ -8,6 +8,7 @@
 # include "ut_http.h"
 # include "ut_misc.h"
 # include "ut_base64.h"
+# include "ut_sds.h"
 
 static int get_network_addr(char *host, int port, nw_addr_t *nw_addr)
 {
@@ -59,7 +60,6 @@ static void send_hand_shake(ws_clt *clt)
     if (clt->svr_info->key) {
         sdsfree(clt->svr_info->key);
     }
-
     http_request_t *request = svr_info->request;
     base64_encode(nonce_key, 16, &clt->svr_info->key);
     sds message = ws_handshake_request(request, clt->svr_info->key);
@@ -75,10 +75,19 @@ static void send_ping_message(nw_ses *ses)
 static void on_timer(nw_timer *timer, void *privdata)
 {
     struct ws_clt *clt = privdata;
-    if (clt->upgrade) {
-        double current = current_timestamp();
-        if (clt->last_heartbeat + clt->heartbeat_timeout >= current) {
+    if (!nw_clt_connected(clt->raw_clt))
+        return;
+
+    double now = current_timestamp();
+    if (clt->last_heartbeat + clt->heartbeat_timeout < now) {
+        log_error("peer: %s: heartbeat timeout", nw_sock_human_addr(&clt->raw_clt->ses.peer_addr));
+        nw_clt_close(clt->raw_clt);
+        nw_clt_start(clt->raw_clt);
+    } else {
+        if (clt->upgrade) {
             send_ping_message(&clt->raw_clt->ses);
+        } else {
+            send_hand_shake(clt);
         }
     }
 }
@@ -234,6 +243,7 @@ static int on_close(nw_ses *ses)
     if(clt->type.on_close) {
         clt->type.on_close(ses);
     }
+    clt->upgrade = false;
     return 0;
 }
 
@@ -301,6 +311,7 @@ static int on_http_message_complete(http_parser *parser)
     struct ws_clt *clt = parser->data;
     int status_code = parser->status_code;
     int ret = 0;
+    sds s = http_response_encode(clt->svr_info->response);
     if (status_code != 101) {
         goto error;
     }
@@ -330,6 +341,7 @@ static int on_http_message_complete(http_parser *parser)
     return 0;
 
 error:
+    sdsfree(s);
     if (clt->type.on_error) {
         clt->type.on_error(&clt->raw_clt->ses, "on http message complete error");
     }

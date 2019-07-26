@@ -53,14 +53,17 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
         pkg_len = 2 + sizeof(len);
     }
 
+    uint8_t masked_key[4] = {0};
+    if (masked == FRAME_MASKED) {
+        if (ws_get_nonce_key(masked_key, 4) < 0) {
+            return -1;
+        }
+        memcpy(p + pkg_len, masked_key, 4);
+        pkg_len += 4;
+    }
+
     if (payload) {
         if (masked == FRAME_MASKED) {
-            uint8_t masked_key[4] = {0};
-            if (ws_get_nonce_key(masked_key, 4) < 0) {
-                return -1;
-            }
-            memcpy(p + pkg_len, masked_key, 4);
-            pkg_len += 4;
             uint8_t *data = payload;
             for (int i = 0; i < payload_len; i++) {
                 p[pkg_len + i] = data[i] ^ masked_key[i % 4];
@@ -70,6 +73,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
         }
         pkg_len += payload_len;
     }
+
     return nw_ses_send(ses, buf, pkg_len);
 }
 
@@ -146,8 +150,26 @@ bool is_good_opcode(uint8_t opcode)
 
 sds ws_handshake_request(http_request_t *request, char *key)
 {
-    http_request_set_header(request, "Sec-WebSocket-Key", key);
-    sds message = http_request_encode(request);
+    http_request_t *send_request = http_request_new();
+    dict_iterator *iter = dict_get_iterator(request->headers);
+    dict_entry *entry;
+    while((entry = dict_next(iter)) != NULL) {
+        http_request_set_header(send_request, (char*)entry->key, (char*)entry->val);
+    }
+    dict_release_iterator(iter);
+
+    send_request->method = request->method;
+    send_request->version_major = request->version_major;
+    send_request->version_minor = request->version_minor;
+    send_request->url = sdsdup(request->url);
+    if (send_request->body) {
+        send_request->body = sdsdup(request->body);
+    }
+    http_request_set_header(send_request, "Sec-WebSocket-Key", key);
+    sds message = http_request_encode(send_request);
+
+    http_request_release(send_request);
+
     return message;
 }
 
@@ -212,7 +234,6 @@ sds ws_handshake_response(http_response_t *response, const char *key)
     sds b4message;
     sds s_key = sdsnew(key);
     ws_generate_sec_key(s_key, &b4message);
-
     http_response_set_header(response, "Sec-WebSocket-Accept", b4message);
     sds message = http_response_encode(response);
 

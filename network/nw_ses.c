@@ -40,15 +40,6 @@ static void watch_read_write(nw_ses *ses)
     ev_io_start(ses->loop, &ses->ev);
 }
 
-static void watch_ssl_read_write(nw_ses *ses)
-{
-    if (ev_is_active(&ses->ev)) {
-        ev_io_stop(ses->loop, &ses->ev);
-    }
-    ev_io_init(&ses->ev, libev_on_read_write_evt, ses->sockfd, EV_READ | EV_WRITE);
-    ev_io_start(ses->loop, &ses->ev);
-}
-
 static void watch_accept(nw_ses *ses)
 {
     ev_io_init(&ses->ev, libev_on_accept_evt, ses->sockfd, EV_READ);
@@ -89,7 +80,7 @@ static int nw_ses_ssl_connect(nw_ses *ses)
             return -1;
         } else {
             if (ses->ssl_ctx->is_connected) {
-                watch_ssl_read_write(ses);
+                watch_read_write(ses);
             } else {
                 watch_ssl_connect(ses);
             }
@@ -425,7 +416,7 @@ static void libev_on_ssl_connect_evt(struct ev_loop *loop, ev_io *watcher, int e
     if (ret == 0) {
         if (ses->ssl_ctx->is_connected) {
             ses->on_connect(ses, true);
-            watch_ssl_read_write(ses);
+            watch_read_write(ses);
         }
     } else {
         ses->on_connect(ses, false);
@@ -612,6 +603,12 @@ int nw_ses_close(nw_ses *ses)
 {
     watch_stop(ses);
     ses->id = 0;
+    if (ses->is_ssl) {
+        if (ses->ssl_ctx) {
+            nw_ssl_free(ses->ssl_ctx);
+            ses->ssl_ctx = NULL;
+        }
+    }
     if (ses->sockfd >= 0) {
         close(ses->sockfd);
         ses->sockfd = -1;
