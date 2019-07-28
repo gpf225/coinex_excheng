@@ -29,6 +29,7 @@ struct state_info {
     int64_t  request_id;
     sds      cache_key;
     int      depth_limit;
+    uint32_t cmd;
 };
 
 struct request_info {
@@ -153,6 +154,7 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         info->ses_id = ses->id;
         info->request_id = json_integer_value(id);
         info->cache_key = key;
+        info->cmd = req->cmd;
         if (req->cmd == CMD_CACHE_DEPTH) {
             info->depth_limit = json_integer_value(json_array_get(params, 1));
         }
@@ -211,9 +213,12 @@ clean:
 
 static void on_state_timeout(nw_state_entry *entry)
 {
-    profile_inc("on_state_timeout", 1);
-    log_error("state id: %u timeout", entry->id);
     struct state_info *info = entry->data;
+    char buf[100];
+    snprintf(buf, sizeof(buf), "on_timeout_cmd_%u", info->cmd);
+    profile_inc(buf, 1);
+
+    log_error("query timeout, state id: %u, command: %u", entry->id, info->cmd);
     if (info->ses->id == info->ses_id) {
         http_reply_error_service_timeout(info->ses, info->request_id);
     }

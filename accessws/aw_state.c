@@ -320,7 +320,6 @@ int init_state(void)
     if (dict_state == NULL)
         return -__LINE__;
 
-
     memset(&dt, 0, sizeof(dt));
     dt.hash_function  = ptr_dict_hash_func;
     dt.key_compare    = ptr_dict_key_compare;
