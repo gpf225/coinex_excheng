@@ -26,7 +26,7 @@ struct market_info_val {
 
 struct fee_key {
     uint32_t user_id;
-    char asset[ASSET_NAME_MAX_LEN];
+    char asset[ASSET_NAME_MAX_LEN + 1];
 };
 
 struct fee_val {

@@ -11,7 +11,7 @@ static dict_t *dict_sub;
 
 struct sub_unit {
     void *ses;
-    char market[MARKET_NAME_MAX_LEN];
+    char market[MARKET_NAME_MAX_LEN + 1];
 };
 
 static void dict_sub_val_free(void *val)
@@ -73,7 +73,7 @@ int order_subscribe(uint32_t user_id, nw_ses *ses, const char *market)
     struct sub_unit unit;
     memset(&unit, 0, sizeof(unit));
     unit.ses = ses;
-    sstrncpy(unit.market, market, MARKET_NAME_MAX_LEN);
+    sstrncpy(unit.market, market, sizeof(unit.market));
 
     if (list_find(list, &unit) != NULL)
         return 0;

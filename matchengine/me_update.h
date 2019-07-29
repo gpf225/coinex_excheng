@@ -11,7 +11,7 @@ extern dict_t *dict_update;
 struct update_key {
     uint32_t    user_id;
     uint32_t    account;
-    char        asset[ASSET_NAME_MAX_LEN];
+    char        asset[ASSET_NAME_MAX_LEN + 1];
     char        business[BUSINESS_NAME_MAX_LEN];
     uint64_t    business_id;
 };
