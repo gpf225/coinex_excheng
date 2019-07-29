@@ -311,7 +311,6 @@ static int on_http_message_complete(http_parser *parser)
     struct ws_clt *clt = parser->data;
     int status_code = parser->status_code;
     int ret = 0;
-    sds s = http_response_encode(clt->svr_info->response);
     if (status_code != 101) {
         goto error;
     }
@@ -341,7 +340,6 @@ static int on_http_message_complete(http_parser *parser)
     return 0;
 
 error:
-    sdsfree(s);
     if (clt->type.on_error) {
         clt->type.on_error(&clt->raw_clt->ses, "on http message complete error");
     }
