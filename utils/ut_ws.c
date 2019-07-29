@@ -19,7 +19,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     }
 
     size_t require_len = 10 + payload_len;
-    if (masked == FRAME_MASKED) {
+    if (masked == WS_FRAME_MASKED) {
         require_len += 4;
     }
 
@@ -54,7 +54,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     }
 
     uint8_t masked_key[4] = {0};
-    if (masked == FRAME_MASKED) {
+    if (masked == WS_FRAME_MASKED) {
         if (ws_get_nonce_key(masked_key, 4) < 0) {
             return -1;
         }
@@ -63,7 +63,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     }
 
     if (payload) {
-        if (masked == FRAME_MASKED) {
+        if (masked == WS_FRAME_MASKED) {
             uint8_t *data = payload;
             for (int i = 0; i < payload_len; i++) {
                 p[pkg_len + i] = data[i] ^ masked_key[i % 4];
@@ -85,7 +85,7 @@ int ws_get_nonce_key(uint8_t *nonce_key, int len)
 int ws_generate_sec_key(sds base64_nonce_key, sds *base64_sec_key)
 {
     sds encode_data = sdsnew(base64_nonce_key);
-    encode_data = sdscat(encode_data, WEBSOCKET_GUID);
+    encode_data = sdscat(encode_data, WS_GUID);
     uint8_t sha_hash[20];
     SHA1((const unsigned char *)encode_data, sdslen(encode_data), sha_hash);
     sds base64_hash;
@@ -140,7 +140,7 @@ bool is_good_origin(const char *origin, const char *require)
 
 bool is_good_opcode(uint8_t opcode)
 {
-    static uint8_t good_list[] = {CONTINUATION_OPCODE, TEXT_OPCODE, BINARY_OPCODE, CLOSE_OPCODE, PING_OPCODE, PONG_OPCODE};
+    static uint8_t good_list[] = {WS_CONTINUATION_OPCODE, WS_TEXT_OPCODE, WS_BINARY_OPCODE, WS_CLOSE_OPCODE, WS_PING_OPCODE, WS_PONG_OPCODE};
     for (size_t i = 0; i < sizeof(good_list); ++i) {
         if (opcode == good_list[i])
             return true;
@@ -245,20 +245,20 @@ sds ws_handshake_response(http_response_t *response, const char *key)
 
 int ws_send_text(nw_ses *ses, char *message)
 {
-    return ws_send_message(ses, TEXT_OPCODE, message, strlen(message), 0);
+    return ws_send_message(ses, WS_TEXT_OPCODE, message, strlen(message), 0);
 }
 
 int ws_send_binary(nw_ses *ses, void *payload, size_t payload_len)
 {
-    return ws_send_message(ses, BINARY_OPCODE, payload, payload_len, 0);
+    return ws_send_message(ses, WS_BINARY_OPCODE, payload, payload_len, 0);
 }
 
 int ws_send_clt_text(nw_ses *ses, char *message)
 {
-    return ws_send_message(ses, TEXT_OPCODE, message, strlen(message), FRAME_MASKED);
+    return ws_send_message(ses, WS_TEXT_OPCODE, message, strlen(message), WS_FRAME_MASKED);
 }
 
 int ws_send_clt_binary(nw_ses *ses, void *payload, size_t payload_len)
 {
-    return ws_send_message(ses, BINARY_OPCODE, payload, payload_len, FRAME_MASKED);
+    return ws_send_message(ses, WS_BINARY_OPCODE, payload, payload_len, WS_FRAME_MASKED);
 }

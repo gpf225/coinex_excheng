@@ -69,7 +69,7 @@ static void send_hand_shake(ws_clt *clt)
 
 static void send_ping_message(nw_ses *ses)
 {
-    ws_send_message(ses, PING_OPCODE, NULL, 0, FRAME_MASKED);
+    ws_send_message(ses, WS_PING_OPCODE, NULL, 0, WS_FRAME_MASKED);
 }
 
 static void on_timer(nw_timer *timer, void *privdata)
@@ -108,7 +108,7 @@ int parse_ws_frame(nw_ses *ses, void *data, size_t size)
     if (!is_good_opcode(svr_info->frame.opcode))
         return -1;
 
-    uint8_t mask = p[1] & FRAME_MASKED;
+    uint8_t mask = p[1] & WS_FRAME_MASKED;
     uint8_t len = p[1] & 0x7f;
     if (len < 126) {
         pkg_size = 2;
@@ -126,7 +126,7 @@ int parse_ws_frame(nw_ses *ses, void *data, size_t size)
     }
 
     uint8_t masks[4];
-    if (mask == FRAME_MASKED) {
+    if (mask == WS_FRAME_MASKED) {
         memcpy(masks, p + pkg_size, sizeof(masks));
         pkg_size += sizeof(masks);
     }
@@ -136,7 +136,7 @@ int parse_ws_frame(nw_ses *ses, void *data, size_t size)
         return 0;
 
     p = svr_info->frame.payload;
-    if (mask == FRAME_MASKED) {
+    if (mask == WS_FRAME_MASKED) {
         for (size_t i = 0; i < svr_info->frame.payload_len; ++i) {
             p[i] = p[i] ^ masks[i & 3];
         }
@@ -181,18 +181,18 @@ static void on_recv_pkg(nw_ses *ses, void *data, size_t size)
     }
 
     switch (svr_info->frame.opcode) {
-    case CLOSE_OPCODE:
+    case WS_CLOSE_OPCODE:
         if (clt->type.on_close) {
             clt->type.on_close(ses);
         }
         nw_clt_close(clt->raw_clt);
         return;
 
-    case PONG_OPCODE:
+    case WS_PONG_OPCODE:
         on_pong_message(ses);
         return;
 
-    case PING_OPCODE:
+    case WS_PING_OPCODE:
         return;
     }
 

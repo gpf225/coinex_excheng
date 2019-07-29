@@ -226,7 +226,7 @@ static int decode_pkg(nw_ses *ses, void *data, size_t max)
         return -1;
     }
 
-    uint8_t mask = p[1] & FRAME_MASKED;
+    uint8_t mask = p[1] & WS_FRAME_MASKED;
     if (mask == 0) {
         return -1;
     }
@@ -352,13 +352,13 @@ static void on_recv_pkg(nw_ses *ses, void *data, size_t size)
     }
 
     switch (info->frame.opcode) {
-    case CLOSE_OPCODE:
+    case WS_CLOSE_OPCODE:
         nw_svr_close_clt(svr->raw_svr, ses);
         return;
-    case PING_OPCODE:
+    case WS_PING_OPCODE:
         send_pong_message(ses);
         return;
-    case PONG_OPCODE:
+    case WS_PONG_OPCODE:
         return;
     }
 

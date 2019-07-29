@@ -5,15 +5,15 @@
 # include "ut_sds.h"
 # include "ut_http.h"
 
-# define WEBSOCKET_GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-# define CONTINUATION_OPCODE  0x00
-# define TEXT_OPCODE          0x01
-# define BINARY_OPCODE        0x02
-# define CLOSE_OPCODE         0x08
-# define PING_OPCODE          0x09
-# define PONG_OPCODE          0x0A
+# define WS_GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+# define WS_CONTINUATION_OPCODE  0x00
+# define WS_TEXT_OPCODE          0x01
+# define WS_BINARY_OPCODE        0x02
+# define WS_CLOSE_OPCODE         0x08
+# define WS_PING_OPCODE          0x09
+# define WS_PONG_OPCODE          0x0A
 
-# define FRAME_MASKED 0x80
+# define WS_FRAME_MASKED 0x80
 
 struct ws_frame {
     uint8_t     fin;
