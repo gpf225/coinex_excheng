@@ -92,17 +92,6 @@ const char *http_request_get_header(http_request_t *request, const char *field)
     return NULL;
 }
 
-void http_request_release(http_request_t *request)
-{
-    if (request->headers)
-        dict_release(request->headers);
-    if (request->url)
-        sdsfree(request->url);
-    if (request->body)
-        sdsfree(request->body);
-    free(request);
-}
-
 sds http_request_encode(http_request_t *request)
 {
     sds msg = sdsempty();
@@ -121,6 +110,17 @@ sds http_request_encode(http_request_t *request)
         msg = sdscatprintf(msg, "\r\n");
     }
     return msg;
+}
+
+void http_request_release(http_request_t *request)
+{
+    if (request->headers)
+        dict_release(request->headers);
+    if (request->url)
+        sdsfree(request->url);
+    if (request->body)
+        sdsfree(request->body);
+    free(request);
 }
 
 http_response_t *http_response_new(void)

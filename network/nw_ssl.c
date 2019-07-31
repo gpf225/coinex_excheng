@@ -13,7 +13,6 @@ static int nw_ssl_get_status(nw_ssl_ctx *ctx, int ret)
     if (err == SSL_ERROR_WANT_READ) {
         return NW_SSL_WANT_READ;
     }
-
     if (err == SSL_ERROR_WANT_WRITE) {
         return NW_SSL_WANT_WRITE;
     }
@@ -117,3 +116,4 @@ void nw_ssl_free(nw_ssl_ctx *ctx)
     SSL_free(ctx->ssl);
     free(ctx);
 }
+
