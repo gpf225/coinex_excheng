@@ -3,8 +3,8 @@
  *     History: yang@haipo.me, 2017/03/16, create
  */
 
-# include <curl/curl.h>
 # include "me_config.h"
+# include "me_request.h"
 
 struct settings settings;
 
@@ -16,55 +16,6 @@ static void convert_fee_dict_val_free(void *val)
     if (obj->price)
         mpd_del(obj->price);
     free(obj);
-}
-
-static size_t write_callback_func(char *ptr, size_t size, size_t nmemb, void *userdata)
-{
-    sds *reply = userdata;
-    *reply = sdscatlen(*reply, ptr, size * nmemb);
-    return size * nmemb;
-}
-
-static json_t *request_json(const char *url)
-{
-    json_t *reply  = NULL;
-    json_t *result = NULL;
-
-    CURL *curl = curl_easy_init();
-    sds reply_str = sdsempty();
-
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback_func);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &reply_str);
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, (long)(1000));
-
-    CURLcode ret = curl_easy_perform(curl);
-    if (ret != CURLE_OK) {
-        log_fatal("get %s fail: %s", url, curl_easy_strerror(ret));
-        goto cleanup;
-    }
-
-    reply = json_loads(reply_str, 0, NULL);
-    if (reply == NULL) {
-        log_error("parse %s reply fail: %s", url, reply_str);
-        goto cleanup;
-    }
-    int code = json_integer_value(json_object_get(reply, "code"));
-    if (code != 0) {
-        log_error("reply error: %s: %s", url, reply_str);
-        goto cleanup;
-    }
-    result = json_object_get(reply, "data");
-    json_incref(result);
-
-cleanup:
-    curl_easy_cleanup(curl);
-    sdsfree(reply_str);
-    if (reply)
-        json_decref(reply);
-
-    return result;
 }
 
 static int load_convert_fee(json_t *node)
@@ -174,28 +125,6 @@ static int read_config_from_json(json_t *root)
     return 0;
 }
 
-int update_asset_config(void)
-{
-    json_t *data = request_json(settings.asset_url);
-    if (data == NULL)
-        return -__LINE__;
-    if (settings.asset_cfg)
-        json_decref(settings.asset_cfg);
-    settings.asset_cfg = data;
-    return 0;
-}
-
-int update_market_config(void)
-{
-    json_t *data = request_json(settings.market_url);
-    if (data == NULL)
-        return -__LINE__;
-    if (settings.market_cfg)
-        json_decref(settings.market_cfg);
-    settings.market_cfg = data;
-    return 0;
-}
-
 int init_config(const char *path)
 {
     json_error_t error;
@@ -216,8 +145,8 @@ int init_config(const char *path)
     }
     json_decref(root);
 
-    ERR_RET(update_asset_config());
-    ERR_RET(update_market_config());
+    ERR_RET(init_asset_config());
+    ERR_RET(init_market_config());
 
     return 0;
 }

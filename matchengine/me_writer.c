@@ -16,6 +16,7 @@
 # include "me_persist.h"
 # include "ut_queue.h"
 # include "me_writer.h"
+# include "me_request.h"
 
 static rpc_svr *svr;
 static cli_svr *svrcli;
@@ -699,11 +700,9 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (fee_discount)
         mpd_del(fee_discount);
 
-    if (ret == -1) {
-        return rpc_reply_error(ses, pkg, 10, "balance not enough");
-    } else if (ret == -2) {           
+    if (ret == -1) {           
         return rpc_reply_error(ses, pkg, 11, "invalid stop price");
-    } else if (ret == -3) {
+    } else if (ret == -2) {
         return rpc_reply_error(ses, pkg, 12, "amount too small");
     } else if (ret < 0) {
         log_fatal("market_put_limit_order fail: %d", ret);
@@ -835,10 +834,8 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         mpd_del(fee_discount);
 
     if (ret == -1) {
-        return rpc_reply_error(ses, pkg, 10, "balance not enough");
-    } else if (ret == -2) {
         return rpc_reply_error(ses, pkg, 11, "invalid stop price");
-    } else if (ret == -3) {
+    } else if (ret == -2) {
         return rpc_reply_error(ses, pkg, 12, "amount too small");
     } else if (ret < 0) {
         log_fatal("market_put_limit_order fail: %d", ret);
@@ -940,30 +937,64 @@ static int on_cmd_cancel_stop_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return rpc_reply_success(ses, pkg);
 }
 
+static int on_asset_config_callback(json_t *reply, nw_ses *ses, rpc_pkg *pkg)
+{
+    if (!reply) {
+        log_info("update asset config fail");
+        return rpc_reply_error_internal_error(ses, pkg);
+    }
+
+    if (settings.asset_cfg)
+        json_decref(settings.asset_cfg);
+    settings.asset_cfg = reply;
+
+    int ret = update_asset();
+    if (ret < 0) {
+        log_info("update asset config fail");
+        return rpc_reply_error_internal_error(ses, pkg);
+    }
+
+    log_info("update asset config success");
+    return rpc_reply_success(ses, pkg);
+}
+
+static int on_market_config_callback(json_t *reply, nw_ses *ses, rpc_pkg *pkg)
+{
+    if (!reply) {
+        log_info("update market config fail");
+        return rpc_reply_error_internal_error(ses, pkg);
+    }
+
+    if (settings.market_cfg)
+        json_decref(settings.market_cfg);
+    settings.market_cfg = reply;
+
+    int ret = update_trade();
+    if (ret < 0) {
+        log_info("update market config fail");
+        return rpc_reply_error_internal_error(ses, pkg);
+    }
+
+    log_info("update market config success");
+    return rpc_reply_success(ses, pkg);
+}
+
 static int on_cmd_update_asset_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    int ret;
-    ret = update_asset_config();
-    if (ret < 0)
+    int ret = update_assert_config(ses, pkg, on_asset_config_callback);
+    if (ret < 0) {
         return rpc_reply_error_internal_error(ses, pkg);
-    ret = update_asset();
-    if (ret < 0)
-        return rpc_reply_error_internal_error(ses, pkg);
-    log_info("update asset config success!");
-    return rpc_reply_success(ses, pkg);
+    }
+    return 0;
 }
 
 static int on_cmd_update_market_config(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    int ret;
-    ret = update_market_config();
-    if (ret < 0)
+    int ret = update_market_config(ses, pkg, on_market_config_callback);
+    if (ret < 0) {
         return rpc_reply_error_internal_error(ses, pkg);
-    ret = update_trade();
-    if (ret < 0)
-        return rpc_reply_error_internal_error(ses, pkg);
-    log_info("update market config success!");
-    return rpc_reply_success(ses, pkg);
+    }
+    return 0;
 }
 
 static int on_cmd_self_market_deal(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -1449,6 +1480,11 @@ int init_writer()
     }
 
     ret = init_server();
+    if (ret < 0) {
+        return -__LINE__;
+    }
+
+    ret = init_request();
     if (ret < 0) {
         return -__LINE__;
     }

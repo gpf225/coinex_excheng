@@ -97,8 +97,5 @@ extern struct settings settings;
 
 int init_config(const char *path);
 
-int update_asset_config(void);
-int update_market_config(void);
-
 # endif
 
