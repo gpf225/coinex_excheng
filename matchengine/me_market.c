@@ -1334,6 +1334,47 @@ static int calc_call_auction_basic_price(market_t *m, bool force_calc)
     return ret;
 }
 
+bool check_fill_or_kill(market_t *m, uint32_t side, mpd_t *price, mpd_t *amount)
+{
+    mpd_t *fill_amount = mpd_qncopy(mpd_zero);
+    skiplist_node *node;
+    skiplist_iter *iter;
+    if (side == MARKET_ORDER_SIDE_ASK) {
+        iter = skiplist_get_iterator(m->bids);
+        while( (node=skiplist_next(iter)) != NULL) {
+            order_t *order = node->value;
+            if (mpd_cmp(price, order->price, &mpd_ctx) > 0) {
+                break;
+            }
+            mpd_add(fill_amount, fill_amount, order->left, &mpd_ctx);
+            if (mpd_cmp(fill_amount, amount, &mpd_ctx) >= 0) {
+                break;
+            }
+        }
+    } else {
+        iter = skiplist_get_iterator(m->asks);
+        while( (node=skiplist_next(iter)) != NULL) {
+            order_t *order = node->value;
+            if (mpd_cmp(price, order->price, &mpd_ctx) < 0) {
+                break;
+            }
+            mpd_add(fill_amount, fill_amount, order->left, &mpd_ctx);
+            if (mpd_cmp(fill_amount, amount, &mpd_ctx) >= 0) {
+                break;
+            }
+        }
+    }
+    skiplist_release_iterator(iter);
+
+    bool ret = false;
+    if (mpd_cmp(fill_amount, amount, &mpd_ctx) >= 0) {
+        ret = true;
+    }
+    mpd_del(fill_amount);
+
+    return ret;
+}
+
 int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
         mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_price, mpd_t *fee_discount, uint32_t option)
 {
@@ -1387,6 +1428,11 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     bool unlimited_min = (option & OPTION_UNLIMITED_MIN_AMOUNT) ? true : false;
     if (real && !unlimited_min && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
         return -2;
+    }
+
+    bool fill_or_kill = (option & OPTION_FILL_OR_KILL) ? true : false;
+    if (real && fill_or_kill && !check_fill_or_kill(m, side, price, amount)) {
+        return -3;
     }
 
     order_t *order = malloc(sizeof(order_t));
@@ -1475,6 +1521,19 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             balance_reset(user_id, account, m->stock);
         } else {
             balance_reset(user_id, account, m->money);
+        }
+        order_free(order);
+    } else if (order->option == OPTION_IMMEDIATED_OR_CANCEL) {
+        if (mpd_cmp(order->amount, order->left, &mpd_ctx) > 0) {
+            if(real) {
+                append_order_history(order);
+                push_order_message(ORDER_EVENT_FINISH, order, m);
+                if (result) {
+                    *result = get_order_info(order);
+                }
+            } else if (is_reader) {
+                record_fini_order(order);
+            }
         }
         order_free(order);
     } else {
