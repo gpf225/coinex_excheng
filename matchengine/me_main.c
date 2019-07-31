@@ -14,6 +14,7 @@
 # include "me_reader.h"
 # include "me_writer.h"
 # include "me_access.h"
+# include "me_request.h"
 # include "me_asset.h"
 
 const char *__process__ = "matchengine";
@@ -185,6 +186,7 @@ run:
     nw_loop_run();
     log_vip("server stop");
 
+    fini_request();
     if (need_release) {
         fini_message();
         fini_operlog();
