@@ -700,11 +700,9 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (fee_discount)
         mpd_del(fee_discount);
 
-    if (ret == -1) {
-        return rpc_reply_error(ses, pkg, 10, "balance not enough");
-    } else if (ret == -2) {           
+    if (ret == -1) {           
         return rpc_reply_error(ses, pkg, 11, "invalid stop price");
-    } else if (ret == -3) {
+    } else if (ret == -2) {
         return rpc_reply_error(ses, pkg, 12, "amount too small");
     } else if (ret < 0) {
         log_fatal("market_put_limit_order fail: %d", ret);
@@ -836,10 +834,8 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         mpd_del(fee_discount);
 
     if (ret == -1) {
-        return rpc_reply_error(ses, pkg, 10, "balance not enough");
-    } else if (ret == -2) {
         return rpc_reply_error(ses, pkg, 11, "invalid stop price");
-    } else if (ret == -3) {
+    } else if (ret == -2) {
         return rpc_reply_error(ses, pkg, 12, "amount too small");
     } else if (ret < 0) {
         log_fatal("market_put_limit_order fail: %d", ret);

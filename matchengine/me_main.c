@@ -186,7 +186,6 @@ run:
     nw_loop_run();
     log_vip("server stop");
 
-    fini_request();
     if (need_release) {
         fini_message();
         fini_operlog();

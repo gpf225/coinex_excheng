@@ -2144,30 +2144,18 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t acc
         mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount, uint32_t option)
 {
     if (side == MARKET_ORDER_SIDE_ASK) {
-        mpd_t *balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, m->stock);
-        if (!balance || mpd_cmp(balance, amount, &mpd_ctx) < 0) {
-            return -1;
-        }
         if (mpd_cmp(m->last, mpd_zero, &mpd_ctx) == 0 || mpd_cmp(stop_price, m->last, &mpd_ctx) == 0) {
-            return -2;
+            return -1;
         }
     } else {
-        mpd_t *balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, m->money);
-        mpd_t *require = mpd_new(&mpd_ctx);
-        mpd_mul(require, amount, price, &mpd_ctx);
-        if (!balance || mpd_cmp(balance, require, &mpd_ctx) < 0) {
-            mpd_del(require);
-            return -1;
-        }
-        mpd_del(require);
         if (mpd_cmp(m->last, mpd_zero, &mpd_ctx) == 0 || mpd_cmp(stop_price, m->last, &mpd_ctx) == 0) {
-            return -2;
+            return -1;
         }
     }
 
     bool unlimited_min = (option & OPTION_UNLIMITED_MIN_AMOUNT) ? true : false;
     if (real && !unlimited_min && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
-        return -3;
+        return -2;
     }
 
     stop_t *stop = malloc(sizeof(stop_t));
@@ -2230,23 +2218,15 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t ac
 {
     bool unlimited_min = (option & OPTION_UNLIMITED_MIN_AMOUNT) ? true : false;
     if (side == MARKET_ORDER_SIDE_ASK) {
-        mpd_t *balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, m->stock);
-        if (!balance || mpd_cmp(balance, amount, &mpd_ctx) < 0) {
-            return -1;
-        }
         if (mpd_cmp(m->last, mpd_zero, &mpd_ctx) == 0 || mpd_cmp(stop_price, m->last, &mpd_ctx) == 0) {
-            return -2;
+            return -1;
         }
         if (real && !unlimited_min && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
-            return -3;
+            return -2;
         }
     } else {
-        mpd_t *balance = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, m->money);
-        if (!balance || mpd_cmp(balance, amount, &mpd_ctx) < 0) {
-            return -1;
-        }
         if (mpd_cmp(m->last, mpd_zero, &mpd_ctx) == 0 || mpd_cmp(stop_price, m->last, &mpd_ctx) == 0) {
-            return -2;
+            return -1;
         }
     }
 

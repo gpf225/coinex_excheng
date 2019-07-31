@@ -64,7 +64,7 @@ static void on_job(nw_job_entry *entry, void *privdata)
 {
     double start = current_timestamp();
     struct request_context *req = entry->request;
-    entry->reply = http_request(req->url, settings.worker_timeout - 0.1);
+    entry->reply = http_request(req->url, settings.worker_timeout);
     double end = current_timestamp();
     log_info("request url: %s cost: %f", req->url, end - start);
 }
@@ -83,25 +83,23 @@ static void on_job_cleanup(nw_job_entry *entry)
 
 int init_asset_config(void)
 {
-    json_t *data = http_request(settings.asset_url, settings.worker_timeout - 0.1);
+    json_t *data = http_request(settings.asset_url, settings.worker_timeout);
     if (data == NULL)
         return -__LINE__;
     if (settings.asset_cfg)
         json_decref(settings.asset_cfg);
     settings.asset_cfg = data;
-
     return 0;
 }
 
 int init_market_config(void)
 {
-    json_t *data = http_request(settings.market_url, settings.worker_timeout - 0.1);
+    json_t *data = http_request(settings.market_url, settings.worker_timeout);
     if (data == NULL)
         return -__LINE__;
     if (settings.market_cfg)
         json_decref(settings.market_cfg);
     settings.market_cfg = data;
-
     return 0;
 }
 
@@ -122,7 +120,6 @@ int update_market_config(nw_ses *ses, rpc_pkg *pkg, request_callback callback)
     req->url        = settings.market_url;
     req->ses        = ses;
     req->callback   = callback;
-  
     return nw_job_add(job, 0, req);
 }
 
@@ -137,12 +134,6 @@ int init_request(void)
     job = nw_job_create(&type, 1);
     if (job == NULL)
         return -__LINE__;
-    return 0;
-}
-
-int fini_request(void)
-{
-    nw_job_release(job);
     return 0;
 }
 

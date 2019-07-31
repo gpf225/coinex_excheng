@@ -374,7 +374,6 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 13. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only; bit 3: unlimited min amount
 * result: order detail
 * error:
-    10. balance not enough
     11. invalid stop price
     12. amount too small
 
@@ -394,7 +393,6 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 11. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only
 * result: order detail
 * error:
-10. balance not enough
 11. invalid stop price
 12. amount too small
 
