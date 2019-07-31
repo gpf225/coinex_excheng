@@ -1341,7 +1341,7 @@ bool check_fill_or_kill(market_t *m, uint32_t side, mpd_t *price, mpd_t *amount)
     skiplist_iter *iter;
     if (side == MARKET_ORDER_SIDE_ASK) {
         iter = skiplist_get_iterator(m->bids);
-        while( (node=skiplist_next(iter)) != NULL) {
+        while ((node=skiplist_next(iter)) != NULL) {
             order_t *order = node->value;
             if (mpd_cmp(price, order->price, &mpd_ctx) > 0) {
                 break;
@@ -1353,7 +1353,7 @@ bool check_fill_or_kill(market_t *m, uint32_t side, mpd_t *price, mpd_t *amount)
         }
     } else {
         iter = skiplist_get_iterator(m->asks);
-        while( (node=skiplist_next(iter)) != NULL) {
+        while ((node=skiplist_next(iter)) != NULL) {
             order_t *order = node->value;
             if (mpd_cmp(price, order->price, &mpd_ctx) < 0) {
                 break;
