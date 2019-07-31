@@ -9,14 +9,8 @@
 # include "ut_log.h"
 # include "ut_misc.h"
 # include "ut_base64.h"
+# include "ut_ws.h"
 # include "ut_ws_svr.h"
-
-struct ws_frame {
-    uint8_t     fin;
-    uint8_t     opcode;
-    uint64_t    payload_len;
-    void        *payload;
-};
 
 struct clt_info {
     nw_ses      *ses;
@@ -65,58 +59,15 @@ static int send_empty_reply(nw_ses *ses)
 
 static int send_hand_shake_reply(nw_ses *ses, char *protocol, const char *key)
 {
-    unsigned char hash[20];
-    sds data = sdsnew(key);
-    data = sdscat(data, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
-    SHA1((const unsigned char *)data, sdslen(data), hash);
-    sdsfree(data);
-
-    sds b4message;
-    base64_encode(hash, sizeof(hash), &b4message);
-
-    http_response_t *response = http_response_new();
-    http_response_set_header(response, "Upgrade", "websocket");
-    http_response_set_header(response, "Connection", "Upgrade");
-    http_response_set_header(response, "Sec-WebSocket-Accept", b4message);
-    if (protocol) {
-        http_response_set_header(response, "Sec-WebSocket-Protocol", protocol);
+    http_response_t *response = ws_handshake_response_new(protocol, 101);
+    if (response){
+        sds message = ws_handshake_response(response, key);
+        nw_ses_send(ses, message, sdslen(message));
+        sdsfree(message);
+        http_response_release(response);
     }
-    response->status = 101;
-
-    sds message = http_response_encode(response);
-    nw_ses_send(ses, message, sdslen(message));
-
-    sdsfree(message);
-    sdsfree(b4message);
-    http_response_release(response);
-
+ 
     return 0;
-}
-
-static bool is_good_protocol(const char *protocol_list, const char *protocol)
-{
-    char *tmp = strdup(protocol_list);
-    char *pch = strtok(tmp, ", ");
-    while (pch != NULL) {
-        if (strcmp(pch, protocol) == 0) {
-            free(tmp);
-            return true;
-        }
-        pch = strtok(NULL, ", ");
-    }
-    free(tmp);
-    return false;
-}
-
-static bool is_good_origin(const char *origin, const char *require)
-{
-    size_t origin_len  = strlen(origin);
-    size_t require_len = strlen(require);
-    if (origin_len < require_len)
-        return false;
-    if (memcmp(origin + (origin_len - require_len), require, require_len) != 0)
-        return false;
-    return true;
 }
 
 static int on_http_message_complete(http_parser* parser)
@@ -256,16 +207,6 @@ static int on_http_body(http_parser* parser, const char* at, size_t length)
     return 0;
 }
 
-static bool is_good_opcode(uint8_t opcode)
-{
-    static uint8_t good_list[] = { 0x0, 0x1, 0x2, 0x8, 0x9, 0xa };
-    for (size_t i = 0; i < sizeof(good_list); ++i) {
-        if (opcode == good_list[i])
-            return true;
-    }
-    return false;
-}
-
 static int decode_pkg(nw_ses *ses, void *data, size_t max)
 {
     struct clt_info *info = ses->privdata;
@@ -281,11 +222,14 @@ static int decode_pkg(nw_ses *ses, void *data, size_t max)
     memset(&info->frame, 0, sizeof(info->frame));
     info->frame.fin = p[0] & 0x80;
     info->frame.opcode = p[0] & 0x0f;
-    if (!is_good_opcode(info->frame.opcode))
+    if (!is_good_opcode(info->frame.opcode)){
         return -1;
-    uint8_t mask = p[1] & 0x80;
-    if (mask == 0)
+    }
+
+    uint8_t mask = p[1] & WS_FRAME_MASKED;
+    if (mask == 0) {
         return -1;
+    }
 
     uint8_t len = p[1] & 0x7f;
     if (len < 126) {
@@ -383,53 +327,7 @@ static void on_privdata_free(void *svr, void *privdata)
 
 static int send_reply(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len)
 {
-    if (payload == NULL)
-        payload_len = 0;
-
-    static void *buf;
-    static size_t buf_size = 1024;
-    if (buf == NULL) {
-        buf = malloc(1024);
-        if (buf == NULL)
-            return -1;
-    }
-    size_t require_len = 10 + payload_len;
-    if (buf_size < require_len) {
-        void *new = realloc(buf, require_len);
-        if (new == NULL)
-            return -1;
-        buf = new;
-        buf_size = require_len;
-    }
-
-    size_t pkg_len = 0;
-    uint8_t *p = buf;
-    p[0] = 0;
-    p[0] |= 0x1 << 7;
-    p[0] |= opcode;
-    p[1] = 0;
-    if (payload_len < 126) {
-        uint8_t len = payload_len;
-        p[1] |= len;
-        pkg_len = 2;
-    } else if (payload_len <= 0xffff) {
-        p[1] |= 126;
-        uint16_t len = htobe16((uint16_t)payload_len);
-        memcpy(p + 2, &len, sizeof(len));
-        pkg_len = 2 + sizeof(len);
-    } else {
-        p[1] |= 127;
-        uint64_t len = htobe64(payload_len);
-        memcpy(p + 2, &len, sizeof(len));
-        pkg_len = 2 + sizeof(len);
-    }
-
-    if (payload) {
-        memcpy(p + pkg_len, payload, payload_len);
-        pkg_len += payload_len;
-    }
-
-    return nw_ses_send(ses, buf, pkg_len);
+    return ws_send_message(ses, opcode, payload, payload_len, 0);
 }
 
 static int send_pong_message(nw_ses *ses)
@@ -454,13 +352,13 @@ static void on_recv_pkg(nw_ses *ses, void *data, size_t size)
     }
 
     switch (info->frame.opcode) {
-    case 0x8:
+    case WS_CLOSE_OPCODE:
         nw_svr_close_clt(svr->raw_svr, ses);
         return;
-    case 0x9:
+    case WS_PING_OPCODE:
         send_pong_message(ses);
         return;
-    case 0xa:
+    case WS_PONG_OPCODE:
         return;
     }
 
@@ -582,16 +480,6 @@ void *ws_ses_privdata(nw_ses *ses)
 {
     struct clt_info *info = ses->privdata;
     return info->privdata;
-}
-
-int ws_send_text(nw_ses *ses, char *message)
-{
-    return send_reply(ses, 0x1, message, strlen(message));
-}
-
-int ws_send_binary(nw_ses *ses, void *data, size_t size)
-{
-    return send_reply(ses, 0x2, data, size);
 }
 
 static int broadcast_message(ws_svr *svr, uint8_t opcode, void *data, size_t size)

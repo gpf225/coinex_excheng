@@ -33,6 +33,7 @@ typedef struct nw_clt_cfg {
     uint32_t write_mem;
     /* interval to reconnect when the stream connection is close */
     double reconnect_timeout;
+    bool is_ssl;
     /* buf factory, if set to NULL, nw_clt will create it */
     nw_buf_pool *buf_pool;
 } nw_clt_cfg;
@@ -79,6 +80,7 @@ typedef struct nw_clt {
     nw_timer timer;
     bool connected;
     bool on_connect_called;
+    bool is_ssl;
     double reconnect_timeout;
     uint32_t read_mem;
     uint32_t write_mem;
