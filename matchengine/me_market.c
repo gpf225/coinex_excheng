@@ -2023,13 +2023,13 @@ static bool check_market_fill_or_kill(market_t *m, uint32_t side, mpd_t *amount)
         }
         mpd_del(deal_amount);
     }
+    skiplist_release_iterator(iter);
 
     bool ret = false;
     if (mpd_cmp(fill_amount, amount, &mpd_ctx) >= 0) {
         ret = true;
     }
     mpd_del(fill_amount);
-    skiplist_release_iterator(iter);
 
     return ret;
 }
