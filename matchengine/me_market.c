@@ -1334,6 +1334,49 @@ static int calc_call_auction_basic_price(market_t *m, bool force_calc)
     return ret;
 }
 
+static bool check_limit_fill_or_kill(market_t *m, uint32_t side, mpd_t *price, mpd_t *amount)
+{
+    mpd_t *fill_amount = mpd_qncopy(mpd_zero);
+    skiplist_node *node;
+    skiplist_iter *iter;
+    if (side == MARKET_ORDER_SIDE_ASK) {
+        iter = skiplist_get_iterator(m->bids);
+        while ((node = skiplist_next(iter)) != NULL) {
+            order_t *order = node->value;
+            if (mpd_cmp(price, order->price, &mpd_ctx) > 0) {
+                break;
+            }
+
+            mpd_add(fill_amount, fill_amount, order->left, &mpd_ctx);
+            if (mpd_cmp(fill_amount, amount, &mpd_ctx) >= 0) {
+                break;
+            }
+        }
+    } else {
+        iter = skiplist_get_iterator(m->asks);
+        while ((node = skiplist_next(iter)) != NULL) {
+            order_t *order = node->value;
+            if (mpd_cmp(price, order->price, &mpd_ctx) < 0) {
+                break;
+            }
+
+            mpd_add(fill_amount, fill_amount, order->left, &mpd_ctx);
+            if (mpd_cmp(fill_amount, amount, &mpd_ctx) >= 0) {
+                break;
+            }
+        }
+    }
+    skiplist_release_iterator(iter);
+
+    bool ret = false;
+    if (mpd_cmp(fill_amount, amount, &mpd_ctx) >= 0) {
+        ret = true;
+    }
+    mpd_del(fill_amount);
+
+    return ret;
+}
+
 int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
         mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_price, mpd_t *fee_discount, uint32_t option)
 {
@@ -1387,6 +1430,11 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     bool unlimited_min = (option & OPTION_UNLIMITED_MIN_AMOUNT) ? true : false;
     if (real && !unlimited_min && mpd_cmp(amount, m->min_amount, &mpd_ctx) < 0) {
         return -2;
+    }
+
+    bool fill_or_kill = (option & OPTION_FILL_OR_KILL) ? true : false;
+    if (real && fill_or_kill && !check_limit_fill_or_kill(m, side, price, amount)) {
+        return -3;
     }
 
     order_t *order = malloc(sizeof(order_t));
@@ -1458,7 +1506,8 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         }
     }
 
-    if (mpd_cmp(order->left, mpd_zero, &mpd_ctx) == 0) {
+    bool immediate_or_cancel = (option & OPTION_IMMEDIATED_OR_CANCEL) ? true : false;
+    if (mpd_cmp(order->left, mpd_zero, &mpd_ctx) == 0 || (immediate_or_cancel && mpd_cmp(order->amount, order->left, &mpd_ctx) > 0)) {
         if (real) {
             ret = append_order_history(order);
             if (ret < 0) {
@@ -1476,6 +1525,8 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         } else {
             balance_reset(user_id, account, m->money);
         }
+        order_free(order);
+    } else if (immediate_or_cancel) {
         order_free(order);
     } else {
         ret = frozen_order(m, order);
@@ -1945,6 +1996,44 @@ static mpd_t *get_market_sell_deal(market_t *m, mpd_t *sell_amount)
     return total_deal;
 }
 
+static bool check_market_fill_or_kill(market_t *m, uint32_t side, mpd_t *amount)
+{
+    mpd_t *fill_amount = mpd_qncopy(mpd_zero);
+    skiplist_node *node;
+    skiplist_iter *iter;
+    if (side == MARKET_ORDER_SIDE_ASK) {
+        iter = skiplist_get_iterator(m->bids);
+        while ((node = skiplist_next(iter)) != NULL) {
+            order_t *order = node->value;
+            mpd_add(fill_amount, fill_amount, order->left, &mpd_ctx);
+            if (mpd_cmp(fill_amount, amount, &mpd_ctx) >= 0) {
+                break;
+            }
+        }
+    } else {
+        mpd_t *deal_amount = mpd_qncopy(mpd_zero);
+        iter = skiplist_get_iterator(m->asks);
+        while ((node = skiplist_next(iter)) != NULL) {
+            order_t *order = node->value;
+            mpd_mul(deal_amount, order->price, order->left, &mpd_ctx);
+            mpd_add(fill_amount, fill_amount, deal_amount, &mpd_ctx);
+            if (mpd_cmp(fill_amount, amount, &mpd_ctx) >= 0) {
+                break;
+            }
+        }
+        mpd_del(deal_amount);
+    }
+    skiplist_release_iterator(iter);
+
+    bool ret = false;
+    if (mpd_cmp(fill_amount, amount, &mpd_ctx) >= 0) {
+        ret = true;
+    }
+    mpd_del(fill_amount);
+
+    return ret;
+}
+
 int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
         mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_price, mpd_t *fee_discount, uint32_t option)
 {
@@ -1999,6 +2088,10 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
             return -1;
         }
 
+        if (skiplist_len(m->asks) == 0) {
+            return -3;
+        }
+
         bool fee_asset_enough = false;
         if (fee_asset && mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(fee_price, mpd_zero, &mpd_ctx) > 0) {
             if (strcmp(m->money, fee_asset) == 0) {
@@ -2029,15 +2122,8 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
             }
         }
 
-        skiplist_iter *iter = skiplist_get_iterator(m->asks);
-        skiplist_node *node = skiplist_next(iter);
-        if (node == NULL) {
-            skiplist_release_iterator(iter);
-            return -3;
-        }
-        skiplist_release_iterator(iter);
-
         if (real && !unlimited_min) {
+            skiplist_node *node = skiplist_header(m->asks);
             order_t *order = node->value;
             mpd_t *require = mpd_new(&mpd_ctx);
             mpd_mul(require, order->price, m->min_amount, &mpd_ctx);
@@ -2048,6 +2134,11 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
 
             mpd_del(require);
         }
+    }
+
+    bool fill_or_kill = (option & OPTION_FILL_OR_KILL) ? true : false;
+    if (real && fill_or_kill && !check_market_fill_or_kill(m, side, amount)) {
+        return -4;
     }
 
     order_t *order = malloc(sizeof(order_t));

@@ -303,10 +303,18 @@ asset list(optional, if no asset special, return all asset)
 9. source: String, source, up to 30 bytes
 10. fee_asset: String, asset to use as fee
 11. fee_discount: String, 0~1
-12. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only; bit 3: unlimited min amount
+12. option: optional field, Integer
+    * bit 1: use stock fee only;
+    * bit 2: use money fee only;
+    * bit 3: unlimited min amount
+    * bit 4: immediate or cancel order
+    * bit 5: fill or kill order
+
 * result: order detail
 * error:
 10. balance not enough
+11. amount too small
+12. can't be completely executed, kill the order
 * example:
 
 ```
@@ -325,10 +333,17 @@ params: [1, 0, "BTCCNY", 1, "10", "8000", "0.002", "0.001"]
 7. source: String, source, up to 30 bytes
 8. fee_asset: String, asset to use as fee
 9. fee_discount: String, 0~1
-10. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only; bit 3: unlimited min amount
+10. option: optional field, Integer
+    * bit 1: use stock fee only;
+    * bit 2: use money fee only;
+    * bit 3: unlimited min amount;
+    * bit 5: fill or kill order;
 * result: order detail
 * error:
 10. balance not enough
+11. amount too small
+12. no enough trader
+13. can't be completely executed, kill the order
 * example:
 
 ```
