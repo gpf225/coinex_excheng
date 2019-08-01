@@ -484,6 +484,8 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return rpc_reply_error(ses, pkg, 11, "amount too small");
     } else if (ret == -3) {
         return rpc_reply_error(ses, pkg, 12, "no enough trader");
+    } else if (ret == -4) {
+        return rpc_reply_error(ses, pkg, 13, "can't be completely executed, kill the order");
     } else if (ret < 0) {
         log_fatal("market_put_limit_order fail: %d", ret);
         return rpc_reply_error_internal_error(ses, pkg);
