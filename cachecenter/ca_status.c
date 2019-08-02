@@ -54,10 +54,11 @@ static void notify_state(void)
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
         struct dict_status_val *val = entry->val;
-        if (market_update_index(market)) {
+        if (market_is_index(market)) {
             if (val->last_state == NULL) {
                 continue;
             }
+            val->last_depth = json_null();
         } else {
             if (val->last_state == NULL || val->last_depth == NULL) {
                 continue;
@@ -292,7 +293,7 @@ static void on_timer(nw_timer *timer, void *privdata)
     iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
-        if (!market_update_index(market)) {
+        if (!market_is_index(market)) {
             query_market_depth(market);
         }
         query_market_status(market);
