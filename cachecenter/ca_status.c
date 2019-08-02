@@ -45,6 +45,14 @@ static void dict_status_sub_val_free(void *key)
     free(obj);
 }
 
+static bool check_market_index(const char *market_name)
+{
+    if (market_name && strlen(market_name) >= 6 && strcmp(market_name + strlen(market_name) - 6, "_INDEX") == 0) {
+        return true;
+    }
+    return false;
+}
+
 static void notify_state(void)
 {
     dict_entry *entry;
@@ -54,8 +62,15 @@ static void notify_state(void)
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
         struct dict_status_val *val = entry->val;
-        if (val->last_state == NULL || val->last_depth == NULL)
-            continue;
+        if (check_market_index(market)) {
+            if (val->last_state == NULL) {
+                continue;
+            }
+        } else {
+            if (val->last_state == NULL || val->last_depth == NULL){
+                continue;
+            }
+        }
 
         json_t *params = json_object();
         json_object_set_new(params, "name", json_string(market));
@@ -285,7 +300,9 @@ static void on_timer(nw_timer *timer, void *privdata)
     iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
-        query_market_depth(market);
+        if (!check_market_index(market)) {
+            query_market_depth(market);
+        }
         query_market_status(market);
     }
     dict_release_iterator(iter);

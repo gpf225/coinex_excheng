@@ -14,6 +14,7 @@ static dict_t *dict_market = NULL;
 static rpc_clt *matchengine = NULL;
 static nw_timer market_timer;
 static nw_state *state_context;
+static bool market_init_index = false;
 
 struct market_val {
     int     id;
@@ -31,6 +32,28 @@ static void dict_market_val_free(void *val)
     free(val);
 }
 
+static char *convert_index_name(const char *name)
+{
+    static char buf[100];
+    snprintf(buf, sizeof(buf), "%s_INDEX", name);
+    return buf;
+}
+
+static void update_market_list(const char *name, uint32_t update_id)
+{
+    dict_entry *entry = dict_find(dict_market, name);
+    if (entry == NULL) {
+        struct market_val val;
+        memset(&val, 0, sizeof(val));
+        val.id = update_id;
+        dict_add(dict_market, (char *)name, &val);
+        log_info("add market: %s", name);
+    } else {
+        struct market_val *info = entry->val;
+        info->id = update_id;
+    }
+}
+
 static int on_market_list_reply(json_t *result)
 {
     static uint32_t update_id = 0;
@@ -39,16 +62,10 @@ static int on_market_list_reply(json_t *result)
     for (size_t i = 0; i < json_array_size(result); ++i) {
         json_t *item = json_array_get(result, i);
         const char *name = json_string_value(json_object_get(item, "name"));
-        dict_entry *entry = dict_find(dict_market, name);
-        if (entry == NULL) {
-            struct market_val val;
-            memset(&val, 0, sizeof(val));
-            val.id = update_id;
-            dict_add(dict_market, (char *)name, &val);
-            log_info("add market: %s", name);
-        } else {
-            struct market_val *info = entry->val;
-            info->id = update_id;
+        update_market_list(name, update_id);
+        if (market_init_index) {
+            char *index_name = convert_index_name(name);
+            update_market_list(index_name, update_id);
         }
     }
 
@@ -145,7 +162,7 @@ static void on_backend_connect(nw_ses *ses, bool result)
     }
 }
 
-int init_market(void)
+int init_market(bool is_init_index)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
@@ -179,7 +196,7 @@ int init_market(void)
     state_context = nw_state_create(&st, 0);
     if (state_context == NULL)
         return -__LINE__;
-
+    market_init_index = is_init_index;
     nw_timer_set(&market_timer, settings.market_interval, true, on_market_timer, NULL);
     nw_timer_start(&market_timer);
     on_market_timer(NULL, NULL);
