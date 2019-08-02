@@ -39,6 +39,13 @@
         ],
         "max_pkg_size": 2000000
     },
+    "marketindex": {
+        "name": "marketindex",
+        "addr": [
+            "tcp@127.0.0.1:7901"
+        ],
+        "max_pkg_size": 2000000
+    },
     "worker_num": 4,
     "backend_timeout": 0.1,
     "interval_time": 1.0,

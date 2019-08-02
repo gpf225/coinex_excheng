@@ -52,9 +52,11 @@ struct settings {
     rpc_svr_cfg         state_svr;
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
+    rpc_clt_cfg         marketindex;
     
     double              backend_timeout;
     double              market_interval;
+    double              index_interval;
     depth_interval_cfg  depth_interval;
 
     double              interval_time;
