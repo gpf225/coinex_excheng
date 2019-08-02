@@ -1027,7 +1027,7 @@ response:
 **Market status**
 * method: `market.status`
 * params:
-1. market: market name
+1. market: market name and get index status by market name with suffix _INDEX like: BTCUSDT_INDEX
 2. period: cycle period, Integer, e.g. 86400 for last 24 hours
 * result:
 
