@@ -18,6 +18,7 @@ static bool market_init_index = false;
 
 struct market_val {
     int     id;
+    bool    init_index;
 };
 
 static void *dict_market_val_dup(const void *key)
@@ -39,18 +40,20 @@ static char *convert_index_name(const char *name)
     return buf;
 }
 
-static void update_market_list(const char *name, uint32_t update_id)
+static void update_market_list(const char *name, uint32_t update_id, bool init_index)
 {
     dict_entry *entry = dict_find(dict_market, name);
     if (entry == NULL) {
         struct market_val val;
         memset(&val, 0, sizeof(val));
         val.id = update_id;
+        val.init_index = init_index;
         dict_add(dict_market, (char *)name, &val);
         log_info("add market: %s", name);
     } else {
         struct market_val *info = entry->val;
         info->id = update_id;
+        info->init_index = init_index;
     }
 }
 
@@ -62,10 +65,10 @@ static int on_market_list_reply(json_t *result)
     for (size_t i = 0; i < json_array_size(result); ++i) {
         json_t *item = json_array_get(result, i);
         const char *name = json_string_value(json_object_get(item, "name"));
-        update_market_list(name, update_id);
+        update_market_list(name, update_id, false);
         if (market_init_index) {
             char *index_name = convert_index_name(name);
-            update_market_list(index_name, update_id);
+            update_market_list(index_name, update_id, true);
         }
     }
 
@@ -162,7 +165,7 @@ static void on_backend_connect(nw_ses *ses, bool result)
     }
 }
 
-int init_market(bool is_init_index)
+int init_market(bool init_index)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
@@ -196,7 +199,7 @@ int init_market(bool is_init_index)
     state_context = nw_state_create(&st, 0);
     if (state_context == NULL)
         return -__LINE__;
-    market_init_index = is_init_index;
+    market_init_index = init_index;
     nw_timer_set(&market_timer, settings.market_interval, true, on_market_timer, NULL);
     nw_timer_start(&market_timer);
     on_market_timer(NULL, NULL);
@@ -214,3 +217,12 @@ bool market_exist(const char *market)
     return dict_find(dict_market, market) != NULL;
 }
 
+bool market_update_index(const char *market)
+{
+    dict_entry *entry = dict_find(dict_market, market);
+    if (entry) {
+        struct market_val *info = entry->val;
+        return info->init_index;
+    }
+    return false;
+}

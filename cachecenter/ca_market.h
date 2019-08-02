@@ -8,8 +8,8 @@
 
 # include "ca_config.h"
 
-int init_market(bool is_market_index);
+int init_market(bool init_index);
 dict_t *get_market(void);
 bool market_exist(const char *market);
-
+bool market_update_index(const char *market);
 #endif
