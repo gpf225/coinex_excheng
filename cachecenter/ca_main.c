@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
         daemon(1, 1);
         process_keepalive(settings.debug);
 
-        ret = init_market();
+        ret = init_market(false);
         if (ret < 0) {
             error(EXIT_FAILURE, errno, "init market fail: %d", ret);
         }
@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
         daemon(1, 1);
         process_keepalive(settings.debug);
 
-        ret = init_market();
+        ret = init_market(true);
         if (ret < 0) {
             error(EXIT_FAILURE, errno, "init market fail: %d", ret);
         }
@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
     daemon(1, 1);
     process_keepalive(settings.debug);
 
-    ret = init_market();
+    ret = init_market(false);
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init market fail: %d", ret);
     }

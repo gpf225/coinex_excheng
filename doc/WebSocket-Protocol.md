@@ -143,7 +143,7 @@ General error code:
 **Market 24H status notification**
 * method: `state.update`
 * params:
-1. market state
+1. market state and get index status by market name with suffix _INDEX like: BTCUSDT_INDEX
 
 ```
 {

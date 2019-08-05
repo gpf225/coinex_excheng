@@ -65,12 +65,22 @@ static int update_ticker(const char *market, int update_id, uint64_t date, json_
     return 0;
 }
 
+static int is_index_market(const char *name)
+{
+    if (name && strlen(name) > 6 && strcmp(name + strlen(name) - 6, "_INDEX") == 0) {
+        return true;
+    }
+    return false;
+}
+
 static int update_market(json_t *row, int update_id)
 {
     const char *market = json_string_value(json_object_get(row, "name"));
     if (market == NULL)
         return -__LINE__;
-
+    if (is_index_market(market)) {
+        return 0;
+    }
     uint64_t date = json_integer_value(json_object_get(row, "date"));
     if (date == 0)
         return -__LINE__;
