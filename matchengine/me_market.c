@@ -944,8 +944,8 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
             append_balance_trade_add(taker, m->money, deal, price, amount);
         }
         if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
-            balance_sub(taker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
-            if (real) {
+            mpd_t *sub_result = balance_sub(taker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
+            if (real && sub_result != NULL) {
                 append_balance_trade_fee(taker, ask_fee_account, ask_fee_asset, ask_fee, price, amount, taker->taker_fee);
             }
         }
@@ -970,13 +970,14 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
             append_balance_trade_add(maker, m->stock, amount, price, amount);
         }
         if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
+            mpd_t *sub_result;
             if (maker_use_money_fee) {
                 mpd_sub(maker->frozen, maker->frozen, bid_fee, &mpd_ctx);
-                balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->money, bid_fee);
+                sub_result = balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->money, bid_fee);
             } else {
-                balance_sub(maker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
+                sub_result = balance_sub(maker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
             }
-            if (real) {
+            if (real && sub_result != NULL) {
                 append_balance_trade_fee(maker, bid_fee_account, bid_fee_asset, bid_fee, price, amount, maker->maker_fee);
             }
         }
@@ -1145,8 +1146,8 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
             append_balance_trade_add(taker, m->stock, amount, price, amount);
         }
         if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
-            balance_sub(taker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
-            if (real) {
+            mpd_t *sub_result = balance_sub(taker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
+            if (real && sub_result != NULL) {
                 append_balance_trade_fee(taker, bid_fee_account, bid_fee_asset, bid_fee, price, amount, taker->taker_fee);
             }
         }
@@ -1171,13 +1172,14 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
             append_balance_trade_add(maker, m->money, deal, price, amount);
         }
         if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
+            mpd_t *sub_result;
             if (maker_use_stock_fee) {
                 mpd_sub(maker->frozen, maker->frozen, ask_fee, &mpd_ctx);
-                balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->stock, ask_fee);
+                sub_result = balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->stock, ask_fee);
             } else {
-                balance_sub(maker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
+                sub_result = balance_sub(maker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
             }
-            if (real) {
+            if (real && sub_result != NULL) {
                 append_balance_trade_fee(maker, ask_fee_account, ask_fee_asset, ask_fee, price, amount, maker->maker_fee);
             }
         }
@@ -1697,8 +1699,8 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
             append_balance_trade_add(taker, m->money, deal, price, amount);
         }
         if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
-            balance_sub(taker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
-            if (real) {
+            mpd_t *sub_result = balance_sub(taker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
+            if (real && sub_result != NULL) {
                 append_balance_trade_fee(taker, ask_fee_account, ask_fee_asset, ask_fee, price, amount, taker->taker_fee);
             }
         }
@@ -1722,13 +1724,14 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
             append_balance_trade_add(maker, m->stock, amount, price, amount);
         }
         if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
+            mpd_t *sub_result;
             if (maker_use_money_fee) {
                 mpd_sub(maker->frozen, maker->frozen, bid_fee, &mpd_ctx);
-                balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->money, bid_fee);
+                sub_result = balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->money, bid_fee);
             } else {
-                balance_sub(maker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
+                sub_result = balance_sub(maker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
             }
-            if (real) {
+            if (real && sub_result != NULL) {
                 append_balance_trade_fee(maker, bid_fee_account, bid_fee_asset, bid_fee, price, amount, maker->maker_fee);
             }
         }
@@ -1897,8 +1900,8 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
             append_balance_trade_add(taker, m->stock, amount, price, amount);
         }
         if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
-            balance_sub(taker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
-            if (real) {
+            mpd_t *sub_result = balance_sub(taker->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
+            if (real && sub_result != NULL) {
                 append_balance_trade_fee(taker, bid_fee_account, bid_fee_asset, bid_fee, price, amount, taker->taker_fee);
             }
         }
@@ -1922,13 +1925,14 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
             append_balance_trade_add(maker, m->money, deal, price, amount);
         }
         if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
+            mpd_t *sub_result;
             if (maker_use_stock_fee) {
                 mpd_sub(maker->frozen, maker->frozen, ask_fee, &mpd_ctx);
-                balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->stock, ask_fee);
+                sub_result = balance_sub(maker->user_id, maker->account, BALANCE_TYPE_FROZEN, m->stock, ask_fee);
             } else {
-                balance_sub(maker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
+                sub_result = balance_sub(maker->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
             }
-            if (real) {
+            if (real && sub_result != NULL) {
                 append_balance_trade_fee(maker, ask_fee_account, ask_fee_asset, ask_fee, price, amount, maker->maker_fee);
             }
         }
@@ -2865,14 +2869,15 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
     }
 
     if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
+        mpd_t *sub_result;
         if(ask_use_stock_fee) {
             mpd_sub(ask->frozen, ask->frozen, ask_fee, &mpd_ctx);
-            balance_sub(ask->user_id, ask->account, BALANCE_TYPE_FROZEN, m->stock, ask_fee);
+            sub_result = balance_sub(ask->user_id, ask->account, BALANCE_TYPE_FROZEN, m->stock, ask_fee);
         } else {
-            balance_sub(ask->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
+            sub_result = balance_sub(ask->user_id, ask_fee_account, BALANCE_TYPE_AVAILABLE, ask_fee_asset, ask_fee);
         }
 
-        if (real) {
+        if (real && sub_result != NULL) {
             append_balance_trade_fee(ask, ask_fee_account, ask_fee_asset, ask_fee, price, amount, ask_role_trade_fee);
         }
     }
@@ -2897,14 +2902,15 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
     }
 
     if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
+        mpd_t *sub_result;
         if (bid_use_money_fee) {
             mpd_sub(bid->frozen, bid->frozen, bid_fee, &mpd_ctx);
-            balance_sub(bid->user_id, bid->account, BALANCE_TYPE_FROZEN, m->money, bid_fee);
+            sub_result = balance_sub(bid->user_id, bid->account, BALANCE_TYPE_FROZEN, m->money, bid_fee);
         } else {
-            balance_sub(bid->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
+            sub_result = balance_sub(bid->user_id, bid_fee_account, BALANCE_TYPE_AVAILABLE, bid_fee_asset, bid_fee);
         }
 
-        if (real) {
+        if (real && sub_result != NULL) {
             append_balance_trade_fee(bid, bid_fee_account, bid_fee_asset, bid_fee, price, amount, bid_role_trade_fee);
         }
     }
