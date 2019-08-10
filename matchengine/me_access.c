@@ -158,6 +158,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_ORDER_STOP_BOOK:
     case CMD_ORDER_DEPTH:
     case CMD_MARKET_LIST:
+    case CMD_MARKET_DETAIL:
     case CMD_ASSET_LIST:
     case CMD_ASSET_QUERY_USERS:
     case CMD_ORDER_PENDING_DETAIL:

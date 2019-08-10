@@ -888,6 +888,29 @@ response:
 * method: `market.list`
 * params: none
 
+**Market detail**
+* method: `market.detail`
+* params:
+1. market: market name
+
+```
+{
+    "id": 1565367444,
+    "result": {
+        "account": -1,
+        "fee_prec": 4,
+        "money": "USDC",
+        "money_prec": 8,
+        "min_amount": "0.001",
+        "stock_prec": 8,
+        "stock": "USDT",
+        "name": "USDTUSDC"
+    },
+    "error": null
+}
+```
+
+**Market deals**
 * method: `market.deals`
 * params:
 1. market:

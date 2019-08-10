@@ -58,6 +58,9 @@ static void notify_state(void)
             if (val->last_state == NULL) {
                 continue;
             }
+            if (val->last_depth == NULL) {
+                val->last_depth = json_object();
+            }
         } else {
             if (val->last_state == NULL || val->last_depth == NULL) {
                 continue;

@@ -822,6 +822,21 @@ static int on_cmd_market_list(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+static int on_cmd_market_detail(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    const char *market_name = json_string_value(json_array_get(params, 0));
+    json_t *result = get_market_detail(market_name);
+    if (result == NULL)
+        return rpc_reply_error_internal_error(ses, pkg);
+
+    int ret = rpc_reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
 static int on_cmd_market_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 1)
@@ -1001,6 +1016,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_market_list(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_market_list %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_MARKET_DETAIL:
+        profile_inc("cmd_market_detail", 1);
+        ret = on_cmd_market_detail(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_market_detail %s faile: %d", params_str, ret);
         }
         break;
     case CMD_MARKET_SUMMARY:
