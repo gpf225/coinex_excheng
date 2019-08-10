@@ -26,6 +26,7 @@ sds hex2bin(const char *hex);
 double current_timestamp(void);
 uint64_t current_millisecond(void);
 char *strftimestamp(time_t t);
+char *timeval_str(struct timeval *tv);
 
 int urandom(void *buf, size_t size);
 char *human_number(double num);

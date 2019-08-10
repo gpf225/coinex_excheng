@@ -9,6 +9,7 @@
 
 # include "ut_sds.h"
 # include "ut_log.h"
+# include "ut_misc.h"
 # include "ut_alert.h"
 
 static const char *host;
@@ -36,9 +37,14 @@ int alert_vmsg(const char *fmt, va_list ap)
 {
     if (!init_flag)
         return -__LINE__;
+
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    char *timestmap = timeval_str(&now);
     sds msg = sdsempty();
     msg = sdscat(msg, magic_head);
     msg = sdscatprintf(msg, "%s: ", host);
+    msg = sdscatprintf(msg, "[%s] ", timestmap);
     msg = sdscatvprintf(msg, fmt, ap);
     msg = sdscatprintf(msg, "\n");
     size_t msg_len = sdslen(msg);
