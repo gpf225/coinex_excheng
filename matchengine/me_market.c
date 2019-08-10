@@ -39,6 +39,7 @@ static void dict_user_val_free(void *val)
     struct dict_user_val *obj = val;
     skiplist_release(obj->full_list);
     dict_release(obj->accounts);
+    free(obj);
 }
 
 static void dict_skiplist_val_free(void *val)
