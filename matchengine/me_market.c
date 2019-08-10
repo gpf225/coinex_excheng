@@ -2203,6 +2203,11 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
     } else {
         ret = execute_market_bid_order(real, m, order);
         balance_reset(user_id, account, m->money);
+        if (ret == 0 && mpd_cmp(order->amount, order->left, &mpd_ctx) == 0) {
+            order_free(order);
+            mpd_del(pre_last);
+            return -2;
+        }
     }
     if (ret < 0) {
         log_error("execute order: %"PRIu64" fail: %d", order->id, ret);
