@@ -9,6 +9,9 @@
 # include "aw_asset.h"
 # include "aw_order.h"
 # include "aw_index.h"
+# include "aw_server.h"
+# include "aw_auth.h"
+# include "aw_notice.h"
 # include "aw_asset_sub.h"
 
 static kafka_consumer_t *kafka_deals;
@@ -16,6 +19,7 @@ static kafka_consumer_t *kafka_stops;
 static kafka_consumer_t *kafka_orders;
 static kafka_consumer_t *kafka_indexs;
 static kafka_consumer_t *kafka_balances;
+static kafka_consumer_t *kafka_notice;
 
 static int process_deals_message(json_t *msg)
 {
@@ -36,7 +40,7 @@ static int process_deals_message(json_t *msg)
 static void on_deals_message(sds message, int64_t offset)
 {
     log_trace("deal message: %s", message);
-    profile_inc("message_deal ", 1);
+    profile_inc("message_deal", 1);
     json_t *msg = json_loads(message, 0, NULL);
     if (!msg) {
         log_error("invalid deal message: %s", message);
@@ -203,35 +207,59 @@ static void on_balances_message(sds message, int64_t offset)
     json_decref(msg);
 }
 
+static int process_notice_message(json_t *msg)
+{
+    notice_message(msg);
+    return 0;
+}
+
+static void on_notice_message(sds message, int64_t offset)
+{
+    log_trace("notice message: %s", message);
+    profile_inc("message_notice", 1);
+    json_t *msg = json_loads(message, 0, NULL);
+    if (!msg) {
+        log_error("invalid notice message: %s", message);
+        return;
+    }
+
+    int ret = process_notice_message(msg);
+    if (ret < 0) {
+        log_error("process_notice_message: %s fail: %d", message, ret);
+    }
+
+    json_decref(msg);
+}
+
 int init_message(void)
 {
-    settings.deals.offset = RD_KAFKA_OFFSET_END;
-    kafka_deals = kafka_consumer_create(&settings.deals, on_deals_message);
+    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, 0, RD_KAFKA_OFFSET_END, on_deals_message);
     if (kafka_deals == NULL) {
         return -__LINE__;
     }
 
-    settings.stops.offset = RD_KAFKA_OFFSET_END;
-    kafka_stops = kafka_consumer_create(&settings.stops, on_stops_message);
+    kafka_stops = kafka_consumer_create(settings.brokers, TOPIC_STOP, 0, RD_KAFKA_OFFSET_END, on_stops_message);
     if (kafka_stops == NULL) {
         return -__LINE__;
     }
 
-    settings.orders.offset = RD_KAFKA_OFFSET_END;
-    kafka_orders = kafka_consumer_create(&settings.orders, on_orders_message);
+    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_ORDER, 0, RD_KAFKA_OFFSET_END, on_orders_message);
     if (kafka_orders == NULL) {
         return -__LINE__;
     }
 
-    settings.indexs.offset = RD_KAFKA_OFFSET_END;
-    kafka_indexs = kafka_consumer_create(&settings.indexs, on_indexs_message);
+    kafka_indexs = kafka_consumer_create(settings.brokers, TOPIC_INDEX, 0, RD_KAFKA_OFFSET_END, on_indexs_message);
     if (kafka_indexs == NULL) {
         return -__LINE__;
     }
 
-    settings.balances.offset = RD_KAFKA_OFFSET_END;
-    kafka_balances = kafka_consumer_create(&settings.balances, on_balances_message);
+    kafka_balances = kafka_consumer_create(settings.brokers, TOPIC_BALANCE, 0, RD_KAFKA_OFFSET_END, on_balances_message);
     if (kafka_balances == NULL) {
+        return -__LINE__;
+    }
+
+    kafka_notice = kafka_consumer_create(settings.brokers, TOPIC_NOTICE, 0, RD_KAFKA_OFFSET_END, on_notice_message);
+    if (kafka_notice == NULL) {
         return -__LINE__;
     }
 

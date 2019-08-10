@@ -68,6 +68,12 @@ int init_trade(void)
     for (size_t i = 0; i < json_array_size(settings.market_cfg); ++i) {
         json_t *item = json_array_get(settings.market_cfg, i);
         const char *market_name = json_string_value(json_object_get(item, "name"));
+        size_t market_len = strlen(market_name);
+        if (market_len == 0 || market_len > MARKET_NAME_MAX_LEN) {
+            log_stderr("create market: %s fail", market_name);
+            return -__LINE__;
+        }
+
         log_info("create market: %s", market_name);
         market_t *m = market_create(item);
         if (m == NULL) {
@@ -90,13 +96,19 @@ int update_trade(void)
     for (size_t i = 0; i < json_array_size(settings.market_cfg); ++i) {
         json_t *item = json_array_get(settings.market_cfg, i);
         const char *market_name = json_string_value(json_object_get(item, "name"));
+        size_t market_len = strlen(market_name);
+        if (market_len == 0 || market_len > MARKET_NAME_MAX_LEN) {
+            log_fatal("update market: %s fail", market_name);
+            return -__LINE__;
+        }
+
         dict_entry *entry = dict_find(dict_market, market_name);
         if (!entry) {
             log_info("create market: %s", market_name);
             market_t *m = market_create(item);
             if (m == NULL) {
                 char *item_string = json_dumps(item, 0);
-                log_error("create market: %s, config: %s fail", market_name, item_string);
+                log_fatal("create market: %s, config: %s fail", market_name, item_string);
                 free(item_string);
                 return -__LINE__;
             }
@@ -121,6 +133,17 @@ market_t *get_market(const char *name)
     return NULL;
 }
 
+bool check_market_account(uint32_t account, market_t *m)
+{
+    if (m->account == -1) {
+        return true;
+    } else if (account == m->account) {
+        return true;
+    }
+
+    return false;
+}
+
 json_t *get_market_last_info(void)
 {
     json_t *result = json_object();
@@ -128,45 +151,65 @@ json_t *get_market_last_info(void)
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
         market_t *m = entry->val;
-        json_object_set_new_mpd(result, m->name, m->last);
+        json_t *market_info = json_object();
+        json_object_set(market_info, "call_auction", json_boolean(m->call_auction));
+        json_object_set_new_mpd(market_info, "last", m->last);
+        json_object_set(result, m->name, market_info);
     }
     dict_release_iterator(iter);
 
     return result;
 }
 
-static bool need_convert(const char *asset)
+static struct convert_fee *get_convert_fee(const char *asset)
 {
-    for (int i = 0; i < settings.usdc_assets_num; ++i) {
-        if (strcmp(asset, settings.usdc_assets[i]) == 0) {
-            return true;
-        }
+    dict_entry *entry = dict_find(settings.convert_fee_dict, asset);
+    if (entry) {
+        return entry->val;
     }
-    return false;
+
+    return NULL;
 }
 
-mpd_t *get_fee_price(market_t *m, const char *asset)
+void get_fee_price(market_t *m, const char *asset, mpd_t *fee_price)
 {
-    if (strcmp(asset, m->money) == 0) {
-        return mpd_one;
+    if (asset == NULL) {
+        mpd_copy(fee_price, mpd_zero, &mpd_ctx);
+        return;
     }
-    
+
+    if (strcmp(asset, m->money) == 0) {
+        mpd_copy(fee_price, mpd_one, &mpd_ctx);
+        return;
+    }
+
     char name[100];
+    struct convert_fee *convert = NULL;
     if (strcmp(asset, SYSTEM_FEE_TOKEN) == 0) {
-        if (need_convert(m->money)) {
-            snprintf(name, sizeof(name), "%s%s", asset, "USDC");
+        convert = get_convert_fee(m->money);
+        if (convert) {
+            snprintf(name, sizeof(name), "%s%s", asset, convert->money);
         } else {
             snprintf(name, sizeof(name), "%s%s", asset, m->money);
         }
     } else {
         snprintf(name, sizeof(name), "%s%s", asset, m->money);
     }
-    
-    market_t *m_fee = get_market(name);
-    if (m_fee == NULL)
-        return NULL;
 
-    return m_fee->last;
+    market_t *m_fee = get_market(name);
+    if (m_fee == NULL) {
+        mpd_copy(fee_price, mpd_zero, &mpd_ctx);
+        return;
+    }
+
+    if (convert) {
+        mpd_div(fee_price, m_fee->last, convert->price, &mpd_ctx);
+        mpd_rescale(fee_price, fee_price, -m_fee->money_prec, &mpd_ctx);
+    } else {
+        mpd_copy(fee_price, m_fee->last, &mpd_ctx);
+    }
+
+    return;
 }
 
 json_t *get_market_config(void)
@@ -180,6 +223,7 @@ json_t *get_market_config(void)
         json_object_set_new(info, "name", json_string(m->name));
         json_object_set_new(info, "stock", json_string(m->stock));
         json_object_set_new(info, "money", json_string(m->money));
+        json_object_set_new(info, "account", json_integer(m->account));
         json_object_set_new(info, "fee_prec", json_integer(m->fee_prec));
         json_object_set_new(info, "stock_prec", json_integer(m->stock_prec));
         json_object_set_new(info, "money_prec", json_integer(m->money_prec));

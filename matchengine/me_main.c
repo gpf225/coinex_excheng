@@ -14,6 +14,7 @@
 # include "me_reader.h"
 # include "me_writer.h"
 # include "me_access.h"
+# include "me_request.h"
 # include "me_asset.h"
 
 const char *__process__ = "matchengine";
@@ -171,7 +172,6 @@ int main(int argc, char *argv[])
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init persist fail: %d", ret);
     }
-
     ret = init_writer();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);

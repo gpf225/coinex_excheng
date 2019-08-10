@@ -50,7 +50,7 @@ static json_t *http_request(const char *method, json_t *params)
     log_trace("http request: %s", request_data);
     CURLcode ret = curl_easy_perform(curl);
     if (ret != CURLE_OK) {
-        log_fatal("curl_easy_perform fail: %s", curl_easy_strerror(ret));
+        log_error("curl_easy_perform fail: %s", curl_easy_strerror(ret));
         goto cleanup;
     }
 

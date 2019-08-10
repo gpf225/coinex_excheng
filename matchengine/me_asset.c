@@ -5,7 +5,6 @@
 
 # include "me_asset.h"
 # include "me_dump.h"
-# include "ut_comm_dict.h"
 
 dict_t *dict_asset;
 
@@ -50,7 +49,19 @@ static int init_account(uint32_t account, json_t *assets)
     json_object_foreach(assets, key, asset) {
         struct asset_type at;
         ERR_RET_LN(read_cfg_int(asset, "prec_save", &at.prec_save, true, 0));
-        ERR_RET_LN(read_cfg_int(asset, "prec_save", &at.prec_show, true, 0));
+        ERR_RET_LN(read_cfg_int(asset, "prec_show", &at.prec_show, true, 0));
+
+        size_t asset_len = strlen(key);
+        if (asset_len == 0 || asset_len > ASSET_NAME_MAX_LEN) {
+            log_stderr("init account: %u, asset: %s fail", account, key);
+            return -__LINE__;
+        }
+
+        if (at.prec_save < settings.min_save_prec) {
+            log_stderr("init account: %u, asset: %s, prec save: %d, min_save_prec: %d", account, key, at.prec_save, settings.min_save_prec);
+            return -__LINE__;
+        }
+
         at.min = mpd_new(&mpd_ctx);
         mpd_set_i32(at.min, -at.prec_show, &mpd_ctx);
         mpd_pow(at.min, mpd_ten, at.min, &mpd_ctx);
@@ -109,12 +120,27 @@ static int update_account(uint32_t account, dict_t *dict, json_t *assets)
             if (type->prec_save < prec_save)
                 type->prec_save = prec_save;
             type->prec_show = prec_show;
+
+            if (prec_save < settings.min_save_prec)
+                log_fatal("update account fail, account: %u, asset: %s, prec save: %d, min_save_prec: %d", account, key, prec_save, settings.min_save_prec);
+            continue;
+        }
+
+        size_t asset_len = strlen(key);
+        if (asset_len == 0 || asset_len > ASSET_NAME_MAX_LEN) {
+            log_fatal("update account: %u, asset: %s fail", account, key);
             continue;
         }
 
         struct asset_type at;
         ERR_RET_LN(read_cfg_int(asset, "prec_save", &at.prec_save, true, 0));
         ERR_RET_LN(read_cfg_int(asset, "prec_show", &at.prec_show, true, 0));
+
+        if (at.prec_save < settings.min_save_prec) {
+            log_fatal("update account fail, account: %u, asset: %s, prec save: %d, min_save_prec: %d", account, key, at.prec_save, settings.min_save_prec);
+            return -__LINE__;
+        }
+
         at.min = mpd_new(&mpd_ctx);
         mpd_set_i32(at.min, -at.prec_show, &mpd_ctx);
         mpd_pow(at.min, mpd_ten, at.min, &mpd_ctx);

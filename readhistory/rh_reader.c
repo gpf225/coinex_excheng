@@ -65,9 +65,9 @@ json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id, uint32_t account
         json_object_set_new(record, "time", json_real(timestamp));
         json_object_set_new(record, "asset", json_string(row[3]));
         json_object_set_new(record, "business", json_string(row[4]));
-        json_object_set_new(record, "change", json_string(rstripzero(row[4])));
+        json_object_set_new(record, "change", json_string(rstripzero(row[5])));
         json_object_set_new(record, "balance", json_string(rstripzero(row[6])));
-        json_t *detail = json_loads(row[5], 0, NULL);
+        json_t *detail = json_loads(row[7], 0, NULL);
         if (detail == NULL || !json_is_object(detail)) {
             if (detail) {
                 json_decref(detail);
@@ -87,14 +87,25 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `account`, `market`, `source`, `t`, `side`, `price`, `amount`, "
+    sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, `t`, `side`, `price`, `amount`, "
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
-            "FROM `order_history_%u` WHERE `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
+            "FROM `order_history_%u`", user_id % HISTORY_HASH_NUM);
+
+    size_t market_len = strlen(market);
+    if (account >= 0 && market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+    } else if (account >= 0 && market_len) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    } else if (market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_market_side_time)");
+    } else if (market_len) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    }
+    sql = sdscatprintf(sql, " where `user_id` = %u", user_id);
 
     if (account >= 0) {
         sql = sdscatprintf(sql, " AND `account` = %u", account);
     }
-    size_t market_len = strlen(market);
     if (market_len > 0) {
         char _market[2 * market_len + 1];
         mysql_real_escape_string(conn, _market, market, strlen(market));
@@ -110,7 +121,7 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `create_time` DESC, `order_id` DESC");
+    sql = sdscatprintf(sql, " ORDER BY `create_time` DESC, `id` DESC");
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
@@ -143,22 +154,24 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
         json_object_set_new(record, "user", json_integer(user_id));
         uint32_t account = strtoul(row[4], NULL, 0);
         json_object_set_new(record, "account", json_integer(account));
-        json_object_set_new(record, "market", json_string(row[5]));
-        json_object_set_new(record, "source", json_string(row[6]));
-        uint32_t type = atoi(row[7]);
+        uint32_t option = strtoul(row[5], NULL, 0);
+        json_object_set_new(record, "option", json_integer(option));
+        json_object_set_new(record, "market", json_string(row[6]));
+        json_object_set_new(record, "source", json_string(row[7]));
+        uint32_t type = atoi(row[8]);
         json_object_set_new(record, "type", json_integer(type));
-        uint32_t side = atoi(row[8]);
+        uint32_t side = atoi(row[9]);
         json_object_set_new(record, "side", json_integer(side));
-        json_object_set_new(record, "price", json_string(rstripzero(row[9])));
-        json_object_set_new(record, "amount", json_string(rstripzero(row[10])));
-        json_object_set_new(record, "taker_fee", json_string(rstripzero(row[11])));
-        json_object_set_new(record, "maker_fee", json_string(rstripzero(row[12])));
-        json_object_set_new(record, "deal_stock", json_string(rstripzero(row[13])));
-        json_object_set_new(record, "deal_money", json_string(rstripzero(row[14])));
-        json_object_set_new(record, "deal_fee", json_string(rstripzero(row[15])));
-        json_object_set_new(record, "fee_asset", json_string(row[16]));
-        json_object_set_new(record, "fee_discount", json_string(rstripzero(row[17])));
-        json_object_set_new(record, "asset_fee", json_string(rstripzero(row[18])));
+        json_object_set_new(record, "price", json_string(rstripzero(row[10])));
+        json_object_set_new(record, "amount", json_string(rstripzero(row[11])));
+        json_object_set_new(record, "taker_fee", json_string(rstripzero(row[12])));
+        json_object_set_new(record, "maker_fee", json_string(rstripzero(row[13])));
+        json_object_set_new(record, "deal_stock", json_string(rstripzero(row[14])));
+        json_object_set_new(record, "deal_money", json_string(rstripzero(row[15])));
+        json_object_set_new(record, "deal_fee", json_string(rstripzero(row[16])));
+        json_object_set_new(record, "fee_asset", json_string(row[17]));
+        json_object_set_new(record, "fee_discount", json_string(rstripzero(row[18])));
+        json_object_set_new(record, "asset_fee", json_string(rstripzero(row[19])));
 
         json_array_append_new(records, record);
     }
@@ -171,14 +184,25 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `account`, `market`, `source`, `t`, `side`, "
-            "`stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `fee_asset`, `fee_discount`, `status`"
-            "FROM `stop_history_%u` WHERE `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
+    sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, `t`, `side`, "
+            "`stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `fee_asset`, `fee_discount`, `status` "
+            "FROM `stop_history_%u`", user_id % HISTORY_HASH_NUM);
+
+    size_t market_len = strlen(market);
+    if (account >= 0 && market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+    } else if (account >= 0 && market_len) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    } else if (market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_market_side_time)");
+    } else if (market_len) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    }
+    sql = sdscatprintf(sql, " where `user_id` = %u", user_id);
 
     if (account >= 0) {
         sql = sdscatprintf(sql, " AND `account` = %u", account);
     }
-    size_t market_len = strlen(market);
     if (market_len > 0) {
         char _market[2 * market_len + 1];
         mysql_real_escape_string(conn, _market, market, strlen(market));
@@ -197,7 +221,7 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `order_id` DESC");
+    sql = sdscatprintf(sql, " ORDER BY `create_time` DESC, `id` DESC");
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
@@ -230,20 +254,22 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
         json_object_set_new(record, "user", json_integer(user_id));
         uint32_t account = strtoul(row[4], NULL, 0);
         json_object_set_new(record, "account", json_integer(account));
-        json_object_set_new(record, "market", json_string(row[5]));
-        json_object_set_new(record, "source", json_string(row[6]));
-        uint32_t type = atoi(row[7]);
+        uint32_t option = strtoul(row[5], NULL, 0);
+        json_object_set_new(record, "option", json_integer(option));
+        json_object_set_new(record, "market", json_string(row[6]));
+        json_object_set_new(record, "source", json_string(row[7]));
+        uint32_t type = atoi(row[8]);
         json_object_set_new(record, "type", json_integer(type));
-        uint32_t side = atoi(row[8]);
+        uint32_t side = atoi(row[9]);
         json_object_set_new(record, "side", json_integer(side));
-        json_object_set_new(record, "stop_price", json_string(rstripzero(row[9])));
-        json_object_set_new(record, "price", json_string(rstripzero(row[10])));
-        json_object_set_new(record, "amount", json_string(rstripzero(row[11])));
-        json_object_set_new(record, "taker_fee", json_string(rstripzero(row[12])));
-        json_object_set_new(record, "maker_fee", json_string(rstripzero(row[13])));
-        json_object_set_new(record, "fee_asset", json_string(row[14]));
-        json_object_set_new(record, "fee_discount", json_string(rstripzero(row[15])));
-        uint32_t status = atoi(row[16]);
+        json_object_set_new(record, "stop_price", json_string(rstripzero(row[10])));
+        json_object_set_new(record, "price", json_string(rstripzero(row[11])));
+        json_object_set_new(record, "amount", json_string(rstripzero(row[12])));
+        json_object_set_new(record, "taker_fee", json_string(rstripzero(row[13])));
+        json_object_set_new(record, "maker_fee", json_string(rstripzero(row[14])));
+        json_object_set_new(record, "fee_asset", json_string(row[15]));
+        json_object_set_new(record, "fee_discount", json_string(rstripzero(row[16])));
+        uint32_t status = atoi(row[17]);
         json_object_set_new(record, "status", json_integer(status));
 
         json_array_append_new(records, record);
@@ -258,18 +284,28 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
 {
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `account`, `deal_user_id`, `deal_id`, `order_id`, `market`, `side`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset` "
-            "FROM `user_deal_history_%u` where `user_id` = %u", user_id % HISTORY_HASH_NUM, user_id);
+            "FROM `user_deal_history_%u`", user_id % HISTORY_HASH_NUM);
+
+    size_t market_len = strlen(market);
+    if (account >= 0 && market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+    } else if (account >= 0 && market_len > 0) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    } else if (market_len > 0 && side) {
+        sql = sdscat(sql, " use index(idx_user_market_side_time)");
+    } else if (market_len) {
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+    }
+    sql = sdscatprintf(sql, " where `user_id` = %u", user_id);
 
     if (account >= 0) {
         sql = sdscatprintf(sql, " AND `account` = %u", account);
     }
-    size_t market_len = strlen(market);
     if (market_len > 0) {
         char _market[2 * market_len + 1];
         mysql_real_escape_string(conn, _market, market, strlen(market));
         sql = sdscatprintf(sql, " AND `market` = '%s'", _market);
     }
-
     if (side) {
         sql = sdscatprintf(sql, " AND `side` = %d", side);
     }
@@ -336,7 +372,7 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
 json_t *get_order_detail(MYSQL *conn, uint32_t user_id, uint64_t order_id)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `account`, `market`, `source`, `t`, `side`, `price`, `amount`, "
+    sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, `t`, `side`, `price`, `amount`, "
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee` "
             "FROM `order_history_%u` WHERE `user_id` = '%u' AND `order_id` = %"PRIu64"", user_id % HISTORY_HASH_NUM, user_id, order_id);
 
@@ -368,22 +404,24 @@ json_t *get_order_detail(MYSQL *conn, uint32_t user_id, uint64_t order_id)
     json_object_set_new(detail, "user", json_integer(user_id));
     uint32_t account = strtoul(row[4], NULL, 0);
     json_object_set_new(detail, "account", json_integer(account));
-    json_object_set_new(detail, "market", json_string(row[5]));
-    json_object_set_new(detail, "source", json_string(row[6]));
-    uint32_t type = atoi(row[7]);
+    uint32_t option = strtoul(row[5], NULL, 0);
+    json_object_set_new(detail, "option", json_integer(option));
+    json_object_set_new(detail, "market", json_string(row[6]));
+    json_object_set_new(detail, "source", json_string(row[7]));
+    uint32_t type = atoi(row[8]);
     json_object_set_new(detail, "type", json_integer(type));
-    uint32_t side = atoi(row[8]);
+    uint32_t side = atoi(row[9]);
     json_object_set_new(detail, "side", json_integer(side));
-    json_object_set_new(detail, "price", json_string(rstripzero(row[9])));
-    json_object_set_new(detail, "amount", json_string(rstripzero(row[10])));
-    json_object_set_new(detail, "taker_fee", json_string(rstripzero(row[11])));
-    json_object_set_new(detail, "maker_fee", json_string(rstripzero(row[12])));
-    json_object_set_new(detail, "deal_stock", json_string(rstripzero(row[13])));
-    json_object_set_new(detail, "deal_money", json_string(rstripzero(row[14])));
-    json_object_set_new(detail, "deal_fee", json_string(rstripzero(row[15])));
-    json_object_set_new(detail, "fee_asset", json_string(row[16]));
-    json_object_set_new(detail, "fee_discount", json_string(rstripzero(row[17])));
-    json_object_set_new(detail, "asset_fee", json_string(rstripzero(row[18])));
+    json_object_set_new(detail, "price", json_string(rstripzero(row[10])));
+    json_object_set_new(detail, "amount", json_string(rstripzero(row[11])));
+    json_object_set_new(detail, "taker_fee", json_string(rstripzero(row[12])));
+    json_object_set_new(detail, "maker_fee", json_string(rstripzero(row[13])));
+    json_object_set_new(detail, "deal_stock", json_string(rstripzero(row[14])));
+    json_object_set_new(detail, "deal_money", json_string(rstripzero(row[15])));
+    json_object_set_new(detail, "deal_fee", json_string(rstripzero(row[16])));
+    json_object_set_new(detail, "fee_asset", json_string(row[17]));
+    json_object_set_new(detail, "fee_discount", json_string(rstripzero(row[18])));
+    json_object_set_new(detail, "asset_fee", json_string(rstripzero(row[19])));
     mysql_free_result(result);
 
     return detail;
@@ -394,12 +432,12 @@ json_t *get_order_deals(MYSQL *conn, uint32_t user_id, int32_t account, uint64_t
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `account`, `deal_user_id`, `deal_id`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset`, `deal_order_id` "
             "FROM `user_deal_history_%u` where `user_id` = '%u' AND `order_id` = %"PRIu64"", user_id % HISTORY_HASH_NUM, user_id, order_id);
-    
+
     if(account >= 0){
         sql = sdscatprintf(sql, " AND `account` = %u", account);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `id` DESC");
+    sql = sdscatprintf(sql, " ORDER BY `time` desc, `id` DESC");
 
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);

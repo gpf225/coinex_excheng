@@ -38,10 +38,8 @@
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
 # include "ut_skiplist.h"
-
-# define ASSET_NAME_MAX_LEN     15
-# define BUSINESS_NAME_MAX_LEN  31
-# define SOURCE_MAX_LEN         31
+# include "ut_json_rpc.h"
+# include "ut_comm_dict.h"
 
 # define ORDER_BOOK_MAX_LEN     101
 # define ORDER_LIST_MAX_LEN     101
@@ -49,10 +47,6 @@
 # define MAX_PENDING_OPERLOG    1000
 # define MAX_PENDING_MESSAGE    10000
 # define MAX_PENDING_HISTORY    100000
-
-# define HISTORY_MODE_DIRECT    1
-# define HISTORY_MODE_KAFKA     2
-# define HISTORY_MODE_DOUBLE    3
 
 # define QUEUE_MEM_SIZE         500000
 # define QUEUE_MEM_MIN          100000
@@ -81,23 +75,27 @@ struct settings {
     int                 slice_interval;
     int                 slice_keeptime;
     int                 depth_merge_max;
-
-    char               *usdc_assets[32];
-    int                 usdc_assets_num;
+    int                 min_save_prec;
+    int                 discount_prec;
 
     int                 fee_prec;
     int                 reader_num;
+    double              call_auction_calc_interval;
     double              cache_timeout;
     double              worker_timeout;
     double              order_fini_keeptime;
+
+    dict_t              *convert_fee_dict;
+};
+
+struct convert_fee {
+    char                *money;
+    mpd_t               *price;
 };
 
 extern struct settings settings;
 
 int init_config(const char *path);
-
-int update_asset_config(void);
-int update_market_config(void);
 
 # endif
 

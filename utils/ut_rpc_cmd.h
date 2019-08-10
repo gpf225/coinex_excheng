@@ -26,6 +26,7 @@
 # define CMD_ASSET_QUERY_LOCK           108
 # define CMD_ASSET_BACKUP               109
 # define CMD_ASSET_QUERY_ALL            110
+# define CMD_ASSET_QUERY_USERS      	111
 
 // trade
 # define CMD_ORDER_PUT_LIMIT            201
@@ -45,6 +46,10 @@
 # define CMD_ORDER_FINISHED_STOP        215
 # define CMD_ORDER_STOP_BOOK            216
 # define CMD_ORDER_DEPTH_REST           217
+# define CMD_ORDER_CANCEL_ALL           218
+# define CMD_ORDER_CANCEL_STOP_ALL      219
+# define CMD_CALL_AUCTION_START         220
+# define CMD_CALL_AUCTION_EXECUTE       221
 
 // market
 # define CMD_MARKET_LIST                301
@@ -66,7 +71,7 @@
 # define CMD_CACHE_DEPTH_UPDATE         502
 # define CMD_CACHE_DEALS_UPDATE     	503
 # define CMD_CACHE_STATUS_UPDATE    	504
-# define CMD_CACHE_DEPTH    			505
+# define CMD_CACHE_DEPTH                505
 # define CMD_CACHE_DEPTH_SUBSCRIBE    	506
 # define CMD_CACHE_DEPTH_UNSUBSCRIBE    507
 
@@ -74,8 +79,9 @@
 # define CMD_TRADE_NET_RANK            	701
 # define CMD_TRADE_AMOUNT_RANK          702
 
-// matchengine push
+// push
 # define CMD_REDER_ERROR                801
+# define CMD_NOTICE_USER_MESSAGE        802
 
 // marketindex
 # define CMD_INDEX_LIST                 901

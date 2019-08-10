@@ -189,6 +189,16 @@ list_iter *list_get_iterator(list_t *list, int direction)
     return iter;
 }
 
+list_iter *list_reset_iterator(list_t *list, list_iter *iter)
+{
+    if(iter->direction == LIST_START_HEAD){
+        iter->next = list->head;
+    } else {
+        iter->next = list->tail;
+    }
+    return iter;
+}
+
 list_node *list_next(list_iter *iter)
 {
     list_node *curr = iter->next;

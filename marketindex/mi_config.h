@@ -21,6 +21,7 @@
 # include "ut_log.h"
 # include "ut_sds.h"
 # include "ut_cli.h"
+# include "ut_list.h"
 # include "ut_mysql.h"
 # include "ut_misc.h"
 # include "ut_signal.h"
@@ -31,6 +32,8 @@
 # include "ut_rpc_cmd.h"
 # include "ut_http_svr.h"
 # include "ut_profile.h"
+# include "ut_comm_dict.h"
+# include "ut_json_rpc.h"
 
 # define REQUEST_THREAD_COUNT   100
 
@@ -45,6 +48,9 @@ struct settings {
     char                *brokers;
     char                *index_url;
     json_t              *index_cfg;
+
+    mpd_t               *protect_rate;
+    int                 protect_interval;
 
     int                 update_interval;
     int                 expire_interval;

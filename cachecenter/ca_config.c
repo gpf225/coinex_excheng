@@ -7,38 +7,6 @@
 
 struct settings settings;
 
-// ses key dict
-uint32_t dict_ses_hash_func(const void *key)
-{
-    return (uintptr_t)key;
-}
-
-int dict_ses_hash_compare(const void *key1, const void *key2)
-{
-    return (uintptr_t)key1 == (uintptr_t)key2 ? 0 : 1;
-}
-
-//str key dict
-uint32_t dict_str_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, strlen(key));
-}
-
-int dict_str_compare(const void *value1, const void *value2)
-{
-    return strcmp(value1, value2);
-}
-
-void *dict_str_dup(const void *value)
-{
-    return strdup(value);
-}
-
-void dict_str_free(void *value)
-{
-    free(value);
-}
-
 static int read_depth_interval_cfg(json_t *root, const char *key)
 {
     json_t *obj = json_object_get(root, key);
@@ -106,10 +74,16 @@ static int read_config_from_json(json_t *root)
         printf("load marketprice clt config fail: %d\n", ret);
         return -__LINE__;
     }
+    ret = load_cfg_rpc_clt(root, "marketindex", &settings.marketindex);
+    if (ret < 0) {
+        printf("load marketindex clt config fail: %d\n", ret);
+        return -__LINE__;
+    }
 
     ERR_RET_LN(read_cfg_real(root, "interval_time", &settings.interval_time, false, 1.0));
     ERR_RET_LN(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 0.2));
     ERR_RET_LN(read_cfg_real(root, "market_interval", &settings.market_interval, false, 10));
+    ERR_RET_LN(read_cfg_real(root, "index_interval", &settings.index_interval, false, 10));
     ERR_RET_LN(read_cfg_int(root, "depth_limit_max", &settings.depth_limit_max, false, 50));
     ERR_RET_LN(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
     ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 2));

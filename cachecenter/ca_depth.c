@@ -17,8 +17,8 @@ static dict_t *dict_depth_sub;
 static nw_timer timer;
 
 struct dict_depth_key {
-    char    market[MARKET_NAME_MAX_LEN];
-    char    interval[INTERVAL_MAX_LEN];
+    char    market[MARKET_NAME_MAX_LEN + 1];
+    char    interval[INTERVAL_MAX_LEN + 1];
 };
 
 struct dict_depth_sub_val {
@@ -29,8 +29,8 @@ struct dict_depth_sub_val {
 
 struct state_data {
     bool    direct_request;
-    char    market[MARKET_NAME_MAX_LEN];
-    char    interval[INTERVAL_MAX_LEN];
+    char    market[MARKET_NAME_MAX_LEN + 1];
+    char    interval[INTERVAL_MAX_LEN + 1];
 };
 
 static uint32_t dict_depth_hash_func(const void *key)
@@ -76,8 +76,8 @@ static dict_t* dict_create_depth_session(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_ses_hash_func;
-    dt.key_compare   = dict_ses_hash_compare;
+    dt.hash_function = ptr_dict_hash_func;
+    dt.key_compare   = ptr_dict_key_compare;
 
     return dict_create(&dt, 16);
 }
@@ -85,8 +85,8 @@ static dict_t* dict_create_depth_session(void)
 static void depth_set_key(struct dict_depth_key *key, const char *market, const char *interval)
 {
     memset(key, 0, sizeof(struct dict_depth_key));
-    sstrncpy(key->market, market, MARKET_NAME_MAX_LEN);
-    sstrncpy(key->interval, interval, INTERVAL_MAX_LEN);
+    sstrncpy(key->market, market, sizeof(key->market));
+    sstrncpy(key->interval, interval, sizeof(key->interval));
 }
 
 static sds get_depth_key(const char *market, const char *interval)
@@ -99,21 +99,11 @@ static void on_timeout(nw_state_entry *entry)
 {
     profile_inc("query_depth_timeout", 1);
     struct state_data *state = entry->data;
-    log_fatal("query timeout, state id: %u", entry->id);
+    log_error("query timeout, state id: %u", entry->id);
 
     sds filter_key = get_depth_key(state->market, state->interval);
     delete_filter_queue(filter_key);
     sdsfree(filter_key);
-}
-
-static int notify_message(nw_ses *ses, int command, json_t *message)
-{
-    rpc_pkg pkg;
-    memset(&pkg, 0, sizeof(pkg));
-    pkg.command = command;
-    pkg.pkg_type = RPC_PKG_TYPE_PUSH;
-
-    return reply_result(ses, &pkg, message);
 }
 
 static bool is_json_equal(json_t *old, json_t *new)
@@ -180,7 +170,7 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     dict_iterator *iter = dict_get_iterator(val->sessions);
     while ((entry = dict_next(iter)) != NULL) {
         nw_ses *ses = entry->key;
-        push_data(ses, CMD_CACHE_DEPTH_UPDATE, message, message_len);
+        rpc_push_date(ses, CMD_CACHE_DEPTH_UPDATE, message, message_len);
         count += 1;
     }
     dict_release_iterator(iter);
@@ -197,7 +187,8 @@ static int depth_send_last(nw_ses *ses, json_t *data, const char *market, const 
     json_object_set_new(reply, "interval", json_string(interval));
     json_object_set_new(reply, "ttl", json_integer(ttl));
     json_object_set    (reply, "data", data);
-    notify_message(ses, CMD_CACHE_DEPTH_UPDATE, reply);
+
+    rpc_push_result(ses, CMD_CACHE_DEPTH_UPDATE, reply);
     json_decref(reply);
 
     return 0;
@@ -221,7 +212,7 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const c
     json_object_set_new(reply, "id", json_integer(pkg->req_id));
     json_object_set_new(reply, "ttl", json_integer(ttl));
 
-    reply_json(ses, pkg, reply);
+    rpc_reply_json(ses, pkg, reply);
     json_decref(reply);
     sdsfree(cache_key);
     profile_inc("depth_hit_cache", 1);
@@ -304,8 +295,8 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
-    sstrncpy(state->market, market, MARKET_NAME_MAX_LEN);
-    sstrncpy(state->interval, interval, INTERVAL_MAX_LEN);
+    sstrncpy(state->market, market, sizeof(state->market));
+    sstrncpy(state->interval, interval, sizeof(state->interval));
     state->direct_request = (ses != NULL) ? true : false;
 
     json_t *params = json_array();
@@ -313,16 +304,7 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
     json_array_append_new(params, json_integer(settings.depth_limit_max));
     json_array_append_new(params, json_string(interval));
 
-    rpc_pkg req_pkg;
-    memset(&req_pkg, 0, sizeof(req_pkg));
-    req_pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-    req_pkg.command   = CMD_ORDER_DEPTH;
-    req_pkg.sequence  = state_entry->id;
-    req_pkg.body      = json_dumps(params, 0);
-    req_pkg.body_size = strlen(req_pkg.body);
-
-    rpc_clt_send(matchengine, &req_pkg);
-    free(req_pkg.body);
+    rpc_request_json(matchengine, CMD_ORDER_DEPTH, state_entry->id, 0, params);
     json_decref(params);
     profile_inc("request_depth", 1);
 

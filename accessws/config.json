@@ -59,31 +59,14 @@
         "max_pkg_size": 2000000,
         "heartbeat_timeout": 30
     },
-    "deals": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "deals",
-        "partition": 0
+    "marketindex": {
+        "name": "marketindex",
+        "addr": [
+            "tcp@127.0.0.1:7901"
+        ],
+        "max_pkg_size": 2000000
     },
-    "stops": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "stops",
-        "partition": 0
-    },
-    "orders": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "orders",
-        "partition": 0
-    },
-    "indexs": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "indexs",
-        "partition": 0
-    },
-    "balances": {
-        "brokers": "127.0.0.1:9092",
-        "topic": "balances",
-        "partition": 0
-    },
+    "brokers": "127.0.0.1:9092",
     "cachecenter_host": "127.0.0.1",
     "cachecenter_port": 7810,
     "cachecenter_worker_num": 4,

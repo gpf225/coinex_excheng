@@ -39,51 +39,35 @@ static void dict_user_val_free(void *val)
     dict_release(val);
 }
 
-static uint32_t dict_user_id_hash_func(const void *key)
-{
-    return (uintptr_t)key;
-}
-
-static int dict_user_id_compare(const void *key1, const void *key2)
-{
-    return (uintptr_t)key1 == (uintptr_t)key2 ? 0 : 1;
-}
-
 static dict_t* create_user_id_dict()
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_user_id_hash_func;
-    dt.key_compare = dict_user_id_compare;
+    dt.hash_function = uint32_dict_hash_func;
+    dt.key_compare   = uint32_dict_key_compare;
 
     return dict_create(&dt, 8);
 }
 
 int sub_user_add(uint32_t user_id, nw_ses *ses, json_t *params)
 {
-    dict_t *sub_users = create_user_id_dict();
-    if (sub_users == NULL) {
-        return -__LINE__;
-    }
-
-    for (size_t i = 0; i < json_array_size(params); ++i) {
-        uint32_t user_id = json_integer_value(json_array_get(params, i));
-        void *key = (void *)(uintptr_t)user_id;
-        if (dict_add(sub_users, key, NULL) == NULL) {
-            dict_release(sub_users);
-            return -__LINE__;
-        }
-    }
-
     user_key key;
-    memset(&key, 0, sizeof(key));
     key.user_id = user_id;
     key.ses = ses;
-    if (dict_find(dict_users, &key) != NULL) {
-        log_warn("user_id:%u has subscribed, maybe it did not remove before", user_id);
+    dict_entry *entry = dict_find(dict_users, &key);
+    if (entry == NULL) {
+        dict_t *dict = create_user_id_dict();
+        if (dict == NULL)
+            return -__LINE__;
+        entry = dict_add(dict_users, &key, dict);
     }
 
-    dict_replace(dict_users, &key, sub_users);
+    dict_t *sub_users= entry->val;
+    for (size_t i = 0; i < json_array_size(params); ++i) {
+        uint32_t user_id = json_integer_value(json_array_get(params, i));
+        dict_add(sub_users, (void *)(uintptr_t)user_id, NULL);
+    }
+
     return 0;
 }
 
@@ -158,7 +142,7 @@ json_t* sub_user_get_sub_uses(uint32_t user_id, nw_ses *ses)
     json_t *json = json_array();
     dict_t *sub_users = entry->val;  
     dict_iterator *iter = dict_get_iterator(sub_users);  
-    while ( (entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL) {
         uint32_t sub_user_id = (uintptr_t)entry->key;
         json_array_append_new(json, json_integer(sub_user_id));
     }

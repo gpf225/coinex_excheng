@@ -193,6 +193,7 @@ nw_clt *nw_clt_create(nw_clt_cfg *cfg, nw_clt_type *type, void *privdata)
     }
     clt->read_mem = cfg->read_mem;
     clt->write_mem = cfg->write_mem;
+    clt->is_ssl = cfg->is_ssl;
 
     nw_addr_t *host_addr = malloc(sizeof(nw_addr_t));
     if (host_addr == NULL) {
@@ -212,7 +213,8 @@ nw_clt *nw_clt_create(nw_clt_cfg *cfg, nw_clt_type *type, void *privdata)
     clt->ses.sockfd      = -1;
     clt->ses.sock_type   = cfg->sock_type;
     clt->ses.privdata    = privdata;
-
+    clt->ses.is_ssl      = cfg->is_ssl;
+    clt->ses.ssl_ctx     = NULL;
     clt->ses.decode_pkg  = type->decode_pkg;
     clt->ses.on_recv_pkg = type->on_recv_pkg;
     clt->ses.on_recv_fd  = type->on_recv_fd == NULL ? on_recv_fd : type->on_recv_fd;

@@ -129,6 +129,41 @@ asset list(optional, if no asset special, return all asset)
 }
 ```
 
+**Asset query users**
+* method: `asset.query_users`
+* params:
+1. account: account ID, Integer, greater than 0
+2. user list: array
+* result:
+```
+{
+    "error": null,
+    "result": {
+        "553": {
+            "BTC": {
+                "available": "1.106000000",
+                "frozen": "2.01000000"
+            },
+            "USDT": {
+                "available": "0.00000000",
+                "frozen": "0.00000000"
+            }
+        },
+        "554": {
+            "BTC": {
+                "available": "1.00000000",
+                "frozen": "0.01000000"
+            },
+            "USDT": {
+                "available": "0.00000000",
+                "frozen": "0.00000000"
+            }
+        }
+    },
+    "id": 11111
+}
+```
+
 **Asset summary**
 * method: `asset.summary`
 * params:
@@ -268,9 +303,18 @@ asset list(optional, if no asset special, return all asset)
 9. source: String, source, up to 30 bytes
 10. fee_asset: String, asset to use as fee
 11. fee_discount: String, 0~1
+12. option: optional field, Integer
+    * bit 1: use stock fee only;
+    * bit 2: use money fee only;
+    * bit 3: unlimited min amount
+    * bit 4: immediate or cancel order
+    * bit 5: fill or kill order
+
 * result: order detail
 * error:
 10. balance not enough
+11. amount too small
+12. can't be completely executed, kill the order
 * example:
 
 ```
@@ -289,9 +333,17 @@ params: [1, 0, "BTCCNY", 1, "10", "8000", "0.002", "0.001"]
 7. source: String, source, up to 30 bytes
 8. fee_asset: String, asset to use as fee
 9. fee_discount: String, 0~1
+10. option: optional field, Integer
+    * bit 1: use stock fee only;
+    * bit 2: use money fee only;
+    * bit 3: unlimited min amount;
+    * bit 5: fill or kill order;
 * result: order detail
 * error:
 10. balance not enough
+11. amount too small
+12. no enough trader
+13. can't be completely executed, kill the order
 * example:
 
 ```
@@ -309,6 +361,16 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 10. order not found
 11. user not match
 
+
+**Cancel all order**
+* method: `order.cancel_all`
+* params:
+1. user_id: user ID
+2. account: cancel all orders belong to account, -1 for cancel all orders
+3. market：market
+* result: "success"
+
+
 **Place limit stop order**
 * method: `order.put_stop_limit`
 * params:
@@ -324,9 +386,9 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 10. source: String, source, up to 30 bytes
 11. fee_asset: String, asset to use as fee
 12. fee_discount: String, 0~1
+13. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only; bit 3: unlimited min amount
 * result: order detail
 * error:
-    10. balance not enough
     11. invalid stop price
     12. amount too small
 
@@ -343,9 +405,9 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 8. source: String, source, up to 30 bytes
 9. fee_asset: String, asset to use as fee
 10. fee_discount: String, 0~1
+11. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only
 * result: order detail
 * error:
-10. balance not enough
 11. invalid stop price
 12. amount too small
 
@@ -371,6 +433,14 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 10. order not found
 11. user not match
 
+**Cancel all stop order**
+* method: `order.cancel_stop_all`
+* params:
+1. user_id: user ID
+2. account: cancel the all stop orders belong to account, -1 for cancel all stop orders
+3. market：market
+* result: "success"
+  
 **Order details**
 * method: `order.deals`
 * params:
@@ -455,7 +525,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 * method: `order.stop_book`
 * params:
 1. market:
-2. side: side, 1：sell, 2：buy
+2. state:  1：low, 2: high
 3. offset:
 4. limit:
 * result:
@@ -766,6 +836,44 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 }
 ```
 
+**call auction start**
+* method: `call.start`
+* params:
+1. market: market name, String
+* result:
+
+```
+request: ["BTCUSDT"]
+response:
+	{
+		"id": 1562296842,
+		"result": {
+			"status": "success"
+		},
+		"error": null
+	}
+```
+
+**call auction execute**
+* method: `call.execute`
+* params:
+1. market: market name, String
+* result: 
+1. price: string, if price == '0' need to self deal
+2. volume: string deal amount
+```
+request: ["BTCUSDT"]
+response:
+	{
+		"id": 1562296842,
+		"result": {
+			"price": "3.6500000",
+			"volume": "12.00"
+		},
+		"error": null
+	}
+```
+
 ## Market API
 
 **Market price**
@@ -919,7 +1027,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 **Market status**
 * method: `market.status`
 * params:
-1. market: market name
+1. market: market name and get index status by market name with suffix _INDEX like: BTCUSDT_INDEX
 2. period: cycle period, Integer, e.g. 86400 for last 24 hours
 * result:
 
@@ -1098,6 +1206,25 @@ respose:
      'id': 1,
      'result': {
      		'status': 'success'
+     },
+     'error': null
+  
+```
+
+## Push message API
+
+**Push user message**
+* method: `push.user_message`
+* params:
+1. message: json format, must need user_id param
+
+* result:
+
+```
+ {
+     'id': 1,
+     'result': {
+            'status': 'success'
      },
      'error': null
   

@@ -16,26 +16,6 @@ struct state_val {
     json_t  *data;
 };
 
-static uint32_t dict_market_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, strlen(key));
-}
-
-static int dict_market_key_compare(const void *key1, const void *key2)
-{
-    return strcmp(key1, key2);
-}
-
-static void *dict_market_key_dup(const void *key)
-{
-    return strdup(key);
-}
-
-static void dict_market_key_free(void *key)
-{
-    free(key);
-}
-
 static void *dict_state_val_dup(const void *key)
 {
     struct state_val *obj = malloc(sizeof(struct state_val));
@@ -85,12 +65,22 @@ static int update_ticker(const char *market, int update_id, uint64_t date, json_
     return 0;
 }
 
+static int is_index_market(const char *name)
+{
+    if (name && strlen(name) > 6 && strcmp(name + strlen(name) - 6, "_INDEX") == 0) {
+        return true;
+    }
+    return false;
+}
+
 static int update_market(json_t *row, int update_id)
 {
     const char *market = json_string_value(json_object_get(row, "name"));
     if (market == NULL)
         return -__LINE__;
-
+    if (is_index_market(market)) {
+        return 0;
+    }
     uint64_t date = json_integer_value(json_object_get(row, "date"));
     if (date == 0)
         return -__LINE__;
@@ -233,10 +223,10 @@ int init_ticker(void)
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = dict_market_hash_func;
-    dt.key_dup        = dict_market_key_dup;
-    dt.key_destructor = dict_market_key_free;
-    dt.key_compare    = dict_market_key_compare;
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_dup        = str_dict_key_dup;
+    dt.key_destructor = str_dict_key_free;
+    dt.key_compare    = str_dict_key_compare;
     dt.val_dup        = dict_state_val_dup;
     dt.val_destructor = dict_state_val_free;
 

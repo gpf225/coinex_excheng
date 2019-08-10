@@ -80,7 +80,7 @@ int init_message(void)
         return -__LINE__;
     }
 
-    rkt_indexs = rd_kafka_topic_new(rk, "indexs", NULL);
+    rkt_indexs = rd_kafka_topic_new(rk, TOPIC_INDEX, NULL);
     if (rkt_indexs == NULL) {
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         return -__LINE__;

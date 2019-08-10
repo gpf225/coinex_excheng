@@ -11,6 +11,7 @@
 # include "aw_asset_sub.h"
 # include "aw_order.h"
 # include "aw_auth.h"
+# include "aw_notice.h"
 
 static nw_job *job_context;
 static nw_state *state_context;
@@ -48,7 +49,7 @@ static void on_job(nw_job_entry *entry, void *privdata)
 
     CURLcode ret = curl_easy_perform(curl);
     if (ret != CURLE_OK) {
-        log_fatal("curl_easy_perform fail: %s", curl_easy_strerror(ret));
+        log_error("curl_easy_perform fail: %s", curl_easy_strerror(ret));
         goto cleanup;
     }
 
@@ -80,7 +81,7 @@ static void on_result(struct state_data *state, sds token, json_t *result)
         if (message == NULL)
             goto error;
         log_error("auth fail, token: %s, code: %d, message: %s", token, error_code, message);
-        send_error(state->ses, state->request_id, 11, message);
+        ws_send_error(state->ses, state->request_id, 11, message);
         profile_inc("auth_fail", 1);
         return;
     }
@@ -97,12 +98,13 @@ static void on_result(struct state_data *state, sds token, json_t *result)
         asset_unsubscribe(info->user_id, state->ses);
         asset_unsubscribe_sub(state->ses);
         order_unsubscribe(info->user_id, state->ses);
+        notice_unsubscribe(info->user_id, state->ses);
     }
 
     info->auth = true;
     info->user_id = user_id;
     log_info("auth success, token: %s, user_id: %u", token, info->user_id);
-    send_success(state->ses, state->request_id);
+    ws_send_success(state->ses, state->request_id);
     profile_inc("auth_success", 1);
 
     return;
@@ -110,10 +112,10 @@ static void on_result(struct state_data *state, sds token, json_t *result)
 error:
     if (result) {
         char *reply = json_dumps(result, 0);
-        log_fatal("invalid reply: %s", reply);
+        log_error("invalid reply: %s", reply);
         free(reply);
     }
-    send_error_internal_error(state->ses, state->request_id);
+    ws_send_error_internal_error(state->ses, state->request_id);
 }
 
 static void on_finish(nw_job_entry *entry)
@@ -136,20 +138,20 @@ static void on_timeout(nw_state_entry *entry)
 {
     struct state_data *state = entry->data;
     if (state->ses->id == state->ses_id) {
-        send_error_service_timeout(state->ses, state->request_id);
+        ws_send_error_service_timeout(state->ses, state->request_id);
     }
 }
 
 int send_auth_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (json_array_size(params) != 2)
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     const char *token = json_string_value(json_array_get(params, 0));
     if (token == NULL)
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
     const char *source = json_string_value(json_array_get(params, 1));
     if (source == NULL || strlen(source) >= SOURCE_MAX_LEN)
-        return send_error_invalid_argument(ses, id);
+        return ws_send_error_invalid_argument(ses, id);
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;

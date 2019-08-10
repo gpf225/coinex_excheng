@@ -293,6 +293,13 @@ dict_entry *dict_next(dict_iterator *iter)
     return NULL;
 }
 
+void dict_reset_iterator(dict_iterator *iter)
+{
+    iter->index = -1;
+    iter->entry = NULL;
+    iter->next_entry = NULL;
+}
+
 void dict_release_iterator(dict_iterator *iter)
 {
     free(iter);

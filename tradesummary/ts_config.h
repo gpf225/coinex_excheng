@@ -35,9 +35,8 @@
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
 # include "ut_skiplist.h"
-
-# define MARKET_NAME_MAX_LEN   16
-# define ASSET_NAME_MAX_LEN    16
+# include "ut_comm_dict.h"
+# include "ut_json_rpc.h"
 
 struct settings {
     bool                debug;
@@ -46,11 +45,10 @@ struct settings {
     alert_cfg           alert;
     rpc_svr_cfg         svr;
     mysql_cfg           db_summary;
-    kafka_consumer_cfg  deals;
-    kafka_consumer_cfg  orders;
     redis_cfg           redis;
     int                 keep_days;
     char                *accesshttp;
+    char                *brokers;
 };
 
 extern struct settings settings;

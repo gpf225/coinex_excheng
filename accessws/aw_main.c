@@ -21,6 +21,7 @@
 # include "aw_listener.h"
 # include "aw_sub_user.h"
 # include "aw_index.h"
+# include "aw_notice.h"
 
 const char *__process__ = "accessws";
 const char *__version__ = "0.1.0";
@@ -192,6 +193,10 @@ server:
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init message fail: %d", ret);
     }
+    ret = init_notice();
+    if (ret < 0) {
+        error(EXIT_FAILURE, errno, "init notice fail: %d", ret);
+    }
     ret = init_server();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init server fail: %d", ret);
@@ -204,9 +209,6 @@ server:
     log_stderr("server start");
     nw_loop_run();
     log_vip("server stop");
-
-    fini_asset();
-    fini_order();
 
 end:
     return 0;

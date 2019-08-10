@@ -9,7 +9,6 @@
 # include "mp_config.h"
 
 # define MARKET_DEALS_MAX   10000
-# define MARKET_NAME_MAX    12
 
 int init_message(int id);
 int get_market_id(const char *market);

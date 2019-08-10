@@ -38,6 +38,7 @@
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
+# include "ut_json_rpc.h"
 
 # define QUERY_LIMIT    1001
 

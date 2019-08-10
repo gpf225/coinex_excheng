@@ -38,6 +38,8 @@
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
+# include "ut_comm_dict.h"
+# include "ut_json_rpc.h"
 
 struct settings {
     bool                debug;
@@ -45,9 +47,8 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     rpc_svr_cfg         svr;
-    kafka_consumer_cfg  deals;
-    kafka_consumer_cfg  indexs;
     redis_cfg           redis;
+    char                *brokers;
 
     int                 sec_max;
     int                 min_max;

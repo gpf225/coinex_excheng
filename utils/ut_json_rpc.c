@@ -5,8 +5,9 @@
 
 # include "ut_log.h"
 # include "ut_rpc.h"
+# include "ut_profile.h"
 # include "ut_rpc_clt.h"
-# include "ut_ws_svr.h"
+# include "ut_ws.h"
 # include "ut_http_svr.h"
 # include "ut_json_rpc.h"
 
@@ -46,7 +47,36 @@ int rpc_push_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)
     return ret;
 }
 
-int rpc_push_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
+int rpc_push_result(nw_ses *ses, uint32_t command, json_t *result)
+{
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.command = command;
+
+    json_t *reply = json_object();
+    json_object_set_new(reply, "error", json_null());
+    json_object_set    (reply, "result", result);
+    json_object_set_new(reply, "id", json_null());
+
+    int ret = rpc_push_json(ses, &pkg, reply);
+    json_decref(reply);
+    return ret;
+}
+
+int rpc_push_date(nw_ses *ses, uint32_t command, char *data, size_t len)
+{
+    rpc_pkg reply;
+    memset(&reply, 0, sizeof(reply));
+    reply.pkg_type  = RPC_PKG_TYPE_PUSH;
+    reply.command   = command;
+    reply.body      = data;
+    reply.body_size = len;
+
+    int ret = rpc_send(ses, &reply);
+    return ret;
+}
+
+int rpc_push_error(nw_ses *ses, uint32_t command, int code, const char *message)
 {
     json_t *error = json_object();
     json_object_set_new(error, "code", json_integer(code));
@@ -57,7 +87,11 @@ int rpc_push_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
     json_object_set_new(data, "result", json_null());
     json_object_set_new(data, "id", json_null());
 
-    int ret = rpc_push_json(ses, pkg, data);
+    rpc_pkg pkg;
+    memset(&pkg, 0, sizeof(pkg));
+    pkg.command = command;
+
+    int ret = rpc_push_json(ses, &pkg, data);
     json_decref(data);
     return ret;
 }
@@ -98,31 +132,37 @@ int rpc_reply_error(nw_ses *ses, rpc_pkg *pkg, int code, const char *message)
 
 int rpc_reply_error_invalid_argument(nw_ses *ses, rpc_pkg *pkg)
 {
+    profile_inc("error_invalid_argument", 1);
     return rpc_reply_error(ses, pkg, 1, "invalid argument");
 }
 
 int rpc_reply_error_internal_error(nw_ses *ses, rpc_pkg *pkg)
 {
+    profile_inc("error_internal_error", 1);
     return rpc_reply_error(ses, pkg, 2, "internal error");
 }
 
 int rpc_reply_error_service_unavailable(nw_ses *ses, rpc_pkg *pkg)
 {
+    profile_inc("error_service_unavailable", 1);
     return rpc_reply_error(ses, pkg, 3, "service unavailable");
-}
-
-int rpc_reply_error_service_timeout(nw_ses *ses, rpc_pkg *pkg)
-{
-    return rpc_reply_error(ses, pkg, 4, "service timeout");
 }
 
 int rpc_reply_error_unknown_command(nw_ses *ses, rpc_pkg *pkg)
 {
-    return rpc_reply_error(ses, pkg, 5, "unknown command");
+    profile_inc("error_unknown_command", 1);
+    return rpc_reply_error(ses, pkg, 4, "unknown command");
+}
+
+int rpc_reply_error_service_timeout(nw_ses *ses, rpc_pkg *pkg)
+{
+    profile_inc("error_service_timeout", 1);
+    return rpc_reply_error(ses, pkg, 5, "service timeout");
 }
 
 int rpc_reply_error_require_auth(nw_ses *ses, rpc_pkg *pkg)
 {
+    profile_inc("error_require_auth", 1);
     return rpc_reply_error(ses, pkg, 6, "require auth");
 }
 
@@ -178,31 +218,37 @@ int ws_send_error(nw_ses *ses, uint64_t id, int code, const char *message)
 
 int ws_send_error_invalid_argument(nw_ses *ses, uint64_t id)
 {
+    profile_inc("error_invalid_argument", 1);
     return ws_send_error(ses, id, 1, "invalid argument");
 }
 
 int ws_send_error_internal_error(nw_ses *ses, uint64_t id)
 {
+    profile_inc("error_internal_error", 1);
     return ws_send_error(ses, id, 2, "internal error");
 }
 
 int ws_send_error_service_unavailable(nw_ses *ses, uint64_t id)
 {
+    profile_inc("error_service_unavailable", 1);
     return ws_send_error(ses, id, 3, "service unavailable");
-}
-
-int ws_send_error_service_timeout(nw_ses *ses, uint64_t id)
-{
-    return ws_send_error(ses, id, 4, "service timeout");
 }
 
 int ws_send_error_unknown_method(nw_ses *ses, uint64_t id)
 {
-    return ws_send_error(ses, id, 5, "unknown method");
+    profile_inc("error_unknown_method", 1);
+    return ws_send_error(ses, id, 4, "method not found");
+}
+
+int ws_send_error_service_timeout(nw_ses *ses, uint64_t id)
+{
+    profile_inc("error_service_timeout", 1);
+    return ws_send_error(ses, id, 5, "service timeout");
 }
 
 int ws_send_error_require_auth(nw_ses *ses, uint64_t id)
 {
+    profile_inc("error_require_auth", 1);
     return ws_send_error(ses, id, 6, "require auth");
 }
 
@@ -271,37 +317,50 @@ int http_reply_error(nw_ses *ses, int64_t id, int code, const char *message, uin
 
 int http_reply_error_bad_request(nw_ses *ses)
 {
+    profile_inc("error_bad_request", 1);
     return send_http_response_simple(ses, 400, NULL, 0);
 }
 
 int http_reply_error_invalid_argument(nw_ses *ses, int64_t id)
 {
+    profile_inc("error_invalid_argument", 1);
     return http_reply_error(ses, id, 1, "invalid argument", 400);
 }
 
 int http_reply_error_internal_error(nw_ses *ses, int64_t id)
 {
+    profile_inc("error_internal_error", 1);
     return http_reply_error(ses, id, 2, "internal error", 500);
 }
 
 int http_reply_error_service_unavailable(nw_ses *ses, int64_t id)
 {
+    profile_inc("error_service_unavailable", 1);
     return http_reply_error(ses, id, 3, "service unavailable", 500);
-}
-
-int http_reply_error_service_timeout(nw_ses *ses, int64_t id)
-{
-    return http_reply_error(ses, id, 4, "service timeout", 504);
 }
 
 int http_reply_error_not_found(nw_ses *ses, int64_t id)
 {
-    return http_reply_error(ses, id, 5, "not found", 404);
+    profile_inc("error_not_found", 1);
+    return http_reply_error(ses, id, 4, "method not found", 404);
+}
+
+int http_reply_error_service_timeout(nw_ses *ses, int64_t id)
+{
+    profile_inc("error_service_timeout", 1);
+    return http_reply_error(ses, id, 5, "service timeout", 504);
 }
 
 int http_reply_error_require_auth(nw_ses *ses, int64_t id)
 {
+    profile_inc("error_require_auth", 1);
     return http_reply_error(ses, id, 6, "require auth", 401);
+}
+
+int http_reply_error_result_null(nw_ses *ses, int64_t id)
+{
+    profile_inc("error_result_null", 1);
+    return http_reply_error(ses, id, 7, "result null", 500);
 }
 
 int http_reply_result(nw_ses *ses, int64_t id, json_t *result)
@@ -318,6 +377,7 @@ int http_reply_result(nw_ses *ses, int64_t id, json_t *result)
 
 int http_reply_success(nw_ses *ses, int64_t id)
 {
+    profile_inc("reply_success", 1);
     json_t *result = json_object();
     json_object_set_new(result, "status", json_string("success"));
 

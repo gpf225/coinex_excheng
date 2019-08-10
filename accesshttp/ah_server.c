@@ -8,6 +8,7 @@
 # include "ah_cache.h"
 # include "ah_config.h"
 # include "ah_server.h"
+# include "ah_message.h"
 
 static http_svr *svr;
 static nw_state *state;
@@ -28,6 +29,7 @@ struct state_info {
     int64_t  request_id;
     sds      cache_key;
     int      depth_limit;
+    uint32_t cmd;
 };
 
 struct request_info {
@@ -125,6 +127,18 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             direct_state_reply(ses, params, json_integer_value(id));
             json_decref(body);
             return 0;
+        } else if (req->cmd == CMD_NOTICE_USER_MESSAGE) {
+            json_t *message = json_array_get(params, 0);
+            if (!message || !json_object_get(message, "user_id")) {
+                http_reply_error_invalid_argument(ses, json_integer_value(id));
+                json_decref(body);
+                return 0;
+            }
+
+            push_notify_message(message);
+            http_reply_success(ses, json_integer_value(id));
+            json_decref(body);
+            return 0;
         }
 
         if (!rpc_clt_connected(req->clt)) {
@@ -140,23 +154,12 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
         info->ses_id = ses->id;
         info->request_id = json_integer_value(id);
         info->cache_key = key;
+        info->cmd = req->cmd;
         if (req->cmd == CMD_CACHE_DEPTH) {
             info->depth_limit = json_integer_value(json_array_get(params, 1));
         }
 
-        rpc_pkg pkg;
-        memset(&pkg, 0, sizeof(pkg));
-        pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-        pkg.command   = req->cmd;
-        pkg.sequence  = entry->id;
-        pkg.req_id    = json_integer_value(id);
-        pkg.body      = json_dumps(params, 0);
-        pkg.body_size = strlen(pkg.body);
-
-        rpc_clt_send(req->clt, &pkg);
-        log_debug("send request to %s, cmd: %u, sequence: %u",
-                nw_sock_human_addr(rpc_clt_peer_addr(req->clt)), pkg.command, pkg.sequence);
-        free(pkg.body);
+        rpc_request_json(req->clt, req->cmd, entry->id, json_integer_value(id), params);
     }
 
     json_decref(body);
@@ -170,26 +173,6 @@ decode_error:
     sdsfree(hex);
     http_reply_error_bad_request(ses);
     return -__LINE__;
-}
-
-static uint32_t dict_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, strlen(key));
-}
-
-static int dict_key_compare(const void *key1, const void *key2)
-{
-    return strcmp(key1, key2);
-}
-
-static void *dict_key_dup(const void *key)
-{
-    return strdup(key);
-}
-
-static void dict_key_free(void *key)
-{
-    free(key);
 }
 
 static void *dict_val_dup(const void *val)
@@ -230,8 +213,12 @@ clean:
 
 static void on_state_timeout(nw_state_entry *entry)
 {
-    log_error("state id: %u timeout", entry->id);
     struct state_info *info = entry->data;
+    char buf[100];
+    snprintf(buf, sizeof(buf), "on_timeout_cmd_%u", info->cmd);
+    profile_inc(buf, 1);
+
+    log_error("query timeout, state id: %u, command: %u", entry->id, info->cmd);
     if (info->ses->id == info->ses_id) {
         http_reply_error_service_timeout(info->ses, info->request_id);
     }
@@ -359,6 +346,7 @@ static int init_methods_handler(void)
 {
     ERR_RET_LN(add_handler("asset.list", matchengine, CMD_ASSET_LIST));
     ERR_RET_LN(add_handler("asset.query", matchengine, CMD_ASSET_QUERY));
+    ERR_RET_LN(add_handler("asset.query_users", matchengine, CMD_ASSET_QUERY_USERS));
     ERR_RET_LN(add_handler("asset.query_all", matchengine, CMD_ASSET_QUERY_ALL));
     ERR_RET_LN(add_handler("asset.update", matchengine, CMD_ASSET_UPDATE));
     ERR_RET_LN(add_handler("asset.summary", matchengine, CMD_ASSET_SUMMARY));
@@ -371,6 +359,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.put_limit", matchengine, CMD_ORDER_PUT_LIMIT));
     ERR_RET_LN(add_handler("order.put_market", matchengine, CMD_ORDER_PUT_MARKET));
     ERR_RET_LN(add_handler("order.cancel", matchengine, CMD_ORDER_CANCEL));
+    ERR_RET_LN(add_handler("order.cancel_all", matchengine, CMD_ORDER_CANCEL_ALL));
     ERR_RET_LN(add_handler("order.book", matchengine, CMD_ORDER_BOOK));
     ERR_RET_LN(add_handler("order.depth", NULL, CMD_CACHE_DEPTH));
     ERR_RET_LN(add_handler("order.pending", matchengine, CMD_ORDER_PENDING));
@@ -381,9 +370,12 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.put_stop_limit", matchengine, CMD_ORDER_PUT_STOP_LIMIT));
     ERR_RET_LN(add_handler("order.put_stop_market", matchengine, CMD_ORDER_PUT_STOP_MARKET));
     ERR_RET_LN(add_handler("order.cancel_stop", matchengine, CMD_ORDER_CANCEL_STOP));
+    ERR_RET_LN(add_handler("order.cancel_stop_all", matchengine, CMD_ORDER_CANCEL_STOP_ALL));
     ERR_RET_LN(add_handler("order.pending_stop", matchengine, CMD_ORDER_PENDING_STOP));
     ERR_RET_LN(add_handler("order.finished_stop", readhistory, CMD_ORDER_FINISHED_STOP));
     ERR_RET_LN(add_handler("order.stop_book", matchengine, CMD_ORDER_STOP_BOOK));
+    ERR_RET_LN(add_handler("call.start", matchengine, CMD_CALL_AUCTION_START));
+    ERR_RET_LN(add_handler("call.execute", matchengine, CMD_CALL_AUCTION_EXECUTE));
 
     ERR_RET_LN(add_handler("market.list", matchengine, CMD_MARKET_LIST));
     ERR_RET_LN(add_handler("market.summary", matchengine, CMD_MARKET_SUMMARY));
@@ -413,6 +405,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("trade.net_rank", tradesummary, CMD_TRADE_NET_RANK));
     ERR_RET_LN(add_handler("trade.amount_rank", tradesummary, CMD_TRADE_AMOUNT_RANK));
 
+    ERR_RET_LN(add_handler("notice.user_message", NULL, CMD_NOTICE_USER_MESSAGE));
     return 0;
 }
 
@@ -455,11 +448,11 @@ int init_server(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_hash_func;
-    dt.key_compare = dict_key_compare;
-    dt.key_dup = dict_key_dup;
-    dt.val_dup = dict_val_dup;
-    dt.key_destructor = dict_key_free;
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_compare    = str_dict_key_compare;
+    dt.key_dup        = str_dict_key_dup;
+    dt.val_dup        = dict_val_dup;
+    dt.key_destructor = str_dict_key_free;
     dt.val_destructor = dict_val_free;
     methods = dict_create(&dt, 64);
     if (methods == NULL)

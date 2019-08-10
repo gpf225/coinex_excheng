@@ -11,6 +11,7 @@
 # include "nw_buf.h"
 # include "nw_evt.h"
 # include "nw_sock.h"
+# include "nw_ssl.h"
 
 /*
  * nw_ses is low level object for nw_svr and nw_clt,
@@ -45,6 +46,8 @@ typedef struct nw_ses {
     uint64_t id;
     void *privdata;
     void *svr;
+    bool is_ssl;
+    nw_ssl_ctx *ssl_ctx;
 
     struct nw_ses *prev;
     struct nw_ses *next;

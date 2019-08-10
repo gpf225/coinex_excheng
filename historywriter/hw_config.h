@@ -42,11 +42,7 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     cli_svr_cfg         cli;
-
-    kafka_consumer_cfg  deals;
-    kafka_consumer_cfg  stops;
-    kafka_consumer_cfg  orders;
-    kafka_consumer_cfg  balances;
+    char                *brokers;
     
     redis_cfg           redis;
     mysql_cfg           *db_histories;

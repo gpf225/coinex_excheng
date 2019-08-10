@@ -35,6 +35,7 @@ typedef struct http_params_t {
 http_request_t *http_request_new(void);
 int http_request_set_header(http_request_t *request, char *field, char *value);
 const char *http_request_get_header(http_request_t *request, const char *field);
+sds http_request_encode(http_request_t *request);
 void http_request_release(http_request_t *request);
 
 http_response_t *http_response_new(void);

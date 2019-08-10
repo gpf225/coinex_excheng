@@ -39,11 +39,7 @@
 # include "ut_rpc_cmd.h"
 # include "ut_ws_svr.h"
 # include "ut_comm_dict.h"
-
-# define ASSET_NAME_MAX_LEN     16
-# define MARKET_NAME_MAX_LEN    16
-# define SOURCE_MAX_LEN         32
-# define INTERVAL_MAX_LEN       16
+# include "ut_json_rpc.h"
 
 # define AW_LISTENER_BIND   "seqpacket@/tmp/accessws_listener.sock"
 
@@ -63,10 +59,12 @@ struct settings {
     log_cfg             log;
     alert_cfg           alert;
     ws_svr_cfg          svr;
+    char                *brokers;
 
     rpc_clt_cfg         matchengine;
     rpc_clt_cfg         marketprice;
     rpc_clt_cfg         readhistory;
+    rpc_clt_cfg         marketindex;
 
     rpc_clt_cfg         cache_deals;
     rpc_clt_cfg         cache_state;
@@ -74,12 +72,6 @@ struct settings {
     char               *cachecenter_host;
     int                 cachecenter_port;
     int                 cachecenter_worker_num;
-
-    kafka_consumer_cfg  deals;
-    kafka_consumer_cfg  stops;
-    kafka_consumer_cfg  orders;
-    kafka_consumer_cfg  indexs;
-    kafka_consumer_cfg  balances;
 
     int                 worker_num;
     int                 depth_limit_default;

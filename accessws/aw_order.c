@@ -11,18 +11,8 @@ static dict_t *dict_sub;
 
 struct sub_unit {
     void *ses;
-    char market[MARKET_NAME_MAX_LEN];
+    char market[MARKET_NAME_MAX_LEN + 1];
 };
-
-static uint32_t dict_sub_hash_func(const void *key)
-{
-    return (uintptr_t)key;
-}
-
-static int dict_sub_key_compare(const void *key1, const void *key2)
-{
-    return (uintptr_t)key1 == (uintptr_t)key2 ? 0 : 1;
-}
 
 static void dict_sub_val_free(void *val)
 {
@@ -50,8 +40,8 @@ int init_order(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_sub_hash_func;
-    dt.key_compare = dict_sub_key_compare;
+    dt.hash_function  = uint32_dict_hash_func;
+    dt.key_compare    = uint32_dict_key_compare;
     dt.val_destructor = dict_sub_val_free;
 
     dict_sub = dict_create(&dt, 1024);
@@ -83,7 +73,7 @@ int order_subscribe(uint32_t user_id, nw_ses *ses, const char *market)
     struct sub_unit unit;
     memset(&unit, 0, sizeof(unit));
     unit.ses = ses;
-    sstrncpy(unit.market, market, MARKET_NAME_MAX_LEN);
+    sstrncpy(unit.market, market, sizeof(unit.market));
 
     if (list_find(list, &unit) != NULL)
         return 0;
@@ -140,7 +130,7 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
     while ((node = list_next(iter)) != NULL) {
         struct sub_unit *unit = node->value;
         if (strcmp(unit->market, market) == 0) {
-            send_notify(unit->ses, "order.update", params);
+            ws_send_notify(unit->ses, "order.update", params);
             count += 1;
         }
     }
@@ -172,7 +162,7 @@ int order_on_update_stop(uint32_t user_id, int event, json_t *order)
     while ((node = list_next(iter)) != NULL) {
         struct sub_unit *unit = node->value;
         if (strcmp(unit->market, market) == 0) {
-            send_notify(unit->ses, "order.update_stop", params);
+            ws_send_notify(unit->ses, "order.update_stop", params);
             profile_inc("order.update_stop", 1);
         }
     }
@@ -187,7 +177,3 @@ size_t order_subscribe_number(void)
     return dict_size(dict_sub);
 }
 
-void fini_order(void)
-{
-    dict_release(dict_sub);
-}

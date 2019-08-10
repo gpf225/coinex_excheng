@@ -13,7 +13,7 @@ static rpc_clt *marketprice;
 static nw_state *state_context;
 
 struct kline_key {
-    char market[MARKET_NAME_MAX_LEN];
+    char market[MARKET_NAME_MAX_LEN + 1];
     int interval;
 };
 
@@ -25,16 +25,6 @@ struct kline_val {
 struct state_data {
     struct kline_key key;
 };
-
-static uint32_t dict_ses_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, sizeof(void *));
-}
-
-static int dict_ses_key_compare(const void *key1, const void *key2)
-{
-    return key1 == key2 ? 0 : 1;
-}
 
 static uint32_t dict_kline_hash_func(const void *key)
 {
@@ -89,7 +79,7 @@ static int broadcast_update(dict_t *sessions, json_t *result)
     dict_iterator *iter = dict_get_iterator(sessions);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
-        send_notify(entry->key, "kline.update", result);
+        ws_send_notify(entry->key, "kline.update", result);
     }
     dict_release_iterator(iter);
     profile_inc("kline.update", dict_size(sessions));
@@ -186,7 +176,8 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
 static void on_timeout(nw_state_entry *entry)
 {
-    log_fatal("query kline timeout, state id: %u", entry->id);
+    profile_inc("query_kline_timeout", 1);
+    log_error("query kline timeout, state id: %u", entry->id);
 }
 
 static void on_timer(nw_timer *timer, void *privdata)
@@ -212,18 +203,7 @@ static void on_timer(nw_timer *timer, void *privdata)
         struct state_data *state = state_entry->data;
         memcpy(&state->key, key, sizeof(struct kline_key));
 
-        rpc_pkg pkg;
-        memset(&pkg, 0, sizeof(pkg));
-        pkg.pkg_type  = RPC_PKG_TYPE_REQUEST;
-        pkg.command   = CMD_MARKET_KLINE;
-        pkg.sequence  = state_entry->id;
-        pkg.body      = json_dumps(params, 0);
-        pkg.body_size = strlen(pkg.body);
-
-        rpc_clt_send(marketprice, &pkg);
-        log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
-                nw_sock_human_addr(rpc_clt_peer_addr(marketprice)), pkg.command, pkg.sequence, (char *)pkg.body);
-        free(pkg.body);
+        rpc_request_json(marketprice, CMD_MARKET_KLINE, state_entry->id, 0, params);
         json_decref(params);
     }
     dict_release_iterator(iter);
@@ -273,7 +253,7 @@ int kline_subscribe(nw_ses *ses, const char *market, int interval)
 {
     struct kline_key key;
     memset(&key, 0, sizeof(key));
-    sstrncpy(key.market, market, MARKET_NAME_MAX_LEN);
+    sstrncpy(key.market, market, sizeof(key.market));
     key.interval = interval;
 
     dict_entry *entry = dict_find(dict_kline, &key);
@@ -283,8 +263,8 @@ int kline_subscribe(nw_ses *ses, const char *market, int interval)
 
         dict_types dt;
         memset(&dt, 0, sizeof(dt));
-        dt.hash_function = dict_ses_hash_func;
-        dt.key_compare = dict_ses_key_compare;
+        dt.hash_function = ptr_dict_hash_func;
+        dt.key_compare = ptr_dict_key_compare;
         val.sessions = dict_create(&dt, 1024);
         if (val.sessions == NULL)
             return -__LINE__;

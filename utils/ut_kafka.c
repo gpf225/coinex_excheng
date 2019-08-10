@@ -93,14 +93,12 @@ static void on_can_read(struct ev_loop *loop, ev_io *watcher, int events)
     }
 }
 
-kafka_consumer_t *kafka_consumer_create(kafka_consumer_cfg *cfg, kafka_message_callback callback)
+kafka_consumer_t *kafka_consumer_create(const char *brokers, const char *topic, int partition, int64_t offset, kafka_message_callback callback)
 {
     kafka_consumer_t *consumer = malloc(sizeof(kafka_consumer_t));
     if (consumer == NULL)
         return NULL;
     memset(consumer, 0, sizeof(kafka_consumer_t));
-    if (cfg->offset == 0)
-        cfg->offset = RD_KAFKA_OFFSET_END;
 
     nw_loop_init();
     consumer->loop = nw_default_loop;
@@ -124,11 +122,11 @@ kafka_consumer_t *kafka_consumer_create(kafka_consumer_cfg *cfg, kafka_message_c
         kafka_consumer_release(consumer);
         return NULL;
     }
-    consumer->limit = cfg->limit;
+    consumer->limit = 100;
 
     char errstr[1024];
-    consumer->topic = strdup(cfg->topic);
-    consumer->partition = cfg->partition;
+    consumer->topic = strdup(topic);
+    consumer->partition = partition;
     consumer->conf = rd_kafka_conf_new();
     rd_kafka_conf_set_log_cb(consumer->conf, on_logger);
     consumer->rk = rd_kafka_new(RD_KAFKA_CONSUMER, consumer->conf, errstr, sizeof(errstr));
@@ -139,20 +137,20 @@ kafka_consumer_t *kafka_consumer_create(kafka_consumer_cfg *cfg, kafka_message_c
         return NULL;
     }
     consumer->conf = NULL;
-    if (rd_kafka_brokers_add(consumer->rk, cfg->brokers) == 0) {
+    if (rd_kafka_brokers_add(consumer->rk, brokers) == 0) {
         log_error("No valid brokers specified: %s", rd_kafka_err2str(rd_kafka_last_error()));
         log_stderr("No valid brokers specified: %s", rd_kafka_err2str(rd_kafka_last_error()));
         kafka_consumer_release(consumer);
         return NULL;
     }
-    consumer->rkt = rd_kafka_topic_new(consumer->rk, cfg->topic, NULL);
+    consumer->rkt = rd_kafka_topic_new(consumer->rk, topic, NULL);
     if (consumer->rkt == NULL) {
         log_error("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         log_stderr("Failed to create topic object: %s", rd_kafka_err2str(rd_kafka_last_error()));
         kafka_consumer_release(consumer);
         return NULL;
     }
-    if (rd_kafka_consume_start(consumer->rkt, cfg->partition, cfg->offset) == -1) {
+    if (rd_kafka_consume_start(consumer->rkt, partition, offset) == -1) {
         log_error("Failed to start consumer: %s", rd_kafka_err2str(rd_kafka_last_error()));
         log_stderr("Failed to start consumer: %s", rd_kafka_err2str(rd_kafka_last_error()));
         kafka_consumer_release(consumer);

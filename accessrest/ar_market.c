@@ -23,26 +23,6 @@ struct market_val {
     json_t *info;
 };
 
-static uint32_t dict_market_hash_func(const void *key)
-{
-    return dict_generic_hash_function(key, strlen(key));
-}
-
-static int dict_market_key_compare(const void *key1, const void *key2)
-{
-    return strcmp(key1, key2);
-}
-
-static void *dict_market_key_dup(const void *key)
-{
-    return strdup(key);
-}
-
-static void dict_market_key_free(void *key)
-{
-    free(key);
-}
-
 static void *dict_market_val_dup(const void *key)
 {
     struct market_val *obj = malloc(sizeof(struct market_val));
@@ -79,7 +59,7 @@ static sds http_get(const char *url)
 
     CURLcode ret = curl_easy_perform(curl);
     if (ret != CURLE_OK) {
-        log_fatal("get %s fail: %s", url, curl_easy_strerror(ret));
+        log_error("get %s fail: %s", url, curl_easy_strerror(ret));
     }
     
     curl_easy_cleanup(curl);
@@ -300,11 +280,11 @@ int init_market(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function = dict_market_hash_func;
-    dt.key_compare = dict_market_key_compare;
-    dt.key_dup = dict_market_key_dup;
-    dt.key_destructor = dict_market_key_free;
-    dt.val_dup = dict_market_val_dup;
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_compare    = str_dict_key_compare;
+    dt.key_dup        = str_dict_key_dup;
+    dt.key_destructor = str_dict_key_free;
+    dt.val_dup        = dict_market_val_dup;
     dt.val_destructor = dict_market_val_free;
 
     dict_market = dict_create(&dt, 64);

@@ -197,6 +197,7 @@ int dispatch_stop(json_t *msg)
     uint64_t stop_id            = json_integer_value(json_object_get(msg, "id"));
     uint32_t user_id            = json_integer_value(json_object_get(msg, "user"));
     uint32_t account            = json_integer_value(json_object_get(msg, "account"));
+    uint32_t option             = json_integer_value(json_object_get(msg, "option"));
     int type                    = json_integer_value(json_object_get(msg, "type"));
     int side                    = json_integer_value(json_object_get(msg, "side"));
     int status                  = json_integer_value(json_object_get(msg, "status"));
@@ -220,14 +221,14 @@ int dispatch_stop(json_t *msg)
         return -__LINE__;
 
     if (sdslen(sql) == 0) {
-        sql = sdscatprintf(sql, "INSERT INTO `stop_history_%u` (`order_id`, `create_time`, `finish_time`, `user_id`, `account`, `market`, `source`, "
+        sql = sdscatprintf(sql, "INSERT INTO `stop_history_%u` (`order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, "
                 "`fee_asset`, `t`, `side`, `status`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `fee_discount`) VALUES ", key.hash);
     } else {
         sql = sdscatprintf(sql, ", ");
     }
 
-    sql = sdscatprintf(sql, "(%"PRIu64", %f, %f, %u, %u, '%s', '%s', '%s', %u, %u, %d, ", stop_id, create_time, update_time,
-            user_id, account, market, source, fee_asset ? fee_asset : "", type, side, status);
+    sql = sdscatprintf(sql, "(%"PRIu64", %f, %f, %u, %u, %u, '%s', '%s', '%s', %u, %u, %d, ", stop_id, create_time, update_time,
+            user_id, account, option, market, source, fee_asset ? fee_asset : "", type, side, status);
     sql = sdscatprintf(sql, "'%s', '%s', '%s', '%s', '%s', '%s')", stop_price, price, amount, taker_fee, maker_fee, fee_discount);
 
     set_sql(&key, sql);
@@ -243,6 +244,7 @@ int dispatch_order(json_t *msg)
     uint64_t order_id           = json_integer_value(json_object_get(msg, "id"));
     uint32_t user_id            = json_integer_value(json_object_get(msg, "user"));
     uint32_t account            = json_integer_value(json_object_get(msg, "account"));
+    uint32_t option             = json_integer_value(json_object_get(msg, "option"));
     int type                    = json_integer_value(json_object_get(msg, "type"));
     int side                    = json_integer_value(json_object_get(msg, "side"));
     
@@ -268,15 +270,15 @@ int dispatch_order(json_t *msg)
         return -__LINE__;
 
     if (sdslen(sql) == 0) {
-        sql = sdscatprintf(sql, "INSERT INTO `order_history_%u` (`order_id`, `create_time`, `finish_time`, `user_id`, `account`, "
+        sql = sdscatprintf(sql, "INSERT INTO `order_history_%u` (`order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, "
                 "`market`, `source`, `fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, "
                 "`deal_stock`, `deal_money`, `deal_fee`, `asset_fee`, `fee_discount`) VALUES ", key.hash);
     } else {
         sql = sdscatprintf(sql, ", ");
     }
 
-    sql = sdscatprintf(sql, "(%"PRIu64", %f, %f, %u, %u, '%s', '%s', '%s', %u, %u, ", order_id,
-        create_time, update_time, user_id, account, market, source, fee_asset ? fee_asset : "", type, side);
+    sql = sdscatprintf(sql, "(%"PRIu64", %f, %f, %u, %u, %u, '%s', '%s', '%s', %u, %u, ", order_id,
+        create_time, update_time, user_id, account, option, market, source, fee_asset ? fee_asset : "", type, side);
     sql = sdscatprintf(sql, "'%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", 
         price, amount, taker_fee, maker_fee, deal_stock, deal_money, deal_fee, asset_fee, fee_discount);
 
