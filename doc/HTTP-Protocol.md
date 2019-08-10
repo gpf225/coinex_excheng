@@ -405,7 +405,11 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 8. source: String, source, up to 30 bytes
 9. fee_asset: String, asset to use as fee
 10. fee_discount: String, 0~1
-11. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only
+11. option: optional field, Integer, 
+    * bit 1: use stock fee only
+    * bit 2: use money fee only
+    * bit 4: immediate or cancel order
+    * bit 5: fill or kill order
 * result: order detail
 * error:
 11. invalid stop price
