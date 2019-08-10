@@ -259,6 +259,24 @@ char *strftimestamp(time_t t)
     return str;
 }
 
+char *timeval_str(struct timeval *tv)
+{
+    static char str[64];
+    static time_t last_sec;
+    if (tv->tv_sec == last_sec) {
+        snprintf(str + 20, sizeof(str) - 20, "%06d", (int)tv->tv_usec);
+    } else {
+        struct tm *t = localtime(&tv->tv_sec);
+        snprintf(str, sizeof(str), "%04d-%02d-%02d %02d:%02d:%02d.%06d",
+                t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour,
+                t->tm_min, t->tm_sec, (int)tv->tv_usec);
+        last_sec = tv->tv_sec;
+    }
+
+    return str;
+}
+
+
 int urandom(void *buf, size_t size)
 {
     int fd = open("/dev/urandom", O_RDONLY);
