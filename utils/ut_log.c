@@ -28,7 +28,9 @@
 # include <netinet/in.h>
 # include <arpa/inet.h>
 
+# include "ut_misc.h"
 # include "ut_log.h"
+
 
 dlog_t   *default_dlog;
 int       default_dlog_flag = 0xff;
@@ -484,23 +486,6 @@ void dlog_check_all(void)
     dlog_check(NULL, NULL);
 }
 
-static char *timeval_str(struct timeval *tv)
-{
-    static char str[64];
-    static time_t last_sec;
-    if (tv->tv_sec == last_sec) {
-        snprintf(str + 20, sizeof(str) - 20, "%06d", (int)tv->tv_usec);
-    } else {
-        struct tm *t = localtime(&tv->tv_sec);
-        snprintf(str, sizeof(str), "%04d-%02d-%02d %02d:%02d:%02d.%06d",
-                t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour,
-                t->tm_min, t->tm_sec, (int)tv->tv_usec);
-        last_sec = tv->tv_sec;
-    }
-
-    return str;
-}
-
 static int inner_dlog(dlog_t *log, const char *fmt, va_list ap) 
 {
     if (!log || !fmt)
@@ -708,18 +693,6 @@ int dlog_fini(dlog_t *log)
     dlog_free(log);
 
     return 0;
-}
-
-static char *strtolower(char *str)
-{
-    char *s = str;
-    while (*s) {
-        if (*s >= 'A' && *s <= 'Z')
-            *s += ('a' - 'A');
-        ++s;
-    }
-
-    return str;
 }
 
 int dlog_read_flag(char *str)
