@@ -47,7 +47,7 @@ enum {
 # define BUSINESS_NAME_MAX_LEN       31
 # define SOURCE_MAX_LEN              31
 
-# define OPTION_CHECK_MASK              0x6f
+# define OPTION_CHECK_MASK              0xaf
 # define OPTION_USE_STOCK_FEE_ONLY      0x1
 # define OPTION_USE_MONEY_FEE_ONLY      0x2
 # define OPTION_UNLIMITED_MIN_AMOUNT    0x4
@@ -55,6 +55,7 @@ enum {
 # define OPTION_FILL_OR_KILL            0x10
 # define OPTION_ICEBERG                 0x20
 # define OPTION_STOP_ORDER              0x30
+# define OPTION_STOP_MARKET_ORDER       0x40
 
 # define TOPIC_DEAL                  "deals"
 # define TOPIC_STOP                  "stops"

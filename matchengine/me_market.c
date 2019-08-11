@@ -1435,7 +1435,6 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         return -2;
     }
 
-    option |= (OPTION_STOP_ORDER | OPTION_UNLIMITED_MIN_AMOUNT);
     bool fill_or_kill = (option & OPTION_FILL_OR_KILL) ? true : false;
     if (real && fill_or_kill && !check_limit_fill_or_kill(m, side, price, amount)) {
         return -3;
@@ -2260,6 +2259,7 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t acc
         return -2;
     }
 
+    option |= (OPTION_STOP_ORDER | OPTION_UNLIMITED_MIN_AMOUNT);
     stop_t *stop = malloc(sizeof(stop_t));
     if (stop == NULL)
         return -__LINE__;
@@ -2346,7 +2346,7 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t ac
     if (stop == NULL)
         return -__LINE__;
     memset(stop, 0, sizeof(stop_t));
-
+    option |= (OPTION_STOP_MARKET_ORDER | OPTION_UNLIMITED_MIN_AMOUNT);
     stop->id            = ++order_id_start;
     stop->type          = MARKET_ORDER_TYPE_MARKET;
     stop->side          = side;
