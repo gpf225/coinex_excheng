@@ -45,6 +45,16 @@ static void dict_status_sub_val_free(void *key)
     free(obj);
 }
 
+json_t *create_init_depth()
+{
+    json_t *depth = json_object();
+    json_object_set_new(depth, "buy", json_string("0"));
+    json_object_set_new(depth, "buy_amount", json_string("0"));
+    json_object_set_new(depth, "sell", json_string("0"));
+    json_object_set_new(depth, "sell_amount", json_string("0"));
+    return depth;
+}
+
 static void notify_state(void)
 {
     dict_entry *entry;
@@ -59,7 +69,7 @@ static void notify_state(void)
                 continue;
             }
             if (val->last_depth == NULL) {
-                val->last_depth = json_object();
+                val->last_depth = create_init_depth();
             }
         } else {
             if (val->last_state == NULL || val->last_depth == NULL) {
