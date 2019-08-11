@@ -1435,6 +1435,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         return -2;
     }
 
+    option |= (OPTION_STOP_ORDER | OPTION_UNLIMITED_MIN_AMOUNT);
     bool fill_or_kill = (option & OPTION_FILL_OR_KILL) ? true : false;
     if (real && fill_or_kill && !check_limit_fill_or_kill(m, side, price, amount)) {
         return -3;
