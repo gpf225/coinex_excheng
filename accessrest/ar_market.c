@@ -115,6 +115,14 @@ static json_t* get_market_item(const char *market_name, json_t *market_info)
     return market_item;
 }
 
+static int is_index_market(const char *name)
+{	
+    if (name && strlen(name) > 6 && strcmp(name + strlen(name) - 6, "_INDEX") == 0) {
+        return true;
+    }
+    return false;
+}
+
 static void update_market_info_list(void)
 {
     json_t *info = json_object();
@@ -124,6 +132,9 @@ static void update_market_info_list(void)
     while ((entry = dict_next(iter)) != NULL) {
         struct market_val *val = entry->val;
         const char *market_name = entry->key;
+        if (is_index_market(market_name)) {
+            continue;
+        }
         json_object_set(info, market_name, val->info);
     }
     dict_release_iterator(iter);
@@ -140,6 +151,10 @@ static void update_market_list(void)
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
+        const char *market_name = entry->key;
+        if (is_index_market(market_name)) {
+            continue;
+        }
         json_array_append_new(list, json_string(entry->key));
     }
     dict_release_iterator(iter);
