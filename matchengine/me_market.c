@@ -2203,11 +2203,6 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
     } else {
         ret = execute_market_bid_order(real, m, order);
         balance_reset(user_id, account, m->money);
-        if (ret == 0 && mpd_cmp(order->amount, order->left, &mpd_ctx) == 0) {
-            order_free(order);
-            mpd_del(pre_last);
-            return -2;
-        }
     }
     if (ret < 0) {
         log_error("execute order: %"PRIu64" fail: %d", order->id, ret);
@@ -2217,9 +2212,11 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
     }
 
     if (real) {
-        int ret = append_order_history(order);
-        if (ret < 0) {
-            log_fatal("append_order_history fail: %d, order: %"PRIu64"", ret, order->id);
+        if (mpd_cmp(order->amount, order->left, &mpd_ctx) > 0) {
+            int ret = append_order_history(order);
+            if (ret < 0) {
+                log_fatal("append_order_history fail: %d, order: %"PRIu64"", ret, order->id);
+            }
         }
         push_order_message(ORDER_EVENT_FINISH, order, m);
         if (result) {
@@ -2346,7 +2343,7 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t ac
     if (stop == NULL)
         return -__LINE__;
     memset(stop, 0, sizeof(stop_t));
-    option |= (OPTION_STOP_MARKET_ORDER | OPTION_UNLIMITED_MIN_AMOUNT);
+    option |= (OPTION_STOP_ORDER | OPTION_UNLIMITED_MIN_AMOUNT);
     stop->id            = ++order_id_start;
     stop->type          = MARKET_ORDER_TYPE_MARKET;
     stop->side          = side;
