@@ -1445,7 +1445,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         return -__LINE__;
     memset(order, 0, sizeof(order_t));
 
-    order->id           = ++order_id_start;
+    order->id           = order_id_start + 1;
     order->type         = MARKET_ORDER_TYPE_LIMIT;
     order->side         = side;
     order->create_time  = current_timestamp();
@@ -1508,6 +1508,8 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             return -__LINE__;
         }
     }
+
+    ++order_id_start;
 
     bool immediate_or_cancel = (option & OPTION_IMMEDIATED_OR_CANCEL) ? true : false;
     if (mpd_cmp(order->left, mpd_zero, &mpd_ctx) == 0 || (immediate_or_cancel && mpd_cmp(order->amount, order->left, &mpd_ctx) > 0)) {
