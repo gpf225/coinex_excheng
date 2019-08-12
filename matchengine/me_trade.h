@@ -18,6 +18,7 @@ bool check_market_account(uint32_t account, market_t *m);
 json_t *get_market_last_info(void);
 void get_fee_price(market_t *m, const char *asset, mpd_t *fee_price);
 json_t *get_market_config(void);
+json_t *get_market_detail(const char *market);
 
 # endif
 

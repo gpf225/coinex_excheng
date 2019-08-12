@@ -13,6 +13,7 @@ int init_market(void);
 dict_t *get_market(void);
 json_t *get_market_list(void);
 json_t* get_market_info_list(void);
+json_t* get_market_detail(const char *market);
 bool market_exist(const char *market);
 
 #endif

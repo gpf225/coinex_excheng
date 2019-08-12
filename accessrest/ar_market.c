@@ -7,6 +7,7 @@
 # include "ar_server.h"
 # include "nw_job.h"
 # include "ut_log.h"
+# include "nw_state.h"
 
 # include <curl/curl.h>
 
@@ -15,12 +16,17 @@ static const long HTTP_TIMEOUT = 2000L;
 static dict_t *dict_market = NULL;
 static nw_job *job = NULL;
 static nw_timer market_update_timer;
+static nw_timer index_update_timer;
 static json_t *market_list = NULL;
 static json_t *market_info = NULL;
+static nw_state *state;
+
+static rpc_clt *marketindex;
 
 struct market_val {
     int     id;
-    json_t *info;
+    bool    is_index;
+    json_t  *info;
 };
 
 static void *dict_market_val_dup(const void *key)
@@ -118,6 +124,9 @@ static void update_market_info_list(void)
     while ((entry = dict_next(iter)) != NULL) {
         struct market_val *val = entry->val;
         const char *market_name = entry->key;
+        if (val->is_index) {
+            continue;
+        }
         json_object_set(info, market_name, val->info);
     }
     dict_release_iterator(iter);
@@ -134,6 +143,10 @@ static void update_market_list(void)
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
+        struct market_val *val = entry->val;
+        if (val->is_index) {
+            continue;
+        }
         json_array_append_new(list, json_string(entry->key));
     }
     dict_release_iterator(iter);
@@ -141,6 +154,20 @@ static void update_market_list(void)
     if (market_list != NULL)
         json_decref(market_list);
     market_list = list;
+}
+
+static void clear_market(uint32_t update_id, bool is_index)
+{
+    dict_entry *entry = NULL;
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct market_val *info = entry->val;
+        if (info->id != update_id && info->is_index == is_index) {
+            dict_delete(dict_market, entry->key);
+            log_info("del market info: %s", (char *)entry->key);
+        }
+    }
+    dict_release_iterator(iter);
 }
 
 static int load_markets(json_t *result)
@@ -172,6 +199,7 @@ static int load_markets(json_t *result)
             memset(&val, 0, sizeof(val));
             val.id = update_id;
             val.info = market_item;
+            val.is_index = false;
             dict_add(dict_market, (char *)market_name, &val);
             log_info("add market info: %s", market_name);
         } else {
@@ -184,16 +212,7 @@ static int load_markets(json_t *result)
         }
     }
 
-    dict_entry *entry = NULL;
-    dict_iterator *iter = dict_get_iterator(dict_market);
-    while ((entry = dict_next(iter)) != NULL) {
-        struct market_val *info = entry->val;
-        if (info->id != update_id) {
-            dict_delete(dict_market, entry->key);
-            log_info("del market info: %s", (char *)entry->key);
-        }
-    }
-    dict_release_iterator(iter);
+    clear_market(update_id, false);
 
     update_market_list();
     update_market_info_list();
@@ -276,6 +295,118 @@ static void on_update_market(nw_timer *timer, void *privdata)
     nw_job_add(job, 0, NULL);
 }
 
+static int query_index_list(void)
+{
+    json_t *params = json_array();
+    nw_state_entry *state_entry = nw_state_add(state, settings.backend_timeout, 0);
+
+    rpc_request_json(marketindex, CMD_INDEX_LIST, state_entry->id, 0, params);
+    json_decref(params);
+    return 0;
+}
+
+static void on_index_update_timer(nw_timer *timer, void *privdata)
+{
+    query_index_list();
+}
+
+static void on_backend_connect(nw_ses *ses, bool result)
+{
+    rpc_clt *clt = ses->privdata;
+    if (result) {
+        query_index_list();
+        log_info("connect %s:%s success", clt->name, nw_sock_human_addr(&ses->peer_addr));
+    } else {
+        log_info("connect %s:%s fail", clt->name, nw_sock_human_addr(&ses->peer_addr));
+    }
+}
+
+static char *convert_index_name(const char *name)
+{
+    static char buf[100];
+    snprintf(buf, sizeof(buf), "%s_INDEX", name);
+    return buf;
+}
+
+static int update_index_list(json_t *result)
+{
+    static uint32_t update_id = 0;
+    update_id += 1;
+    const char *market;
+    json_t *info;
+    json_object_foreach(result, market, info) {
+        char *index_name = convert_index_name(market);
+        dict_entry *entry = dict_find(dict_market, index_name);
+        if (entry == NULL) {
+            struct market_val val;
+            memset(&val, 0, sizeof(val));
+            val.id = update_id;
+            val.is_index = true;
+            dict_add(dict_market, (char *)index_name, &val);
+            log_info("add market: %s", index_name);
+        } else {
+            struct market_val *info = entry->val;
+            info->id = update_id;
+            info->is_index = true;
+        }
+    }
+    clear_market(update_id, true);
+
+    return 0;
+}
+
+static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
+{
+    sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+    log_trace("market_list reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
+
+    nw_state_entry *entry = nw_state_get(state, pkg->sequence);
+    if (entry == NULL) {
+        sdsfree(reply_str);
+        return;
+    }
+
+    json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
+    if (reply == NULL) {
+        sdsfree(reply_str);
+        nw_state_del(state, pkg->sequence);
+        return;
+    }
+
+    json_t *error = json_object_get(reply, "error");
+    json_t *result = json_object_get(reply, "result");
+    if (error == NULL || !json_is_null(error) || result == NULL) {
+        log_error("error reply from: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), pkg->command, reply_str);
+        sdsfree(reply_str);
+        json_decref(reply);
+        nw_state_del(state, pkg->sequence);
+        return;
+    }
+
+    int ret;
+    switch (pkg->command) {
+    case CMD_INDEX_LIST:
+        ret = update_index_list(result);
+        if (ret < 0) {
+            log_error("on_index_list_reply: %d, reply: %s", ret, reply_str);
+        }
+        break;
+    default:
+        log_error("recv unknown command: %u from: %s", pkg->command, nw_sock_human_addr(&ses->peer_addr));
+        break;
+    }
+
+    sdsfree(reply_str);
+    json_decref(reply);
+    nw_state_del(state, pkg->sequence);
+}
+
+static void on_state_timeout(nw_state_entry *entry)
+{
+    profile_inc("query_index_list timeout", 1);
+    log_error("query timeout, state id: %u", entry->id);
+}
+
 int init_market(void)
 {
     dict_types dt;
@@ -314,8 +445,29 @@ int init_market(void)
     }
     json_decref(result);
 
+    nw_state_type st;
+    memset(&st, 0, sizeof(st));
+    st.on_timeout = on_state_timeout;
+    state = nw_state_create(&st, 0);
+    if (state == NULL)
+        return -__LINE__;
+
+    rpc_clt_type ct;
+    memset(&ct, 0, sizeof(ct));
+    ct.on_connect = on_backend_connect;
+    ct.on_recv_pkg = on_backend_recv_pkg;
+
+    marketindex = rpc_clt_create(&settings.marketindex, &ct);
+    if (marketindex == NULL)
+        return -__LINE__;
+    if (rpc_clt_start(marketindex) < 0)
+        return -__LINE__;
+
     nw_timer_set(&market_update_timer, settings.market_interval, true, on_update_market, NULL);
     nw_timer_start(&market_update_timer);
+
+    nw_timer_set(&index_update_timer, settings.index_interval, true, on_index_update_timer, NULL);
+    nw_timer_start(&index_update_timer);
 
     return 0;
 }
@@ -340,3 +492,15 @@ bool market_exist(const char *market)
     return dict_find(dict_market, market) != NULL;
 }
 
+json_t* get_market_detail(const char *market)
+{
+    dict_entry *entry =  dict_find(dict_market, market);
+    if (entry == NULL)
+        return NULL;
+
+    struct market_val *info = entry->val;
+    if (info->is_index)
+        return NULL;
+
+    return json_incref(info->info);
+}

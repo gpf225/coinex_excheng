@@ -386,6 +386,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("market.deals_ext", marketprice, CMD_MARKET_DEALS_EXT));
     ERR_RET_LN(add_handler("market.user_deals", readhistory, CMD_MARKET_USER_DEALS));
     ERR_RET_LN(add_handler("market.self_deal", matchengine, CMD_MARKET_SELF_DEAL));
+    ERR_RET_LN(add_handler("market.detail", matchengine, CMD_MARKET_DETAIL));
 
     ERR_RET_LN(add_handler("index.list", marketindex, CMD_INDEX_LIST));
     ERR_RET_LN(add_handler("index.query", marketindex, CMD_INDEX_QUERY));

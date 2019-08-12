@@ -243,6 +243,27 @@ int on_market_info(nw_ses *ses, dict_t *params)
     return 0;
 }
 
+static int on_market_detail(nw_ses *ses, dict_t *params)
+{   
+    dict_entry *entry;
+    entry = dict_find(params, "market");
+    if (entry == NULL) {
+        return reply_invalid_params(ses);
+    }
+
+    char *market = entry->val;
+    strtoupper(market);
+    json_t *data = get_market_detail(market);
+    if (data == NULL) {
+        return reply_internal_error(ses);
+    }
+
+    reply_json(ses, data);
+    json_decref(data);
+
+    return 0;
+}
+
 static int on_market_ticker(nw_ses *ses, dict_t *params)
 {
     dict_entry *entry;
@@ -644,6 +665,7 @@ static int init_svr(void)
     add_handler("/v1/market/deals",         on_market_deals);
     add_handler("/v1/market/kline",         on_market_kline);
     add_handler("/v1/market/index",         on_market_index);
+    add_handler("/v1/market/detail",        on_market_detail);
     
     return 0;
 }

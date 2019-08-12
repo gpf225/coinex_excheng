@@ -212,6 +212,20 @@ void get_fee_price(market_t *m, const char *asset, mpd_t *fee_price)
     return;
 }
 
+static json_t* market_info(market_t *market)
+{
+    json_t *info = json_object();
+    json_object_set_new(info, "name", json_string(market->name));
+    json_object_set_new(info, "stock", json_string(market->stock));
+    json_object_set_new(info, "money", json_string(market->money));
+    json_object_set_new(info, "account", json_integer(market->account));
+    json_object_set_new(info, "fee_prec", json_integer(market->fee_prec));
+    json_object_set_new(info, "stock_prec", json_integer(market->stock_prec));
+    json_object_set_new(info, "money_prec", json_integer(market->money_prec));
+    json_object_set_new_mpd(info, "min_amount", market->min_amount);
+    return info;
+}
+
 json_t *get_market_config(void)
 {
     json_t *result = json_array();
@@ -219,15 +233,7 @@ json_t *get_market_config(void)
     dict_iterator *iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
         market_t *m = entry->val;
-        json_t *info = json_object();
-        json_object_set_new(info, "name", json_string(m->name));
-        json_object_set_new(info, "stock", json_string(m->stock));
-        json_object_set_new(info, "money", json_string(m->money));
-        json_object_set_new(info, "account", json_integer(m->account));
-        json_object_set_new(info, "fee_prec", json_integer(m->fee_prec));
-        json_object_set_new(info, "stock_prec", json_integer(m->stock_prec));
-        json_object_set_new(info, "money_prec", json_integer(m->money_prec));
-        json_object_set_new_mpd(info, "min_amount", m->min_amount);
+        json_t *info = market_info(m);
         json_array_append_new(result, info);
     }
     dict_release_iterator(iter);
@@ -235,3 +241,12 @@ json_t *get_market_config(void)
     return result;
 }
 
+json_t *get_market_detail(const char *market)
+{
+    dict_entry *entry = dict_find(dict_market, market);
+    if (entry == NULL)
+        return NULL;
+    market_t *m = entry->val;
+    json_t *result = market_info(m);
+    return result;
+}
