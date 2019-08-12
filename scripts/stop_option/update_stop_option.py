@@ -30,7 +30,7 @@ def main():
         cursor.execute(query_stop_sql_str)
         stop_rows = cursor.fetchall()
         for stop in stop_rows:
-            order_option = stop[1] | 0x30 | 0x4
+            order_option = stop[1] | 0x40 | 0x4
             update_sql_str = """
                 update `{}` set `option` = {} where `id` = {}
             """.format(slice_stop_table, order_option, stop[0])
