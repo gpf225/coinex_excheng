@@ -80,7 +80,7 @@ static void on_result(struct state_data *state, sds token, json_t *result)
         const char *message = json_string_value(json_object_get(result, "message"));
         if (message == NULL)
             goto error;
-        log_error("auth fail, token: %s, code: %d, message: %s", token, error_code, message);
+        log_error("auth fail code: %d, message: %s", error_code, message);
         ws_send_error(state->ses, state->request_id, 11, message);
         profile_inc("auth_fail", 1);
         return;
@@ -103,7 +103,7 @@ static void on_result(struct state_data *state, sds token, json_t *result)
 
     info->auth = true;
     info->user_id = user_id;
-    log_info("auth success, token: %s, user_id: %u", token, info->user_id);
+    log_info("auth success, user_id: %u", info->user_id);
     ws_send_success(state->ses, state->request_id);
     profile_inc("auth_success", 1);
 
@@ -160,7 +160,7 @@ int send_auth_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *p
     state->request_id = id;
     state->info = info;
 
-    log_trace("send auth request, token: %s, source: %s", token, source);
+    log_trace("send auth request, source: %s", source);
     info->source = strdup(source);
     nw_job_add(job_context, entry->id, sdsnew(token));
 
