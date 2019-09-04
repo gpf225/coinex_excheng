@@ -222,7 +222,7 @@ static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 1)
+    if (json_array_size(params) < 1)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     const char *asset = json_string_value(json_array_get(params, 0));
@@ -230,7 +230,16 @@ static int on_cmd_asset_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return rpc_reply_error_invalid_argument(ses, pkg);
     }
 
-    json_t *result = balance_get_summary(asset);
+    int account = -1;
+    if (json_array_size(params) >= 2) {
+        if(!json_is_integer(json_array_get(params, 1)))
+            return rpc_reply_error_invalid_argument(ses, pkg);
+        account = json_integer_value(json_array_get(params, 1));
+        if(!asset_exist(account, asset))
+            return rpc_reply_error_invalid_argument(ses, pkg);
+    }
+
+    json_t *result = balance_get_summary(asset, account);
     int ret = rpc_reply_result(ses, pkg, result);
     json_decref(result);
     return ret;

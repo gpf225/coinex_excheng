@@ -672,7 +672,54 @@ json_t *balance_query_all(uint32_t user_id)
     return result;
 }
 
-json_t *balance_get_summary(const char *asset)
+static void balance_asset_summary(uint32_t user_id, uint32_t account, const char *asset, mpd_t *total, mpd_t *available, mpd_t *frozen, mpd_t *lock, int *available_users, int *frozen_users, int *lock_users, dict_t *distinct_dict)
+{
+    int prec_save = asset_prec_save(account, asset);
+    int prec_show = asset_prec_show(account, asset);
+    bool is_user_exist = false;
+
+    mpd_t *user_balance = balance_available(user_id, account, asset);
+    if (mpd_cmp(user_balance, mpd_zero, &mpd_ctx) > 0) {
+        if (prec_save != prec_show) {
+            mpd_rescale(user_balance, user_balance, -prec_show, &mpd_ctx);
+        }
+        *available_users = *available_users + 1;
+        mpd_add(available, available, user_balance, &mpd_ctx);
+        mpd_add(total, total, user_balance, &mpd_ctx);
+        is_user_exist = true;
+    }
+
+    mpd_t *user_frozen = balance_frozen(user_id, account, asset);
+    if (mpd_cmp(user_frozen, mpd_zero, &mpd_ctx) > 0) {
+        if (prec_save != prec_show) {
+            mpd_rescale(user_balance, user_frozen, -prec_show, &mpd_ctx);
+        }
+        *frozen_users = *frozen_users + 1;
+        mpd_add(frozen, frozen, user_frozen, &mpd_ctx);
+        mpd_add(total, total, user_frozen, &mpd_ctx);
+        is_user_exist = true;
+    }
+
+    mpd_t *user_lock = balance_lock(user_id, account, asset);
+    if (mpd_cmp(user_lock, mpd_zero, &mpd_ctx) > 0) {
+        if (prec_save != prec_show) {
+            mpd_rescale(user_lock, user_lock, -prec_show, &mpd_ctx);
+        }
+        *lock_users = *lock_users + 1;
+        mpd_add(lock, lock, user_lock, &mpd_ctx);
+        mpd_add(total, total, user_lock, &mpd_ctx);
+        is_user_exist = true;
+    }
+
+    if (is_user_exist && distinct_dict) {
+        uint32_set_add(distinct_dict, user_id);
+    }
+    mpd_del(user_balance);
+    mpd_del(user_frozen);
+    mpd_del(user_lock);
+}
+
+json_t *balance_get_summary(const char *asset, int account)
 {
     int total_users = 0, available_users = 0, lock_users = 0, frozen_users = 0;
     mpd_t *total     = mpd_qncopy(mpd_zero);
@@ -685,51 +732,24 @@ json_t *balance_get_summary(const char *asset)
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
         uint32_t user_id = (uintptr_t)entry->key;
-
         dict_t *dict_user = entry->val;
         dict_entry *entry_user;
-        dict_iterator *iter_user = dict_get_iterator(dict_user);
-        while ((entry_user = dict_next(iter_user)) != NULL) {
-            uint32_t account = (uintptr_t)entry_user->key;
-            if (!asset_exist(account, asset)) {
-                continue;
-            }
-
-            int prec_save = asset_prec_save(account, asset);
-            int prec_show = asset_prec_show(account, asset);
-
-            dict_t *dict_account = entry_user->val;
-            dict_entry *entry_account;
-            dict_iterator *iter_account = dict_get_iterator(dict_account);
-            while ((entry_account = dict_next(iter_account)) != NULL) {
-                const struct balance_key *key = entry_account->key;
-                if (strcmp(key->asset, asset) != 0) {
+        if (account == -1) {
+            dict_iterator *iter_user = dict_get_iterator(dict_user);
+            while ((entry_user = dict_next(iter_user)) != NULL) {
+                uint32_t user_account = (uintptr_t)entry_user->key;
+                if (!asset_exist(user_account, asset)) {
                     continue;
                 }
-
-                mpd_t *balance = mpd_qncopy(entry_account->val);
-                if (prec_save != prec_show) {
-                    mpd_rescale(balance, balance, -prec_show, &mpd_ctx);
-                }
-
-                mpd_add(total, total, balance, &mpd_ctx);
-                if (key->type == BALANCE_TYPE_AVAILABLE) {
-                    available_users++;
-                    mpd_add(available, available, balance, &mpd_ctx);
-                } else if (key->type == BALANCE_TYPE_FROZEN) {
-                    frozen_users++;
-                    mpd_add(frozen, frozen, balance, &mpd_ctx);
-                } else {
-                    lock_users++;
-                    mpd_add(lock, lock, balance, &mpd_ctx);
-                }
-                mpd_del(balance);
-
-                uint32_set_add(distinct_dict, user_id);
+                balance_asset_summary(user_id, user_account, asset, total, available, frozen, lock, &available_users, &frozen_users, &lock_users, distinct_dict);
             }
-            dict_release_iterator(iter_account);
+            dict_release_iterator(iter_user);
+        } else {
+            entry_user = dict_find(dict_user, (void *)(uintptr_t)account);
+            if (entry_user) {
+                balance_asset_summary(user_id, account, asset, total, available, frozen, lock, &available_users, &frozen_users, &lock_users, distinct_dict);
+            }
         }
-        dict_release_iterator(iter_user);
     }
     dict_release_iterator(iter);
     total_users = uint32_set_num(distinct_dict);
@@ -751,4 +771,3 @@ json_t *balance_get_summary(const char *asset)
     mpd_del(lock);
     return result;
 }
-
