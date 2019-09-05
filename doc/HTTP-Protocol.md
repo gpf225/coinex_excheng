@@ -168,6 +168,7 @@ asset list(optional, if no asset special, return all asset)
 * method: `asset.summary`
 * params:
 1. asset
+2. account: account ID (optional)
 * result:
 ```
 {
