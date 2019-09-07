@@ -100,8 +100,8 @@ static void on_result(struct state_data *state, struct sign_request *request, js
         const char *message = json_string_value(json_object_get(result, "message"));
         if (message == NULL)
             goto error;
-        log_error("sign fail, access_id: %s, authorisation: %s, token: %"PRIu64" code: %d, message: %s",
-                request->access_id, request->authorisation, request->tonce, error_code, message);
+        log_error("sign fail, access_id: %s, tonce: %"PRIu64" code: %d, message: %s",
+                request->access_id, request->tonce, error_code, message);
         ws_send_error(state->ses, state->request_id, 11, message);
         profile_inc("sign_fail", 1);
         return;
@@ -186,7 +186,7 @@ int send_sign_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *p
     state->request_id = id;
     state->info = info;
 
-    log_trace("send sign request, access_id: %s, authorisation: %s, tonce: %"PRIu64, access_id, authorisation, tonce);
+    log_trace("send sign request, access_id: %s, tonce: %"PRIu64, access_id, tonce);
     info->source = strdup("api");
 
     struct sign_request *request = malloc(sizeof(struct sign_request));

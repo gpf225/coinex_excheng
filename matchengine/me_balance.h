@@ -39,7 +39,6 @@ json_t *balance_query_lock_list(uint32_t user_id, uint32_t account, json_t *para
 json_t *balance_query_all(uint32_t user_id);
 json_t *balance_query_users(uint32_t account, json_t *params);
 
-json_t *balance_get_summary(const char *asset);
+json_t *balance_get_summary(const char *asset, int account);
 
 # endif
-
