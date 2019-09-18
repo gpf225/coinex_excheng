@@ -732,20 +732,20 @@ json_t *balance_get_summary(const char *asset, int account)
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
         uint32_t user_id = (uintptr_t)entry->key;
+        dict_t *dict_user = entry->val;
+        dict_entry *entry_asset;
         if (account == -1) {
-            dict_iterator *iter_asset = dict_get_iterator(dict_asset);
-            dict_entry *entry_asset;
-            while ((entry_asset = dict_next(iter_asset)) != NULL) {
-                if (dict_find(entry_asset->val, asset) == NULL) {
+            dict_iterator *iter_account = dict_get_iterator(dict_user);
+            while ((entry_asset = dict_next(iter_account)) != NULL) {
+                uint32_t user_account = (uintptr_t)entry_asset->key;
+                if (!asset_exist(user_account, asset)) {
                     continue;
                 }
-                uint32_t user_account = (uintptr_t)entry_asset->key;
                 balance_asset_summary(user_id, user_account, asset, total, available, frozen, lock, &available_users, &frozen_users, &lock_users, distinct_dict);
             }
-            dict_release_iterator(iter_asset);
+            dict_release_iterator(iter_account);
         } else {
-            dict_t *dict_user = entry->val;
-            dict_entry *entry_asset = dict_find(dict_user, (void *)(uintptr_t)account);
+            entry_asset = dict_find(dict_user, (void *)(uintptr_t)account);
             if (entry_asset) {
                 balance_asset_summary(user_id, account, asset, total, available, frozen, lock, &available_users, &frozen_users, &lock_users, distinct_dict);
             }
