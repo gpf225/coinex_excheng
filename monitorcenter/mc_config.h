@@ -34,7 +34,7 @@
 # include "ut_rpc_cmd.h"
 # include "ut_json_rpc.h"
 
-# define MAX_SCOPE_LENGTH   16
+# define MAX_SCOPE_LENGTH   64
 # define MAX_KEY_LENGTH     64
 # define MAX_HOST_LENGTH    64
 # define MAX_KEEP_DAYS      7
