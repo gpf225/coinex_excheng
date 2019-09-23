@@ -1033,10 +1033,10 @@ static int on_cmd_self_market_deal(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     // side
     if (!json_is_integer(json_array_get(params, 3)))
-        return rpc_reply_error_invalid_argument(ses, pkg);
+        goto invalid_argument;
     uint32_t side = json_integer_value(json_array_get(params, 3));
     if (side != MARKET_TRADE_SIDE_SELL && side != MARKET_TRADE_SIDE_BUY)
-        return rpc_reply_error_invalid_argument(ses, pkg);
+        goto invalid_argument;
 
     int ret = market_self_deal(true, market, amount, price, side);
 
