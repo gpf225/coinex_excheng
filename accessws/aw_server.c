@@ -277,6 +277,7 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
 
     rpc_clt *clt = get_cache_clt(market);
     if (!rpc_clt_connected(clt)) {
+        sdsfree(key);
         return ws_send_error_internal_error(ses, id);
     }
 
