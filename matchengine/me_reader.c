@@ -301,7 +301,7 @@ static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         size_t total = 0;
         skiplist_node *node;
         skiplist_iter *iter = skiplist_get_iterator(order_list);
-        for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
+        while((node = skiplist_next(iter)) != NULL) {
             order_t *order = node->value;
             if (side && order->side != side)
                 continue;
@@ -800,7 +800,7 @@ static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         size_t total = 0;
         skiplist_node *node;
         skiplist_iter *iter = skiplist_get_iterator(stop_list);
-        for (size_t i = 0; (node = skiplist_next(iter)) != NULL; i++) {
+        while((node = skiplist_next(iter)) != NULL) {
             stop_t *stop = node->value;
             if (side && stop->side != side)
                 continue;
