@@ -305,11 +305,12 @@ static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
             order_t *order = node->value;
             if (side && order->side != side)
                 continue;
-            total += 1;
-            if (i >= offset && count < limit) {
+
+            if (total >= offset && count < limit) {
                 count += 1;
                 json_array_append_new(orders, get_order_info(order));
             }
+            total += 1;
         }
         skiplist_release_iterator(iter);
         json_object_set_new(result, "total", json_integer(total));
@@ -731,7 +732,6 @@ static int on_cmd_order_detail(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     json_t *result = NULL;
     order_t *order = market_get_order(market, order_id);
     if (order == NULL) {
-        result = json_null();
         result = market_get_fini_order(order_id);
         if (result == NULL)
             result = json_null();
@@ -804,11 +804,12 @@ static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
             stop_t *stop = node->value;
             if (side && stop->side != side)
                 continue;
-            total += 1;
-            if (i >= offset && count < limit) {
+
+            if (total >= offset && count < limit) {
                 count += 1;
                 json_array_append_new(stops, get_stop_info(stop));
             }
+            total += 1;
         }
         skiplist_release_iterator(iter);
         json_object_set_new(result, "total", json_integer(total));
