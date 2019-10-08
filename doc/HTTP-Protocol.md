@@ -304,12 +304,13 @@ asset list(optional, if no asset special, return all asset)
 9. source: String, source, up to 30 bytes
 10. fee_asset: String, asset to use as fee
 11. fee_discount: String, 0~1
-12. option: optional field, Integer
+12. option: Integer, 0 is default
     * bit 1: use stock fee only;
     * bit 2: use money fee only;
     * bit 3: unlimited min amount
     * bit 4: immediate or cancel order
     * bit 5: fill or kill order
+13. client_id: user self-define order id
 
 * result: order detail
 * error:
@@ -334,11 +335,13 @@ params: [1, 0, "BTCCNY", 1, "10", "8000", "0.002", "0.001"]
 7. source: String, source, up to 30 bytes
 8. fee_asset: String, asset to use as fee
 9. fee_discount: String, 0~1
-10. option: optional field, Integer
+10. option: Integer, 0 is default
     * bit 1: use stock fee only;
     * bit 2: use money fee only;
     * bit 3: unlimited min amount;
     * bit 5: fill or kill order;
+11. client_id: user self-define order id
+
 * result: order detail
 * error:
 10. balance not enough
@@ -387,7 +390,12 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 10. source: String, source, up to 30 bytes
 11. fee_asset: String, asset to use as fee
 12. fee_discount: String, 0~1
-13. option: optional field, Integer, bit 1: use stock fee only; bit 2: use money fee only; bit 3: unlimited min amount
+13. option: Integer, 0 is default
+    * bit 1: use stock fee only
+    * bit 2: use money fee only
+    * bit 3: unlimited min amount
+14. client_id: user self-define order id
+
 * result: order detail
 * error:
     11. invalid stop price
@@ -406,11 +414,13 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 8. source: String, source, up to 30 bytes
 9. fee_asset: String, asset to use as fee
 10. fee_discount: String, 0~1
-11. option: optional field, Integer, 
+11. option: Integer, 0 is default
     * bit 1: use stock fee only
     * bit 2: use money fee only
     * bit 4: immediate or cancel order
     * bit 5: fill or kill order
+12. client_id: user self-define order id
+
 * result: order detail
 * error:
 11. invalid stop price
@@ -517,7 +527,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 	 			'type': 1, 
 	 			'id': 292, 
 	 			'market': 'BCHBTC', 
-	 			'taker_fee': '0.0001'
+	 			'taker_fee': '0.0001',
+				'client_id': 'test_123'
 	 		}
 	 	], 
 	 	'offset': 0
@@ -556,7 +567,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
    "ctime": 1.535383338231633E9,
    "id": 5,
    "user": 102,
-   "account": 1 
+   "account": 1,
+   "client_id": "test_123"
   }]
  },
  "id": 1,
@@ -629,7 +641,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
     			'type': 1, // 1: limit order, 2：market order
     			'id': 303,
     			'market': 'BCHBTC',
-    			'taker_fee': '0.0001'
+    			'taker_fee': '0.0001',
+				'client_id': 'test_123'
     		}
     	], 
     	'total': 1,
@@ -671,7 +684,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 				'type': 2,
 				'id': 305,
 				'market': 'BCHBTC',
-				'taker_fee': '0.0010'
+				'taker_fee': '0.0010',
+				'client_id': 'test_123'
 			}
 		],
 		'total': 1,
@@ -711,7 +725,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 		'type': 1,
 		'id': 292,
 		'market': 'BCHBTC',
-		'taker_fee': '0.0001'
+		'taker_fee': '0.0001',
+		'client_id': 'test_123'
 	},
 	'error': null
 }
@@ -753,7 +768,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 				'type': 1,
 				'id': 290,
 				'market': 'BCHBTC',
-				'taker_fee': '0.0001'
+				'taker_fee': '0.0001',
+				'client_id': 'test_123'
 			}
 		],
 		'limit': 100,
@@ -796,7 +812,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 				'type': 2,
 				'id': 305,
 				'market': 'BCHBTC',
-				'taker_fee': '0.0010'
+				'taker_fee': '0.0010',
+				'client_id': 'test_123'
 			}
 		],
 		'total': 1,
@@ -835,7 +852,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 		'type': 1,
 		'id': 1,
 		'market': 'BCHBTC',
-		'taker_fee': '0.0001'
+		'taker_fee': '0.0001',
+		'client_id': 'test_123'
 	},
 	'error': null
 }

@@ -140,6 +140,9 @@ static void order_free(order_t *order)
     free(order->source);
     if (order->fee_asset)
         free(order->fee_asset);
+    
+    if (order->client_id)
+        free(order->client_id);
 
     free(order);
 }
@@ -158,6 +161,9 @@ static void stop_free(stop_t *stop)
     if (stop->fee_asset)
         free(stop->fee_asset);
 
+    if (stop->client_id)
+        free(stop->client_id);
+
     free(stop);
 }
 
@@ -174,6 +180,11 @@ json_t *get_order_info(order_t *order)
     json_object_set_new(info, "mtime", json_real(order->update_time));
     json_object_set_new(info, "market", json_string(order->market));
     json_object_set_new(info, "source", json_string(order->source));
+    if (order->client_id) {
+        json_object_set_new(info, "client_id", json_string(order->client_id));
+    } else {
+        json_object_set_new(info, "client_id", json_string(""));
+    }
 
     json_object_set_new_mpd(info, "price", order->price);
     json_object_set_new_mpd(info, "amount", order->amount);
@@ -209,6 +220,11 @@ json_t *get_stop_info(stop_t *stop)
     json_object_set_new(info, "mtime", json_real(stop->update_time));
     json_object_set_new(info, "market", json_string(stop->market));
     json_object_set_new(info, "source", json_string(stop->source));
+    if (stop->client_id) {
+        json_object_set_new(info, "client_id", json_string(stop->client_id));
+    } else {
+        json_object_set_new(info, "client_id", json_string(""));
+    }
 
     json_object_set_new_mpd(info, "stop_price", stop->stop_price);
     json_object_set_new_mpd(info, "price", stop->price);
@@ -725,7 +741,7 @@ static int active_stop_limit(bool real, market_t *m, stop_t *stop)
     }
 
     int ret = market_put_limit_order(real, NULL, m, stop->user_id, stop->account, stop->side, stop->amount, stop->price,
-                stop->taker_fee, stop->maker_fee, stop->source, stop->fee_asset, fee_price, stop->fee_discount, stop->option);
+                stop->taker_fee, stop->maker_fee, stop->source, stop->fee_asset, fee_price, stop->fee_discount, stop->option, stop->client_id);
     if (ret < 0) {
         status = MARKET_STOP_STATUS_FAIL;
     }
@@ -747,7 +763,7 @@ static int active_stop_market(bool real, market_t *m, stop_t *stop)
     }
 
     int ret = market_put_market_order(real, NULL, m, stop->user_id, stop->account, stop->side, stop->amount,
-                stop->taker_fee, stop->source, stop->fee_asset, fee_price, stop->fee_discount, stop->option);
+                stop->taker_fee, stop->source, stop->fee_asset, fee_price, stop->fee_discount, stop->option, stop->client_id);
     if (ret < 0) {
         status = MARKET_STOP_STATUS_FAIL;
     }
@@ -1381,7 +1397,7 @@ static bool check_limit_fill_or_kill(market_t *m, uint32_t side, mpd_t *price, m
 }
 
 int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
-        mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_price, mpd_t *fee_discount, uint32_t option)
+        mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_price, mpd_t *fee_discount, uint32_t option, const char *client_id)
 {
     bool use_stock_fee = (option & OPTION_USE_STOCK_FEE_ONLY) ? true : false;
     bool use_money_fee = (option & OPTION_USE_MONEY_FEE_ONLY) ? true : false;
@@ -1491,6 +1507,10 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         if (fee_discount) {
             mpd_copy(order->fee_discount, fee_discount, &mpd_ctx);
         }
+    }
+
+    if (client_id && strlen(client_id) > 0) {
+        order->client_id = strdup(client_id);
     }
 
     int ret;
@@ -2042,7 +2062,7 @@ static bool check_market_fill_or_kill(market_t *m, uint32_t side, mpd_t *amount)
 }
 
 int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
-        mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_price, mpd_t *fee_discount, uint32_t option)
+        mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_price, mpd_t *fee_discount, uint32_t option, const char *client_id)
 {
     bool unlimited_min = (option & OPTION_UNLIMITED_MIN_AMOUNT) ? true: false;
     bool use_stock_fee = (option & OPTION_USE_STOCK_FEE_ONLY) ? true : false;
@@ -2197,6 +2217,10 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         }
     }
 
+    if (client_id && strlen(client_id) > 0) {
+        order->client_id = strdup(client_id);
+    }
+
     int ret;
     mpd_t *pre_last = mpd_qncopy(m->last);
     if (side == MARKET_ORDER_SIDE_ASK) {
@@ -2243,7 +2267,7 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
 }
 
 int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount, mpd_t *stop_price, mpd_t *price,
-        mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount, uint32_t option)
+        mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount, uint32_t option, const char *client_id)
 {
     if (side == MARKET_ORDER_SIDE_ASK) {
         if (mpd_cmp(m->last, mpd_zero, &mpd_ctx) == 0 || mpd_cmp(stop_price, m->last, &mpd_ctx) == 0) {
@@ -2302,6 +2326,10 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t acc
         }
     }
 
+    if (client_id && strlen(client_id) > 0) {
+        stop->client_id = strdup(client_id);
+    }
+
     ++order_id_start;
 
     int ret = put_stop(m, stop);
@@ -2319,7 +2347,7 @@ int market_put_stop_limit(bool real, market_t *m, uint32_t user_id, uint32_t acc
 }
 
 int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount, mpd_t *stop_price,
-        mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount, uint32_t option)
+        mpd_t *taker_fee, const char *source, const char *fee_asset, mpd_t *fee_discount, uint32_t option, const char *client_id)
 {
     bool unlimited_min = (option & OPTION_UNLIMITED_MIN_AMOUNT) ? true : false;
     if (side == MARKET_ORDER_SIDE_ASK) {
@@ -2384,6 +2412,10 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t ac
         if (fee_discount) {
             mpd_copy(stop->fee_discount, fee_discount, &mpd_ctx);
         }
+    }
+
+    if (client_id && strlen(client_id) > 0) {
+        stop->client_id = strdup(client_id);
     }
 
     ++order_id_start;

@@ -18,7 +18,7 @@ int load_orders(MYSQL *conn, const char *table)
     while (true) {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `account`, `market`, `source`, `fee_asset`, `fee_discount`, "
-                "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee`, `asset_fee`, `option` FROM `%s` "
+                "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee`, `asset_fee`, `option`, `client_id` FROM `%s` "
                 "WHERE `id` > %"PRIu64" ORDER BY `id` LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -70,6 +70,11 @@ int load_orders(MYSQL *conn, const char *table)
             order->deal_fee     = decimal(row[19], 0);
             order->asset_fee    = decimal(row[20], 0);
             order->option       = strtoul(row[21], NULL, 0);
+            if (strlen(row[22]) == 0) {
+                order->client_id = NULL;
+            } else {
+                order->client_id = strdup(row[22]);
+            }
 
             if (!order->market || !order->source || !order->price || !order->amount || !order->taker_fee || !order->maker_fee ||
                     !order->left || !order->frozen || !order->deal_stock || !order->deal_money || !order->deal_fee || !order->asset_fee) {
@@ -106,7 +111,7 @@ int load_stops(MYSQL *conn, const char *table)
     while (true) {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `account`, `market`, `source`, "
-                "`fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `option` FROM `%s` "
+                "`fee_asset`, `fee_discount`, `stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `option`, `client_id` FROM `%s` "
                 "WHERE `id` > %"PRIu64" order BY `id` LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -154,6 +159,11 @@ int load_stops(MYSQL *conn, const char *table)
             stop->taker_fee     = decimal(row[14], market->fee_prec);
             stop->maker_fee     = decimal(row[15], market->fee_prec);
             stop->option        = strtoul(row[16], NULL, 0);
+            if (strlen(row[17]) == 0){
+                stop->client_id = NULL;
+            } else {
+                stop->client_id = strdup(row[17]);
+            }
 
             if (mpd_cmp(stop->stop_price, market->last, &mpd_ctx) < 0) {
                 stop->state = STOP_STATE_LOW;
@@ -540,7 +550,17 @@ static int load_limit_order(json_t *params)
         }
     }
 
-    int ret = market_put_limit_order(false, NULL, market, user_id, account, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_price, fee_discount, option);
+    // client self-define id
+    const char *client_id = NULL;
+    if (json_array_size(params) >= 13) {
+        if (json_is_string(json_array_get(params, 12))) {
+            client_id = json_string_value(json_array_get(params, 12));
+            if (strlen(client_id) > CLIENT_ID_MAX_LEN)
+                goto error;
+        }
+    }
+
+    int ret = market_put_limit_order(false, NULL, market, user_id, account, side, amount, price, taker_fee, maker_fee, source, fee_asset, fee_price, fee_discount, option, client_id);
 
     mpd_del(amount);
     mpd_del(price);
@@ -657,7 +677,17 @@ static int load_market_order(json_t *params)
         }
     }
 
-    int ret = market_put_market_order(false, NULL, market, user_id, account, side, amount, taker_fee, source, fee_asset, fee_price, fee_discount, option);
+    // client self-define id
+    const char *client_id = NULL;
+    if (json_array_size(params) >= 11) {
+        if (json_is_string(json_array_get(params, 10))) {
+            client_id = json_string_value(json_array_get(params, 10));
+            if (strlen(client_id) > CLIENT_ID_MAX_LEN)
+                goto error;
+        }
+    }
+
+    int ret = market_put_market_order(false, NULL, market, user_id, account, side, amount, taker_fee, source, fee_asset, fee_price, fee_discount, option, client_id);
 
     mpd_del(amount);
     mpd_del(taker_fee);
@@ -867,7 +897,17 @@ static int load_stop_limit(json_t *params)
         }
     }
 
-    int ret = market_put_stop_limit(false, market, user_id, account, side, amount, stop_price, price, taker_fee, maker_fee, source, fee_asset, fee_discount, option);
+    // client self-define id
+    const char *client_id = NULL;
+    if (json_array_size(params) >= 14) {
+        if (json_is_string(json_array_get(params, 13))) {
+            client_id = json_string_value(json_array_get(params, 13));
+            if (strlen(client_id) > CLIENT_ID_MAX_LEN)
+                goto error;
+        }
+    }
+
+    int ret = market_put_stop_limit(false, market, user_id, account, side, amount, stop_price, price, taker_fee, maker_fee, source, fee_asset, fee_discount, option, client_id);
 
     mpd_del(amount);
     mpd_del(stop_price);
@@ -997,7 +1037,17 @@ static int load_stop_market(json_t *params)
         }
     }
 
-    int ret = market_put_stop_market(false, market, user_id, account, side, amount, stop_price, taker_fee, source, fee_asset, fee_discount, option);
+    // client self-define id
+    const char *client_id = NULL;
+    if (json_array_size(params) >= 12) {
+        if (json_is_string(json_array_get(params, 11))) {
+            client_id = json_string_value(json_array_get(params, 11));
+            if (strlen(client_id) > CLIENT_ID_MAX_LEN)
+                goto error;
+        }
+    }
+
+    int ret = market_put_stop_market(false, market, user_id, account, side, amount, stop_price, taker_fee, source, fee_asset, fee_discount, option, client_id);
 
     mpd_del(amount);
     mpd_del(stop_price);
