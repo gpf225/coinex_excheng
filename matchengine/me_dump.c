@@ -40,7 +40,7 @@ static int dump_stops_list(MYSQL *conn, const char *table, skiplist_t *list)
         sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, %u, %u, '%s', '%s', '%s', '%s', ",
                 stop->id, stop->type, stop->side, stop->create_time, stop->update_time,
                 stop->user_id, stop->account, stop->option, stop->market, stop->source,
-                stop->client_id, stop->fee_asset ? stop->fee_asset : "");
+                stop->client_id ? stop->client_id : "", stop->fee_asset ? stop->fee_asset : "");
         sql = sql_append_mpd(sql, stop->fee_discount, true);
         sql = sql_append_mpd(sql, stop->stop_price, true);
         sql = sql_append_mpd(sql, stop->price, true);
@@ -139,10 +139,10 @@ static int dump_orders_list(MYSQL *conn, const char *table, skiplist_t *list)
             sql = sdscatprintf(sql, ", ");
         }
 
-        sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, %u, %u, '%s', '%s', '%s', '%s' ",
+        sql = sdscatprintf(sql, "(%"PRIu64", %u, %u, %f, %f, %u, %u, %u, '%s', '%s', '%s', '%s', ",
                 order->id, order->type, order->side, order->create_time, order->update_time, order->user_id, order->account,
                 order->option, order->market, order->source, order->fee_asset ? order->fee_asset : "",
-                order->client_id);
+                order->client_id ? order->client_id : "");
         sql = sql_append_mpd(sql, order->fee_discount, true);
         sql = sql_append_mpd(sql, order->price, true);
         sql = sql_append_mpd(sql, order->amount, true);
