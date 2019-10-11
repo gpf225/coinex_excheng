@@ -336,7 +336,7 @@ const char *http_get_remote_ip(nw_ses *ses, http_request_t *request)
         sstrncpy(ip, x_forward_for, sizeof(ip));
         char *dot = strchr(ip, ',');
         if (dot) {
-            *dot = '0';
+            *dot = '\0';
         }
         return ip;
     }
