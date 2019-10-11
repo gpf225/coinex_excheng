@@ -15,6 +15,7 @@
 # include "me_asset.h"
 # include "me_persist.h"
 # include "ut_queue.h"
+# include "ut_misc.h"
 # include "me_writer.h"
 # include "me_request.h"
 
@@ -343,7 +344,7 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (json_array_size(params) >= 13) {
         if (json_is_string(json_array_get(params, 12))) {
             client_id = json_string_value(json_array_get(params, 12));
-            if (strlen(client_id) == 0 || strlen(client_id) > CLIENT_ID_MAX_LEN)
+            if (strlen(client_id) > CLIENT_ID_MAX_LEN || !is_client_id_valid(client_id))
                 goto invalid_argument;
         }
     }
@@ -479,7 +480,7 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (json_array_size(params) >= 11) {
         if (json_is_string(json_array_get(params, 10))) {
             client_id = json_string_value(json_array_get(params, 10));
-            if (strlen(client_id) == 0 || strlen(client_id) > CLIENT_ID_MAX_LEN)
+            if (strlen(client_id) > CLIENT_ID_MAX_LEN || !is_client_id_valid(client_id))
                 goto invalid_argument;
         }
     }
@@ -711,7 +712,7 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (json_array_size(params) >= 14) {
         if (json_is_string(json_array_get(params, 13))) {
             client_id = json_string_value(json_array_get(params, 13));
-            if (strlen(client_id) == 0 || strlen(client_id) > CLIENT_ID_MAX_LEN)
+            if (strlen(client_id) > CLIENT_ID_MAX_LEN || !is_client_id_valid(client_id))
                 goto invalid_argument;
         }
     }
@@ -854,7 +855,7 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (json_array_size(params) >= 12) {
         if (json_is_string(json_array_get(params, 11))) {
             client_id = json_string_value(json_array_get(params, 11));
-            if (strlen(client_id) == 0 || strlen(client_id) > CLIENT_ID_MAX_LEN)
+            if (strlen(client_id) > CLIENT_ID_MAX_LEN || !is_client_id_valid(client_id))
                 goto invalid_argument;
         }
     }

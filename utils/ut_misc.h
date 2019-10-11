@@ -45,6 +45,8 @@ time_t get_utc_day_start(time_t timestamp);
 time_t get_utc_month_start(time_t timestamp);
 time_t get_utc_yearstart(time_t timestamp);
 
+bool is_client_id_valid(const char *str);
+
 # undef ERR_RET
 # define ERR_RET(x) do { \
     int __ret = (x); \
