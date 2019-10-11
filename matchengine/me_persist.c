@@ -304,7 +304,7 @@ int update_slice_history(MYSQL *conn, time_t end)
     char *market_price = json_dumps(market_last_info, 0);
     json_decref(market_last_info);
 
-    char info[100 * 1024];
+    char info[1000 * 1024];
     mysql_real_escape_string(conn, info, market_price, strlen(market_price));
     free(market_price);
 
