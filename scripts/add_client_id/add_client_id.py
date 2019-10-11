@@ -12,7 +12,7 @@ import traceback
 DB_HOST = '127.0.0.1'
 DB_USER = 'root'
 DB_PASSWD = 'shit'
-TRADE_DB = 'trade_log'
+TRADE_LOG_DB = 'trade_log'
 TRADE_HISTORY_FORMAT = 'trade_history_{}'
 
 
@@ -22,26 +22,41 @@ def check_column(db_conn, db_name, table_name, column_name):
     cursor.execute(sql_str)
     rows = cursor.fetchall()
     assert(len(rows) == 1)
-    if rows[0][0] != 1:
-        print("db_name:{}, table_name:{}, column_name:{} add failed:{}".format(db_name, table_name, column_name, rows[0][0]))
+    if rows[0][0] >= 1:
+        #print("db_name:{}, table_name:{}, column_name:{} add failed:{}".format(db_name, table_name, column_name, rows[0][0]))
+        return True
     cursor.close()
+    return False
 
 
 def modify_history_table(order_type):
+    check_db_conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db='information_schema')
     for db_index in range(5):
         db_name = TRADE_HISTORY_FORMAT.format(db_index)
         conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db=db_name)
         cursor = conn.cursor()
-        table_sql_str_format = """alter table %s_history_{} add client_id varchar(32) NOT NULL default "" COMMENT '用户自定义订单ID，默认为空';""" % order_type
+        table_name_format = '{}_history_{}'.format(order_type, '{}')
+        table_sql_str_format = """alter table {} add client_id varchar(32) NOT NULL default "" COMMENT '用户自定义订单ID，默认为空';"""
         for table_id in range(100):
-            sql_str = table_sql_str_format.format(table_id)
+            table_name = table_name_format.format(table_id)
+            if check_column(check_db_conn, db_name, table_name, 'client_id'):
+                print("{} client id is exist.".format(table_name))
+                continue
+            sql_str = table_sql_str_format.format(table_name)
             cursor.execute(sql_str)
             conn.commit()
-        sql_str = table_sql_str_format.format('example')
-        cursor.execute(sql_str)
-        conn.commit()
+
+        table_name = table_name_format.format('example')
+        if check_column(check_db_conn, db_name, table_name, 'client_id'):
+            print("{} client id is exist.".format(table_name))
+        else:
+            sql_str = table_sql_str_format.format(table_name)
+            cursor.execute(sql_str)
+            conn.commit()
         cursor.close()
         conn.close()
+    
+    check_db_conn.close()
 
 
 def modify_order_history_table():
@@ -56,27 +71,49 @@ def modify_stop_order_history_table():
 
 def modify_slice_order_table():
     """修改slice order表"""
-    conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db=TRADE_DB)
+    conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db=TRADE_LOG_DB)
+    check_db_conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db='information_schema')
     cursor = conn.cursor()
-    order_table_sql_str_format = """alter table slice_order_{} add client_id varchar(32) NOT NULL default "" COMMENT '用户自定义订单ID，默认为空';"""
-    stop_table_sql_str_format = """alter table slice_stop_{} add client_id varchar(32) NOT NULL default "" COMMENT '用户自定义订单ID，默认为空';"""
+    sql_str_format = """alter table {} add client_id varchar(32) NOT NULL default "" COMMENT '用户自定义订单ID，默认为空';"""
     query_sql_str = "select time from slice_history order by id desc limit 1"
     cursor.execute(query_sql_str)
     slice_history = cursor.fetchall()
     for history in slice_history:
-        sql_str = order_table_sql_str_format.format(history[0])
-        cursor.execute(sql_str)
-        sql_str = stop_table_sql_str_format.format(history[0])
+        table_name = 'slice_order_{}'.format(history[0])
+        if check_column(check_db_conn, TRADE_LOG_DB, table_name, 'client_id'):
+            print("{} client id is exist.".format(table_name))
+        else:
+            sql_str = sql_str_format.format(table_name)
+            cursor.execute(sql_str)
+            conn.commit()
+
+        table_name = 'slice_stop_{}'.format(history[0])
+        if check_column(check_db_conn, TRADE_LOG_DB, table_name, 'client_id'):
+            print("{} client id is exist.".format(table_name))
+        else:
+            table_name = 'slice_stop_{}'.format(history[0])
+            sql_str = sql_str_format.format(table_name)
+            cursor.execute(sql_str)
+            conn.commit()
+
+    table_name = 'slice_stop_{}'.format('example')
+    if check_column(check_db_conn, TRADE_LOG_DB, table_name, 'client_id'):
+        print("{} client id is exist.".format(table_name))
+    else:
+        sql_str = sql_str_format.format(table_name)
         cursor.execute(sql_str)
         conn.commit()
 
-    sql_str = order_table_sql_str_format.format('example')
-    cursor.execute(sql_str)
-    sql_str = stop_table_sql_str_format.format('example')
-    cursor.execute(sql_str)
-    conn.commit()
+    table_name = 'slice_order_{}'.format('example')
+    if check_column(check_db_conn, TRADE_LOG_DB, table_name, 'client_id'):
+        print("{} client id is exist.".format(table_name))
+    else:
+        sql_str = sql_str_format.format(table_name)
+        cursor.execute(sql_str)
+        conn.commit()
     cursor.close()
     conn.close()
+    check_db_conn.close()
 
 
 def check_trade_history(order_type):
@@ -87,9 +124,12 @@ def check_trade_history(order_type):
         db_name = db_name_format.format(db_index)
         for table_index in range(100):
             order_table_name = table_name_format.format(table_index)
-            check_column(db_conn, db_name, order_table_name, 'client_id')
+            if not check_column(db_conn, db_name, order_table_name, 'client_id'):
+                print("db_name:{}, table_name:{}, column_name:{} not exist.".format(db_name, order_table_name, 'client_id'))
+
         order_table_name = table_name_format.format('example')
-        check_column(db_conn, db_name, order_table_name, 'client_id')
+        if not check_column(db_conn, db_name, order_table_name, 'client_id'):
+            print("db_name:{}, table_name:{}, column_name:{} not exist.".format(db_name, order_table_name, 'client_id'))
     db_conn.close()
 
 
@@ -102,7 +142,7 @@ def check_stop_history():
 
 
 def check_slice(order_type):
-    db_conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db='trade_log')
+    db_conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db=TRADE_LOG_DB)
     cursor = db_conn.cursor()
     query_sql_str = "select time from slice_history order by id desc limit 1"
     cursor.execute(query_sql_str)
@@ -110,11 +150,13 @@ def check_slice(order_type):
     info_db_conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db='information_schema')
     order_table_name_format = 'slice_%s_{}' % order_type
     for history in slice_history:
-        slice_order_table = order_table_name_format.format(history[0])
-        check_column(info_db_conn, 'trade_log', slice_order_table, 'client_id')
+        table_name = order_table_name_format.format(history[0])
+        if not check_column(info_db_conn, TRADE_LOG_DB, table_name, 'client_id'):
+             print("db_name:{}, table_name:{}, column_name:{} not exist.".format(TRADE_LOG_DB, table_name, 'client_id'))
 
-    slice_order_table = order_table_name_format.format('example')
-    check_column(info_db_conn, 'trade_log', slice_order_table, 'client_id')
+    table_name = order_table_name_format.format('example')
+    if not check_column(info_db_conn, TRADE_LOG_DB, table_name, 'client_id'):
+        print("db_name:{}, table_name:{}, column_name:{} not exist.".format(TRADE_LOG_DB, table_name, 'client_id'))
     info_db_conn.close()
     db_conn.close()
 
@@ -165,7 +207,7 @@ def delete_stop_order_history_table():
 
 
 def delete_slice_order_table():
-    conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db=TRADE_DB)
+    conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db=TRADE_LOG_DB)
     cursor = conn.cursor()
     order_table_sql_str_format = """alter table slice_order_{} drop client_id;"""
     stop_table_sql_str_format = """alter table slice_stop_{} drop client_id;"""
@@ -194,6 +236,14 @@ def delete_all():
     delete_slice_order_table()
 
 
+def print_usage():
+    print("""
+        python script.py modify  -- 添加字段client_id
+                         check   -- 确认是否成功
+                         delete  -- 删除字段client_id
+    """)
+
+
 def main(argv):
     if argv[0] == 'modify':
         modify_all()
@@ -202,16 +252,14 @@ def main(argv):
     elif argv[0] == 'delete':
         delete_all()
     else:
-        print("""
-        python script.py modify  -- 添加字段client_id
-                         check   -- 确认是否成功
-                         delete  -- 删除字段client_id
-        """)
-    
-    
+        print_usage()
+
 
 if __name__ == '__main__':
     try:
+        if len(sys.argv) < 2:
+            print_usage()
+            sys.exit(-1)
         main(sys.argv[1:])
     except Exception as ex:
         print(ex)
