@@ -418,21 +418,3 @@ time_t get_utc_year_start(time_t timestamp)
     time_t result = mktime(&dtm);
     return result + timeinfo->tm_gmtoff;
 }
-
-bool is_client_id_valid(const char *client_id)
-{
-    if (!client_id) {
-        return false;
-    }
-
-    size_t len = strlen(client_id);
-    bool is_valid = true;
-    for (int i = 0; i < len; ++i) {
-        if (client_id[i] == '-' || client_id[i] == '_' || isalnum(client_id[i])) {
-            continue;
-        }
-        is_valid = false;
-        break;
-    }
-    return is_valid;
-}

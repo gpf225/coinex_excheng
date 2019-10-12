@@ -15,7 +15,6 @@
 # include "me_asset.h"
 # include "me_persist.h"
 # include "ut_queue.h"
-# include "ut_misc.h"
 # include "me_writer.h"
 # include "me_request.h"
 
@@ -39,6 +38,24 @@ static int push_operlog(const char *method, json_t *params)
     append_operlog(detail);
     free(detail);
     return 0;
+}
+
+static bool is_client_id_valid(const char *client_id)
+{
+    if (!client_id) {
+        return false;
+    }
+
+    size_t len = strlen(client_id);
+    bool is_valid = true;
+    for (int i = 0; i < len; ++i) {
+        if (client_id[i] == '-' || client_id[i] == '_' || isalnum(client_id[i])) {
+            continue;
+        }
+        is_valid = false;
+        break;
+    }
+    return is_valid;
 }
 
 static void svr_on_new_connection(nw_ses *ses)
