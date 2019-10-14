@@ -75,26 +75,6 @@ def modify_slice_order_table():
     check_db_conn = pymysql.connect(host=DB_HOST, user=DB_USER, passwd=DB_PASSWD, db='information_schema')
     cursor = conn.cursor()
     sql_str_format = """alter table {} add client_id varchar(32) NOT NULL default "" COMMENT '用户自定义订单ID，默认为空';"""
-    query_sql_str = "select time from slice_history order by id desc limit 1"
-    cursor.execute(query_sql_str)
-    slice_history = cursor.fetchall()
-    for history in slice_history:
-        table_name = 'slice_order_{}'.format(history[0])
-        if check_column(check_db_conn, TRADE_LOG_DB, table_name, 'client_id'):
-            print("{} client id is exist.".format(table_name))
-        else:
-            sql_str = sql_str_format.format(table_name)
-            cursor.execute(sql_str)
-            conn.commit()
-
-        table_name = 'slice_stop_{}'.format(history[0])
-        if check_column(check_db_conn, TRADE_LOG_DB, table_name, 'client_id'):
-            print("{} client id is exist.".format(table_name))
-        else:
-            table_name = 'slice_stop_{}'.format(history[0])
-            sql_str = sql_str_format.format(table_name)
-            cursor.execute(sql_str)
-            conn.commit()
 
     table_name = 'slice_stop_{}'.format('example')
     if check_column(check_db_conn, TRADE_LOG_DB, table_name, 'client_id'):
@@ -177,9 +157,9 @@ def check_all():
 
 
 def modify_all():
+    modify_slice_order_table()
     modify_order_history_table()
     modify_stop_order_history_table()
-    modify_slice_order_table()
 
 
 def delete_order_history(order_type):
