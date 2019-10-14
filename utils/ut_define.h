@@ -46,6 +46,7 @@ enum {
 # define INTERVAL_MAX_LEN            16
 # define BUSINESS_NAME_MAX_LEN       31
 # define SOURCE_MAX_LEN              31
+# define CLIENT_ID_MAX_LEN           32
 
 # define OPTION_CHECK_MASK              0x7f
 # define OPTION_USE_STOCK_FEE_ONLY      0x1

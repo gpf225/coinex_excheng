@@ -418,4 +418,3 @@ time_t get_utc_year_start(time_t timestamp)
     time_t result = mktime(&dtm);
     return result + timeinfo->tm_gmtoff;
 }
-
