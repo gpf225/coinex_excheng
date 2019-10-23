@@ -70,6 +70,8 @@ int load_orders(MYSQL *conn, const char *table)
             order->deal_fee     = decimal(row[19], 0);
             order->asset_fee    = decimal(row[20], 0);
             order->option       = strtoul(row[21], NULL, 0);
+            order->last_deal_amount = mpd_qncopy(mpd_zero);
+            order->last_deal_price  = mpd_qncopy(mpd_zero);
             if (strlen(row[22]) == 0) {
                 order->client_id = NULL;
             } else {

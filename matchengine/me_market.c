@@ -135,6 +135,8 @@ static void order_free(order_t *order)
     mpd_del(order->asset_fee);
     mpd_del(order->fee_price);
     mpd_del(order->fee_discount);
+    mpd_del(order->last_deal_amount);
+    mpd_del(order->last_deal_price);
 
     free(order->market);
     free(order->source);
@@ -167,7 +169,7 @@ static void stop_free(stop_t *stop)
     free(stop);
 }
 
-json_t *get_order_info(order_t *order)
+json_t *get_order_info_with_last_deal(order_t *order, bool is_include_last_deal)
 {
     json_t *info = json_object();
     json_object_set_new(info, "id", json_integer(order->id));
@@ -196,6 +198,10 @@ json_t *get_order_info(order_t *order)
     json_object_set_new_mpd(info, "deal_fee", order->deal_fee);
     json_object_set_new_mpd(info, "asset_fee", order->asset_fee);
     json_object_set_new_mpd(info, "fee_discount", order->fee_discount);
+    if (is_include_last_deal) {
+        json_object_set_new_mpd(info, "last_deal_amount", order->last_deal_amount);
+        json_object_set_new_mpd(info, "last_deal_price", order->last_deal_price);
+    }
 
     if (order->fee_asset) {
         json_object_set_new(info, "fee_asset", json_string(order->fee_asset));
@@ -204,6 +210,11 @@ json_t *get_order_info(order_t *order)
     }
 
     return info;
+}
+
+json_t *get_order_info(order_t *order)
+{
+    return get_order_info_with_last_deal(order, false);
 }
 
 json_t *get_stop_info(stop_t *stop)
@@ -999,6 +1010,11 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
             }
         }
 
+        mpd_copy(taker->last_deal_amount, amount, &mpd_ctx);
+        mpd_copy(taker->last_deal_price, price, &mpd_ctx);
+        mpd_copy(maker->last_deal_amount, amount, &mpd_ctx);
+        mpd_copy(maker->last_deal_price, price, &mpd_ctx);
+
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, maker, m);
@@ -1200,6 +1216,11 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
                 append_balance_trade_fee(maker, ask_fee_account, ask_fee_asset, ask_fee, price, amount, maker->maker_fee);
             }
         }
+
+        mpd_copy(taker->last_deal_amount, amount, &mpd_ctx);
+        mpd_copy(taker->last_deal_price, price, &mpd_ctx);
+        mpd_copy(maker->last_deal_amount, amount, &mpd_ctx);
+        mpd_copy(maker->last_deal_price, price, &mpd_ctx);
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
             if (real) {
@@ -1483,6 +1504,8 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     order->asset_fee    = mpd_new(&mpd_ctx);
     order->fee_price    = mpd_new(&mpd_ctx);
     order->fee_discount = mpd_new(&mpd_ctx);
+    order->last_deal_amount = mpd_new(&mpd_ctx);
+    order->last_deal_price  = mpd_new(&mpd_ctx);
     mpd_copy(order->price, price, &mpd_ctx);
     mpd_copy(order->amount, amount, &mpd_ctx);
     mpd_copy(order->taker_fee, taker_fee, &mpd_ctx);
@@ -1495,6 +1518,8 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     mpd_copy(order->asset_fee, mpd_zero, &mpd_ctx);
     mpd_copy(order->fee_price, mpd_zero, &mpd_ctx);
     mpd_copy(order->fee_discount, mpd_one, &mpd_ctx);
+    mpd_copy(order->last_deal_amount, mpd_zero, &mpd_ctx);
+    mpd_copy(order->last_deal_price, mpd_zero, &mpd_ctx);
 
     if (fee_asset && fee_asset[0] != 0) {
         order->fee_asset = strdup(fee_asset);
@@ -1530,7 +1555,6 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     }
 
     ++order_id_start;
-
     bool immediate_or_cancel = (option & OPTION_IMMEDIATED_OR_CANCEL) ? true : false;
     if (mpd_cmp(order->left, mpd_zero, &mpd_ctx) == 0 || (immediate_or_cancel && mpd_cmp(order->amount, order->left, &mpd_ctx) > 0)) {
         if (real) {
@@ -1759,6 +1783,11 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
             }
         }
 
+        mpd_copy(taker->last_deal_amount, amount, &mpd_ctx);
+        mpd_copy(taker->last_deal_price, price, &mpd_ctx);
+        mpd_copy(maker->last_deal_amount, amount, &mpd_ctx);
+        mpd_copy(maker->last_deal_price, price, &mpd_ctx);
+
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, maker, m);
@@ -1959,6 +1988,11 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
                 append_balance_trade_fee(maker, ask_fee_account, ask_fee_asset, ask_fee, price, amount, maker->maker_fee);
             }
         }
+
+        mpd_copy(taker->last_deal_amount, amount, &mpd_ctx);
+        mpd_copy(taker->last_deal_price, price, &mpd_ctx);
+        mpd_copy(maker->last_deal_amount, amount, &mpd_ctx);
+        mpd_copy(maker->last_deal_price, price, &mpd_ctx);
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
             if (real) {
@@ -2195,6 +2229,8 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
     order->asset_fee    = mpd_new(&mpd_ctx);
     order->fee_price    = mpd_new(&mpd_ctx);
     order->fee_discount = mpd_new(&mpd_ctx);
+    order->last_deal_amount = mpd_new(&mpd_ctx);
+    order->last_deal_price  = mpd_new(&mpd_ctx);
 
     mpd_copy(order->price, mpd_zero, &mpd_ctx);
     mpd_copy(order->amount, amount, &mpd_ctx);
@@ -2208,6 +2244,8 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
     mpd_copy(order->asset_fee, mpd_zero, &mpd_ctx);
     mpd_copy(order->fee_price, mpd_zero, &mpd_ctx);
     mpd_copy(order->fee_discount, mpd_one, &mpd_ctx);
+    mpd_copy(order->last_deal_amount, mpd_zero, &mpd_ctx);
+    mpd_copy(order->last_deal_price, mpd_zero, &mpd_ctx);
 
     if (fee_asset && fee_asset[0] != 0) {
         order->fee_asset = strdup(fee_asset);
@@ -2485,7 +2523,16 @@ int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, u
         push_deal_message(update_time, deal_id, market, side, order, order, real_price, amount, deal, market->money, mpd_zero, market->stock, mpd_zero);
         free(order);
     }
+
+    mpd_t *pre_last = mpd_qncopy(market->last);
+    mpd_copy(market->last, real_price, &mpd_ctx);
+    if (mpd_cmp(market->last, pre_last, &mpd_ctx) < 0) {
+        check_stop_low(real, market);
+    } else if (mpd_cmp(market->last, pre_last, &mpd_ctx) > 0) {
+        check_stop_high(real, market);
+    }
     
+    mpd_del(pre_last);
     mpd_del(deal);
     mpd_del(real_price);
     mpd_del(deal_min_gear);
@@ -3019,6 +3066,8 @@ int market_execute_call_auction(bool real, market_t *m, mpd_t *volume)
         }
         execute_ask_bid_order_with_price(real, m, ask_order, bid_order, m->last, deal_amount, taker_id);
         if (mpd_cmp(ask_order->left, mpd_zero, &mpd_ctx) == 0) {
+            mpd_copy(ask_order->last_deal_amount, ask_order->amount, &mpd_ctx);
+            mpd_copy(ask_order->last_deal_price, m->last, &mpd_ctx);
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, ask_order, m);
             }
@@ -3026,6 +3075,8 @@ int market_execute_call_auction(bool real, market_t *m, mpd_t *volume)
         }
 
         if (mpd_cmp(bid_order->left, mpd_zero, &mpd_ctx) == 0) {
+            mpd_copy(bid_order->last_deal_amount, bid_order->amount, &mpd_ctx);
+            mpd_copy(bid_order->last_deal_price, m->last, &mpd_ctx);
             if (real) {
                 push_order_message(ORDER_EVENT_FINISH, bid_order, m);
             }
