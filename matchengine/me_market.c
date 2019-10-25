@@ -169,7 +169,7 @@ static void stop_free(stop_t *stop)
     free(stop);
 }
 
-json_t *get_order_info_with_last_deal(order_t *order, bool is_include_last_deal)
+json_t *get_order_info(order_t *order, bool is_include_last_deal)
 {
     json_t *info = json_object();
     json_object_set_new(info, "id", json_integer(order->id));
@@ -212,11 +212,6 @@ json_t *get_order_info_with_last_deal(order_t *order, bool is_include_last_deal)
     return info;
 }
 
-json_t *get_order_info(order_t *order)
-{
-    return get_order_info_with_last_deal(order, false);
-}
-
 json_t *get_stop_info(stop_t *stop)
 {
     json_t *info = json_object();
@@ -255,7 +250,7 @@ json_t *get_stop_info(stop_t *stop)
 
 static int record_fini_order(order_t *order)
 {
-    json_t *order_info = get_order_info(order);
+    json_t *order_info = get_order_info(order, false);
     json_object_set_new(order_info, "finished", json_true());
     uint64_t order_key = order->id;
     dict_add(dict_fini_orders, &order_key, order_info);
@@ -1564,7 +1559,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
             }
             push_order_message(ORDER_EVENT_FINISH, order, m);
             if (result) {
-                *result = get_order_info(order);
+                *result = get_order_info(order, false);
             }
         } else if (is_reader) {
             record_fini_order(order);
@@ -1590,7 +1585,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
                 profile_inc("put_order", 1);
                 push_order_message(ORDER_EVENT_PUT, order, m);
                 if (result) {
-                    *result = get_order_info(order);
+                    *result = get_order_info(order, false);
                 }
             }
         }
@@ -2286,7 +2281,7 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         }
         push_order_message(ORDER_EVENT_FINISH, order, m);
         if (result) {
-            *result = get_order_info(order);
+            *result = get_order_info(order, false);
         }
     } else if (is_reader) {
         record_fini_order(order);
@@ -2544,7 +2539,7 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
 {
     if (real) {
         push_order_message(ORDER_EVENT_FINISH, order, m);
-        *result = get_order_info(order);
+        *result = get_order_info(order, false);
     }
     int ret = finish_order(real, m, order);
     if (ret == 0 && m->call_auction) {
