@@ -169,7 +169,7 @@ static void stop_free(stop_t *stop)
     free(stop);
 }
 
-json_t *get_order_info(order_t *order, bool is_include_last_deal)
+json_t *get_order_info(order_t *order, bool with_last_deal)
 {
     json_t *info = json_object();
     json_object_set_new(info, "id", json_integer(order->id));
@@ -198,7 +198,7 @@ json_t *get_order_info(order_t *order, bool is_include_last_deal)
     json_object_set_new_mpd(info, "deal_fee", order->deal_fee);
     json_object_set_new_mpd(info, "asset_fee", order->asset_fee);
     json_object_set_new_mpd(info, "fee_discount", order->fee_discount);
-    if (is_include_last_deal) {
+    if (with_last_deal) {
         json_object_set_new_mpd(info, "last_deal_amount", order->last_deal_amount);
         json_object_set_new_mpd(info, "last_deal_price", order->last_deal_price);
     }
