@@ -125,7 +125,7 @@ static int depth_sub_counter_dec(const char *market, const char *interval)
     }
 }
 
-static json_t *get_list_diff(json_t *list1, json_t *list2, uint32_t limit, int side)
+static json_t *get_list_diff(json_t *list1, json_t *list2, int side)
 {
     if (list1 == NULL || list2 == NULL)
         return NULL;
@@ -179,7 +179,6 @@ static json_t *get_list_diff(json_t *list1, json_t *list2, uint32_t limit, int s
             json_array_append_new(unit, json_string("0"));
             json_array_append_new(diff, unit);
         }
-
         mpd_del(price1);
         price1  = NULL;
         mpd_del(amount1);
@@ -190,7 +189,7 @@ static json_t *get_list_diff(json_t *list1, json_t *list2, uint32_t limit, int s
         amount2 = NULL;
     }
 
-    while (list2_size < limit && list1_pos < list1_size) {
+    while (list1_pos < list1_size) {
         json_t *unit = json_array_get(list1, list1_pos);
         const char *price = json_string_value(json_array_get(unit, 0));
         const char *amount = json_string_value(json_array_get(unit, 1));
@@ -228,10 +227,10 @@ error:
     return NULL;
 }
 
-static json_t *get_depth_diff(json_t *first, json_t *second, uint32_t limit)
+static json_t *get_depth_diff(json_t *first, json_t *second)
 {
-    json_t *asks = get_list_diff(json_object_get(first, "asks"), json_object_get(second, "asks"), limit,  1);
-    json_t *bids = get_list_diff(json_object_get(first, "bids"), json_object_get(second, "bids"), limit, -1);
+    json_t *asks = get_list_diff(json_object_get(first, "asks"), json_object_get(second, "asks"), 1);
+    json_t *bids = get_list_diff(json_object_get(first, "bids"), json_object_get(second, "bids"), -1);
     if (asks == NULL && bids == NULL)
         return NULL;
     json_t *diff = json_object();
@@ -328,7 +327,7 @@ static int notify_depth(const char *market, const char *interval, uint32_t limit
         return broadcast_update(key.market, val->sessions, true, depth_result);
     }
 
-    json_t *diff = get_depth_diff(val->last, depth_result, limit);
+    json_t *diff = get_depth_diff(val->last, depth_result);
     if (diff == NULL) {
         json_decref(depth_result);
         return 0;
