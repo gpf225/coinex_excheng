@@ -308,7 +308,7 @@ static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
             if (total >= offset && count < limit) {
                 count += 1;
-                json_array_append_new(orders, get_order_info(order));
+                json_array_append_new(orders, get_order_info(order, false));
             }
             total += 1;
         }
@@ -381,7 +381,7 @@ static int on_cmd_order_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         while ((node = skiplist_next(iter)) != NULL && index < limit) {
             index++;
             order_t *order = node->value;
-            json_array_append_new(orders, get_order_info(order));
+            json_array_append_new(orders, get_order_info(order, false));
         }
     }
     skiplist_release_iterator(iter);
@@ -736,7 +736,7 @@ static int on_cmd_order_detail(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         if (result == NULL)
             result = json_null();
     } else {
-        result = get_order_info(order);
+        result = get_order_info(order, false);
     }
 
     int ret = rpc_reply_result(ses, pkg, result);

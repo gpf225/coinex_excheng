@@ -72,7 +72,7 @@ int append_deal_history(double t, uint64_t deal_id, order_t *ask, int ask_role, 
 
 int append_order_history(order_t *order)
 {
-    json_t *order_info = get_order_info(order);
+    json_t *order_info = get_order_info(order, false);
     push_his_order_message(order_info);
     json_decref(order_info);
     return 0;

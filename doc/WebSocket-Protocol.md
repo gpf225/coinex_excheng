@@ -306,7 +306,43 @@ General error code:
 * method: `order.update`
 * params:
 1. event: event type，Integer, 1: PUT, 2: UPDATE, 3: FINISH
-2. order: order detail，Object，see HTTP protocol
+2. order: order detail，Object, last_deal_amount is the amount of the last deal, last_deal_price is the price of the last deal
+* result:
+```
+{
+    "method": "order.update",
+    "params": [
+        1,
+        {
+            "id": 12750,
+            "type": 1,
+            "side": 2,
+            "user": 1,
+            "account": 0,
+            "option": 0,
+            "ctime": 1571971282.015829,
+            "mtime": 1571971282.015829,
+            "market": "BTCUSDT",
+            "source": "test",
+            "client_id": "buy1_1234",
+            "price": "5999.00",
+            "amount": "1.50000000",
+            "taker_fee": "0.0001",
+            "maker_fee": "0.0001",
+            "left": "1.50000000",
+            "deal_stock": "0",
+            "deal_money": "0",
+            "deal_fee": "0",
+            "asset_fee": "0",
+            "fee_discount": "1",
+            "last_deal_amount": "0",
+            "last_deal_price": "0",
+            "fee_asset": null
+        }
+    ],
+    "id": null
+}
+```
 
 * method: `order.update_stop`
 * params:

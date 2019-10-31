@@ -291,7 +291,7 @@ int push_order_message(uint32_t event, order_t *order, market_t *market)
 {
     json_t *message = json_object();
     json_object_set_new(message, "event", json_integer(event));
-    json_object_set_new(message, "order", get_order_info(order));
+    json_object_set_new(message, "order", get_order_info(order, true));
     json_object_set_new(message, "stock", json_string(market->stock));
     json_object_set_new(message, "money", json_string(market->money));
 

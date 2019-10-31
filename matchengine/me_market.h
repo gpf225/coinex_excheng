@@ -60,7 +60,8 @@ typedef struct order_t {
     mpd_t           *deal_money;
     mpd_t           *deal_fee;
     mpd_t           *asset_fee;
-
+    mpd_t           *last_deal_amount;
+    mpd_t           *last_deal_price;
     mpd_t           *fee_price;
 } order_t;
 
@@ -105,7 +106,7 @@ int market_put_stop_market(bool real, market_t *m, uint32_t user_id, uint32_t ac
 
 int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, uint32_t side);
 
-json_t *get_order_info(order_t *order);
+json_t *get_order_info(order_t *order, bool with_last_deal);
 json_t *get_stop_info(stop_t *stop);
 
 order_t *market_get_order(market_t *m, uint64_t order_id);
