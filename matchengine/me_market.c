@@ -2473,9 +2473,9 @@ static mpd_t *get_best_price(skiplist_t *list)
     if (iter == NULL)
         return NULL;
     skiplist_node *node = skiplist_next(iter);
+    skiplist_release_iterator(iter);
     if (node == NULL)
         return NULL;
-    skiplist_release_iterator(iter);
     order_t *order = node->value;
     return order->price;
 }
