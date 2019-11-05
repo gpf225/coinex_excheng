@@ -1169,6 +1169,39 @@ response:
 3. end_time: start time  Integer
 
 * example: trade.net_rank("[BTCUSDT]", 1557471355, 1557476355)
+* result:
+
+```
+{
+    "id": 1572834684,
+    "result": {
+        "sell": [
+            {
+                "net": "1803.44444445",
+                "total": "1823.44444445",
+                "user_id": 305
+            },
+            {
+                "net": "10.00000000",
+                "total": "10.00000000",
+                "user_id": 63
+            }
+        ],
+        "buy": [
+            {
+                "net": "1813.44444445",
+                "total": "1813.44444445",
+                "user_id": 814
+            }
+        ],
+        "total_amount": "1823.44444445",
+        "total_net": "1813.44444445",
+        "total_sell_users": 2,
+        "total_buy_users": 1
+    },
+    "error": null
+}
+```
 
 **TradeAmountRank**
 * method: `trade.amount_rank`
@@ -1178,6 +1211,47 @@ response:
 3. end_time: start time  Integer
 
 * example: trade.amount_rank("[BTCUSDT]", 1557471355, 1557476355)
+* result:
+
+```
+{
+    "id": 1572834698,
+    "result": {
+        "sell": [
+            {
+                "amount": "1813.44444445",
+                "user_id": 305,
+                "total_amount": "1823.44444445"
+            },
+            {
+                "amount": "10.00000000",
+                "user_id": 63,
+                "total_amount": "10.00000000"
+            }
+        ],
+        "buy": [
+            {
+                "amount": "1813.44444445",
+                "user_id": 814,
+                "total_amount": "1813.44444445"
+            },
+            {
+                "amount": "10.00000000",
+                "user_id": 305,
+                "total_amount": "1823.44444445"
+            },
+            {
+                "amount": "0",
+                "user_id": 63,
+                "total_amount": "10.00000000"
+            }
+        ],
+        "total_sell_users": 2,
+        "total_buy_users": 3
+    },
+    "error": null
+}
+```
 
 ## Index API
 

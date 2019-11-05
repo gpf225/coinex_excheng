@@ -1299,6 +1299,8 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
     skiplist_iter *siter;
     size_t count;
     size_t reply_limit = 500;
+    int total_buy_users = skiplist_len(buy_list);
+    int total_sell_users = skiplist_len(sell_list);
 
     count = 0;
     json_t *net_buy = json_array();
@@ -1339,6 +1341,8 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
     json_t *result = json_object();
     json_object_set_new(result, "buy", net_buy);
     json_object_set_new(result, "sell", net_sell);
+    json_object_set_new(result, "total_buy_users", json_integer(total_buy_users));
+    json_object_set_new(result, "total_sell_users", json_integer(total_sell_users));
     json_object_set_new_mpd(result, "total_net", total_net);
     json_object_set_new_mpd(result, "total_amount", total_amount);
 
@@ -1401,6 +1405,8 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
     skiplist_iter *siter;
     size_t count;
     size_t reply_limit = 500;
+    int total_buy_users = skiplist_len(buy_amount_list);
+    int total_sell_users = skiplist_len(sell_amount_list);
 
     count = 0;
     json_t *amount_buy = json_array();
@@ -1441,6 +1447,8 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
     json_t *result = json_object();
     json_object_set_new(result, "buy", amount_buy);
     json_object_set_new(result, "sell", amount_sell);
+    json_object_set_new(result, "total_buy_users", json_integer(total_buy_users));
+    json_object_set_new(result, "total_sell_users", json_integer(total_sell_users));
 
     return result;
 }
