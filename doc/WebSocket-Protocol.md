@@ -207,6 +207,9 @@ General error code:
 2. limit: amount limit，Integer
 3. interval: interval，String, e.g. "1" for 1 unit interval, "0" for no interval
 
+* result: checksum is a signed integer (32 bit) and is for verify the accuracy of depth data, 
+the checksum string will be bid1_price:bid1_amount:bid2_price:bid2_amount:ask1_price:ask1_amount:...
+if there is no bids, the checksum string will be ask1_price:ask1_amount:ask2_price:ask2_amount...
 ```
 "result": {
     "last": "7500.00",
@@ -221,7 +224,8 @@ General error code:
             "7000.00",
             "0.1000"
         ]
-    ]
+    ],
+    "checksum": 216578179
 }
 ```
 
@@ -236,7 +240,8 @@ General error code:
 * method: `depth.update`
 * params:
 1. clean: Boolean, true: complete result，false: last returned updated result
-2. Same as depth.query，only return what's different from last result, asks 或 bids may not exist. amount == 0 for delete
+2. Same as depth.query，only return what's different from last result, asks 或 bids may not exist.
+amount == 0 for delete
 3. market name
 
 ```
@@ -250,13 +255,48 @@ General error code:
         ["3.54000000", "6.00000000"]
     ],
     "last": "3.66000000",
-    "time": 1562662542872
+    "time": 1562662542872,
+    "checksum": 216578179
 }
 ```
 
-**Cancel subscription**
-* method: `depth.unsubscribe`
+**Depth Full subscription**
+* method: `depth.subscribe_full`
+* params:
+1. market
+2. limit
+3. interval
+
+* result:
+1. clean
+2. depth: same as the depth.query
+3. market name
+
+```
+[
+    true,
+    {
+        "asks": [
+            ["10000.00", "10.00000000"], ["10001.00", "10.00000000"]
+        ],
+        "bids": [
+            ["9999.00", "1.50000000"], ["9998.00", "1.50000000"], ["9997.00", "8.00000000"], ["9996.00", "135.00000000"]
+        ],
+        "last": "0.10",
+        "time": 1574838026364,
+        "checksum": 216578179
+    },
+    "BTCUSDT"],
+    "id": null
+    },
+    "BTCUSDT"
+]
+```
+
+**Cancel depth full subscription**
+* method: `depth.unsubscribe_full`
 * params: none
+
 
 ## Order API (Authentication required before connection)
 
