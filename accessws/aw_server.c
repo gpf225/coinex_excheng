@@ -82,6 +82,37 @@ static bool is_good_interval(const char *interval)
     return false;
 }
 
+static bool is_good_full_depth_limit(int limit)
+{
+    for (int i = 0; i < settings.full_depth_limit.count; ++i) {
+        if (settings.full_depth_limit.limit[i] == limit) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool is_good_full_depth_interval(const char *interval)
+{
+    if (interval == NULL || strlen(interval) > INTERVAL_MAX_LEN) {
+        return false;
+    }
+
+    mpd_t *merge = decimal(interval, 0);
+    if (merge == NULL)
+        return false;
+
+    for (int i = 0; i < settings.full_depth_merge.count; ++i) {
+        if (mpd_cmp(settings.full_depth_merge.limit[i], merge, &mpd_ctx) == 0) {
+            mpd_del(merge);
+            return true;
+        }
+    }
+
+    mpd_del(merge);
+    return false;
+}
+
 static bool is_good_market(const char *market)
 {
     if (market == NULL || strlen(market) == 0 || strlen(market) > MARKET_NAME_MAX_LEN) {
@@ -317,7 +348,7 @@ static int on_method_depth_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
     }
 
     depth_unsubscribe(ses);
-    int ret = depth_subscribe(ses, market, limit, interval);
+    int ret = depth_subscribe(ses, market, limit, interval, false);
     if (ret == -1) {
         return ws_send_error_invalid_argument(ses, id);
     } else if (ret < 0) {
@@ -357,7 +388,7 @@ static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_
             return ws_send_error_invalid_argument(ses, id);
         }
 
-        int ret = depth_subscribe(ses, market, limit, interval);
+        int ret = depth_subscribe(ses, market, limit, interval, false);
         if (ret < 0) {
             depth_unsubscribe(ses);
             return ws_send_error_internal_error(ses, id);
@@ -380,6 +411,41 @@ static int on_method_depth_subscribe_multi(nw_ses *ses, uint64_t id, struct clt_
 }
 
 static int on_method_depth_unsubscribe_multi(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    depth_unsubscribe(ses);
+    return ws_send_success(ses, id);
+}
+
+static int on_method_depth_subscribe_full(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return ws_send_error_invalid_argument(ses, id);
+
+    const char *market = json_string_value(json_array_get(params, 0));
+    if (market == NULL || !market_exists(market)) {
+        return ws_send_error_invalid_argument(ses, id);
+    }
+
+    int limit = json_integer_value(json_array_get(params, 1));
+    const char *interval = json_string_value(json_array_get(params, 2));
+    if (!is_good_market(market) || !is_good_full_depth_interval(interval) || !is_good_full_depth_limit(limit)) {
+        return ws_send_error_invalid_argument(ses, id);
+    }
+
+    depth_unsubscribe(ses);
+    int ret = depth_subscribe(ses, market, limit, interval, true);
+    if (ret == -1) {
+        return ws_send_error_invalid_argument(ses, id);
+    } else if (ret < 0) {
+        return ws_send_error_internal_error(ses, id);
+    }
+
+    ws_send_success(ses, id);
+    depth_send_clean(ses, market, limit, interval);
+    return 0;
+}
+
+static int on_method_depth_unsubscribe_full(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     depth_unsubscribe(ses);
     return ws_send_success(ses, id);
@@ -1065,6 +1131,8 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("depth.unsubscribe",         on_method_depth_unsubscribe));
     ERR_RET_LN(add_handler("depth.subscribe_multi",     on_method_depth_subscribe_multi));
     ERR_RET_LN(add_handler("depth.unsubscribe_multi",   on_method_depth_unsubscribe_multi));
+    ERR_RET_LN(add_handler("depth.subscribe_full",      on_method_depth_subscribe_full));
+    ERR_RET_LN(add_handler("depth.unsubscribe_full",    on_method_depth_unsubscribe_full));
 
     ERR_RET_LN(add_handler("state.query",               on_method_state_query));
     ERR_RET_LN(add_handler("state.subscribe",           on_method_state_subscribe));

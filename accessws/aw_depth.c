@@ -3,6 +3,7 @@
  *     History: yang@haipo.me, 2017/04/27, create
  */
 
+# include "ut_crc32.h"
 # include "aw_config.h"
 # include "aw_server.h"
 # include "aw_depth.h"
@@ -27,6 +28,10 @@ struct depth_val {
 
 struct depth_sub_counter{
     uint32_t count;
+};
+
+struct depth_session_val {
+    bool is_full;
 };
 
 static uint32_t dict_depth_hash_func(const void *key)
@@ -76,6 +81,18 @@ static void *dict_depth_sub_counter_dup(const void *val)
 }
 
 static void dict_depth_sub_counter_free(void *val)
+{
+    free(val);
+}
+
+static void *dict_depth_session_val_dup(const void *val)
+{
+    struct depth_session_val *obj = malloc(sizeof(struct depth_session_val));
+    memcpy(obj, val, sizeof(struct depth_session_val));
+    return obj;
+}
+
+static void dict_depth_session_val_free(void *val)
 {
     free(val);
 }
@@ -263,20 +280,25 @@ static int send_depth_request(int command, struct depth_key *key)
     return 0;
 }
 
-static int broadcast_update(const char *market, dict_t *sessions, bool clean, json_t *result)
+static int broadcast_update(const char *market, dict_t *sessions, bool clean, json_t *full, json_t *diff)
 {
-    json_t *params = json_array();
-    json_array_append_new(params, json_boolean(clean));
-    json_array_append(params, result);
-    json_array_append_new(params, json_string(market));
-
     dict_iterator *iter = dict_get_iterator(sessions);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
+        json_t *params = json_array();
+        struct depth_session_val *ses_val = entry->val;
+        if (clean || ses_val->is_full) {
+            json_array_append_new(params, json_boolean(true));
+            json_array_append(params, full);
+        } else {
+            json_array_append_new(params, json_boolean(false));
+            json_array_append(params, diff);
+        }
+        json_array_append_new(params, json_string(market));
         ws_send_notify(entry->key, "depth.update", params);
+        json_decref(params);
     }
     dict_release_iterator(iter);
-    json_decref(params);
     profile_inc("depth.update", dict_size(sessions));
 
     return 0;
@@ -297,17 +319,53 @@ static json_t *generate_depth_data(json_t *array, int limit)
     return new_data;
 }
 
+static uint32_t general_depth_checksum(json_t *bids, json_t *asks)
+{
+    sds depth_str = sdsempty();
+    if (bids != NULL) {
+        int size = json_array_size(bids);
+        for (int i = 0; i < size; ++i) {
+            json_t *unit = json_array_get(bids, i);
+            const char *price  = json_string_value(json_array_get(unit, 0));
+            const char *amount = json_string_value(json_array_get(unit, 1));
+            if (sdslen(depth_str) > 0) {
+                depth_str = sdscat(depth_str, ":");
+            }
+            depth_str = sdscatprintf(depth_str, "%s:%s", price, amount);
+        }
+    }
+
+    if (asks != NULL) {
+        int size = json_array_size(asks);
+        for (int i = 0; i < size; ++i) {
+            json_t *unit = json_array_get(asks, i);
+            const char *price  = json_string_value(json_array_get(unit, 0));
+            const char *amount = json_string_value(json_array_get(unit, 1));
+            if (sdslen(depth_str) > 0) {
+                depth_str = sdscat(depth_str, ":");
+            }
+            depth_str = sdscatprintf(depth_str, "%s:%s", price, amount);
+        }
+    }
+
+    uint32_t checksum = generate_crc32c(depth_str, sdslen(depth_str));
+    sdsfree(depth_str);
+    return checksum;
+}
+
 json_t *pack_depth_result(json_t *result, uint32_t limit)
 {
     json_t *asks_array = json_object_get(result, "asks");
     json_t *bids_array = json_object_get(result, "bids");
-
+    json_t *limit_asks_array = generate_depth_data(asks_array, limit);
+    json_t *limit_bids_array = generate_depth_data(bids_array, limit);
     json_t *new_result = json_object();
-    json_object_set_new(new_result, "asks", generate_depth_data(asks_array, limit));
-    json_object_set_new(new_result, "bids", generate_depth_data(bids_array, limit));
+    uint32_t checksum = general_depth_checksum(limit_bids_array, limit_asks_array);
+    json_object_set_new(new_result, "asks", limit_asks_array);
+    json_object_set_new(new_result, "bids", limit_bids_array);
     json_object_set    (new_result, "last", json_object_get(result, "last"));
     json_object_set    (new_result, "time", json_object_get(result, "time"));
-
+    json_object_set_new(new_result, "checksum", json_integer(checksum));
     return new_result;
 }
 
@@ -324,9 +382,8 @@ static int notify_depth(const char *market, const char *interval, uint32_t limit
     if (val->last == NULL) {
         val->last = depth_result;
         val->last_clean = time(NULL);
-        return broadcast_update(key.market, val->sessions, true, depth_result);
+        return broadcast_update(key.market, val->sessions, true, depth_result, NULL);
     }
-
     json_t *diff = get_depth_diff(val->last, depth_result);
     if (diff == NULL) {
         json_decref(depth_result);
@@ -339,11 +396,12 @@ static int notify_depth(const char *market, const char *interval, uint32_t limit
     time_t now = time(NULL);
     if (now - val->last_clean >= CLEAN_INTERVAL) {
         val->last_clean = now; 
-        broadcast_update(key.market, val->sessions, true, depth_result);
+        broadcast_update(key.market, val->sessions, true, depth_result, NULL);
     } else {
         json_object_set(diff, "last", json_object_get(result, "last"));
         json_object_set(diff, "time", json_object_get(result, "time"));
-        broadcast_update(key.market, val->sessions, false, diff);
+        json_object_set(diff, "checksum", json_object_get(depth_result, "checksum"));
+        broadcast_update(key.market, val->sessions, false, depth_result, diff);
     }
     json_decref(diff);
 
@@ -492,7 +550,7 @@ int init_depth(void)
     return 0;
 }
 
-int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval)
+int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char *interval, bool is_full)
 {
     struct depth_key key;
     depth_set_key(&key, market, interval, limit);
@@ -506,6 +564,8 @@ int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char 
         memset(&dt, 0, sizeof(dt));
         dt.hash_function = ptr_dict_hash_func;
         dt.key_compare = ptr_dict_key_compare;
+        dt.val_dup = dict_depth_session_val_dup;
+        dt.val_destructor = dict_depth_session_val_free;
         val.sessions = dict_create(&dt, 1024);
         if (val.sessions == NULL)
             return -__LINE__;
@@ -521,7 +581,9 @@ int depth_subscribe(nw_ses *ses, const char *market, uint32_t limit, const char 
     if (dict_find(obj->sessions, ses) != NULL)
         return 0;
 
-    dict_add(obj->sessions, ses, NULL);
+    struct depth_session_val ses_val;
+    ses_val.is_full = is_full;
+    dict_add(obj->sessions, ses, &ses_val);
     int count = depth_sub_counter_inc(market, interval);
     if (count == 1) {
         ERR_RET(send_depth_request(CMD_CACHE_DEPTH_SUBSCRIBE, &key));
