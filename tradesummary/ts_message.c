@@ -1382,21 +1382,25 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
     while ((entry = dict_next(diter)) != NULL) {
         uint32_t user_id = (uintptr_t)entry->key;
         struct user_detail_val *user_detail = entry->val;
+        if (mpd_cmp(user_detail->buy_amount, mpd_zero, &mpd_ctx) != 0) {
+            struct trade_amount_rank_val *buy_rank_detail = malloc(sizeof(struct trade_amount_rank_val));
+            memset(buy_rank_detail, 0, sizeof(struct trade_amount_rank_val));
+            buy_rank_detail->user_id = user_id;
+            buy_rank_detail->amount = mpd_qncopy(user_detail->buy_amount);
+            buy_rank_detail->amount_total = mpd_qncopy(mpd_zero);
+            mpd_add(buy_rank_detail->amount_total, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
+            skiplist_insert(buy_amount_list, buy_rank_detail);
+        }
 
-        struct trade_amount_rank_val *buy_rank_detail = malloc(sizeof(struct trade_amount_rank_val));
-        memset(buy_rank_detail, 0, sizeof(struct trade_amount_rank_val));
-        buy_rank_detail->user_id = user_id;
-        buy_rank_detail->amount = mpd_qncopy(user_detail->buy_amount);
-        buy_rank_detail->amount_total = mpd_qncopy(mpd_zero);
-        mpd_add(buy_rank_detail->amount_total, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
-        skiplist_insert(buy_amount_list, buy_rank_detail);
-
-        struct trade_amount_rank_val *sell_rank_detail = malloc(sizeof(struct trade_amount_rank_val));
-        memset(sell_rank_detail, 0, sizeof(struct trade_amount_rank_val));
-        sell_rank_detail->user_id = user_id;
-        sell_rank_detail->amount = mpd_qncopy(user_detail->sell_amount);
-        sell_rank_detail->amount_total = mpd_qncopy(buy_rank_detail->amount_total);
-        skiplist_insert(sell_amount_list, sell_rank_detail);
+        if (mpd_cmp(user_detail->sell_amount, mpd_zero, &mpd_ctx) != 0) {
+            struct trade_amount_rank_val *sell_rank_detail = malloc(sizeof(struct trade_amount_rank_val));
+            memset(sell_rank_detail, 0, sizeof(struct trade_amount_rank_val));
+            sell_rank_detail->user_id = user_id;
+            sell_rank_detail->amount = mpd_qncopy(user_detail->sell_amount);
+            sell_rank_detail->amount_total = mpd_qncopy(mpd_zero);
+            mpd_add(sell_rank_detail->amount_total, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
+            skiplist_insert(sell_amount_list, sell_rank_detail);
+        }
     }
     dict_release_iterator(diter);
     dict_release(dict);
