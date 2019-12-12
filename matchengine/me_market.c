@@ -435,6 +435,7 @@ static int finish_order(bool real, market_t *m, order_t *order)
             if (balance_unfreeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->stock, order->frozen) == NULL)
                 return -__LINE__;
         }
+        balance_reset(order->user_id, order->account, m->stock);
     } else {
         skiplist_node *node = skiplist_find(m->bids, order);
         if (node) {
@@ -444,8 +445,9 @@ static int finish_order(bool real, market_t *m, order_t *order)
             if (balance_unfreeze(order->user_id, order->account, BALANCE_TYPE_FROZEN, m->money, order->frozen) == NULL)
                 return -__LINE__;
         }
+        balance_reset(order->user_id, order->account, m->money);
     }
-    balance_reset(order->user_id, order->account, m->money);
+
     user_order_list_delete(dict_user_orders, order->user_id, order->account, order);
     user_order_list_delete(m->user_orders, order->user_id, order->account, order);
 
