@@ -60,6 +60,9 @@ struct settings {
     depth_interval_cfg  depth_interval;
 
     double              interval_time;
+    double              deals_interval;
+    double              status_interval;
+    double              depth_interval_time;
     int                 depth_limit_max;
     int                 deal_max;
     int                 worker_num;

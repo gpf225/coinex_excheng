@@ -391,7 +391,7 @@ int init_status(void)
     if (dict_state == NULL)
         return -__LINE__;
 
-    nw_timer_set(&timer, settings.interval_time, true, on_timer, NULL);
+    nw_timer_set(&timer, settings.status_interval, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;

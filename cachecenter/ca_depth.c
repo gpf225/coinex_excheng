@@ -154,7 +154,7 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     json_t *result_body = json_object();
     json_object_set_new(result_body, "market", json_string(market));
     json_object_set_new(result_body, "interval", json_string(interval));
-    json_object_set_new(result_body, "ttl", json_integer(settings.interval_time * 1000));
+    json_object_set_new(result_body, "ttl", json_integer(settings.depth_interval_time * 1000));
     json_object_set    (result_body, "data", result);
 
     json_t *reply = json_object();
@@ -198,13 +198,13 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const c
 {
     sds cache_key = get_depth_key(market, interval);
     uint64_t now = current_millisecond();
-    struct dict_cache_val *cache = get_cache(cache_key, settings.interval_time * 1000);
+    struct dict_cache_val *cache = get_cache(cache_key, settings.depth_interval_time * 1000);
     if (cache == NULL) {
         sdsfree(cache_key);
         return false;
     }
 
-    uint64_t ttl = cache->time + settings.interval_time * 1000 - now;
+    uint64_t ttl = cache->time + settings.depth_interval_time * 1000 - now;
 
     json_t *reply = json_object();
     json_object_set_new(reply, "error", json_null());
@@ -360,8 +360,8 @@ int depth_subscribe(nw_ses *ses, const char *market, const char *interval)
     dict_add(obj->sessions, ses, NULL);
     if (obj->last) {
         uint64_t now = current_millisecond();
-        if (now < (obj->time + settings.interval_time * 1000)) {
-            uint64_t ttl = obj->time + settings.interval_time * 1000 - now;
+        if (now < (obj->time + settings.depth_interval_time * 1000)) {
+            uint64_t ttl = obj->time + settings.depth_interval_time * 1000 - now;
             depth_send_last(ses, obj->last, market, interval, ttl);
         } else {
             depth_send_last(ses, obj->last, market, interval, 0);
@@ -431,7 +431,7 @@ int init_depth(void)
     if (dict_depth_sub == NULL)
         return -__LINE__;
 
-    nw_timer_set(&timer, settings.interval_time, true, on_timer, NULL);
+    nw_timer_set(&timer, settings.depth_interval_time, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;

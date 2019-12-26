@@ -334,7 +334,7 @@ int init_deals(void)
     if (dict_deals == NULL)
         return -__LINE__;
 
-    nw_timer_set(&timer, settings.interval_time, true, on_timer, NULL);
+    nw_timer_set(&timer, settings.deals_interval, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;
