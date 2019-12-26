@@ -80,6 +80,9 @@ static int read_config_from_json(json_t *root)
         return -__LINE__;
     }
 
+    ERR_RET_LN(read_cfg_real(root, "deals_interval", &settings.deals_interval, false, 1.0));
+    ERR_RET_LN(read_cfg_real(root, "status_interval", &settings.status_interval, false, 1.0));
+    ERR_RET_LN(read_cfg_real(root, "depth_interval", &settings.depth_interval_time, false, 1.0));
     ERR_RET_LN(read_cfg_real(root, "interval_time", &settings.interval_time, false, 1.0));
     ERR_RET_LN(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 0.2));
     ERR_RET_LN(read_cfg_real(root, "market_interval", &settings.market_interval, false, 10));
