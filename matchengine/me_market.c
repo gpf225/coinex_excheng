@@ -1412,6 +1412,29 @@ static bool check_limit_fill_or_kill(market_t *m, uint32_t side, mpd_t *price, m
     return ret;
 }
 
+static bool check_limit_maker_only(market_t *m, uint32_t side, mpd_t *price)
+{
+    if (side == MARKET_ORDER_SIDE_ASK) {
+        if (skiplist_len(m->bids) > 0) {
+            skiplist_node *node = skiplist_header(m->bids);
+            order_t *order = node->value;
+            if (mpd_cmp(order->price, price, &mpd_ctx) >= 0 ){
+                return false;
+            }
+        }
+    } else {
+        if (skiplist_len(m->asks) > 0) {
+            skiplist_node *node = skiplist_header(m->asks);
+            order_t *order = node->value;
+            if (mpd_cmp(order->price, price, &mpd_ctx) <= 0) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t user_id, uint32_t account, uint32_t side, mpd_t *amount,
         mpd_t *price, mpd_t *taker_fee, mpd_t *maker_fee, const char *source, const char *fee_asset, mpd_t *fee_price, mpd_t *fee_discount, uint32_t option, const char *client_id)
 {
@@ -1470,6 +1493,11 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
     bool fill_or_kill = (option & OPTION_FILL_OR_KILL) ? true : false;
     if (real && fill_or_kill && !check_limit_fill_or_kill(m, side, price, amount)) {
         return -3;
+    }
+
+    bool only_maker = (option & OPTION_MAKER_ONLY) ? true : false;
+    if (real && only_maker && !check_limit_maker_only(m, side, price)) {
+        return -4;
     }
 
     order_t *order = malloc(sizeof(order_t));
