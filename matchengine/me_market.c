@@ -1418,7 +1418,7 @@ static bool check_limit_maker_only(market_t *m, uint32_t side, mpd_t *price)
         if (skiplist_len(m->bids) > 0) {
             skiplist_node *node = skiplist_header(m->bids);
             order_t *order = node->value;
-            if (mpd_cmp(order->price, price, &mpd_ctx) <= 0 ){
+            if (mpd_cmp(order->price, price, &mpd_ctx) >= 0 ){
                 return false;
             }
         }
@@ -1426,7 +1426,7 @@ static bool check_limit_maker_only(market_t *m, uint32_t side, mpd_t *price)
         if (skiplist_len(m->asks) > 0) {
             skiplist_node *node = skiplist_header(m->asks);
             order_t *order = node->value;
-            if (mpd_cmp(order->price, price, &mpd_ctx) >= 0) {
+            if (mpd_cmp(order->price, price, &mpd_ctx) <= 0) {
                 return false;
             }
         }
