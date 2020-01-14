@@ -48,8 +48,8 @@ static void clear_market(uint32_t update_id, bool is_index)
     while ((entry = dict_next(iter)) != NULL) {
         struct market_val *info = entry->val;
         if (info->id != update_id && info->is_index == is_index) {
-            dict_delete(dict_market, entry->key);
             log_info("del market: %s", (char *)entry->key);
+            dict_delete(dict_market, entry->key);
         }
     }
     dict_release_iterator(iter);

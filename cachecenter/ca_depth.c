@@ -237,6 +237,10 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
+    nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
+    if (entry == NULL)
+        return;
+
     json_t *reply = json_loadb(pkg->body, pkg->body_size, 0, NULL);
     if (reply == NULL) {
         sds hex = hexdump(pkg->body, pkg->body_size);
@@ -246,9 +250,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         return;
     }
 
-    nw_state_entry *entry = nw_state_get(state_context, pkg->sequence);
-    if (entry == NULL)
-        return;
     struct state_data *state = entry->data;
     sds filter_key = get_depth_key(state->market, state->interval);
 

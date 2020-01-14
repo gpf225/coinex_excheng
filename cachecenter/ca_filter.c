@@ -118,23 +118,21 @@ void delete_filter_queue(sds key)
 
 static void reply_to_ses(bool is_error, json_t *reply, nw_ses *ses, list_t *list)
 {
-    json_t *result = json_object();
-    json_object_set(result, "error", json_object_get(reply, "error"));
-    json_object_set(result, "result", json_object_get(reply, "result"));
-    if (!is_error) {
-        json_object_set_new(result, "ttl", json_integer(settings.interval_time * 1000));
-    }
-
     list_node *node = NULL;
     list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
     while ((node = list_next(iter)) != NULL) {
         struct filter_list_item *item = node->value;
+        json_t *result = json_object();
+        json_object_set(result, "error", json_object_get(reply, "error"));
+        json_object_set(result, "result", json_object_get(reply, "result"));
+        if (!is_error)
+            json_object_set_new(result, "ttl", json_integer(settings.interval_time * 1000));
         json_object_set_new(result, "id", json_integer(item->pkg.req_id));
+
         rpc_reply_json(ses, &item->pkg, result);
+        json_decref(result);
     }
     list_release_iterator(iter);
-
-    json_decref(result);
 }
 
 void reply_filter_message(sds key, bool is_error, json_t *reply)
