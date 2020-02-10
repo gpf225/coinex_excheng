@@ -75,7 +75,9 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
         pkg_len += payload_len;
     }
 
-    ws_ses_update_activity(ses);
+    if (ses->svr) {
+        ws_ses_update_activity(ses);
+    }
     return nw_ses_send(ses, buf, pkg_len);
 }
 
