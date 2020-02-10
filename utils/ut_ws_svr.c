@@ -396,6 +396,12 @@ static void on_timer(nw_timer *timer, void *privdata)
    }
 }
 
+void ws_ses_update_activity(nw_ses *ses)
+{
+    struct clt_info *info = ses->privdata;
+    info->last_activity = current_timestamp();
+}
+
 ws_svr *ws_svr_create(ws_svr_cfg *cfg, ws_svr_type *type)
 {
     if (type->on_message == NULL)
