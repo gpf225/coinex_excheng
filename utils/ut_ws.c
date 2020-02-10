@@ -4,6 +4,7 @@
 # include "ut_http.h"
 # include "ut_misc.h"
 # include "ut_base64.h"
+# include "ut_ws_svr.h"
 
 int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len, int masked)
 {
@@ -74,6 +75,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
         pkg_len += payload_len;
     }
 
+    ws_ses_update_activity(ses);
     return nw_ses_send(ses, buf, pkg_len);
 }
 
