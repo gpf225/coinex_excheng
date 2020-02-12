@@ -535,13 +535,13 @@ static int on_method_deals_subscribe_user(nw_ses *ses, uint64_t id, struct clt_i
     if (!info->auth)
         return ws_send_error_require_auth(ses, id);
 
-    deals_unsubscribe_user(ses);
+    deals_unsubscribe_user(ses, 0, "");
     size_t params_size = json_array_size(params);
     for (size_t i = 0; i < params_size; ++i) {
         const char *market = json_string_value(json_array_get(params, i));
         if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN)
             return ws_send_error_invalid_argument(ses, id);
-        if (deals_subscribe_user(ses, market, info->user_id) < 0)
+        if (deals_subscribe_user(ses, info->user_id, market) < 0)
             return ws_send_error_internal_error(ses, id);
     }
 
@@ -553,7 +553,7 @@ static int on_method_deals_unsubscribe_user(nw_ses *ses, uint64_t id, struct clt
 {
     if (!info->auth)
         return ws_send_error_require_auth(ses, id);
-    deals_unsubscribe_user(ses);
+    deals_unsubscribe_user(ses, 0, "");
     return ws_send_success(ses, id);
 }
 
