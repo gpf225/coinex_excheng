@@ -48,21 +48,6 @@ static void dict_market_val_free(void *val)
     free(obj);
 }
 
-// dict user
-static void *dict_user_val_dup(const void *key)
-{
-    struct user_val *obj = malloc(sizeof(struct user_val));
-    memcpy(obj, key, sizeof(struct user_val));
-    return obj;
-}
-
-static void dict_user_val_free(void *val)
-{
-    struct user_val *obj = val;
-    dict_release(obj->sessions);
-    free(obj);
-}
-
 // dict deals
 static void *dict_deals_val_dup(const void *val)
 {
@@ -76,6 +61,21 @@ static void dict_deals_val_free(void *val)
     struct deals_val *obj = val;
     if (obj->deals)
         list_release(obj->deals);
+    free(obj);
+}
+
+// dict user
+static void *dict_user_val_dup(const void *key)
+{
+    struct user_val *obj = malloc(sizeof(struct user_val));
+    memcpy(obj, key, sizeof(struct user_val));
+    return obj;
+}
+
+static void dict_user_val_free(void *val)
+{
+    struct user_val *obj = val;
+    dict_release(obj->sessions);
     free(obj);
 }
 
