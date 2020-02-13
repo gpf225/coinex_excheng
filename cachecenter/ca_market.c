@@ -19,6 +19,8 @@ static nw_state *state_context;
 
 struct market_val {
     int     id;
+    char    money[ASSET_NAME_MAX_LEN + 1];
+    char    stock[ASSET_NAME_MAX_LEN + 1];
     bool    is_index;
 };
 
@@ -38,6 +40,13 @@ static char *convert_index_name(const char *name)
 {
     static char buf[100];
     snprintf(buf, sizeof(buf), "%s_INDEX", name);
+    return buf;
+}
+
+static char *convert_trade_zone_name(const char *market_money)
+{
+    static char buf[100];
+    snprintf(buf, sizeof(buf), "%s_ZONE", market_money);
     return buf;
 }
 
@@ -95,7 +104,10 @@ static int on_market_list_reply(json_t *result)
     for (size_t i = 0; i < json_array_size(result); ++i) {
         json_t *item = json_array_get(result, i);
         const char *name = json_string_value(json_object_get(item, "name"));
+        const char *money = json_string_value(json_object_get(item, "money"));
         update_market_list(name, update_id, false);
+        char *trade_zone_name = convert_trade_zone_name(money);
+        update_market_list(trade_zone_name, update_id, false);
     }
     clear_market(update_id, false);
 

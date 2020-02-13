@@ -9,6 +9,9 @@
 # include "mp_message.h"
 # include "mp_kline.h"
 
+# define TRADE_ZONE_SUFFIX "_ZONE"
+# define INDEX_SUFFIX      "_INDEX"
+
 enum {
     INTERVAL_SEC,
     INTERVAL_MIN,
@@ -18,6 +21,9 @@ enum {
 
 struct market_info {
     char   *name;
+    char   *stock;
+    char   *money;
+    bool   trade_zone;
     mpd_t  *last;
     dict_t *sec;
     dict_t *min;
@@ -203,11 +209,18 @@ static int load_market(redisContext *context, struct market_info *info)
     return 0;
 }
 
-static struct market_info *create_market(const char *market)
+static struct market_info *create_market(const char *market, const char *stock, const char *money, bool trade_zone)
 {
     struct market_info *info = malloc(sizeof(struct market_info));
     memset(info, 0, sizeof(struct market_info));
+    info->trade_zone = trade_zone;
     info->name = strdup(market);
+    if (stock) {
+        info->stock = strdup(stock);
+    }
+    if (money) {
+        info->money = strdup(money);
+    }
     info->last = mpd_qncopy(mpd_zero);
     dict_types dt;
 
@@ -316,27 +329,48 @@ cleanup:
     return result;
 }
 
-static int init_single_market(redisContext *context, const char *name)
+static int init_single_market(redisContext *context, const char *name, const char *stock, const char *money, bool trade_zone)
 {
-    struct market_info *info = create_market(name);
+    struct market_info *info = create_market(name, stock, money, trade_zone);
     if (info == NULL) {
         log_error("create market %s fail", name);
         return -__LINE__;
     }
-    int ret = load_market(context, info);
-    if (ret < 0) {
-        log_error("load market %s fail: %d", name, ret);
-        return -__LINE__;
-    }
 
+    if (worker_id < settings.worker_num || trade_zone) {
+        int ret = load_market(context, info);
+        if (ret < 0) {
+            log_error("load market %s fail: %d", name, ret);
+            return -__LINE__;
+        }
+    }
     return 0;
 }
 
 static char *convert_index_name(const char *name)
 {
     static char buf[100];
-    snprintf(buf, sizeof(buf), "%s_INDEX", name);
+    snprintf(buf, sizeof(buf), "%s%s", name, INDEX_SUFFIX);
     return buf;
+}
+
+static char *convert_trade_zone_name(const char *market_money)
+{
+    static char buf[100];
+    snprintf(buf, sizeof(buf), "%s%s", market_money, TRADE_ZONE_SUFFIX);
+    return buf;
+}
+
+static struct market_info *market_query(const char *market)
+{
+    sds key = sdsnew(market);
+    dict_entry *entry = dict_find(dict_market, key);
+    if (entry) {
+        sdsfree(key);
+        return entry->val;
+    }
+    sdsfree(key);
+    return NULL;
 }
 
 static int init_market(void)
@@ -363,13 +397,29 @@ static int init_market(void)
     for (size_t i = 0; i < json_array_size(market_list); ++i) {
         json_t *item = json_array_get(market_list, i);
         const char *name = json_string_value(json_object_get(item, "name"));
-        if (get_market_id(name) != worker_id)
+        const char *stock = json_string_value(json_object_get(item, "stock"));
+        const char *money = json_string_value(json_object_get(item, "money"));
+        if (get_market_id(name) != worker_id && worker_id != settings.worker_num)
             continue;
-        int ret = init_single_market(context, name);
+        int ret = init_single_market(context, name, stock, money, false);
         if (ret < 0) {
             json_decref(market_list);
             redisFree(context);
             return -__LINE__;
+        }
+
+        if (worker_id == settings.worker_num) {
+            char *trade_zone_name = convert_trade_zone_name(money);
+            struct market_info *info = market_query(trade_zone_name);
+            if (info == NULL) {
+                int ret = init_single_market(context, trade_zone_name, NULL, money, true);
+                if (ret < 0) {
+                    json_decref(market_list);
+                    redisFree(context);
+                    return -__LINE__;
+                }
+                log_info("add market: %s", trade_zone_name);
+            }
         }
     }
     json_decref(market_list);
@@ -387,7 +437,7 @@ static int init_market(void)
         char *index_name = convert_index_name(key);
         if (get_market_id(index_name) != worker_id)
             continue;
-        int ret = init_single_market(context, index_name);
+        int ret = init_single_market(context, index_name, NULL, NULL, false);
         if (ret < 0) {
             json_decref(index_list);
             redisFree(context);
@@ -398,18 +448,6 @@ static int init_market(void)
 
     redisFree(context);
     return 0;
-}
-
-static struct market_info *market_query(const char *market)
-{
-    sds key = sdsnew(market);
-    dict_entry *entry = dict_find(dict_market, key);
-    if (entry) {
-        sdsfree(key);
-        return entry->val;
-    }
-    sdsfree(key);
-    return NULL;
 }
 
 static struct kline_info *kline_query(dict_t *dict, time_t timestamp)
@@ -433,13 +471,24 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
 {
     struct market_info *info = market_query(market);
     if (info == NULL) {
-        info = create_market(market);
+        info = create_market(market, NULL, NULL, false);
         if (info == NULL) {
             return -__LINE__;
         }
         log_info("add market: %s", market);
     }
 
+    if (worker_id == settings.worker_num) {
+        if (info->money == NULL) {
+            return 0;
+        }
+        char *trade_zone_name = convert_trade_zone_name(info->money);
+        info = market_query(trade_zone_name);
+        if (info == NULL) {
+            log_info("trade_zone %s not exist", trade_zone_name);
+            return 0;
+        }
+    }
     // update sec
     time_t time_sec = (time_t)timestamp;
     void *time_sec_key = (void *)(uintptr_t)time_sec;
@@ -506,7 +555,7 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
     mpd_copy(info->last, price, &mpd_ctx);
 
     // append deals
-    if (id) {
+    if (id && worker_id != settings.worker_num) {
         json_t *deal = json_object();
         json_object_set_new(deal, "id", json_integer(id));
         json_object_set_new(deal, "time", json_real(timestamp));
@@ -574,7 +623,7 @@ static void on_deals_message(sds message, int64_t offset)
         goto cleanup;
     }
 
-    if (get_market_id(market) == worker_id) {
+    if (get_market_id(market) == worker_id || worker_id == settings.worker_num) {
         log_trace("deals message: %s, offset: %"PRIi64, message, offset);
         int ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
         if (ret < 0) {
@@ -993,17 +1042,40 @@ static int update_market_list(void)
     for (size_t i = 0; i < json_array_size(list); ++i) {
         json_t *item = json_array_get(list, i);
         const char *name = json_string_value(json_object_get(item, "name"));
-        if (get_market_id(name) != worker_id)
+        const char *stock = json_string_value(json_object_get(item, "stock"));
+        const char *money = json_string_value(json_object_get(item, "money"));
+        if (get_market_id(name) != worker_id && worker_id != settings.worker_num)
             continue;
         struct market_info *info = market_query(name);
         if (info == NULL) {
-            info = create_market(name);
+            info = create_market(name, stock, money, false);
             if (info == NULL) {
                 json_decref(list);
                 return -__LINE__;
             }
             log_info("add market: %s", name);
+        } else {
+            if (info->stock == NULL) {
+                info->stock = strdup(stock);
+            }
+            if (info->money == NULL) {
+                info->money = strdup(money);
+            }
         }
+
+        if (worker_id == settings.worker_num) {
+            char *trade_zone_name = convert_trade_zone_name(money);
+            struct market_info *info = market_query(trade_zone_name);
+            if (info == NULL) {
+                info = create_market(trade_zone_name, NULL, NULL, true);
+                if (info == NULL) {
+                    json_decref(list);
+                    return -__LINE__;
+                }
+                log_info("add market: %s", trade_zone_name);
+            }
+        }
+        
     }
     json_decref(list);
 
@@ -1024,7 +1096,7 @@ static int update_index_list(void)
             continue;
         struct market_info *info = market_query(index_name);
         if (info == NULL) {
-            info = create_market(index_name);
+            info = create_market(index_name, NULL, NULL, false);
             if (info == NULL) {
                 json_decref(index_list);
                 return -__LINE__;
@@ -1098,8 +1170,12 @@ int init_message(int id)
 
 int get_market_id(const char *market)
 {
-    uint32_t hash = dict_generic_hash_function(market, strlen(market));
-    return hash % settings.worker_num;
+    if (strstr(market, TRADE_ZONE_SUFFIX) != NULL) {
+        return settings.worker_num;
+    } else {
+        uint32_t hash = dict_generic_hash_function(market, strlen(market));
+        return hash % settings.worker_num;
+    }
 }
 
 bool market_exist(const char *market)
