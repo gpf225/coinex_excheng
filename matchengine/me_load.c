@@ -752,7 +752,7 @@ static int load_cancel_order(json_t *params)
 
 static int load_cancel_order_all(json_t *params)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) < 3)
         return -__LINE__;
 
     // user_id
@@ -773,7 +773,16 @@ static int load_cancel_order_all(json_t *params)
     if (market == NULL)
         return 0;
 
-    int ret = market_cancel_order_all(false, user_id, account, market);
+    uint32_t side = 0;
+    if (json_array_size(params) == 4) {
+        if (!json_is_integer(json_array_get(params, 3)))
+            return -__LINE__;
+        side = json_integer_value(json_array_get(params, 3));
+        if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+            return -__LINE__;
+    }
+
+    int ret = market_cancel_order_all(false, user_id, account, market, side);
     if (ret < 0) {
         log_error("market_cancel_order_all user id: %u, account: %d, market: %s", user_id, account, market_name);
         return -__LINE__;
@@ -1115,7 +1124,7 @@ static int load_cancel_stop(json_t *params)
 
 static int load_cancel_stop_all(json_t *params)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) < 3)
         return -__LINE__;
 
     // user_id
@@ -1136,7 +1145,16 @@ static int load_cancel_stop_all(json_t *params)
     if (market == NULL)
         return 0;
 
-    int ret = market_cancel_stop_all(false, user_id, account, market);
+    uint32_t side = 0;
+    if (json_array_size(params) == 4) {
+        if (!json_is_integer(json_array_get(params, 3)))
+            return -__LINE__;
+        side = json_integer_value(json_array_get(params, 3));
+        if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+            return -__LINE__;
+    }
+
+    int ret = market_cancel_stop_all(false, user_id, account, market, side);
     if (ret < 0) {
         log_error("market_cancel_stop_all user id: %u, account: %d, market: %s", user_id, account, market_name);
         return -__LINE__;
