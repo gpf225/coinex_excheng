@@ -995,11 +995,14 @@ static int on_cmd_cancel_stop_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // side
-    if (!json_is_integer(json_array_get(params, 3)))
-        return rpc_reply_error_invalid_argument(ses, pkg);
-    uint32_t side = json_integer_value(json_array_get(params, 3));
-    if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
-        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t side = 0;
+    if (json_array_size(params) == 4) {
+        if (!json_is_integer(json_array_get(params, 3)))
+            return rpc_reply_error_invalid_argument(ses, pkg);
+        side = json_integer_value(json_array_get(params, 3));
+        if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+            return rpc_reply_error_invalid_argument(ses, pkg);
+    }
 
     int ret = market_cancel_stop_all(true, user_id, account, market, side);
     if (ret < 0) {
