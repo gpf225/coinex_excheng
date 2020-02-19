@@ -778,7 +778,7 @@ static int load_cancel_order_all(json_t *params)
         if (!json_is_integer(json_array_get(params, 3)))
             return -__LINE__;
         side = json_integer_value(json_array_get(params, 3));
-        if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+        if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
             return -__LINE__;
     }
 
@@ -1150,7 +1150,7 @@ static int load_cancel_stop_all(json_t *params)
         if (!json_is_integer(json_array_get(params, 3)))
             return -__LINE__;
         side = json_integer_value(json_array_get(params, 3));
-        if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+        if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
             return -__LINE__;
     }
 

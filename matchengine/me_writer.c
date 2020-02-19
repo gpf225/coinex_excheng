@@ -618,7 +618,7 @@ static int on_cmd_order_cancel_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         if (!json_is_integer(json_array_get(params, 3)))
             return rpc_reply_error_invalid_argument(ses, pkg);
         side = json_integer_value(json_array_get(params, 3));
-        if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+        if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
             return rpc_reply_error_invalid_argument(ses, pkg);
     }
 
@@ -1000,7 +1000,7 @@ static int on_cmd_cancel_stop_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         if (!json_is_integer(json_array_get(params, 3)))
             return rpc_reply_error_invalid_argument(ses, pkg);
         side = json_integer_value(json_array_get(params, 3));
-        if (side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+        if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
             return rpc_reply_error_invalid_argument(ses, pkg);
     }
 
