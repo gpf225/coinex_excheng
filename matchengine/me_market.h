@@ -62,6 +62,9 @@ typedef struct order_t {
     mpd_t           *asset_fee;
     mpd_t           *last_deal_amount;
     mpd_t           *last_deal_price;
+    double          last_deal_time;
+    uint64_t        last_deal_id;
+    int             last_role;
     mpd_t           *fee_price;
 } order_t;
 

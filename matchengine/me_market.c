@@ -201,6 +201,9 @@ json_t *get_order_info(order_t *order, bool with_last_deal)
     if (with_last_deal) {
         json_object_set_new_mpd(info, "last_deal_amount", order->last_deal_amount);
         json_object_set_new_mpd(info, "last_deal_price", order->last_deal_price);
+        json_object_set_new(info, "last_deal_time", json_real(order->last_deal_time));
+        json_object_set_new(info, "last_deal_id", json_integer(order->last_deal_id));
+        json_object_set_new(info, "last_role", json_integer(order->last_role));
     }
 
     if (order->fee_asset) {
@@ -1007,8 +1010,16 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
 
         mpd_copy(taker->last_deal_amount, amount, &mpd_ctx);
         mpd_copy(taker->last_deal_price, price, &mpd_ctx);
+        taker->last_deal_time = taker->update_time;
+        taker->last_deal_id = deal_id;
+        taker->last_role = MARKET_ROLE_TAKER;
+
         mpd_copy(maker->last_deal_amount, amount, &mpd_ctx);
         mpd_copy(maker->last_deal_price, price, &mpd_ctx);
+        maker->last_deal_time = maker->update_time;
+        maker->last_deal_id = deal_id;
+        maker->last_role = MARKET_ROLE_MAKER;
+
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
             if (real) {
@@ -1214,8 +1225,15 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
 
         mpd_copy(taker->last_deal_amount, amount, &mpd_ctx);
         mpd_copy(taker->last_deal_price, price, &mpd_ctx);
+        taker->last_deal_time = taker->update_time;
+        taker->last_deal_id = deal_id;
+        taker->last_role = MARKET_ROLE_TAKER;
+
         mpd_copy(maker->last_deal_amount, amount, &mpd_ctx);
         mpd_copy(maker->last_deal_price, price, &mpd_ctx);
+        maker->last_deal_time = maker->update_time;
+        maker->last_deal_id = deal_id;
+        maker->last_role = MARKET_ROLE_MAKER;
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
             if (real) {
@@ -1808,8 +1826,15 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
 
         mpd_copy(taker->last_deal_amount, amount, &mpd_ctx);
         mpd_copy(taker->last_deal_price, price, &mpd_ctx);
+        taker->last_deal_time = taker->update_time;
+        taker->last_deal_id = deal_id;
+        taker->last_role = MARKET_ROLE_TAKER;
+
         mpd_copy(maker->last_deal_amount, amount, &mpd_ctx);
         mpd_copy(maker->last_deal_price, price, &mpd_ctx);
+        maker->last_deal_time = maker->update_time;
+        maker->last_deal_id = deal_id;
+        maker->last_role = MARKET_ROLE_MAKER;
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
             if (real) {
@@ -2014,8 +2039,15 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
 
         mpd_copy(taker->last_deal_amount, amount, &mpd_ctx);
         mpd_copy(taker->last_deal_price, price, &mpd_ctx);
+        taker->last_deal_time = taker->update_time;
+        taker->last_deal_id = deal_id;
+        taker->last_role = MARKET_ROLE_TAKER;
+
         mpd_copy(maker->last_deal_amount, amount, &mpd_ctx);
         mpd_copy(maker->last_deal_price, price, &mpd_ctx);
+        maker->last_deal_time = maker->update_time;
+        maker->last_deal_id = deal_id;
+        maker->last_role = MARKET_ROLE_MAKER;
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
             if (real) {
@@ -2967,6 +2999,9 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
     mpd_sub(ask->frozen, ask->frozen, amount, &mpd_ctx);
     mpd_add(ask->deal_stock, ask->deal_stock, amount, &mpd_ctx);
     mpd_add(ask->deal_money, ask->deal_money, deal, &mpd_ctx);
+    ask->last_deal_time = ask->update_time;
+    ask->last_deal_id = deal_id;
+    ask->last_role = ask_role;
     if (ask_fee_asset == ask->fee_asset) {
         mpd_add(ask->asset_fee, ask->asset_fee, ask_fee, &mpd_ctx);
     } else {
@@ -3001,6 +3036,9 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
     mpd_sub(bid->frozen, bid->frozen, deal, &mpd_ctx);
     mpd_add(bid->deal_stock, bid->deal_stock, amount, &mpd_ctx);
     mpd_add(bid->deal_money, bid->deal_money, deal, &mpd_ctx);
+    bid->last_deal_time = bid->update_time;
+    bid->last_deal_id = deal_id;
+    bid->last_role = bid_role;
     if (bid_fee_asset == bid->fee_asset) {
         mpd_add(bid->asset_fee, bid->asset_fee, bid_fee, &mpd_ctx);
     } else {
