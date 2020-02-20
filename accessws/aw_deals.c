@@ -220,7 +220,8 @@ int deals_unsubscribe(nw_ses *ses, uint32_t user_id)
     return 0;
 }
 
-int deals_new(uint32_t user_id, uint64_t id, double timestamp, int type, const char *market, const char *amount, const char *price)
+int deals_new(uint32_t user_id, uint64_t id, uint64_t order_id, uint32_t account, double timestamp, 
+    int type, const char *market, const char *amount, const char *price)
 {
     struct user_key key;
     memset(&key, 0, sizeof(struct user_key));
@@ -244,6 +245,8 @@ int deals_new(uint32_t user_id, uint64_t id, double timestamp, int type, const c
     }
     json_object_set_new(message, "amount", json_string(amount));
     json_object_set_new(message, "price", json_string(price));
+    json_object_set_new(message, "order_id", json_integer(order_id));
+    json_object_set_new(message, "account", json_integer(account));
 
     json_t *deals = json_array();
     json_array_append_new(deals, message);

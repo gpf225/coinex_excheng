@@ -25,14 +25,18 @@ static int process_deals_message(json_t *msg)
 {
     uint32_t ask_user_id = json_integer_value(json_object_get(msg, "ask_user_id"));
     uint32_t bid_user_id = json_integer_value(json_object_get(msg, "bid_user_id"));
+    uint64_t ask_order_id = json_integer_value(json_object_get(msg, "ask_id"));
+    uint64_t bid_order_id = json_integer_value(json_object_get(msg, "bid_id"));
+    uint32_t ask_account  = json_integer_value(json_object_get(msg, "ask_account"));
+    uint32_t bid_account  = json_integer_value(json_object_get(msg, "bid_account"));
     uint64_t id = json_integer_value(json_object_get(msg, "id"));
     double timestamp = json_real_value(json_object_get(msg, "timestamp"));
     const char *market = json_string_value(json_object_get(msg, "market"));
     const char *amount = json_string_value(json_object_get(msg, "amount"));
     const char *price  = json_string_value(json_object_get(msg, "price"));
 
-    deals_new(ask_user_id, id, timestamp, MARKET_TRADE_SIDE_SELL, market, amount, price);
-    deals_new(bid_user_id, id, timestamp, MARKET_TRADE_SIDE_BUY,  market, amount, price);
+    deals_new(ask_user_id, id, ask_order_id, ask_account, timestamp, MARKET_TRADE_SIDE_SELL, market, amount, price);
+    deals_new(bid_user_id, id, bid_order_id, bid_account, timestamp, MARKET_TRADE_SIDE_BUY,  market, amount, price);
 
     return 0;
 }
