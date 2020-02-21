@@ -279,7 +279,7 @@ int init_asset(void)
     if (state_context == NULL)
         return -__LINE__;
 
-    nw_timer_set(&timer, settings.kline_interval, true, on_timer, NULL);
+    nw_timer_set(&timer, settings.asset_delay, true, on_timer, NULL);
     nw_timer_start(&timer);
     return 0;
 }
