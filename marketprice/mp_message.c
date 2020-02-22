@@ -489,6 +489,7 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
             return 0;
         }
     }
+    
     // update sec
     time_t time_sec = (time_t)timestamp;
     void *time_sec_key = (void *)(uintptr_t)time_sec;

@@ -64,7 +64,7 @@ static void notify_state(void)
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
         struct dict_status_val *val = entry->val;
-        if (market_is_index(market)) {
+        if (market_is_index(market) || market_is_zone(market)) {
             if (val->last_state == NULL) {
                 continue;
             }
@@ -206,7 +206,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     bool is_error = false;
     struct state_data *state = entry->data;
-
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
     if (error == NULL || !json_is_null(error) || result == NULL) {
@@ -305,7 +304,7 @@ static void on_timer(nw_timer *timer, void *privdata)
     iter = dict_get_iterator(dict_market);
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
-        if (!market_is_index(market)) {
+        if (!market_is_index(market) && !market_is_zone(market)) {
             query_market_depth(market);
         }
         query_market_status(market);
