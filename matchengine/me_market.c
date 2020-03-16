@@ -203,7 +203,7 @@ json_t *get_order_info(order_t *order, bool with_last_deal)
         json_object_set_new_mpd(info, "last_deal_price", order->last_deal_price);
         json_object_set_new(info, "last_deal_time", json_real(order->last_deal_time));
         json_object_set_new(info, "last_deal_id", json_integer(order->last_deal_id));
-        json_object_set_new(info, "last_role", json_integer(order->last_deal_time));
+        json_object_set_new(info, "last_role", json_integer(order->last_role));
     }
 
     if (order->fee_asset) {
