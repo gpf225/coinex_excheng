@@ -123,6 +123,7 @@ static void on_timer(nw_timer *timer, void *privdata)
         json_array_append_new(params, json_integer(key->account));
         ws_send_notify(key->ses, "asset.update", params);
         dict_delete(dict_delay, key);
+        json_decref(params);
         count++;
     }
     dict_release_iterator(iter);
