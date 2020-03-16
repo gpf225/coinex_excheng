@@ -1076,7 +1076,6 @@ static int update_market_list(void)
                 log_info("add market: %s", trade_zone_name);
             }
         }
-        
     }
     json_decref(list);
 
