@@ -123,8 +123,8 @@ int init_access(void)
     if (bind_arr->addr.family != AF_INET)
         return -__LINE__;
 
-    worker_arr = malloc(sizeof(void *) * settings.worker_num);
-    for (int i = 0; i < settings.worker_num; ++i) {
+    worker_arr = malloc(sizeof(void *) * settings.worker_num + 1);
+    for (int i = 0; i < settings.worker_num + 1; ++i) {
         sds name = sdsempty();
         name = sdscatprintf(name, "worker_%d", i);
 

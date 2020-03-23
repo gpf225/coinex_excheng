@@ -19,7 +19,10 @@ static nw_state *state_context;
 
 struct market_val {
     int     id;
+    char    money[ASSET_NAME_MAX_LEN + 1];
+    char    stock[ASSET_NAME_MAX_LEN + 1];
     bool    is_index;
+    bool    is_zone;
 };
 
 static void *dict_market_val_dup(const void *key)
@@ -41,6 +44,13 @@ static char *convert_index_name(const char *name)
     return buf;
 }
 
+static char *convert_trade_zone_name(const char *market_money)
+{
+    static char buf[100];
+    snprintf(buf, sizeof(buf), "%s_ZONE", market_money);
+    return buf;
+}
+
 static void clear_market(uint32_t update_id, bool is_index)
 {
     dict_entry *entry;
@@ -55,7 +65,7 @@ static void clear_market(uint32_t update_id, bool is_index)
     dict_release_iterator(iter);
 }
 
-static void update_market_list(const char *name, uint32_t update_id, bool is_index)
+static void update_market_list(const char *name, uint32_t update_id, bool is_index, bool is_zone)
 {
     dict_entry *entry = dict_find(dict_market, name);
     if (entry == NULL) {
@@ -63,12 +73,14 @@ static void update_market_list(const char *name, uint32_t update_id, bool is_ind
         memset(&val, 0, sizeof(val));
         val.id = update_id;
         val.is_index = is_index;
+        val.is_zone = is_zone;
         dict_add(dict_market, (char *)name, &val);
         log_info("add market: %s", name);
     } else {
         struct market_val *info = entry->val;
         info->id = update_id;
         info->is_index = is_index;
+        info->is_zone = is_zone;
     }
 }
 
@@ -80,7 +92,7 @@ static int on_index_list_reply(json_t *result)
     json_t *info;
     json_object_foreach(result, market, info) {
         char *index_name = convert_index_name(market);
-        update_market_list(index_name, update_id, true);
+        update_market_list(index_name, update_id, true, false);
     }
     clear_market(update_id, true);
 
@@ -95,7 +107,10 @@ static int on_market_list_reply(json_t *result)
     for (size_t i = 0; i < json_array_size(result); ++i) {
         json_t *item = json_array_get(result, i);
         const char *name = json_string_value(json_object_get(item, "name"));
-        update_market_list(name, update_id, false);
+        const char *money = json_string_value(json_object_get(item, "money"));
+        update_market_list(name, update_id, false, false);
+        char *trade_zone_name = convert_trade_zone_name(money);
+        update_market_list(trade_zone_name, update_id, false, true);
     }
     clear_market(update_id, false);
 
@@ -273,6 +288,16 @@ bool market_is_index(const char *market)
     if (entry) {
         struct market_val *info = entry->val;
         return info->is_index;
+    }
+    return false;
+}
+
+bool market_is_zone(const char *market)
+{
+    dict_entry *entry = dict_find(dict_market, market);
+    if (entry) {
+        struct market_val *info = entry->val;
+        return info->is_zone;
     }
     return false;
 }

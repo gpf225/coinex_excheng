@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
         error(EXIT_FAILURE, errno, "init log fail: %d", ret);
     }
 
-    for (int i = 0; i < settings.worker_num; ++i) {
+    for (int i = 0; i < settings.worker_num + 1; ++i) {
         int pid = fork();
         if (pid < 0) {
             error(EXIT_FAILURE, errno, "fork error");
