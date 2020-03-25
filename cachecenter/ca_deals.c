@@ -231,7 +231,7 @@ static int send_market_deals(nw_ses *ses, const char *market)
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
-    json_array_append_new(params, obj->deals);
+    json_array_append(params, obj->deals);
     rpc_push_result(ses, CMD_CACHE_DEALS_UPDATE, params);
     double end = current_timestamp();
     log_info("market: %s, cost: %lf", market, end - start);
