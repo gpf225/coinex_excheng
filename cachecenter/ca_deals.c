@@ -19,7 +19,7 @@ static rpc_svr *deals_svr;
 
 struct dict_deals_val {
     uint64_t last_id;
-    list_t   *deals;
+    json_t   *deals;
 };
 
 struct state_data {
@@ -37,13 +37,8 @@ static void dict_deals_sub_val_free(void *key)
 {
     struct dict_deals_val *obj = key;
     if (obj->deals)
-        list_release(obj->deals);
+        json_decref(obj->deals);
     free(obj);   
-}
-
-static void list_free(void *value)
-{
-    json_decref(value);
 }
 
 static void on_timeout(nw_state_entry *entry)
@@ -69,14 +64,6 @@ static int deals_reply(const char *market, json_t *result)
         struct dict_deals_val val;
         memset(&val, 0, sizeof(val));
 
-        list_type lt;
-        memset(&lt, 0, sizeof(lt));
-        lt.free = list_free;
-
-        val.deals = list_create(&lt);
-        if (val.deals == NULL)
-            return -__LINE__;
-
         entry = dict_add(dict_deals, (char *)market, &val);
         if (entry == NULL) {
             return -__LINE__;
@@ -100,17 +87,19 @@ static int deals_reply(const char *market, json_t *result)
 
     if (id == 0)
         return -__LINE__;
+
+    double start = current_timestamp();
     obj->last_id = id;
+    //json_incref(result);
+    json_array_extend(result, obj->deals);
+    json_decref(obj->deals);
+    obj->deals = result;
 
-    for (size_t i = array_size; i > 0; --i) {
-        json_t *deal = json_array_get(result, i - 1);
-        json_incref(deal);
-        list_add_node_head(obj->deals, deal);
+    while (json_array_size(obj->deals) > settings.deal_max) {
+        json_array_remove(obj->deals, json_array_size(obj->deals) - 1);
     }
-
-    while (obj->deals->len > settings.deal_max) {
-        list_del(obj->deals, list_tail(obj->deals));
-    }
+    double end = current_timestamp();
+    log_trace("cost: %lf", end - start);
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
@@ -224,26 +213,18 @@ static int send_market_deals(nw_ses *ses, const char *market)
     dict_entry *entry = dict_find(dict_deals, market);
     if (entry == NULL)
         return -__LINE__;
+
+    double start = current_timestamp();
     struct dict_deals_val *obj = entry->val;
-    if (obj->deals->len == 0)
+    if (json_array_size(obj->deals) == 0)
         return 0;
-
-    int count = 0;
-    json_t *deals = json_array();
-    list_node *node;
-
-    list_iter *iter = list_get_iterator(obj->deals, LIST_START_HEAD);
-    while ((node = list_next(iter)) != NULL) {
-        json_array_append(deals, node->value);
-        count++;
-    }
-    list_release_iterator(iter);
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
-    json_array_append_new(params, deals);
+    json_array_append_new(params, obj->deals);
     rpc_push_result(ses, CMD_CACHE_DEALS_UPDATE, params);
-
+    double end = current_timestamp();
+    log_trace("cost: %lf", end - start);
     json_decref(params);
     return 0;
 }
