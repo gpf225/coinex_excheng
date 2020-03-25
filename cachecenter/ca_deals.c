@@ -90,16 +90,18 @@ static int deals_reply(const char *market, json_t *result)
 
     double start = current_timestamp();
     obj->last_id = id;
-    //json_incref(result);
-    json_array_extend(result, obj->deals);
-    json_decref(obj->deals);
+    json_incref(result);
+    if (obj->deals) {
+        json_array_extend(result, obj->deals);
+        json_decref(obj->deals);
+    }
     obj->deals = result;
 
     while (json_array_size(obj->deals) > settings.deal_max) {
         json_array_remove(obj->deals, json_array_size(obj->deals) - 1);
     }
     double end = current_timestamp();
-    log_trace("cost: %lf", end - start);
+    log_info("market: %s, array size: %ld, cost: %lf", market, json_array_size(obj->deals), end - start);
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
@@ -211,20 +213,22 @@ static void on_timer(nw_timer *timer, void *privdata)
 static int send_market_deals(nw_ses *ses, const char *market)
 {
     dict_entry *entry = dict_find(dict_deals, market);
-    if (entry == NULL)
+    if (entry == NULL) {
         return -__LINE__;
+    }
 
     double start = current_timestamp();
     struct dict_deals_val *obj = entry->val;
-    if (json_array_size(obj->deals) == 0)
+    if (json_array_size(obj->deals) == 0) {
         return 0;
+    }
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, obj->deals);
     rpc_push_result(ses, CMD_CACHE_DEALS_UPDATE, params);
     double end = current_timestamp();
-    log_trace("cost: %lf", end - start);
+    log_info("market: %s, cost: %lf", market, end - start);
     json_decref(params);
     return 0;
 }
