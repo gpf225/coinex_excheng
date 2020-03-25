@@ -194,18 +194,24 @@ static void on_timer(nw_timer *timer, void *privdata)
     dict_entry *entry;
     dict_t *dict_market = get_market();
     dict_iterator *iter = dict_get_iterator(dict_market);
-
+    int count = 0;
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
-
+        if (market_is_index(market) || market_is_zone(market)) {
+            continue;
+        }
         uint64_t last_id = 0;
         entry = dict_find(dict_deals, market);
         if (entry) {
             struct dict_deals_val *deal_val = entry->val;
             last_id = deal_val->last_id;
+            deals_request(market, last_id);
+            log_trace("deal sub request, market: %s, last_id: %zd", market, last_id);
+        } else if (count < settings.deal_max_request) {
+            count++;
+            deals_request(market, last_id);
+            log_trace("deal sub request, market: %s, last_id: %zd", market, last_id);
         }
-        deals_request(market, last_id);
-        log_trace("deal sub request, market: %s, last_id: %zd", market, last_id);
     }
     dict_release_iterator(iter);
 }
