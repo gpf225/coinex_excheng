@@ -42,7 +42,7 @@ static void dict_deals_sub_val_free(void *key)
 }
 
 static void list_free(void *value)
-{ 
+{
     json_decref(value);
 }
 
