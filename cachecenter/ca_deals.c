@@ -41,9 +41,9 @@ static void dict_deals_sub_val_free(void *key)
     free(obj);   
 }
 
-static void list_free(void *value)  
-{   
-    json_decref(value); 
+static void list_free(void *value)
+{ 
+    json_decref(value);
 }
 
 static void on_timeout(nw_state_entry *entry)
@@ -69,12 +69,12 @@ static int deals_reply(const char *market, json_t *result)
         struct dict_deals_val val;
         memset(&val, 0, sizeof(val));
 
-        list_type lt;   
-        memset(&lt, 0, sizeof(lt)); 
-        lt.free = list_free;    
+        list_type lt;
+        memset(&lt, 0, sizeof(lt));
+        lt.free = list_free;
 
-        val.deals = list_create(&lt);   
-        if (val.deals == NULL)  
+        val.deals = list_create(&lt);
+        if (val.deals == NULL)
             return -__LINE__;
 
         entry = dict_add(dict_deals, (char *)market, &val);
@@ -241,8 +241,8 @@ static int send_market_deals(nw_ses *ses, const char *market)
     }
 
     double start = current_timestamp();
-    json_t *deals = json_array();   
-    list_node *node;    
+    json_t *deals = json_array();
+    list_node *node;
 
     list_iter *iter = list_get_iterator(obj->deals, LIST_START_HEAD);   
     while ((node = list_next(iter)) != NULL) {  
