@@ -90,6 +90,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_int(root, "depth_limit_max", &settings.depth_limit_max, false, 50));
     ERR_RET_LN(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
     ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 2));
+    ERR_RET_LN(read_cfg_int(root, "deal_max_request", &settings.deal_max_request, false, 20));
     
     ERR_RET(read_depth_interval_cfg(root, "depth_merge"));
 
