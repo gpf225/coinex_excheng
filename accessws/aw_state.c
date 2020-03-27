@@ -190,8 +190,8 @@ static int on_sub_state_update(json_t *result_array, nw_ses *ses, rpc_pkg *pkg)
     while ((entry = dict_next(iter)) != NULL) {
         struct state_val *info = entry->val;
         if (info->id != update_id) {
-            dict_delete(dict_state, entry->key);
             log_info("del market state: %s", (char *)entry->key);
+            dict_delete(dict_state, entry->key);
         }
     }
     dict_release_iterator(iter);
