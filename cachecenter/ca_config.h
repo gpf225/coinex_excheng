@@ -66,6 +66,7 @@ struct settings {
     int                 depth_limit_max;
     int                 deal_max;
     int                 worker_num;
+    int                 deal_max_request;
 };
 
 extern struct settings settings;
