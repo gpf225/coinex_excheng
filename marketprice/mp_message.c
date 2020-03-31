@@ -32,6 +32,8 @@ struct market_info {
     dict_t *update;
     list_t *deals;
     list_t *deals_json;
+    list_t *real_deals;
+    list_t *real_deals_json;
     double update_time;
 };
 
@@ -137,6 +139,27 @@ static int load_market_deals(redisContext *context, sds key, struct market_info 
     return 0;
 }
 
+static int load_market_real_deals(redisContext *context, sds key, struct market_info *info)
+{
+    redisReply *reply = redisCmd(context, "LRANGE %s 0 %d", key, MARKET_DEALS_MAX - 1);
+    if (reply == NULL) {
+        return -__LINE__;
+    }
+
+    for (size_t i = 0; i < reply->elements; ++i) {
+        json_t *deal = json_loadb(reply->element[i]->str, reply->element[i]->len, 0, NULL);
+        if (deal == NULL) {
+            freeReplyObject(reply);
+            return -__LINE__;
+        }
+        list_add_node_tail(info->real_deals_json, deal);
+    }
+
+    freeReplyObject(reply);
+
+    return 0;
+}
+
 static int load_market_last(redisContext *context, struct market_info *info)
 {
     redisReply *reply = redisCmd(context, "GET k:%s:last", info->name);
@@ -199,6 +222,14 @@ static int load_market(redisContext *context, struct market_info *info)
         sdsfree(key);
         return ret;
     }
+
+    sdsclear(key);
+    key = sdscatprintf(key, "k:%s:real_deals", info->name);
+    ret = load_market_real_deals(context, key, info);
+    if (ret < 0) {
+        sdsfree(key);
+        return ret;
+    }
     sdsfree(key);
 
     ret = load_market_last(context, info);
@@ -257,6 +288,20 @@ static struct market_info *create_market(const char *market, const char *stock, 
     info->deals_json = list_create(&lt);
     if (info->deals_json == NULL)
         return NULL;
+
+    memset(&lt, 0, sizeof(lt));
+    lt.free = list_deals_free;
+    info->real_deals = list_create(&lt);
+    if (info->real_deals == NULL) {
+        return NULL;
+    }
+
+    memset(&lt, 0, sizeof(lt));
+    lt.free = list_deals_json_free;
+    info->real_deals_json = list_create(&lt);
+    if (info->real_deals_json == NULL) {
+        return NULL;
+    }
 
     sds key = sdsnew(market);
     dict_add(dict_market, key, info);
@@ -572,8 +617,19 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
 
         list_add_node_tail(info->deals, json_dumps(deal, 0));
         list_add_node_head(info->deals_json, deal);
+
+        if (ask_user_id != 0 && bid_user_id != 0) {
+            list_add_node_tail(info->real_deals, json_dumps(deal, 0));
+            list_add_node_head(info->real_deals_json, deal);
+            json_incref(deal);
+        }
+
         if (info->deals_json->len > MARKET_DEALS_MAX) {
             list_del(info->deals_json, list_tail(info->deals_json));
+        }
+
+        if (list_len(info->real_deals_json) > MARKET_DEALS_MAX) {
+            list_del(info->real_deals_json, list_tail(info->real_deals_json));
         }
     }
 
@@ -699,7 +755,7 @@ cleanup:
     return;
 }
 
-static int flush_deals(redisContext *context, const char *market, list_t *list)
+static int flush_deals(redisContext *context, sds key, const char *market, list_t *list)
 {
     int argc = 2 + list->len;
     const char **argv = malloc(sizeof(char *) * argc);
@@ -708,8 +764,6 @@ static int flush_deals(redisContext *context, const char *market, list_t *list)
     argv[0] = "LPUSH";
     argvlen[0] = strlen(argv[0]);
 
-    sds key = sdsempty();
-    key = sdscatprintf(key, "k:%s:deals", market);
     argv[1] = key;
     argvlen[1] = sdslen(key);
 
@@ -725,17 +779,16 @@ static int flush_deals(redisContext *context, const char *market, list_t *list)
 
     redisReply *reply = redisCommandArgv(context, argc, argv, argvlen);
     if (reply == NULL) {
-        sdsfree(key);
         free(argv);
         free(argvlen);
         return -__LINE__;
     }
-    sdsfree(key);
+
     free(argv);
     free(argvlen);
     freeReplyObject(reply);
 
-    reply = redisCmd(context, "LTRIM k:%s:deals 0 %d", market, MARKET_DEALS_MAX - 1);
+    reply = redisCmd(context, "LTRIM %s 0 %d", key, MARKET_DEALS_MAX - 1);
     if (reply) {
         freeReplyObject(reply);
     }
@@ -905,13 +958,29 @@ static int flush_market(void)
             dict_release_iterator(iter);
             return ret;
         }
-        if (info->deals->len == 0)
-            continue;
-        ret = flush_deals(context, info->name, info->deals);
-        if (ret < 0) {
-            redisFree(context);
-            dict_release_iterator(iter);
-            return ret;
+
+        if (info->deals->len != 0) {
+            sds key = sdsempty();
+            key = sdscatprintf(key, "k:%s:deals", info->name);
+            ret = flush_deals(context, info->name, key, info->deals);
+            sdsfree(key);
+            if (ret < 0) {
+                redisFree(context);
+                dict_release_iterator(iter);
+                return ret;
+            }
+        }
+
+        if (info->real_deals->len != 0) {
+            sds key = sdsempty();
+            key = sdscatprintf(key, "k:%s:real_deals", info->name);
+            ret = flush_deals(context, info->name, key, info->real_deals);
+            sdsfree(key);
+            if (ret < 0) {
+                redisFree(context);
+                dict_release_iterator(iter);
+                return ret;
+            }
         }
     }
     dict_release_iterator(iter);
@@ -1619,7 +1688,7 @@ json_t *get_market_deals_ext(const char *market, int limit, uint64_t last_id)
 
     int count = 0;
     json_t *result = json_array();
-    list_iter *iter = list_get_iterator(info->deals_json, LIST_START_HEAD);
+    list_iter *iter = list_get_iterator(info->real_deals_json, LIST_START_HEAD);
     list_node *node;
     while ((node = list_next(iter)) != NULL) {
         json_t *deal = node->value;
