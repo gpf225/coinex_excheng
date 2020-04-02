@@ -530,6 +530,33 @@ static int on_method_deals_query_user(nw_ses *ses, uint64_t id, struct clt_info 
     return 0;
 }
 
+static int on_method_deals_subscribe_user(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!info->auth)
+        return ws_send_error_require_auth(ses, id);
+
+    deals_unsubscribe_user(ses, 0, "");
+    size_t params_size = json_array_size(params);
+    for (size_t i = 0; i < params_size; ++i) {
+        const char *market = json_string_value(json_array_get(params, i));
+        if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN)
+            return ws_send_error_invalid_argument(ses, id);
+        if (deals_subscribe_user(ses, info->user_id, market) < 0) 
+            return ws_send_error_internal_error(ses, id);  
+    } 
+
+    ws_send_success(ses, id);
+    return 0;
+}
+
+static int on_method_deals_unsubscribe_user(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!info->auth)
+        return ws_send_error_require_auth(ses, id);
+    deals_unsubscribe_user(ses, 0, "");
+    return ws_send_success(ses, id);  
+}
+
 static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     deals_unsubscribe(ses, info->user_id);
@@ -802,14 +829,14 @@ static int on_method_asset_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
     size_t params_size = json_array_size(params);
     if (params_size == 0) {
         // subscribe all
-        if (asset_subscribe(info->user_id, ses, "") < 0)
+        if (asset_subscribe(info->user_id, ses, "", false) < 0)
             return ws_send_error_internal_error(ses, id);
     } else {
         for (size_t i = 0; i < params_size; ++i) {
             const char *asset = json_string_value(json_array_get(params, i));
             if (asset == NULL || strlen(asset) > ASSET_NAME_MAX_LEN)
                 return ws_send_error_invalid_argument(ses, id);
-            if (asset_subscribe(info->user_id, ses, asset) < 0)
+            if (asset_subscribe(info->user_id, ses, asset, false) < 0)
                 return ws_send_error_internal_error(ses, id);
         }
     }
@@ -824,6 +851,39 @@ static int on_method_asset_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
 
     asset_unsubscribe(info->user_id, ses);
     return ws_send_success(ses, id);
+}
+
+static int on_method_asset_subscribe_delay(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!info->auth)
+        return ws_send_error_require_auth(ses, id);
+
+    asset_unsubscribe(info->user_id, ses);
+    size_t params_size = json_array_size(params);
+    if (params_size == 0) {
+        // subscribe all 
+        if (asset_subscribe(info->user_id, ses, "", true) < 0)
+            return ws_send_error_internal_error(ses, id);
+    } else {
+        for (size_t i = 0; i < params_size; ++i) {
+            const char *asset = json_string_value(json_array_get(params, i));
+            if (asset == NULL || strlen(asset) > ASSET_NAME_MAX_LEN)
+                return ws_send_error_invalid_argument(ses, id);
+            if (asset_subscribe(info->user_id, ses, asset, true) < 0) 
+                return ws_send_error_internal_error(ses, id);
+        }
+    }
+
+    return ws_send_success(ses, id);
+}
+
+static int on_method_asset_unsubscribe_delay(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)   
+{   
+    if (!info->auth)    
+        return ws_send_error_require_auth(ses, id); 
+
+    asset_unsubscribe(info->user_id, ses);  
+    return ws_send_success(ses, id);    
 }
 
 static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
@@ -1013,6 +1073,7 @@ static void on_close(nw_ses *ses, const char *remote)
     if (info->auth) {
         order_unsubscribe(info->user_id, ses);
         asset_unsubscribe(info->user_id, ses);
+        deals_unsubscribe_user(ses, 0, "");
         notice_unsubscribe(info->user_id, ses);
         asset_unsubscribe_sub(ses);
         sub_user_remove(info->user_id, ses);
@@ -1138,8 +1199,11 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("state.subscribe",           on_method_state_subscribe));
     ERR_RET_LN(add_handler("state.unsubscribe",         on_method_state_unsubscribe));
 
-    ERR_RET_LN(add_handler("deals.query",               on_method_deals_query));
     ERR_RET_LN(add_handler("deals.query_user",          on_method_deals_query_user));
+    ERR_RET_LN(add_handler("deals.subscribe_user",      on_method_deals_subscribe_user));
+    ERR_RET_LN(add_handler("deals.unsubscribe_user",    on_method_deals_unsubscribe_user));
+
+    ERR_RET_LN(add_handler("deals.query",               on_method_deals_query));
     ERR_RET_LN(add_handler("deals.subscribe",           on_method_deals_subscribe));
     ERR_RET_LN(add_handler("deals.unsubscribe",         on_method_deals_unsubscribe));
 
@@ -1156,6 +1220,8 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("asset.account_query_all",   on_method_asset_account_query_all));
     ERR_RET_LN(add_handler("asset.subscribe",           on_method_asset_subscribe));
     ERR_RET_LN(add_handler("asset.unsubscribe",         on_method_asset_unsubscribe));
+    ERR_RET_LN(add_handler("asset.subscribe_delay",     on_method_asset_subscribe_delay));
+    ERR_RET_LN(add_handler("asset.unsubscribe_delay",   on_method_asset_unsubscribe_delay));
     ERR_RET_LN(add_handler("asset.subscribe_sub",       on_method_asset_subscribe_sub));
     ERR_RET_LN(add_handler("asset.unsubscribe_sub",     on_method_asset_unsubscribe_sub));
 
