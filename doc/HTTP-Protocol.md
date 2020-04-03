@@ -372,6 +372,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 1. user_id: user ID
 2. account: cancel all orders belong to account, -1 for cancel all orders
 3. market：market
+4. side: side , optional
 * result: "success"
 
 
@@ -454,6 +455,7 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 1. user_id: user ID
 2. account: cancel the all stop orders belong to account, -1 for cancel all stop orders
 3. market：market
+4. side: side , optional
 * result: "success"
   
 **Order details**
