@@ -173,7 +173,7 @@ static int on_balance_query_reply(struct state_data *state, json_t *result)
         struct sub_unit *unit = node->value;
         if (strlen(unit->asset) == 0 || strcmp(unit->asset, state->asset) == 0) {
             if (unit->delay) {
-                delay_update(unit->ses, state->account, unit->asset, result);
+                delay_update(unit->ses, state->account, state->asset, result);
             } else {
                 ws_send_notify(unit->ses, "asset.update", params);
                 count += 1;
