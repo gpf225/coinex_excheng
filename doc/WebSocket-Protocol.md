@@ -183,6 +183,14 @@ General error code:
 6. offset: offset, Integer
 7. limit: limit, Integer
 
+
+**Latest order list  subscription with multi markets**
+* method: `deals.subscribe_user`
+* params: market list
+
+**cancel deals.unsubscribe_user**
+* method: `deals.unsubscribe_user`
+
 **Latest order list subscription, if call after auth, will push user's deal**
 * method: `deals.subscribe`
 * params: market list
@@ -499,6 +507,14 @@ response:
 
 **Cancel subscription**
 * method: `asset.unsubscribe`
+* params: none
+
+**Asset subscription delay(delay time can be change, 1s default)**
+* method: `asset.subscribe_delay`
+* params: asset list, null for subscribe all
+
+**Cancel subscription delay**
+* method: `asset.unsubscribe_delay`
 * params: none
 
 **Sub-account asset subscription**
