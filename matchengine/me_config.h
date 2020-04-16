@@ -78,6 +78,9 @@ struct settings {
     int                 min_save_prec;
     int                 discount_prec;
 
+    mpd_t               *min_fee;
+    mpd_t               *max_fee;
+
     int                 fee_prec;
     int                 reader_num;
     double              call_auction_calc_interval;
