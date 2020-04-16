@@ -316,7 +316,6 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
     if (taker_fee == NULL || mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
-
     if ((mpd_cmp(settings.min_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(taker_fee, settings.min_fee, &mpd_ctx) < 0) 
         || (mpd_cmp(settings.max_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(taker_fee, settings.max_fee, &mpd_ctx) > 0))
         goto invalid_argument;
@@ -327,7 +326,6 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     maker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
     if (maker_fee == NULL || mpd_cmp(maker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(maker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
-
     if ((mpd_cmp(settings.min_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(maker_fee, settings.min_fee, &mpd_ctx) < 0) 
         || (mpd_cmp(settings.max_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(maker_fee, settings.max_fee, &mpd_ctx) > 0))
         goto invalid_argument;
@@ -469,7 +467,6 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     taker_fee = decimal(json_string_value(json_array_get(params, 5)), market->fee_prec);
     if (taker_fee == NULL || mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
-
     if ((mpd_cmp(settings.min_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(taker_fee, settings.min_fee, &mpd_ctx) < 0) 
         || (mpd_cmp(settings.max_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(taker_fee, settings.max_fee, &mpd_ctx) > 0))
         goto invalid_argument;
@@ -708,7 +705,6 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     taker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
     if (taker_fee == NULL || mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
-
     if ((mpd_cmp(settings.min_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(taker_fee, settings.min_fee, &mpd_ctx) < 0) 
         || (mpd_cmp(settings.max_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(taker_fee, settings.max_fee, &mpd_ctx) > 0))
         goto invalid_argument;
@@ -719,7 +715,6 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     maker_fee = decimal(json_string_value(json_array_get(params, 8)), market->fee_prec);
     if (maker_fee == NULL || mpd_cmp(maker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(maker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
-
     if ((mpd_cmp(settings.min_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(maker_fee, settings.min_fee, &mpd_ctx) < 0) 
         || (mpd_cmp(settings.max_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(maker_fee, settings.max_fee, &mpd_ctx) > 0))
         goto invalid_argument;
@@ -866,7 +861,6 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
     if (taker_fee == NULL || mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
-
     if ((mpd_cmp(settings.min_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(taker_fee, settings.min_fee, &mpd_ctx) < 0) 
         || (mpd_cmp(settings.max_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(taker_fee, settings.max_fee, &mpd_ctx) > 0))
         goto invalid_argument;
