@@ -186,6 +186,7 @@ static void update_single_compose_index(struct compose_info *info, const char *m
     push_index_message(info->target_market, index_result, detail);
     append_index_history(info->target_market, index_result, detail_str);
     free(detail_str);
+    json_decref(detail);
     mpd_del(index_result);
     nw_state_del(state_context, target_minfo->compose_state_id);
     profile_inc("update_success", 1);
