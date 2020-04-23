@@ -755,7 +755,7 @@ cleanup:
     return;
 }
 
-static int flush_deals(redisContext *context, sds key, const char *market, list_t *list)
+static int flush_deals(redisContext *context, const char *market, sds key, list_t *list)
 {
     int argc = 2 + list->len;
     const char **argv = malloc(sizeof(char *) * argc);
