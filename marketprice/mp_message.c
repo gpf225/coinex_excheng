@@ -916,7 +916,14 @@ static int64_t get_deals_offset(void)
     if (reply == NULL)
         return -__LINE__;
     for (size_t i = 0; i < reply->elements; i += 2) {
+        int work_id = strtoll(reply->element[i]->str, NULL, 0);
         int64_t offset = strtoll(reply->element[i + 1]->str, NULL, 0);
+
+        if (work_id > settings.worker_num) {
+            redisCmd(context, "HDEL k:offset_worker %d", work_id);
+            log_info("discard old offset, work_id: %d, offset: %ld", work_id, offset);
+        }
+
         if (min_offset == 0) {
             min_offset = offset;
         } else if (offset < min_offset) {
@@ -945,13 +952,20 @@ static int64_t get_indexs_offset(void)
     redisContext *context = get_redis_connection();
     if (context == NULL)
         return -__LINE__;
-    
+
     int64_t min_offset = 0;
     redisReply *reply = redisCmd(context, "HGETALL k:offset_worker_index");
     if (reply == NULL)
         return -__LINE__;
     for (size_t i = 0; i < reply->elements; i += 2) {
+        int work_id = strtoll(reply->element[i]->str, NULL, 0);
         int64_t offset = strtoll(reply->element[i + 1]->str, NULL, 0);
+
+         if (work_id > settings.worker_num) {
+            redisCmd(context, "HDEL k:offset_worker_index %d", work_id);
+            log_info("discard old offset, work_id: %d, offset: %ld", work_id, offset);
+        }
+
         if (min_offset == 0) {
             min_offset = offset;
         } else if (offset < min_offset) {
@@ -1073,6 +1087,7 @@ static int flush_market(void)
         redisFree(context);
         return -__LINE__;
     }
+    log_info("flush deal_offset: %ld, index_offset: %ld, work_id: %d", last_deals_offset, last_indexs_offset, worker_id);
 
     last_flush = current_timestamp();
     redisFree(context);
