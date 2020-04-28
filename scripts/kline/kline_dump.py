@@ -26,7 +26,8 @@ MYSQL_HOST = "127.0.0.1"
 MYSQL_PORT = 3306
 MYSQL_USER = "root"
 MYSQL_PASS = "shit"
-MYSQL_DB = "trade_log"
+#MYSQL_DB = "trade_log"
+MYSQL_DB = "test_db"
 
 REDIS_HOST = "127.0.0.1"
 REDIS_PORT = 6379
@@ -37,73 +38,87 @@ MARKET_URL = "http://127.0.0.1:8000/internal/exchange/market/index/config"
 sql_data = {}
 
 def create_table(db_conn, table):
-    cursor = conn.cursor()
-    sql = "CREATE TABLE IF NOT EXISTS `%s` like `kline_history_example`".format(table)
+    cursor = db_conn.cursor()
+    sql = "CREATE TABLE IF NOT EXISTS `{}` like `kline_history_example`".format(table)
     cursor.execute(sql)
     cursor.close()
 
 def db_execute(db_conn, table, insert_data):
     create_table(db_conn, table)
-    sql = "INSERT INTO `{}`(`open`, `close`, `high`, `low`, `volume`, `deal`, `market`, `class`, `timestamp`)VALUES".format(table)
+    sql = "INSERT INTO `{}`(`open`, `close`, `high`, `low`, `volume`, `deal`, `market`, `t`, `timestamp`)VALUES".format(table)
     count = 0
     for item in insert_data:
         if count > 0:
-            sql = ',' + sql
+            sql = sql + ','
         sql = sql + "('{0[0]}', '{0[1]}', '{0[2]}', '{0[3]}', '{0[4]}', '{0[5]}', '{0[6]}', {0[7]}, {0[8]})".format(item)
         count += 1
 
-    cursor = conn.cursor()
+    print(table)
+    cursor = db_conn.cursor()
     cursor.execute(sql)
     cursor.close()
 
-def flush_db(db_conn, kline_class, timestamp, kline_data):
+def flush_db(db_conn, kline_class, market, timestamp, kline_data):
     global sql_data
 
-    local_time = time.localtime(table_start) 
+    local_time = time.localtime(timestamp) 
     table_suffix = time.strftime("%Y%m", local_time)
     table = 'kline_history_{}'.format(table_suffix)
 
     sql_data.setdefault(table, [])
+    kline_data.append(market)
     kline_data.append(kline_class)
     kline_data.append(timestamp)
     sql_data[table].append(kline_data)
 
-    if len(sql_data[table]) > 100:
-        db_execute(db_conn, table, sql_data[table]):
+    if len(sql_data[table]) > 1000:
+        db_execute(db_conn, table, sql_data[table])
+        sql_data[table] = []
         
 
 def dump_kline(db_conn, redis_conn):
+    minute_kline_count = 0
+    hour_kline_count = 0
+    day_kline_count = 0
     for redis_key in redis_conn.scan_iter('k:*:1m'):
         data = redis_conn.hgetall(redis_key)
+        print(redis_key)
         for timestamp, value in data.items():
+            minute_kline_count += 1
             items = redis_key.split(':')
             market = items[1]
             kline_class = 1
             kline_data = json.loads(value)
-            flush_db(db_conn, kline_class, timestamp, kline_data)
+            flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
 
     for redis_key in redis_conn.scan_iter('k:*:1h'):
+        print(redis_key)
         data = redis_conn.hgetall(redis_key)
         for timestamp, value in data.items():
+            hour_kline_count += 1
             items = redis_key.split(':')
             market = items[1]
             kline_class = 2
             kline_data = json.loads(value)
-            flush_db(db_conn, kline_class, timestamp, kline_data)
+            flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
 
     for redis_key in redis_conn.scan_iter('k:*:1d'):
+        print(redis_key)
         data = redis_conn.hgetall(redis_key)
         for timestamp, value in data.items():
+            day_kline_count += 1
             items = redis_key.split(':')
             market = items[1]
             kline_class = 3
             kline_data = json.loads(value)
-            flush_db(db_conn, kline_class, timestamp, kline_data)
+            flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
 
     global sql_data
-    for table, kline_data in sql_data:
+    for table, kline_data in sql_data.items():
         if len(kline_data) > 0:
-            db_execute(db_conn, table, kline_data):
+            db_execute(db_conn, table, kline_data)
+
+    print("done! minute_kline_count: {}, hour_kline_count: {}, day_kline_count: {}".format(minute_kline_count, hour_kline_count, day_kline_count))
         
 def main():
     redis_conn = StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
