@@ -539,12 +539,12 @@ static void add_kline_update(struct market_info *info, int type, time_t timestam
     dict_add(info->update, &key, NULL);
 }
 
-static void kline_history_process(int64_t offset, struct market_info *info, int class, time_t timestamp)
+static void kline_history_process(struct market_info *info, int type, time_t timestamp)
 {
     struct kline_info *kinfo;
-    if (class == INTERVAL_MIN) {
+    if (type == INTERVAL_MIN) {
         kinfo = kline_query(info->min, timestamp);
-    } else if (class == INTERVAL_HOUR) {
+    } else if (type == INTERVAL_HOUR) {
         kinfo = kline_query(info->hour, timestamp);
     } else {
         kinfo = kline_query(info->day, timestamp);
@@ -552,10 +552,10 @@ static void kline_history_process(int64_t offset, struct market_info *info, int 
 
     if (!kinfo)
         return;
-    append_kline_history(info->name, class, timestamp, kinfo->open, kinfo->close, kinfo->high, kinfo->low, kinfo->volume, kinfo->deal);
+    append_kline_history(info->name, type, timestamp, kinfo->open, kinfo->close, kinfo->high, kinfo->low, kinfo->volume, kinfo->deal);
 }
 
-static int market_update(int64_t offset, double timestamp, uint64_t id, const char *market, int side, uint32_t ask_user_id, uint32_t bid_user_id, mpd_t *price, mpd_t *amount)
+static int market_update(double timestamp, uint64_t id, const char *market, int side, uint32_t ask_user_id, uint32_t bid_user_id, mpd_t *price, mpd_t *amount)
 {
     struct market_info *info = market_query(market);
     if (info == NULL) {
@@ -580,7 +580,7 @@ static int market_update(int64_t offset, double timestamp, uint64_t id, const ch
 
     if (id != 0) { // deals msg
         if (id <= info->max_id) {
-            log_trace("discard old deals, id: %ld, max_id: %ld", id, info->max_id);
+            log_info("discard old deals msg, id: %ld, max_id: %ld", id, info->max_id);
             return 0;
         }
     } else { // index msg
@@ -588,7 +588,7 @@ static int market_update(int64_t offset, double timestamp, uint64_t id, const ch
         void *time_sec_key = (void *)(uintptr_t)time_sec;
         dict_entry *entry = dict_find(info->sec, time_sec_key);
         if (entry) {
-            log_trace("discard old index msg, market: %s, timestamp: %f", market, timestamp);
+            log_info("discard old index msg, market: %s, timestamp: %f", market, timestamp);
             return 0;
         }
     }
@@ -621,7 +621,7 @@ static int market_update(int64_t offset, double timestamp, uint64_t id, const ch
         if (kinfo == NULL)
             return -__LINE__;
         dict_add(info->min, time_min_key, kinfo);
-        kline_history_process(offset, info, INTERVAL_MIN, info->last_min_time);
+        kline_history_process(info, INTERVAL_MIN, info->last_min_time);
         info->last_min_time = time_min;
     }
     kline_info_update(kinfo, price, amount);
@@ -638,7 +638,7 @@ static int market_update(int64_t offset, double timestamp, uint64_t id, const ch
         if (kinfo == NULL)
             return -__LINE__;
         dict_add(info->hour, time_hour_key, kinfo);
-        kline_history_process(offset, info, INTERVAL_HOUR, info->last_hour_time);
+        kline_history_process(info, INTERVAL_HOUR, info->last_hour_time);
         info->last_hour_time = time_hour;
     }
     kline_info_update(kinfo, price, amount);
@@ -655,7 +655,7 @@ static int market_update(int64_t offset, double timestamp, uint64_t id, const ch
         if (kinfo == NULL)
             return -__LINE__;
         dict_add(info->day, time_day_key, kinfo);
-        kline_history_process(offset, info, INTERVAL_DAY, info->last_day_time);
+        kline_history_process(info, INTERVAL_DAY, info->last_day_time);
         info->last_day_time = time_day;
     }
     kline_info_update(kinfo, price, amount);
@@ -699,6 +699,7 @@ static int market_update(int64_t offset, double timestamp, uint64_t id, const ch
 
     // update time
     info->update_time = current_timestamp();
+    // update max_id
     info->max_id = id;
 
     return 0;
@@ -748,7 +749,7 @@ static void on_deals_message(sds message, int64_t offset)
 
     if (get_market_id(market) == worker_id || worker_id == settings.worker_num) {
         log_trace("deals message: %s, offset: %"PRIi64, message, offset);
-        int ret = market_update(offset, timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
+        int ret = market_update(timestamp, id, market, side, ask_user_id, bid_user_id, price, amount);
         if (ret < 0) {
             log_error("market_update fail %d, message: %s", ret, message);
             goto cleanup;
@@ -800,7 +801,7 @@ static void on_indexs_message(sds message, int64_t offset)
     char *index_name = convert_index_name(market);
     if (get_market_id(index_name) == worker_id) {
         log_trace("indexs message: %s, offset: %"PRIi64, message, offset);
-        int ret = market_update(offset, timestamp, 0, index_name, 0, 0, 0, price, mpd_zero);
+        int ret = market_update(timestamp, 0, index_name, 0, 0, 0, price, mpd_zero);
         if (ret < 0) {
             log_error("market_update fail %d, message: %s", ret, message);
             goto cleanup;
@@ -910,7 +911,6 @@ static int64_t get_deals_offset(void)
     if (context == NULL)
         return -__LINE__;
 
-    // use new mechanism offset
     int64_t min_offset = 0;
     redisReply *reply = redisCmd(context, "HGETALL k:offset_worker");
     if (reply == NULL)
@@ -924,26 +924,9 @@ static int64_t get_deals_offset(void)
         }
     }
     freeReplyObject(reply);
-
-    if (min_offset != 0) {
-        redisFree(context);
-        return min_offset;
-    }
-
-    // use old mechanism offset 
-    reply = redisCmd(context, "GET k:offset");
-    if (reply == NULL) {
-        redisFree(context);
-        return -__LINE__;
-    }
-    int64_t offset = 0;
-    if (reply->type == REDIS_REPLY_STRING) {
-        offset = strtoll(reply->str, NULL, 0);
-    }
-    freeReplyObject(reply);
     redisFree(context);
 
-    return offset;
+    return min_offset;
 }
 
 static int flush_deals_offset(redisContext *context)
@@ -963,7 +946,6 @@ static int64_t get_indexs_offset(void)
     if (context == NULL)
         return -__LINE__;
     
-    // use new mechanism offset
     int64_t min_offset = 0;
     redisReply *reply = redisCmd(context, "HGETALL k:offset_worker_index");
     if (reply == NULL)
@@ -977,26 +959,9 @@ static int64_t get_indexs_offset(void)
         }
     }
     freeReplyObject(reply);
-
-    if (min_offset != 0) {
-        redisFree(context);
-        return min_offset;
-    }
-
-    // use old mechanism offset 
-    reply = redisCmd(context, "GET k:offset_index");
-    if (reply == NULL) {
-        redisFree(context);
-        return -__LINE__;
-    }
-    int64_t offset = 0;
-    if (reply->type == REDIS_REPLY_STRING) {
-        offset = strtoll(reply->str, NULL, 0);
-    }
-    freeReplyObject(reply);
     redisFree(context);
 
-    return offset;
+    return min_offset;
 }
 
 static int flush_indexs_offset(redisContext *context)

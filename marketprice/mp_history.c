@@ -5,6 +5,8 @@
 
 # include <curl/curl.h>
 
+# include <sys/time.h>
+
 # include "ut_mysql.h"
 # include "mp_config.h"
 # include "mp_history.h"
@@ -28,7 +30,7 @@ static void on_job(nw_job_entry *entry, void *privdata)
     while (true) {
         int ret = mysql_real_query(conn, sql, sdslen(sql));
         if (ret != 0 && mysql_errno(conn) != 1062) {
-            log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+            log_fatal("append count: %d, exec sql: %s fail: %d %s", job->request_count, sql, mysql_errno(conn), mysql_error(conn));
             usleep(1000 * 1000);
             continue;
         }
@@ -72,6 +74,7 @@ int fini_history(void)
 {
     while (job->request_count != 0) {
         usleep(100 * 1000);
+        log_info("job->request_count: %d", job->request_count);
         continue;
     }
     nw_job_release(job);
@@ -79,7 +82,15 @@ int fini_history(void)
     return 0;
 }
 
-int append_kline_history(const char *market, int class, time_t timestamp, mpd_t *open, mpd_t *close, mpd_t *high, mpd_t *low, mpd_t *volume, mpd_t *deal)
+static char *get_utc_date_from_time(time_t timestamp, const char *format)
+{
+    static char str[512];
+    struct tm *timeinfo = gmtime(&timestamp);
+    strftime(str, sizeof(str), format, timeinfo);
+    return str;
+}
+
+int append_kline_history(const char *market, int type, time_t timestamp, mpd_t *open, mpd_t *close, mpd_t *high, mpd_t *low, mpd_t *volume, mpd_t *deal)
 {
     if (job->request_count >= MAX_PENDING_HISTORY) {
         log_fatal("history append too big: %d", job->request_count);
@@ -91,9 +102,8 @@ int append_kline_history(const char *market, int class, time_t timestamp, mpd_t 
     }
 
     time_t now = time(NULL);
-    struct tm *tm = localtime(&now);
     char table[64];
-    snprintf(table, sizeof(table), "kline_history_%04d%02d", 1900 + tm->tm_year, 1 + tm->tm_mon);
+    snprintf(table, sizeof(table), "kline_history_%s", get_utc_date_from_time(now, "%Y%m"));
 
     if (strcmp(table_last, table) != 0) {
         sds create_table_sql = sdsempty();
@@ -103,13 +113,13 @@ int append_kline_history(const char *market, int class, time_t timestamp, mpd_t 
         table_last = strdup(table);
     }
 
-    char mpd_val[32];
+    char mpd_buf[32];
     char buf[256];
-    snprintf(buf, sizeof(buf), "('%s', %d, %ld, '%s', '%s', '%s', '%s', '%s', '%s')", market, class, timestamp, strmpd(mpd_val, sizeof(mpd_val), open), strmpd(mpd_val, sizeof(mpd_val), close), 
-            strmpd(mpd_val, sizeof(mpd_val), high), strmpd(mpd_val, sizeof(mpd_val), low), strmpd(mpd_val, sizeof(mpd_val), volume), strmpd(mpd_val, sizeof(mpd_val), deal));
+    snprintf(buf, sizeof(buf), "('%s', %d, %ld, '%s', '%s', '%s', '%s', '%s', '%s')", market, type, timestamp, strmpd(mpd_buf, sizeof(mpd_buf), open), strmpd(mpd_buf, sizeof(mpd_buf), close), 
+            strmpd(mpd_buf, sizeof(mpd_buf), high), strmpd(mpd_buf, sizeof(mpd_buf), low), strmpd(mpd_buf, sizeof(mpd_buf), volume), strmpd(mpd_buf, sizeof(mpd_buf), deal));
 
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "INSERT INTO `%s` (`market`, `class`, `timestamp`, `open`, `close`, `high`, `low`, `volume`, `deal`) VALUES %s ON DUPLICATE KEY UPDATE"
+    sql = sdscatprintf(sql, "INSERT INTO `%s` (`market`, `t`, `timestamp`, `open`, `close`, `high`, `low`, `volume`, `deal`) VALUES %s ON DUPLICATE KEY UPDATE"
             "`open` = VALUES(`open`), `close` = VALUES(`close`), `high` = VALUES(`high`), `low` = VALUES(`low`), `volume` = VALUES(`volume`), `deal` = VALUES(`deal`)", table, buf);
     nw_job_add(job, 0, sql);
 

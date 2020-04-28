@@ -10,7 +10,7 @@
 
 int init_history(void);
 int fini_history(void);
-int append_kline_history(const char *market, int class, time_t timestamp, mpd_t *open, mpd_t *close, mpd_t *high, mpd_t *low, mpd_t *volume, mpd_t *deal);
+int append_kline_history(const char *market, int type, time_t timestamp, mpd_t *open, mpd_t *close, mpd_t *high, mpd_t *low, mpd_t *volume, mpd_t *deal);
 
 # endif
 
