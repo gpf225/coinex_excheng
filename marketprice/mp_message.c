@@ -1667,6 +1667,51 @@ json_t *get_market_kline_week(const char *market, time_t start, time_t end, int 
     return result;
 }
 
+json_t *get_market_kline_two_week(const char *market, time_t start, time_t end, int interval)
+{
+    struct market_info *info = market_query(market);
+    if (info == NULL)
+        return NULL;
+
+    json_t *result = json_array();
+    time_t base = start / interval * interval - 6 * 86400;
+    while ((base + interval) <= start)
+        base += interval;
+    start = base;
+
+    struct kline_info *kbefor = get_last_kline(info->day, start - 86400, start - 86400 * 30, 86400);
+    struct kline_info *klast = kbefor;
+    int step = interval / 86400;
+    for (; start <= end; start += interval) {
+        struct kline_info *kinfo = NULL;
+        for (int i = 0; i < step; ++i) {
+            time_t timestamp = start + i * 86400;
+            void *key = (void *)(uintptr_t)timestamp;
+            dict_entry *entry = dict_find(info->day, key);
+            if (entry == NULL)
+                continue;
+            struct kline_info *item = entry->val;
+            if (kinfo == NULL)
+                kinfo = kline_info_new(item->open);
+            kline_info_merge(kinfo, item);
+        }
+        if (kinfo == NULL) {
+            if (klast == NULL) {
+                continue;
+            }
+            kinfo = kline_info_new(klast->close);
+        }
+        append_kinfo(result, start, kinfo, market);
+        if (klast && klast != kbefor)
+            kline_info_free(klast);
+        klast = kinfo;
+    }
+    if (klast && klast != kbefor)
+        kline_info_free(klast);
+
+    return result;
+}
+
 static time_t get_this_month(int tm_year, int tm_mon)
 {
     struct tm mtm;

@@ -20,6 +20,7 @@ json_t *get_market_kline_min(const char *market, time_t start, time_t end, int i
 json_t *get_market_kline_hour(const char *market, time_t start, time_t end, int interval);
 json_t *get_market_kline_day(const char *market, time_t start, time_t end, int interval);
 json_t *get_market_kline_week(const char *market, time_t start, time_t end, int interval);
+json_t *get_market_kline_two_week(const char *market, time_t start, time_t end, int interval);
 json_t *get_market_kline_month(const char *market, time_t start, time_t end, int interval);
 json_t *get_market_deals(const char *market, int limit, uint64_t last_id);
 json_t *get_market_deals_ext(const char *market, int limit, uint64_t last_id);
