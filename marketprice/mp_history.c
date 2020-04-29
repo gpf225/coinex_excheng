@@ -113,7 +113,7 @@ int append_kline_history(const char *market, int type, time_t timestamp, mpd_t *
         table_last = strdup(table);
     }
 
-    char buf[256];
+    char buf[512];
     char *open_str = mpd_format(open, "f", &mpd_ctx);
     char *close_str = mpd_format(close, "f", &mpd_ctx);
     char *high_str = mpd_format(high, "f", &mpd_ctx);
@@ -123,8 +123,7 @@ int append_kline_history(const char *market, int type, time_t timestamp, mpd_t *
 
     snprintf(buf, sizeof(buf), "('%s', %d, %ld, '%s', '%s', '%s', '%s', '%s', '%s')", market, type, timestamp, open_str, close_str, high_str, low_str, volume_str, deal_str);
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "INSERT INTO `%s` (`market`, `t`, `timestamp`, `open`, `close`, `high`, `low`, `volume`, `deal`) VALUES %s ON DUPLICATE KEY UPDATE"
-            "`open` = VALUES(`open`), `close` = VALUES(`close`), `high` = VALUES(`high`), `low` = VALUES(`low`), `volume` = VALUES(`volume`), `deal` = VALUES(`deal`)", table, buf);
+    sql = sdscatprintf(sql, "INSERT INTO `%s` (`market`, `t`, `timestamp`, `open`, `close`, `high`, `low`, `volume`, `deal`) VALUES %s", table, buf);
     nw_job_add(job, 0, sql);
 
     free(open_str);
