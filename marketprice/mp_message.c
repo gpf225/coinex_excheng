@@ -10,6 +10,8 @@
 # include "mp_kline.h"
 # include "mp_history.h"
 
+uint64_t max_id;
+
 # define TRADE_ZONE_SUFFIX "_ZONE"
 # define INDEX_SUFFIX      "_INDEX"
 
@@ -36,10 +38,6 @@ struct market_info {
     list_t *real_deals;
     list_t *real_deals_json;
     double update_time;
-    uint64_t max_id;
-    time_t last_min_time;
-    time_t last_hour_time;
-    time_t last_day_time;
 };
 
 struct update_key {
@@ -56,6 +54,10 @@ static kafka_consumer_t *indexs;
 static double   last_flush;
 static int64_t  last_deals_offset;
 static int64_t  last_indexs_offset;
+
+static time_t last_min_time;
+static time_t last_hour_time;
+static time_t last_day_time;
 
 static nw_timer flush_timer;
 static nw_timer clear_timer;
@@ -106,7 +108,9 @@ static redisContext *get_redis_connection()
 
 static int load_market_kline(redisContext *context, struct market_info *info, int type, sds key, dict_t *dict, time_t start)
 {
-    time_t max_timestamp = 0;
+    static time_t max_timestamp = 0;
+    bool is_index = (strstr(info->name, INDEX_SUFFIX) != NULL);
+
     redisReply *reply = redisCmd(context, "HGETALL %s", key);
     if (reply == NULL) {
         return -__LINE__;
@@ -120,22 +124,16 @@ static int load_market_kline(redisContext *context, struct market_info *info, in
             void *key = (void *)(uintptr_t)timestamp;
             dict_add(dict, key, info);
 
-            if (max_timestamp == 0) {
-                max_timestamp = timestamp;
-            } else if (timestamp > max_timestamp) {
+            if (!is_index && type == INTERVAL_SEC && timestamp > max_timestamp) {
                 max_timestamp = timestamp;
             }
         }
     }
     freeReplyObject(reply);
 
-   if (type == INTERVAL_MIN) {
-       info->last_min_time = max_timestamp;
-    } else if (type == INTERVAL_HOUR) {
-       info->last_hour_time = max_timestamp;
-    } else if (type == INTERVAL_DAY) {
-       info->last_day_time = max_timestamp;
-    }
+    last_min_time = max_timestamp / 60 * 60;
+    last_hour_time = max_timestamp / 3600 * 3600;
+    last_day_time = max_timestamp / 86400 * 86400;
 
     return 0;
 }
@@ -147,7 +145,7 @@ static int load_market_deals(redisContext *context, sds key, struct market_info 
         return -__LINE__;
     }
 
-    uint64_t max_id = 0;
+    uint64_t max_deals_id = 0;
     for (size_t i = 0; i < reply->elements; ++i) {
         json_t *deal = json_loadb(reply->element[i]->str, reply->element[i]->len, 0, NULL);
         if (deal == NULL) {
@@ -156,13 +154,15 @@ static int load_market_deals(redisContext *context, sds key, struct market_info 
         }
         list_add_node_tail(info->deals_json, deal);
 
-        if (max_id == 0) {
-            max_id = json_integer_value(json_object_get(deal, "id"));
-            info->max_id = max_id;
+        if (max_deals_id == 0) {
+            max_deals_id = json_integer_value(json_object_get(deal, "id"));
         }
     }
     freeReplyObject(reply);
 
+    if (max_deals_id > max_id) {
+        max_id = max_deals_id;
+    }
     return 0;
 }
 
@@ -539,20 +539,34 @@ static void add_kline_update(struct market_info *info, int type, time_t timestam
     dict_add(info->update, &key, NULL);
 }
 
-static void kline_history_process(struct market_info *info, int type, time_t timestamp)
+static void kline_history_process(int type)
 {
-    struct kline_info *kinfo;
-    if (type == INTERVAL_MIN) {
-        kinfo = kline_query(info->min, timestamp);
-    } else if (type == INTERVAL_HOUR) {
-        kinfo = kline_query(info->hour, timestamp);
-    } else {
-        kinfo = kline_query(info->day, timestamp);
-    }
+    dict_iterator *iter = dict_get_iterator(dict_market);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        struct market_info *info = entry->val;
+        struct kline_info *kinfo = NULL;
+        time_t timestamp;
 
-    if (!kinfo)
-        return;
-    append_kline_history(info->name, type, timestamp, kinfo->open, kinfo->close, kinfo->high, kinfo->low, kinfo->volume, kinfo->deal);
+        if (get_market_id(info->name) != worker_id && worker_id != settings.worker_num)
+            continue;
+
+        if (type == INTERVAL_MIN) {
+            kinfo = kline_query(info->min, last_min_time);
+            timestamp = last_min_time;
+        } else if (type == INTERVAL_HOUR) {
+            kinfo = kline_query(info->hour, last_hour_time);
+            timestamp = last_hour_time;
+        } else {
+            kinfo = kline_query(info->day, last_day_time);
+            timestamp = last_day_time;
+        }
+
+        if (!kinfo)
+            continue;
+        append_kline_history(info->name, type, timestamp, kinfo->open, kinfo->close, kinfo->high, kinfo->low, kinfo->volume, kinfo->deal);
+    }
+    dict_release_iterator(iter);
 }
 
 static int market_update(double timestamp, uint64_t id, const char *market, int side, uint32_t ask_user_id, uint32_t bid_user_id, mpd_t *price, mpd_t *amount)
@@ -578,19 +592,9 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
         }
     }
 
-    if (id != 0) { // deals msg
-        if (id <= info->max_id) {
-            log_info("discard old deals msg, id: %ld, max_id: %ld", id, info->max_id);
-            return 0;
-        }
-    } else { // index msg
-        time_t time_sec = (time_t)timestamp;
-        void *time_sec_key = (void *)(uintptr_t)time_sec;
-        dict_entry *entry = dict_find(info->sec, time_sec_key);
-        if (entry) {
-            log_info("discard old index msg, market: %s, timestamp: %f", market, timestamp);
-            return 0;
-        }
+    if (id != 0 && id <= max_id) {
+        log_info("discard old deals msg, id: %ld, max_id: %ld", id, max_id);
+        return 0;
     }
 
     // update sec
@@ -621,8 +625,10 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
         if (kinfo == NULL)
             return -__LINE__;
         dict_add(info->min, time_min_key, kinfo);
-        kline_history_process(info, INTERVAL_MIN, info->last_min_time);
-        info->last_min_time = time_min;
+        if (id != 0) {
+            kline_history_process(INTERVAL_MIN);
+            last_min_time = time_min;
+        }
     }
     kline_info_update(kinfo, price, amount);
     add_kline_update(info, INTERVAL_MIN, time_min);
@@ -638,8 +644,10 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
         if (kinfo == NULL)
             return -__LINE__;
         dict_add(info->hour, time_hour_key, kinfo);
-        kline_history_process(info, INTERVAL_HOUR, info->last_hour_time);
-        info->last_hour_time = time_hour;
+        if (id != 0) {
+            kline_history_process(INTERVAL_HOUR);
+            last_hour_time = time_hour;
+        }
     }
     kline_info_update(kinfo, price, amount);
     add_kline_update(info, INTERVAL_HOUR, time_hour);
@@ -655,8 +663,10 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
         if (kinfo == NULL)
             return -__LINE__;
         dict_add(info->day, time_day_key, kinfo);
-        kline_history_process(info, INTERVAL_DAY, info->last_day_time);
-        info->last_day_time = time_day;
+        if (id != 0) {
+            kline_history_process(INTERVAL_DAY);
+            last_day_time = time_day;
+        } 
     }
     kline_info_update(kinfo, price, amount);
     add_kline_update(info, INTERVAL_DAY, time_day);
@@ -700,7 +710,7 @@ static int market_update(double timestamp, uint64_t id, const char *market, int 
     // update time
     info->update_time = current_timestamp();
     // update max_id
-    info->max_id = id;
+    max_id = id;
 
     return 0;
 }
@@ -1312,8 +1322,11 @@ int init_message(int id)
     if (indexs == NULL) {
         return -__LINE__;
     }
-    log_info("last_deals_offset: %ld, last_indexs_offset: %ld", last_deals_offset, last_indexs_offset);
-    log_stderr("last_deals_offset: %ld, last_indexs_offset: %ld", last_deals_offset, last_indexs_offset);
+
+    log_info("work_id: %d, max_id: %ld, last_min_time: %ld, last_hour_time: %ld, last_day_time: %ld, deals_offset: %ld, indexs_offset: %ld", 
+            worker_id, max_id, last_min_time, last_hour_time, last_day_time, last_deals_offset, last_indexs_offset);
+    log_stderr("work_id: %d, max_id: %ld, last_min_time: %ld, last_hour_time: %ld, last_day_time: %ld, deals_offset: %ld, indexs_offset: %ld", 
+            worker_id, max_id, last_min_time, last_hour_time, last_day_time, last_deals_offset, last_indexs_offset);
 
     nw_timer_set(&flush_timer, 10, true, on_flush_timer, NULL);
     nw_timer_start(&flush_timer);
@@ -1630,51 +1643,6 @@ json_t *get_market_kline_week(const char *market, time_t start, time_t end, int 
 
     json_t *result = json_array();
     time_t base = start / interval * interval - 3 * 86400;
-    while ((base + interval) <= start)
-        base += interval;
-    start = base;
-
-    struct kline_info *kbefor = get_last_kline(info->day, start - 86400, start - 86400 * 30, 86400);
-    struct kline_info *klast = kbefor;
-    int step = interval / 86400;
-    for (; start <= end; start += interval) {
-        struct kline_info *kinfo = NULL;
-        for (int i = 0; i < step; ++i) {
-            time_t timestamp = start + i * 86400;
-            void *key = (void *)(uintptr_t)timestamp;
-            dict_entry *entry = dict_find(info->day, key);
-            if (entry == NULL)
-                continue;
-            struct kline_info *item = entry->val;
-            if (kinfo == NULL)
-                kinfo = kline_info_new(item->open);
-            kline_info_merge(kinfo, item);
-        }
-        if (kinfo == NULL) {
-            if (klast == NULL) {
-                continue;
-            }
-            kinfo = kline_info_new(klast->close);
-        }
-        append_kinfo(result, start, kinfo, market);
-        if (klast && klast != kbefor)
-            kline_info_free(klast);
-        klast = kinfo;
-    }
-    if (klast && klast != kbefor)
-        kline_info_free(klast);
-
-    return result;
-}
-
-json_t *get_market_kline_two_week(const char *market, time_t start, time_t end, int interval)
-{
-    struct market_info *info = market_query(market);
-    if (info == NULL)
-        return NULL;
-
-    json_t *result = json_array();
-    time_t base = start / interval * interval - 6 * 86400;
     while ((base + interval) <= start)
         base += interval;
     start = base;

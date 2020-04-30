@@ -128,6 +128,7 @@ skiplist_t *get_user_order_list(market_t *m, uint32_t user_id, int account);
 skiplist_t *get_user_stop_list(market_t *m, uint32_t user_id, int account);
 
 sds market_status(sds reply);
+bool check_fee_rate(const mpd_t *fee);
 
 int market_set_reader();
 json_t *market_get_fini_order(uint64_t order_id);

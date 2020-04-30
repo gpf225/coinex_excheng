@@ -175,10 +175,8 @@ static int on_cmd_market_kline(nw_ses *ses, rpc_pkg *pkg, json_t *params)
             return rpc_reply_error_invalid_argument(ses, pkg);
         }
         result = get_market_kline_day(market, start, end, interval);
-    } else if (interval == 86400 * 7) {
+    } else if ((interval % (86400 * 7)) == 0) {
         result = get_market_kline_week(market, start, end, interval);
-    } else if (interval == 86400 * 14) {
-        result = get_market_kline_two_week(market, start, end, interval);
     } else if (interval == 86400 * 30) {
         result = get_market_kline_month(market, start, end, interval);
     } else {
