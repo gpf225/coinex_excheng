@@ -10,8 +10,6 @@
 # include "mp_kline.h"
 # include "mp_history.h"
 
-uint64_t max_id;
-
 # define TRADE_ZONE_SUFFIX "_ZONE"
 # define INDEX_SUFFIX      "_INDEX"
 
@@ -45,6 +43,7 @@ struct update_key {
     time_t timestamp;
 };
 
+static uint64_t max_id;
 static int worker_id;
 static dict_t *dict_market;
 
@@ -557,7 +556,7 @@ static void kline_history_process(int type)
         } else if (type == INTERVAL_HOUR) {
             kinfo = kline_query(info->hour, last_hour_time);
             timestamp = last_hour_time;
-        } else {
+        } else if (type == INTERVAL_DAY) {
             kinfo = kline_query(info->day, last_day_time);
             timestamp = last_day_time;
         }
