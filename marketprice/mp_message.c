@@ -105,7 +105,7 @@ static redisContext *get_redis_connection()
     return redis_connect(&settings.redis);
 }
 
-static int load_market_kline(redisContext *context, struct market_info *info, int type, sds key, dict_t *dict, time_t start)
+static int load_market_kline(redisContext *context, struct market_info *info, sds key, dict_t *dict, time_t start)
 {
     static time_t max_timestamp = 0;
     bool is_index = (strstr(info->name, INDEX_SUFFIX) != NULL);
@@ -211,7 +211,7 @@ static int load_market(redisContext *context, struct market_info *info)
 
     sds key = sdsempty();
     key = sdscatprintf(key, "k:%s:1s", info->name);
-    ret = load_market_kline(context, info, INTERVAL_SEC, key, info->sec, now - settings.sec_max);
+    ret = load_market_kline(context, info, key, info->sec, now - settings.sec_max);
     if (ret < 0) {
         sdsfree(key);
         return ret;
@@ -219,7 +219,7 @@ static int load_market(redisContext *context, struct market_info *info)
 
     sdsclear(key);
     key = sdscatprintf(key, "k:%s:1m", info->name);
-    ret = load_market_kline(context, info, INTERVAL_MIN, key, info->min, now / 60 * 60 - settings.min_max * 60);
+    ret = load_market_kline(context, info, key, info->min, now / 60 * 60 - settings.min_max * 60);
     if (ret < 0) {
         sdsfree(key);
         return ret;
@@ -227,7 +227,7 @@ static int load_market(redisContext *context, struct market_info *info)
 
     sdsclear(key);
     key = sdscatprintf(key, "k:%s:1h", info->name);
-    ret = load_market_kline(context, info, INTERVAL_HOUR, key, info->hour, now / 3600 * 3600 - settings.hour_max * 3600);
+    ret = load_market_kline(context, info, key, info->hour, now / 3600 * 3600 - settings.hour_max * 3600);
     if (ret < 0) {
         sdsfree(key);
         return ret;
@@ -235,7 +235,7 @@ static int load_market(redisContext *context, struct market_info *info)
 
     sdsclear(key);
     key = sdscatprintf(key, "k:%s:1d", info->name);
-    ret = load_market_kline(context, info, INTERVAL_DAY, key, info->day, 0);
+    ret = load_market_kline(context, info, key, info->day, 0);
     if (ret < 0) {
         sdsfree(key);
         return ret;
