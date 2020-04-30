@@ -546,8 +546,9 @@ static void kline_history_process(int type)
         struct market_info *info = entry->val;
         struct kline_info *kinfo = NULL;
         time_t timestamp;
-
-        if (get_market_id(info->name) != worker_id && worker_id != settings.worker_num)
+        bool is_index = (strstr(info->name, INDEX_SUFFIX) != NULL);
+        
+        if (!is_index || (get_market_id(info->name) != worker_id && worker_id != settings.worker_num))
             continue;
 
         if (type == INTERVAL_MIN) {
