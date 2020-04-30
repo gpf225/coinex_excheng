@@ -118,10 +118,10 @@ static int load_market_kline(redisContext *context, struct market_info *info, in
         time_t timestamp = strtol(reply->element[i]->str, NULL, 0);
         if (start && timestamp < start)
             continue;
-        struct kline_info *info = kline_from_str(reply->element[i + 1]->str);
-        if (info) {
+        struct kline_info *kinfo = kline_from_str(reply->element[i + 1]->str);
+        if (kinfo) {
             void *key = (void *)(uintptr_t)timestamp;
-            dict_add(dict, key, info);
+            dict_add(dict, key, kinfo);
 
             if (!is_index && type == INTERVAL_SEC && timestamp > max_timestamp) {
                 max_timestamp = timestamp;
