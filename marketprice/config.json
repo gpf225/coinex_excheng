@@ -25,7 +25,7 @@
         "host": "localhost",
         "user": "root",
         "pass": "shit",
-        "name": "kline_history"
+        "name": "trade_log"
     },
     "brokers": "127.0.0.1:9092",
     "accesshttp": "http://127.0.0.1:8080",
