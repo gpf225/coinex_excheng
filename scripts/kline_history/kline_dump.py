@@ -9,6 +9,8 @@ import time
 import requests
 import math
 from redis import StrictRedis
+from datetime import datetime
+from datetime import timedelta
 
 '''
 MYSQL_HOST = "coinexlog.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com"
@@ -27,7 +29,7 @@ MYSQL_PORT = 3306
 MYSQL_USER = "root"
 MYSQL_PASS = "shit"
 #MYSQL_DB = "trade_log"
-MYSQL_DB = "test_db"
+MYSQL_DB = "test_log"
 
 REDIS_HOST = "127.0.0.1"
 REDIS_PORT = 6379
@@ -81,6 +83,8 @@ def dump_kline(db_conn, redis_conn, start_time):
     hour_kline_count = 0
     day_kline_count = 0
     for redis_key in redis_conn.scan_iter('k:*:1m'):
+        if redis_key.find("_INDEX") > 0:
+            continue
         data = redis_conn.hgetall(redis_key)
         print(redis_key)
         for timestamp, value in data.items():
@@ -93,6 +97,8 @@ def dump_kline(db_conn, redis_conn, start_time):
                 flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
 
     for redis_key in redis_conn.scan_iter('k:*:1h'):
+	if redis_key.find("_INDEX") > 0:
+            continue
         print(redis_key)
         data = redis_conn.hgetall(redis_key)
         for timestamp, value in data.items():
@@ -105,6 +111,8 @@ def dump_kline(db_conn, redis_conn, start_time):
                 flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
 
     for redis_key in redis_conn.scan_iter('k:*:1d'):
+        if redis_key.find("_INDEX") > 0:
+            continue
         print(redis_key)
         data = redis_conn.hgetall(redis_key)
         for timestamp, value in data.items():

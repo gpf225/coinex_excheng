@@ -51,6 +51,13 @@ static char *convert_trade_zone_name(const char *market_money)
     return buf;
 }
 
+static char *convert_trade_zone_real_name(const char *market_money)
+{
+    static char buf[100];
+    snprintf(buf, sizeof(buf), "%s_ZONE_REAL", market_money);
+    return buf;
+}
+
 static void clear_market(uint32_t update_id, bool is_index)
 {
     dict_entry *entry;
@@ -109,8 +116,12 @@ static int on_market_list_reply(json_t *result)
         const char *name = json_string_value(json_object_get(item, "name"));
         const char *money = json_string_value(json_object_get(item, "money"));
         update_market_list(name, update_id, false, false);
+
         char *trade_zone_name = convert_trade_zone_name(money);
         update_market_list(trade_zone_name, update_id, false, true);
+
+        char *trade_zone_real_name = convert_trade_zone_real_name(money);
+        update_market_list(trade_zone_real_name, update_id, false, true);
     }
     clear_market(update_id, false);
 

@@ -22,7 +22,6 @@ REDIS_HOST = "server.jb1xx2.ng.0001.apne1.cache.amazonaws.com"
 REDIS_PORT = 6379
 REDIS_DB = 0
 
-MARKET_INDEX_URL = "http://internal-web-internal-872360093.ap-northeast-1.elb.amazonaws.com/internal/exchange/market/index/config"
 MARKET_LIST_URL = "http://internal-web-internal-872360093.ap-northeast-1.elb.amazonaws.com//internal/exchange/market/list"
 '''
 
@@ -37,7 +36,6 @@ REDIS_HOST = "127.0.0.1"
 REDIS_PORT = 6379
 REDIS_DB = 15
 
-MARKET_INDEX_URL = "http://127.0.0.1:8000/internal/exchange/market/index/config"
 MARKET_LIST_URL = "http://127.0.0.1:8000/internal/exchange/market/list"
 
 insert_data = {}
@@ -66,7 +64,7 @@ def get_next_month_first_day(year_month):
     month = month if month <= 12 else month % 12
     return "%d%02d" % (year, month)
 
-def kline_load(db_conn, redis_conn, market_list, market_index):
+def kline_load(db_conn, redis_conn, market_list):
     table_prefix = 'kline_history'
     table_start = '201904'
     table_end   = time.strftime('%Y%m', time.localtime())
@@ -97,14 +95,6 @@ def kline_load(db_conn, redis_conn, market_list, market_index):
                 kline.append(price_format % item[6])
                 kline.append(volume_format % item[7])
                 kline.append(price_format % item[8])
-            elif item[0] in market_index:
-                price_format = "%.{}f".format(int(market_index[item[0]]['prec']))
-                kline.append(price_format % decimal.Decimal(item[3]))
-                kline.append(price_format % item[4])
-                kline.append(price_format % item[5])
-                kline.append(price_format % item[6])
-                kline.append("0")
-                kline.append("0")
             else:
                 continue
 
@@ -138,13 +128,7 @@ def main():
     for market_info in res['data']:
         market_list[market_info['name']] = market_info
 
-    market_index = {}
-    res = requests.get(MARKET_INDEX_URL, timeout=5).json()
-    for market, market_info in res['data'].items():
-        index_name = market + "_INDEX"
-        market_index[index_name] = market_info
-
-    kline_load(db_conn, redis_conn, market_list, market_index)
+    kline_load(db_conn, redis_conn, market_list)
 
     db_conn.close()
 
