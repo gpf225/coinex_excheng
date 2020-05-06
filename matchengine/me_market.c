@@ -460,6 +460,8 @@ static int finish_order(bool real, market_t *m, order_t *order)
         } else if (is_reader) {
             record_fini_order(order);
         }
+    } else if (is_reader) {
+        record_fini_order(order);
     }
 
     order_free(order);
