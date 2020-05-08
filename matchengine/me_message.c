@@ -265,9 +265,14 @@ int push_deal_message(double t, uint64_t id, market_t *market, int side, order_t
     json_object_set_new_mpd(message, "bid_fee", bid_fee);
     if (ask->client_id) {
         json_object_set_new(message, "ask_client_id", json_string(ask->client_id));
+    } else {
+        json_object_set_new(message, "ask_client_id", json_string(""));
     }
+
     if (bid->client_id) {
         json_object_set_new(message, "bid_client_id", json_string(bid->client_id));
+    } else {
+        json_object_set_new(message, "bid_client_id", json_string(""));
     }
 
     push_message(json_dumps(message, 0), rkt_deals, list_deals);

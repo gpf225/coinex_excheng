@@ -109,6 +109,9 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_str(root, "asset_url", &settings.asset_url, NULL));
     ERR_RET_LN(read_cfg_str(root, "market_url", &settings.market_url, NULL));
 
+    ERR_RET_LN(read_cfg_mpd(root, "min_fee", &settings.min_fee, "0"));
+    ERR_RET_LN(read_cfg_mpd(root, "max_fee", &settings.max_fee, "0"));
+
     ERR_RET_LN(read_cfg_str(root, "brokers", &settings.brokers, NULL));
     ERR_RET_LN(read_cfg_int(root, "slice_interval", &settings.slice_interval, false, 86400));
     ERR_RET_LN(read_cfg_int(root, "slice_keeptime", &settings.slice_keeptime, false, 86400 * 3));

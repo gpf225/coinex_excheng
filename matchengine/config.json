@@ -30,6 +30,8 @@
     "slice_interval": 3600,
     "slice_keeptime": 259200,
     "depth_merge_max": 800,
+    "min_fee": "0.001",
+    "max_fee": "0.005",
     "convert_fee": {
         "FCNY": {
             "money": "USDT",
