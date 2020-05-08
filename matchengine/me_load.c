@@ -504,14 +504,18 @@ static int load_limit_order(json_t *params)
     if (!json_is_string(json_array_get(params, 6)))
         goto error;
     taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
-    if (!check_fee_rate(taker_fee))
+    if (taker_fee == NULL)
+        goto error;
+    if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // maker fee
     if (!json_is_string(json_array_get(params, 7)))
         goto error;
     maker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
-    if (!check_fee_rate(maker_fee))
+    if (maker_fee == NULL)
+        goto error;
+    if (mpd_cmp(maker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(maker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // source
@@ -636,7 +640,9 @@ static int load_market_order(json_t *params)
     if (!json_is_string(json_array_get(params, 5)))
         goto error;
     taker_fee = decimal(json_string_value(json_array_get(params, 5)), market->fee_prec);
-    if (!check_fee_rate(taker_fee))
+    if (taker_fee == NULL)
+        goto error;
+    if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // source
@@ -854,14 +860,18 @@ static int load_stop_limit(json_t *params)
     if (!json_is_string(json_array_get(params, 7)))
         goto error;
     taker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
-    if (!check_fee_rate(taker_fee))
+    if (taker_fee == NULL)
+        goto error;
+    if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // maker fee
     if (!json_is_string(json_array_get(params, 8)))
         goto error;
     maker_fee = decimal(json_string_value(json_array_get(params, 8)), market->fee_prec);
-    if (!check_fee_rate(maker_fee))
+    if (maker_fee == NULL)
+        goto error;
+    if (mpd_cmp(maker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(maker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // source
@@ -999,7 +1009,9 @@ static int load_stop_market(json_t *params)
     if (!json_is_string(json_array_get(params, 6)))
         goto error;
     taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
-    if (!check_fee_rate(taker_fee))
+    if (taker_fee == NULL)
+        goto error;
+    if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto error;
 
     // source

@@ -2735,16 +2735,6 @@ sds market_status(sds reply)
     return reply;
 }
 
-bool check_fee_rate(const mpd_t *fee)
-{
-    if (fee == NULL || mpd_cmp(fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee, mpd_one, &mpd_ctx) >= 0)
-        return false;
-    if ((mpd_cmp(settings.min_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(fee, settings.min_fee, &mpd_ctx) < 0) 
-        || (mpd_cmp(settings.max_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(fee, settings.max_fee, &mpd_ctx) > 0))
-        return false;
-    return true;
-}
-
 json_t *market_get_fini_order(uint64_t order_id)
 {
     if (!is_reader)

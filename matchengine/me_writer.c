@@ -314,14 +314,14 @@ static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!json_is_string(json_array_get(params, 6)))
         goto invalid_argument;
     taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
-    if (!check_fee_rate(taker_fee))
+    if (taker_fee == NULL || mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // maker fee
     if (!json_is_string(json_array_get(params, 7)))
         goto invalid_argument;
     maker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
-    if (!check_fee_rate(maker_fee))
+    if (maker_fee == NULL || mpd_cmp(maker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(maker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // source
@@ -459,7 +459,7 @@ static int on_cmd_order_put_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!json_is_string(json_array_get(params, 5)))
         goto invalid_argument;
     taker_fee = decimal(json_string_value(json_array_get(params, 5)), market->fee_prec);
-    if (!check_fee_rate(taker_fee))
+    if (taker_fee == NULL || mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // source
@@ -694,14 +694,14 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!json_is_string(json_array_get(params, 7)))
         goto invalid_argument;
     taker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
-    if (!check_fee_rate(taker_fee))
+    if (taker_fee == NULL || mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // maker fee
     if (!json_is_string(json_array_get(params, 8)))
         goto invalid_argument;
     maker_fee = decimal(json_string_value(json_array_get(params, 8)), market->fee_prec);
-    if (!check_fee_rate(maker_fee))
+    if (maker_fee == NULL || mpd_cmp(maker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(maker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // source
@@ -844,7 +844,7 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!json_is_string(json_array_get(params, 6)))
         goto invalid_argument;
     taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
-    if (!check_fee_rate(taker_fee))
+    if (taker_fee == NULL || mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
         goto invalid_argument;
 
     // source

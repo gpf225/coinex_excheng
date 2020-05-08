@@ -725,15 +725,15 @@ int deals_process(double timestamp, uint64_t id, struct market_info *info, int s
     }
 
     // zone real deals
+    if (ask_user_id == 0 || bid_user_id == 0) {
+        return 0;
+    }
+
     char *trade_zone_real_name = convert_trade_zone_real_name(info->money);
     info = market_query(trade_zone_real_name);
     if (info == NULL) {
         log_info("trade_zone %s not exist", trade_zone_real_name);
         return -__LINE__;
-    }
-
-    if (ask_user_id == 0 || bid_user_id == 0) {
-        return 0;
     }
 
     ret = market_update(timestamp, id, info, side, ask_user_id, bid_user_id, price, amount);
@@ -1393,7 +1393,9 @@ int init_message(int id)
 
 int get_market_id(const char *market)
 {
-    if (strstr(market, TRADE_ZONE_SUFFIX) != NULL) {
+    if (strstr(market, TRADE_ZONE_REAL_SUFFIX) != NULL) {
+        return settings.worker_num;
+    } else if (strstr(market, TRADE_ZONE_SUFFIX) != NULL) {
         return settings.worker_num;
     } else {
         uint32_t hash = dict_generic_hash_function(market, strlen(market));
