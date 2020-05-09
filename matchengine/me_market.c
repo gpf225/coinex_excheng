@@ -1621,6 +1621,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         if (is_reader) {
             record_fini_order(order);
         }
+        order_free(order);
     } else {
         ret = frozen_order(m, order);
         if (ret < 0) {
