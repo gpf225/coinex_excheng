@@ -3170,8 +3170,6 @@ bool check_fee_rate(const mpd_t *fee)
 {
     if (fee == NULL)
         return false;
-    if (mpd_cmp(fee, mpd_one, &mpd_ctx) >= 0)
-        return false;
     if (mpd_cmp(fee, settings.min_fee, &mpd_ctx) < 0)
         return false;
     if (mpd_cmp(fee, settings.max_fee, &mpd_ctx) > 0)
