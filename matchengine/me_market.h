@@ -136,5 +136,7 @@ json_t *market_get_summary(market_t *m);
 int market_start_call_auction(market_t *m);
 int market_execute_call_auction(bool real, market_t *m, mpd_t *volume);
 
+bool check_fee_rate(const mpd_t *fee);
+
 # endif
 

@@ -460,6 +460,8 @@ static int finish_order(bool real, market_t *m, order_t *order)
         } else if (is_reader) {
             record_fini_order(order);
         }
+    } else if (is_reader) {
+        record_fini_order(order);
     }
 
     order_free(order);
@@ -1616,6 +1618,9 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         }
         order_free(order);
     } else if (immediate_or_cancel) {
+        if (is_reader) {
+            record_fini_order(order);
+        }
         order_free(order);
     } else {
         ret = frozen_order(m, order);
@@ -3159,4 +3164,15 @@ int market_execute_call_auction(bool real, market_t *m, mpd_t *volume)
     skiplist_release_iterator(bid_iter);
 
     return ret;
+}
+
+bool check_fee_rate(const mpd_t *fee)
+{
+    if (fee == NULL)
+        return false;
+    if (mpd_cmp(fee, settings.min_fee, &mpd_ctx) < 0)
+        return false;
+    if (mpd_cmp(fee, settings.max_fee, &mpd_ctx) > 0)
+        return false;
+    return true;
 }
