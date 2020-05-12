@@ -48,7 +48,7 @@ struct settings {
     alert_cfg           alert;
     rpc_svr_cfg         svr;
     redis_cfg           redis;
-    mysql_cfg           db_history;
+    mysql_cfg           db_log;
     char                *brokers;
 
     int                 sec_max;

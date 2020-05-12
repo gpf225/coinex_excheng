@@ -7,10 +7,11 @@
 # define _MP_HISTORY_H_
 
 # include "mp_config.h"
+# include "mp_kline.h"
 
 int init_history(void);
 int fini_history(void);
-int append_kline_history(const char *market, int type, time_t timestamp, mpd_t *open, mpd_t *close, mpd_t *high, mpd_t *low, mpd_t *volume, mpd_t *deal);
+int append_kline_history(const char *market, int type, time_t timestamp, struct kline_info *kinfo);
 
 # endif
 

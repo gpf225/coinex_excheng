@@ -19,7 +19,7 @@ static nw_job *job;
 
 static void *on_job_init(void)
 {
-    return mysql_connect(&settings.db_history);
+    return mysql_connect(&settings.db_log);
 }
 
 static void on_job(nw_job_entry *entry, void *privdata)
@@ -53,7 +53,7 @@ int init_history(void)
     mysql_conn = mysql_init(NULL);
     if (mysql_conn == NULL)
         return -__LINE__;
-    if (mysql_options(mysql_conn, MYSQL_SET_CHARSET_NAME, settings.db_history.charset) != 0)
+    if (mysql_options(mysql_conn, MYSQL_SET_CHARSET_NAME, settings.db_log.charset) != 0)
         return -__LINE__;
 
     nw_job_type type;
@@ -82,15 +82,18 @@ int fini_history(void)
     return 0;
 }
 
-static char *get_utc_date_from_time(time_t timestamp, const char *format)
+static sds sql_append_mpd(sds sql, mpd_t *val, bool comma)
 {
-    static char str[512];
-    struct tm *timeinfo = gmtime(&timestamp);
-    strftime(str, sizeof(str), format, timeinfo);
-    return str;
+    char *str = mpd_to_sci(val, 0);
+    sql = sdscatprintf(sql, "'%s'", str);
+    if (comma) {
+        sql = sdscatprintf(sql, ", ");
+    }
+    free(str);
+    return sql;
 }
 
-int append_kline_history(const char *market, int type, time_t timestamp, mpd_t *open, mpd_t *close, mpd_t *high, mpd_t *low, mpd_t *volume, mpd_t *deal)
+int append_kline_history(const char *market, int type, time_t timestamp, struct kline_info *kinfo)
 {
     if (job->request_count >= MAX_PENDING_HISTORY) {
         log_fatal("history append too big: %d", job->request_count);
@@ -101,9 +104,10 @@ int append_kline_history(const char *market, int type, time_t timestamp, mpd_t *
         table_last = strdup("");
     }
 
-    time_t now = time(NULL);
     char table[64];
-    snprintf(table, sizeof(table), "kline_history_%s", get_utc_date_from_time(now, "%Y%m"));
+    time_t now = time(NULL);
+    struct tm *tm = localtime(&now);
+    snprintf(table, sizeof(table), "kline_history_%04d%02d", 1900 + tm->tm_year, 1 + tm->tm_mon);
 
     if (strcmp(table_last, table) != 0) {
         sds create_table_sql = sdsempty();
@@ -113,26 +117,18 @@ int append_kline_history(const char *market, int type, time_t timestamp, mpd_t *
         table_last = strdup(table);
     }
 
-    char buf[512];
-    char *open_str = mpd_format(open, "f", &mpd_ctx);
-    char *close_str = mpd_format(close, "f", &mpd_ctx);
-    char *high_str = mpd_format(high, "f", &mpd_ctx);
-    char *low_str = mpd_format(low, "f", &mpd_ctx);
-    char *volume_str = mpd_format(volume, "f", &mpd_ctx);
-    char *deal_str = mpd_format(deal, "f", &mpd_ctx);
-
-    snprintf(buf, sizeof(buf), "('%s', %d, %ld, '%s', '%s', '%s', '%s', '%s', '%s')", market, type, timestamp, open_str, close_str, high_str, low_str, volume_str, deal_str);
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "INSERT INTO `%s` (`market`, `t`, `timestamp`, `open`, `close`, `high`, `low`, `volume`, `deal`) VALUES %s", table, buf);
+    sql = sdscatprintf(sql, "INSERT INTO `%s` (`market`, `t`, `timestamp`, `open`, `close`, `high`, `low`, `volume`, `deal`) VALUES ", table);
+    sql = sdscatprintf(sql, "('%s', %d, %ld, ", market, type, timestamp);
+    sql = sql_append_mpd(sql, kinfo->open, true);
+    sql = sql_append_mpd(sql, kinfo->close, true);
+    sql = sql_append_mpd(sql, kinfo->high, true);
+    sql = sql_append_mpd(sql, kinfo->low, true);
+    sql = sql_append_mpd(sql, kinfo->volume, true);
+    sql = sql_append_mpd(sql, kinfo->deal, false);
+    sql = sdscatprintf(sql, ")");
+
     nw_job_add(job, 0, sql);
-
-    free(open_str);
-    free(close_str);
-    free(high_str);
-    free(low_str);
-    free(volume_str);
-    free(deal_str);
-
     log_trace("add history: %s", sql);
     profile_inc("history", 1);
 

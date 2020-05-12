@@ -40,7 +40,20 @@ MARKET_LIST_URL = "http://127.0.0.1:8000/internal/exchange/market/list"
 
 insert_data = {}
 
-def flush_kline(redis_conn, key, subkey, kline_data):
+def flush_kline(redis_conn, key, subkey, kline_class, kline_data):
+    global min_max
+    global hour_max
+    timestamp = subkey
+    now = int(time.time())
+
+    min_clear_tm = now / 60 * 60 - 60 * 24 * 30 * 60
+    hour_clear_tm = now / 3600 * 3600 - 24 * 365 * 3 * 3600
+    
+    if kline_class == 1 and timestamp < min_clear_tm:
+        return
+    elif kline_class == 2 and timestamp < hour_clear_tm:
+        return
+
     global insert_data
     insert_data.setdefault(key, {})
     insert_data[key][subkey] = json.dumps(kline_data)
@@ -57,23 +70,12 @@ def get_redis_key(market, kline_class):
     elif kline_class == 3:
         return "k:{}:1d".format(market)
 
-def get_next_month_first_day(year_month):
-    date = datetime.datetime.strptime(year_month, "%Y%m")
-    month = date.month + 1
-    year = date.year + (month - 1) / 12
-    month = month if month <= 12 else month % 12
-    return "%d%02d" % (year, month)
-
-def kline_load(db_conn, redis_conn, market_list):
-    table_prefix = 'kline_history'
-    table_start = '201904'
-    table_end   = time.strftime('%Y%m', time.localtime())
-
+def laod_table(db_conn, redis_conn, table_name, market_list):
     limit = 5000
     offset = 0
-
+    
     while True:
-        query_sql_str = "select `market`, `timestamp`, `t`, `open`, `close`, `high`, `low`, `volume`, `deal` from {}_{} order by id asc limit {}, {}".format(table_prefix, table_start, offset, limit)
+        query_sql_str = "select `market`, `timestamp`, `t`, `open`, `close`, `high`, `low`, `volume`, `deal` from {} order by id asc limit {}, {}".format(table_name, offset, limit)
         cursor = db_conn.cursor()
         print(query_sql_str)
 
@@ -86,30 +88,43 @@ def kline_load(db_conn, redis_conn, market_list):
                         
         for item in res:
             kline = []
-            if item[0] in market_list:
-                price_format = "%.{}f".format(int(market_list[item[0]]['money']['prec']))
-                volume_format = "%.{}f".format(int(market_list[item[0]]['stock']['prec']))
-                kline.append(price_format % decimal.Decimal(item[3]))
-                kline.append(price_format % item[4])
-                kline.append(price_format % item[5])
-                kline.append(price_format % item[6])
-                kline.append(volume_format % item[7])
-                kline.append(price_format % item[8])
-            else:
+            market_name = item[0]
+            if market_name not in market_list:
                 continue
 
+            price_format = "%.{}f".format(int(market_list[item[0]]['money']['prec']))
+            volume_format = "%.{}f".format(int(market_list[item[0]]['stock']['prec']))
+            kline.append(price_format % decimal.Decimal(item[3]))
+            kline.append(price_format % item[4])
+            kline.append(price_format % item[5])
+            kline.append(price_format % item[6])
+            kline.append(volume_format % item[7])
+            kline.append(price_format % item[8])
+
             key = get_redis_key(item[0], int(item[2]))
-            flush_kline(redis_conn, key, int(item[1]), kline)
+            flush_kline(redis_conn, key, int(item[1]), int(item[2]), kline)
 
         if len(res) < limit:
-            table_start = get_next_month_first_day(table_start)
             offset = 0
+            break
         else:
             offset = offset + limit
 
         cursor.close()
-        if int(table_start) > int(table_end):
+        if offset == 0:
             break
+
+def kline_load(db_conn, redis_conn, market_list):
+    query_table_str = "show tables like 'kline_history_2%'"
+    cursor = db_conn.cursor()
+    cursor.execute(query_table_str)
+    res = cursor.fetchall()
+
+    for item in res:
+        table = item[0]
+        print table
+        laod_table(db_conn, redis_conn, table, market_list)
+    cursor.close()
 
     global insert_data
     for key, value in insert_data.items():
@@ -117,7 +132,6 @@ def kline_load(db_conn, redis_conn, market_list):
             redis_conn.hmset(key, value)
             print(key)
             insert_data[key] = {}
-
 
 def main():
     redis_conn = StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)

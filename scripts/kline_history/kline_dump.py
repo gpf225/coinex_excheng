@@ -38,6 +38,7 @@ REDIS_DB = 0
 MARKET_URL = "http://127.0.0.1:8000/internal/exchange/market/index/config"
 
 sql_data = {}
+curr_table = ''
 
 def create_table(db_conn, table):
     cursor = db_conn.cursor()
@@ -46,8 +47,13 @@ def create_table(db_conn, table):
     cursor.close()
 
 def db_execute(db_conn, table, insert_data):
-    create_table(db_conn, table)
-    sql = "INSERT INTO `{}`(`open`, `close`, `high`, `low`, `volume`, `deal`, `market`, `t`, `timestamp`)VALUES".format(table)
+    global curr_table
+
+    if curr_table != table:
+        curr_table = table
+        create_table(db_conn, curr_table)
+
+    sql = "INSERT INTO `{}`(`open`, `close`, `high`, `low`, `volume`, `deal`, `market`, `t`, `timestamp`)VALUES".format(curr_table)
     count = 0
     for item in insert_data:
         if count > 0:
@@ -55,7 +61,7 @@ def db_execute(db_conn, table, insert_data):
         sql = sql + "('{0[0]}', '{0[1]}', '{0[2]}', '{0[3]}', '{0[4]}', '{0[5]}', '{0[6]}', {0[7]}, {0[8]})".format(item)
         count += 1
 
-    print(table)
+    print(curr_table)
     cursor = db_conn.cursor()
     cursor.execute(sql)
     cursor.close()
@@ -63,8 +69,8 @@ def db_execute(db_conn, table, insert_data):
 def flush_db(db_conn, kline_class, market, timestamp, kline_data):
     global sql_data
 
-    utc_time = datetime.utcfromtimestamp(timestamp)
-    table_suffix = utc_time.strftime("%Y%m")
+    local_time = time.localtime(timestamp)
+    table_suffix = time.strftime("%Y%m", local_time)
     table = 'kline_history_{}'.format(table_suffix)
 
     sql_data.setdefault(table, [])
@@ -77,13 +83,12 @@ def flush_db(db_conn, kline_class, market, timestamp, kline_data):
         db_execute(db_conn, table, sql_data[table])
         sql_data[table] = []
         
-
 def dump_kline(db_conn, redis_conn, start_time):
     minute_kline_count = 0
     hour_kline_count = 0
     day_kline_count = 0
     for redis_key in redis_conn.scan_iter('k:*:1m'):
-        if redis_key.find("_INDEX") > 0:
+        if redis_key.find("_INDEX") > 0 or redis_key.find("_ZONE") > 0:
             continue
         data = redis_conn.hgetall(redis_key)
         print(redis_key)
@@ -97,7 +102,7 @@ def dump_kline(db_conn, redis_conn, start_time):
                 flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
 
     for redis_key in redis_conn.scan_iter('k:*:1h'):
-	if redis_key.find("_INDEX") > 0:
+        if redis_key.find("_INDEX") > 0 or redis_key.find("_ZONE") > 0:
             continue
         print(redis_key)
         data = redis_conn.hgetall(redis_key)
@@ -111,7 +116,7 @@ def dump_kline(db_conn, redis_conn, start_time):
                 flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
 
     for redis_key in redis_conn.scan_iter('k:*:1d'):
-        if redis_key.find("_INDEX") > 0:
+        if redis_key.find("_INDEX") > 0 or redis_key.find("_ZONE") > 0:
             continue
         print(redis_key)
         data = redis_conn.hgetall(redis_key)
@@ -130,7 +135,7 @@ def dump_kline(db_conn, redis_conn, start_time):
             db_execute(db_conn, table, kline_data)
 
     print("done! minute_kline_count: {}, hour_kline_count: {}, day_kline_count: {}".format(minute_kline_count, hour_kline_count, day_kline_count))
-        
+
 def main():
     if len(sys.argv) < 1:
         print("invalid params")
