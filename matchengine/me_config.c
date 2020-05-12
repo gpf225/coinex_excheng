@@ -110,7 +110,10 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_str(root, "market_url", &settings.market_url, NULL));
 
     ERR_RET_LN(read_cfg_mpd(root, "min_fee", &settings.min_fee, "0"));
-    ERR_RET_LN(read_cfg_mpd(root, "max_fee", &settings.max_fee, "0"));
+    ERR_RET_LN(read_cfg_mpd(root, "max_fee", &settings.max_fee, "1.0"));
+    if (mpd_cmp(settings.min_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(settings.max_fee, mpd_one, &mpd_ctx) > 0) {
+        return -__LINE__;
+    }
 
     ERR_RET_LN(read_cfg_str(root, "brokers", &settings.brokers, NULL));
     ERR_RET_LN(read_cfg_int(root, "slice_interval", &settings.slice_interval, false, 86400));

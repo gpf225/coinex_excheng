@@ -3168,10 +3168,13 @@ int market_execute_call_auction(bool real, market_t *m, mpd_t *volume)
 
 bool check_fee_rate(const mpd_t *fee)
 {
-    if (fee == NULL || mpd_cmp(fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(fee, mpd_one, &mpd_ctx) >= 0)
+    if (fee == NULL)
         return false;
-    if ((mpd_cmp(settings.min_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(fee, settings.min_fee, &mpd_ctx) < 0) 
-        || (mpd_cmp(settings.max_fee, mpd_zero, &mpd_ctx) > 0 && mpd_cmp(fee, settings.max_fee, &mpd_ctx) > 0))
+    if (mpd_cmp(fee, mpd_one, &mpd_ctx) >= 0)
+        return false;
+    if (mpd_cmp(fee, settings.min_fee, &mpd_ctx) < 0)
+        return false;
+    if (mpd_cmp(fee, settings.max_fee, &mpd_ctx) > 0)
         return false;
     return true;
 }
