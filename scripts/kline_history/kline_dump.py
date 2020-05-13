@@ -64,6 +64,7 @@ def db_execute(db_conn, table, insert_data):
     print(curr_table)
     cursor = db_conn.cursor()
     cursor.execute(sql)
+    db_conn.commit()
     cursor.close()
 
 def flush_db(db_conn, kline_class, market, timestamp, kline_data):
