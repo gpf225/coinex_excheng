@@ -19,7 +19,13 @@
     },
     "redis": {
         "host": "127.0.0.1",
-        "port": 6379
+        "port": 6386
+    },
+    "db_log": {
+        "host": "localhost",
+        "user": "root",
+        "pass": "shit",
+        "name": "trade_log"
     },
     "brokers": "127.0.0.1:9092",
     "accesshttp": "http://127.0.0.1:8080",

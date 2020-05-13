@@ -7,6 +7,7 @@
 # include "mp_access.h"
 # include "mp_server.h"
 # include "mp_message.h"
+# include "mp_history.h"
 
 const char *__process__ = "marketprice";
 const char *__version__ = "0.1.0";
@@ -67,6 +68,8 @@ int main(int argc, char *argv[])
     process_title_init(argc, argv);
 
     int ret;
+    bool need_release = true;
+
     ret = init_mpd();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init mpd fail: %d", ret);
@@ -101,7 +104,10 @@ int main(int argc, char *argv[])
             if (ret < 0) {
                 error(EXIT_FAILURE, errno, "init server fail: %d", ret);
             }
-
+            ret = init_history();
+            if (ret < 0) {
+                error(EXIT_FAILURE, errno, "init history fail: %d", ret);
+            }
             goto run;
         }
     }
@@ -109,6 +115,7 @@ int main(int argc, char *argv[])
     process_title_set("marketprice_access");
     daemon(1, 1);
     process_keepalive(settings.debug);
+    need_release = false;
 
     ret = init_access();
     if (ret < 0) {
@@ -123,6 +130,10 @@ run:
     log_stderr("server start");
     nw_loop_run();
     log_vip("server stop");
+
+    if (need_release) {
+        fini_history();
+    }
 
     return 0;
 }
