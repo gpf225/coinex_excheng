@@ -12,5 +12,4 @@
 4. 更新重启marketprice
 5. 更新重启cachecentor
 6. 更新重启marketindex
-7. 配置kline_dump.py参数，执行脚本：把k线数据dump到数据库中
-
+7. 等新版本marketprice运行大概一天后，配置kline_dump.py参数，执行脚本：把k线数据dump到数据库中  原因: 最新的kline_dump.py去掉了start_dump_time参数即dump所有redis的数据,为了避免漏数据，先运行新marketprice一天

@@ -84,7 +84,7 @@ def flush_db(db_conn, kline_class, market, timestamp, kline_data):
         db_execute(db_conn, table, sql_data[table])
         sql_data[table] = []
         
-def dump_kline(db_conn, redis_conn, start_time):
+def dump_kline(db_conn, redis_conn):
     minute_kline_count = 0
     hour_kline_count = 0
     day_kline_count = 0
@@ -94,13 +94,12 @@ def dump_kline(db_conn, redis_conn, start_time):
         data = redis_conn.hgetall(redis_key)
         print(redis_key)
         for timestamp, value in data.items():
-            if int(timestamp) >= start_time:
-                minute_kline_count += 1
-                items = redis_key.split(':')
-                market = items[1]
-                kline_class = 1
-                kline_data = json.loads(value)
-                flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
+            minute_kline_count += 1
+            items = redis_key.split(':')
+            market = items[1]
+            kline_class = 1
+            kline_data = json.loads(value)
+            flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
 
     for redis_key in redis_conn.scan_iter('k:*:1h'):
         if redis_key.find("_INDEX") > 0 or redis_key.find("_ZONE") > 0:
@@ -108,13 +107,12 @@ def dump_kline(db_conn, redis_conn, start_time):
         print(redis_key)
         data = redis_conn.hgetall(redis_key)
         for timestamp, value in data.items():
-            if int(timestamp) >= start_time:
-                hour_kline_count += 1
-                items = redis_key.split(':')
-                market = items[1]
-                kline_class = 2
-                kline_data = json.loads(value)
-                flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
+            hour_kline_count += 1
+            items = redis_key.split(':')
+            market = items[1]
+            kline_class = 2
+            kline_data = json.loads(value)
+            flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
 
     for redis_key in redis_conn.scan_iter('k:*:1d'):
         if redis_key.find("_INDEX") > 0 or redis_key.find("_ZONE") > 0:
@@ -122,13 +120,12 @@ def dump_kline(db_conn, redis_conn, start_time):
         print(redis_key)
         data = redis_conn.hgetall(redis_key)
         for timestamp, value in data.items():
-            if int(timestamp) >= start_time:
-                day_kline_count += 1
-                items = redis_key.split(':')
-                market = items[1]
-                kline_class = 3
-                kline_data = json.loads(value)
-                flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
+            day_kline_count += 1
+            items = redis_key.split(':')
+            market = items[1]
+            kline_class = 3
+            kline_data = json.loads(value)
+            flush_db(db_conn, kline_class, market, int(timestamp), kline_data)
 
     global sql_data
     for table, kline_data in sql_data.items():
@@ -138,17 +135,10 @@ def dump_kline(db_conn, redis_conn, start_time):
     print("done! minute_kline_count: {}, hour_kline_count: {}, day_kline_count: {}".format(minute_kline_count, hour_kline_count, day_kline_count))
 
 def main():
-    if len(sys.argv) < 1:
-        print("invalid params")
-
-    start_time = int(sys.argv[1])
-    print("start_time:", start_time)
-
     redis_conn = StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
     db_conn = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_DB)
 
-    dump_kline(db_conn, redis_conn, start_time)
-
+    dump_kline(db_conn, redis_conn)
     db_conn.close()
 
 
