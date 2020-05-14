@@ -61,8 +61,8 @@ def db_execute(db_conn, table, insert_data):
 def flush_db(db_conn, kline_class, market, timestamp, kline_data):
     global sql_data
 
-    local_time = time.localtime(timestamp) 
-    table_suffix = time.strftime("%Y%m", local_time)
+    utc_time = datetime.utcfromtimestamp(timestamp)
+    table_suffix = utc_time.strftime("%Y%m")
     table = 'kline_history_{}'.format(table_suffix)
 
     sql_data.setdefault(table, [])
