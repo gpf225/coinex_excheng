@@ -460,6 +460,8 @@ static int finish_order(bool real, market_t *m, order_t *order)
         } else if (is_reader) {
             record_fini_order(order);
         }
+    } else if (is_reader) {
+        record_fini_order(order);
     }
 
     order_free(order);
@@ -1019,7 +1021,6 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
         maker->last_deal_time = maker->update_time;
         maker->last_deal_id = deal_id;
         maker->last_role = MARKET_ROLE_MAKER;
-
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
             if (real) {
@@ -1617,6 +1618,9 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         }
         order_free(order);
     } else if (immediate_or_cancel) {
+        if (is_reader) {
+            record_fini_order(order);
+        }
         order_free(order);
     } else {
         ret = frozen_order(m, order);
@@ -2609,7 +2613,7 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
     return ret;
 }
 
-int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market_t *m)
+int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market_t *m, uint32_t side)
 {
     int ret = 0;
     skiplist_t *order_list = get_user_order_list(m, user_id, account);
@@ -2620,15 +2624,17 @@ int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market
     skiplist_iter *iter = skiplist_get_iterator(order_list);
     while ((node = skiplist_next(iter)) != NULL) {
         order_t *order = node->value;
-        if (real) {
-            push_order_message(ORDER_EVENT_FINISH, order, m);
-        }
+        if (side == 0 || side == order->side) {
+            if (real) {
+                push_order_message(ORDER_EVENT_FINISH, order, m);
+            }
 
-        ret = finish_order(real, m, order);
-        if (ret < 0) {
-            log_fatal("cancel order: %"PRIu64" fail: %d", order->id, ret);
-            skiplist_release_iterator(iter);
-            return ret;
+            ret = finish_order(real, m, order);
+            if (ret < 0) {
+                log_fatal("cancel order: %"PRIu64" fail: %d", order->id, ret);
+                skiplist_release_iterator(iter);
+                return ret;
+            }
         }
     }
     skiplist_release_iterator(iter);
@@ -2648,7 +2654,7 @@ int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop)
     return finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
 }
 
-int market_cancel_stop_all(bool real, uint32_t user_id, int32_t account, market_t *m)
+int market_cancel_stop_all(bool real, uint32_t user_id, int32_t account, market_t *m, uint32_t side)
 {
     int ret = 0;
     skiplist_t *stop_list = get_user_stop_list(m, user_id, account);
@@ -2659,15 +2665,17 @@ int market_cancel_stop_all(bool real, uint32_t user_id, int32_t account, market_
     skiplist_iter *iter = skiplist_get_iterator(stop_list);
     while ((node = skiplist_next(iter)) != NULL) {
         stop_t *stop = node->value;
-        if (real) {
-            push_stop_message(STOP_EVENT_CANCEL, stop, m, 0);
-        }
+        if (side == 0 || side == stop->side) {
+            if (real) {
+                push_stop_message(STOP_EVENT_CANCEL, stop, m, 0);
+            }
 
-        ret = finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
-        if (ret < 0) {
-            log_fatal("cancel stop: %"PRIu64" fail: %d", stop->id, ret);
-            skiplist_release_iterator(iter);
-            return ret;
+            ret = finish_stop(real, m, stop, MARKET_STOP_STATUS_CANCEL);
+            if (ret < 0) {
+                log_fatal("cancel stop: %"PRIu64" fail: %d", stop->id, ret);
+                skiplist_release_iterator(iter);
+                return ret;
+            }
         }
     }
     skiplist_release_iterator(iter);
@@ -3156,4 +3164,15 @@ int market_execute_call_auction(bool real, market_t *m, mpd_t *volume)
     skiplist_release_iterator(bid_iter);
 
     return ret;
+}
+
+bool check_fee_rate(const mpd_t *fee)
+{
+    if (fee == NULL)
+        return false;
+    if (mpd_cmp(fee, settings.min_fee, &mpd_ctx) < 0)
+        return false;
+    if (mpd_cmp(fee, settings.max_fee, &mpd_ctx) > 0)
+        return false;
+    return true;
 }

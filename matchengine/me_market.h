@@ -64,7 +64,7 @@ typedef struct order_t {
     mpd_t           *last_deal_price;
     double          last_deal_time;
     uint64_t        last_deal_id;
-    int             last_role;
+    uint32_t        last_role;
     mpd_t           *fee_price;
 } order_t;
 
@@ -116,10 +116,10 @@ order_t *market_get_order(market_t *m, uint64_t order_id);
 stop_t *market_get_stop(market_t *m, uint64_t order_id);
 
 int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order);
-int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market_t *m);
+int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market_t *m, uint32_t side);
 
 int market_cancel_stop(bool real, json_t **result, market_t *m, stop_t *stop);
-int market_cancel_stop_all(bool real, uint32_t user_id, int32_t account, market_t *m);
+int market_cancel_stop_all(bool real, uint32_t user_id, int32_t account, market_t *m, uint32_t side);
 
 int market_put_order(market_t *m, order_t *order);
 int market_put_stop(market_t *m, stop_t *stop);
@@ -135,6 +135,8 @@ json_t *market_get_summary(market_t *m);
 
 int market_start_call_auction(market_t *m);
 int market_execute_call_auction(bool real, market_t *m, mpd_t *volume);
+
+bool check_fee_rate(const mpd_t *fee);
 
 # endif
 

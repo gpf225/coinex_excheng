@@ -504,18 +504,14 @@ static int load_limit_order(json_t *params)
     if (!json_is_string(json_array_get(params, 6)))
         goto error;
     taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
-    if (taker_fee == NULL)
-        goto error;
-    if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
+    if (!check_fee_rate(taker_fee))
         goto error;
 
     // maker fee
     if (!json_is_string(json_array_get(params, 7)))
         goto error;
     maker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
-    if (maker_fee == NULL)
-        goto error;
-    if (mpd_cmp(maker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(maker_fee, mpd_one, &mpd_ctx) >= 0)
+    if (!check_fee_rate(maker_fee))
         goto error;
 
     // source
@@ -640,9 +636,7 @@ static int load_market_order(json_t *params)
     if (!json_is_string(json_array_get(params, 5)))
         goto error;
     taker_fee = decimal(json_string_value(json_array_get(params, 5)), market->fee_prec);
-    if (taker_fee == NULL)
-        goto error;
-    if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
+    if (!check_fee_rate(taker_fee))
         goto error;
 
     // source
@@ -752,7 +746,7 @@ static int load_cancel_order(json_t *params)
 
 static int load_cancel_order_all(json_t *params)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) < 3)
         return -__LINE__;
 
     // user_id
@@ -773,7 +767,16 @@ static int load_cancel_order_all(json_t *params)
     if (market == NULL)
         return 0;
 
-    int ret = market_cancel_order_all(false, user_id, account, market);
+    uint32_t side = 0;
+    if (json_array_size(params) == 4) {
+        if (!json_is_integer(json_array_get(params, 3)))
+            return -__LINE__;
+        side = json_integer_value(json_array_get(params, 3));
+        if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+            return -__LINE__;
+    }
+
+    int ret = market_cancel_order_all(false, user_id, account, market, side);
     if (ret < 0) {
         log_error("market_cancel_order_all user id: %u, account: %d, market: %s", user_id, account, market_name);
         return -__LINE__;
@@ -851,18 +854,14 @@ static int load_stop_limit(json_t *params)
     if (!json_is_string(json_array_get(params, 7)))
         goto error;
     taker_fee = decimal(json_string_value(json_array_get(params, 7)), market->fee_prec);
-    if (taker_fee == NULL)
-        goto error;
-    if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
+    if (!check_fee_rate(taker_fee))
         goto error;
 
     // maker fee
     if (!json_is_string(json_array_get(params, 8)))
         goto error;
     maker_fee = decimal(json_string_value(json_array_get(params, 8)), market->fee_prec);
-    if (maker_fee == NULL)
-        goto error;
-    if (mpd_cmp(maker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(maker_fee, mpd_one, &mpd_ctx) >= 0)
+    if (!check_fee_rate(maker_fee))
         goto error;
 
     // source
@@ -1000,9 +999,7 @@ static int load_stop_market(json_t *params)
     if (!json_is_string(json_array_get(params, 6)))
         goto error;
     taker_fee = decimal(json_string_value(json_array_get(params, 6)), market->fee_prec);
-    if (taker_fee == NULL)
-        goto error;
-    if (mpd_cmp(taker_fee, mpd_zero, &mpd_ctx) < 0 || mpd_cmp(taker_fee, mpd_one, &mpd_ctx) >= 0)
+    if (!check_fee_rate(taker_fee))
         goto error;
 
     // source
@@ -1115,7 +1112,7 @@ static int load_cancel_stop(json_t *params)
 
 static int load_cancel_stop_all(json_t *params)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) < 3)
         return -__LINE__;
 
     // user_id
@@ -1136,7 +1133,16 @@ static int load_cancel_stop_all(json_t *params)
     if (market == NULL)
         return 0;
 
-    int ret = market_cancel_stop_all(false, user_id, account, market);
+    uint32_t side = 0;
+    if (json_array_size(params) == 4) {
+        if (!json_is_integer(json_array_get(params, 3)))
+            return -__LINE__;
+        side = json_integer_value(json_array_get(params, 3));
+        if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+            return -__LINE__;
+    }
+
+    int ret = market_cancel_stop_all(false, user_id, account, market, side);
     if (ret < 0) {
         log_error("market_cancel_stop_all user id: %u, account: %d, market: %s", user_id, account, market_name);
         return -__LINE__;
