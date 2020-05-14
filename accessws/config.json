@@ -71,7 +71,6 @@
     "cachecenter_port": 7810,
     "cachecenter_worker_num": 4,
     "backend_timeout": 1.0,
-    "asset_delay": 1.0,
     "auth_url": "http://192.168.0.6:8000/internal/exchange/user/auth",
     "auth_sub_url": "http://192.168.0.6:8000/internal/exchange/sub_account/auth",
     "sign_url": "http://192.168.0.6:8000/internal/exchange/user/api/auth",

@@ -10,3 +10,4 @@ void direct_deals_reply(nw_ses *ses, json_t *params, int64_t id);
 int deals_sub_send_full(nw_ses *ses, const char *market);
 
 # endif
+
