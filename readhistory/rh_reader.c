@@ -87,6 +87,7 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
+    sds sort_str = sdsempty();
     sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, `t`, `side`, `price`, `amount`, "
             "`taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, `deal_fee`, `fee_asset`, `fee_discount`, `asset_fee`, `client_id` "
             "FROM `order_history_%u`", user_id % HISTORY_HASH_NUM);
@@ -94,12 +95,18 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
     size_t market_len = strlen(market);
     if (account >= 0 && market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `account` DESC, `market` DESC, `side` DESC, `create_time` DESC, `id` DESC");
     } else if (account >= 0 && market_len) {
-        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `market` DESC, `create_time` DESC, `id` DESC");
     } else if (market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_market_side_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `market` DESC, `side` DESC, `create_time` DESC, `id` DESC");
     } else if (market_len) {
         sql = sdscat(sql, " use index(idx_user_market_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `market` DESC, `create_time` DESC, `id` DESC");
+    } else {
+        sort_str = sdscat(sort_str, " ORDER BY `create_time` DESC, `id` DESC");
     }
     sql = sdscatprintf(sql, " where `user_id` = %u", user_id);
 
@@ -121,7 +128,7 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `create_time` DESC, `id` DESC");
+    sql = sdscatsds(sql, sort_str);
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
@@ -133,9 +140,11 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
     if (ret != 0) {
         log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
+        sdsfree(sort_str);
         return NULL;
     }
     sdsfree(sql);
+    sdsfree(sort_str);
 
     MYSQL_RES *result = mysql_store_result(conn);
     size_t num_rows = mysql_num_rows(result);
@@ -185,6 +194,7 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
+    sds sort_str = sdsempty();
     sql = sdscatprintf(sql, "SELECT `order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, `t`, `side`, "
             "`stop_price`, `price`, `amount`, `taker_fee`, `maker_fee`, `fee_asset`, `fee_discount`, `status`, `client_id` "
             "FROM `stop_history_%u`", user_id % HISTORY_HASH_NUM);
@@ -192,12 +202,18 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
     size_t market_len = strlen(market);
     if (account >= 0 && market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `account` DESC, `market` DESC, `side` DESC, `create_time` DESC, `id` DESC");
     } else if (account >= 0 && market_len) {
-        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `market` DESC, `create_time` DESC, `id` DESC");
     } else if (market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_market_side_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `market` DESC, `side` DESC, `create_time` DESC, `id` DESC");
     } else if (market_len) {
         sql = sdscat(sql, " use index(idx_user_market_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `market` DESC, `create_time` DESC, `id` DESC");
+    } else {
+        sort_str = sdscat(sort_str, " ORDER BY `create_time` DESC, `id` DESC");
     }
     sql = sdscatprintf(sql, " where `user_id` = %u", user_id);
 
@@ -222,7 +238,7 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
         sql = sdscatprintf(sql, " AND `create_time` < %"PRIu64, end_time);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `create_time` DESC, `id` DESC");
+    sql = sdscatsds(sql, sort_str);
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
@@ -234,9 +250,11 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
     if (ret != 0) {
         log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
+        sdsfree(sort_str);
         return NULL;
     }
     sdsfree(sql);
+    sdsfree(sort_str);
 
     MYSQL_RES *result = mysql_store_result(conn);
     size_t num_rows = mysql_num_rows(result);
@@ -285,19 +303,27 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
         const char *market, int side, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit)
 {
     sds sql = sdsempty();
+    sds sort_str = sdsempty();
     sql = sdscatprintf(sql, "SELECT `time`, `user_id`, `account`, `deal_user_id`, `deal_id`, `order_id`, `market`, `side`, `role`, `price`, `amount`, `deal`, `fee`, `fee_asset` "
             "FROM `user_deal_history_%u`", user_id % HISTORY_HASH_NUM);
 
     size_t market_len = strlen(market);
     if (account >= 0 && market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `account` DESC, `market` DESC, `side` DESC, `time` DESC, `id` DESC");
     } else if (account >= 0 && market_len > 0) {
-        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+        sql = sdscat(sql, " use index(idx_user_market_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `market` DESC, `time` DESC, `id` DESC");
     } else if (market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_market_side_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `market` DESC, `side` DESC, `time` DESC, `id` DESC");
     } else if (market_len) {
         sql = sdscat(sql, " use index(idx_user_market_time)");
+        sort_str = sdscat(sort_str, " ORDER BY `user_id` DESC, `market` DESC, `time` DESC, `id` DESC");
+    } else {
+        sort_str = sdscat(sort_str, " ORDER BY `time` DESC, `id` DESC");
     }
+
     sql = sdscatprintf(sql, " where `user_id` = %u", user_id);
 
     if (account >= 0) {
@@ -318,7 +344,7 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
         sql = sdscatprintf(sql, " AND `time` < %"PRIu64, end_time);
     }
 
-    sql = sdscatprintf(sql, " ORDER BY `time` DESC, `id` DESC");
+    sql = sdscatsds(sql, sort_str);
     if (offset) {
         sql = sdscatprintf(sql, " LIMIT %zu, %zu", offset, limit);
     } else {
@@ -330,9 +356,11 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
     if (ret != 0) {
         log_fatal("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
+        sdsfree(sort_str);
         return NULL;
     }
     sdsfree(sql);
+    sdsfree(sort_str);
 
     MYSQL_RES *result = mysql_store_result(conn);
     size_t num_rows = mysql_num_rows(result);
