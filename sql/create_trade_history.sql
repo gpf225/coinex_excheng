@@ -42,7 +42,8 @@ CREATE TABLE `order_history_example` (
     INDEX `idx_user_side_time` (`user_id`, `side`, `create_time`),
     INDEX `idx_user_market_time` (`user_id`, `market`, `create_time`),
     INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `create_time`),
-    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `create_time`)
+    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `create_time`),
+    INDEX `idx_user_account_market_time` (`user_id`, `account`, `market`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id
@@ -70,7 +71,8 @@ CREATE TABLE `stop_history_example` (
     INDEX `idx_user_side_time` (`user_id`, `side`, `create_time`),
     INDEX `idx_user_market_time` (`user_id`, `market`, `create_time`),
     INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `create_time`),
-    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `create_time`)
+    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `create_time`),
+    INDEX `idx_user_account_market_time` (`user_id`, `account`, `market`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id
@@ -99,5 +101,6 @@ CREATE TABLE `user_deal_history_example` (
     INDEX `idx_user_side_time` (`user_id`, `side`, `time`),
     INDEX `idx_user_market_time` (`user_id`, `market`, `time`),
     INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `time`),
-    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `time`)
+    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `time`),
+    INDEX `idx_user_account_market_time` (`user_id`, `account`, `market`, `time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
