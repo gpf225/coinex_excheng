@@ -34,6 +34,8 @@ struct market_info {
     char   *money;
     int    trade_type;
     mpd_t  *last;
+    mpd_t  *sell_total;
+    mpd_t  *buy_total;
     dict_t *sec;
     dict_t *min;
     dict_t *hour;
@@ -158,6 +160,15 @@ static int load_market_deals(redisContext *context, sds key, struct market_info 
             return -__LINE__;
         }
         list_add_node_tail(info->deals_json, deal);
+
+        mpd_t *amount = decimal(json_string_value(json_object_get(deal, "amount")), 0);
+        const char *type = json_string_value(json_object_get(deal, "type"));
+        if (strcmp(type, "sell") == 0) {
+            mpd_add(info->sell_total, info->sell_total, amount, &mpd_ctx);
+        } else {
+            mpd_add(info->buy_total, info->buy_total, amount, &mpd_ctx);
+        }
+        mpd_del(amount);
 
         if (i == 0) {
             deals_id = json_integer_value(json_object_get(deal, "id"));
@@ -285,8 +296,10 @@ static struct market_info *create_market(const char *market, const char *stock, 
         info->money = strdup(money);
     }
     info->last = mpd_qncopy(mpd_zero);
-    dict_types dt;
+    info->buy_total = mpd_qncopy(mpd_zero);
+    info->sell_total = mpd_qncopy(mpd_zero);
 
+    dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.hash_function  = time_dict_key_hash_func;
     dt.key_compare    = time_dict_key_compare;
@@ -684,7 +697,25 @@ static int market_update(double timestamp, uint64_t id, struct market_info *info
             json_incref(deal);
         }
 
+        if (side == MARKET_TRADE_SIDE_SELL) {
+            mpd_add(info->sell_total, info->sell_total, amount, &mpd_ctx);
+        } else {
+            mpd_add(info->buy_total, info->buy_total, amount, &mpd_ctx);
+        }
+
         if (info->deals_json->len > MARKET_DEALS_MAX) {
+            list_node *node = list_tail(info->deals_json);
+            json_t *deals_json = node->value;
+
+            mpd_t *amount = decimal(json_string_value(json_object_get(deals_json, "amount")), 0);
+            const char *type = json_string_value(json_object_get(deals_json, "type"));
+            if (strcmp(type, "sell") == 0) {
+                mpd_sub(info->sell_total, info->sell_total, amount, &mpd_ctx);
+            } else {
+                mpd_sub(info->buy_total, info->buy_total, amount, &mpd_ctx);
+            }
+            mpd_del(amount);
+
             list_del(info->deals_json, list_tail(info->deals_json));
         }
 
@@ -1486,6 +1517,8 @@ json_t *get_market_status(const char *market, int period)
     json_object_set_new_mpd(result, "low", kinfo->low);
     json_object_set_new_mpd(result, "volume", kinfo->volume);
     json_object_set_new_mpd(result, "deal", kinfo->deal);
+    json_object_set_new_mpd(result, "sell_total", info->sell_total);
+    json_object_set_new_mpd(result, "buy_total", info->buy_total);
 
     kline_info_free(kinfo);
 

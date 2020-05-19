@@ -478,6 +478,13 @@ static json_t *get_depth(market_t *market, size_t limit)
         }
         index++;
         order_t *order = node->value;
+
+        bool is_iceberg = (order->option & OPTION_ICEBERG) ? true : false;
+        if (is_iceberg) {
+            node = skiplist_next(iter);
+            continue;
+        }
+
         mpd_copy(price, order->price, &mpd_ctx);
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) < 0) {
             node = skiplist_next(iter);
@@ -491,6 +498,10 @@ static json_t *get_depth(market_t *market, size_t limit)
             }
             order = node->value;
 
+            bool is_iceberg = (order->option & OPTION_ICEBERG) ? true : false;
+            if (is_iceberg) {
+                continue;
+            }
             if (mpd_cmp(price, order->price, &mpd_ctx) == 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
             } else {
@@ -515,6 +526,13 @@ static json_t *get_depth(market_t *market, size_t limit)
         }
         index++;
         order_t *order = node->value;
+
+        bool is_iceberg = (order->option & OPTION_ICEBERG) ? true : false;
+        if (is_iceberg) {
+            node = skiplist_next(iter);
+            continue;
+        }
+
         mpd_copy(price, order->price, &mpd_ctx);
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) > 0) {
             node = skiplist_next(iter);
@@ -527,6 +545,11 @@ static json_t *get_depth(market_t *market, size_t limit)
                 break;
             }
             order = node->value;
+
+            bool is_iceberg = (order->option & OPTION_ICEBERG) ? true : false;
+            if (is_iceberg) {
+                continue;
+            }
             if (mpd_cmp(price, order->price, &mpd_ctx) == 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
             } else {
@@ -571,6 +594,13 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         }
         index++;
         order_t *order = node->value;
+
+        bool is_iceberg = (order->option & OPTION_ICEBERG) ? true : false;
+        if (is_iceberg) {
+            node = skiplist_next(iter);
+            continue;
+        }
+
         mpd_divmod(q, r, order->price, interval, &mpd_ctx);
         mpd_mul(price, q, interval, &mpd_ctx);
         if (mpd_cmp(r, mpd_zero, &mpd_ctx) != 0) {
@@ -587,6 +617,12 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
                 break;
             }
             order = node->value;
+
+            bool is_iceberg = (order->option & OPTION_ICEBERG) ? true : false;
+            if (is_iceberg) {
+                continue;
+            }
+
             if (mpd_cmp(price, order->price, &mpd_ctx) >= 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
             } else {
@@ -611,6 +647,12 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         }
         index++;
         order_t *order = node->value;
+
+        bool is_iceberg = (order->option & OPTION_ICEBERG) ? true : false;
+        if (is_iceberg) {
+            node = skiplist_next(iter);
+            continue;
+        }
         mpd_divmod(q, r, order->price, interval, &mpd_ctx);
         mpd_mul(price, q, interval, &mpd_ctx);
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) > 0) {
@@ -624,13 +666,17 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
                 break;
             }
             order = node->value;
+    
+            bool is_iceberg = (order->option & OPTION_ICEBERG) ? true : false;
+            if (is_iceberg) {
+                continue;
+            }
             if (mpd_cmp(price, order->price, &mpd_ctx) <= 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
             } else {
                 break;
             }
         }
-
         json_t *info = json_array();
         json_array_append_new_mpd(info, price);
         json_array_append_new_mpd(info, amount);
