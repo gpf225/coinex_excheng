@@ -95,7 +95,7 @@ json_t *get_user_order_history(MYSQL *conn, uint32_t user_id, int32_t account,
     if (account >= 0 && market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
     } else if (account >= 0 && market_len) {
-        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+        sql = sdscat(sql, " use index(idx_user_account_market_time)");
     } else if (market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_market_side_time)");
     } else if (market_len) {
@@ -193,7 +193,7 @@ json_t *get_user_stop_history(MYSQL *conn, uint32_t user_id, int32_t account,
     if (account >= 0 && market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
     } else if (account >= 0 && market_len) {
-        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+        sql = sdscat(sql, " use index(idx_user_account_market_time)");
     } else if (market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_market_side_time)");
     } else if (market_len) {
@@ -292,7 +292,7 @@ json_t *get_user_deal_history(MYSQL *conn, uint32_t user_id, int32_t account,
     if (account >= 0 && market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
     } else if (account >= 0 && market_len > 0) {
-        sql = sdscat(sql, " use index(idx_user_account_market_side_time)");
+        sql = sdscat(sql, " use index(idx_user_account_market_time)");
     } else if (market_len > 0 && side) {
         sql = sdscat(sql, " use index(idx_user_market_side_time)");
     } else if (market_len) {
