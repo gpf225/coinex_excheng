@@ -45,6 +45,7 @@ struct market_info {
     list_t *deals_json;
     list_t *real_deals;
     list_t *real_deals_json;
+    list_node *summary_offset_node;
     double update_time;
 };
 
@@ -161,6 +162,13 @@ static int load_market_deals(redisContext *context, sds key, struct market_info 
         }
         list_add_node_tail(info->deals_json, deal);
 
+        if (i == 0) {
+            deals_id = json_integer_value(json_object_get(deal, "id"));
+        }
+
+        if (i >= settings.deal_summary_max)
+            continue;
+
         mpd_t *amount = decimal(json_string_value(json_object_get(deal, "amount")), 0);
         const char *type = json_string_value(json_object_get(deal, "type"));
         if (strcmp(type, "sell") == 0) {
@@ -169,10 +177,7 @@ static int load_market_deals(redisContext *context, sds key, struct market_info 
             mpd_add(info->buy_total, info->buy_total, amount, &mpd_ctx);
         }
         mpd_del(amount);
-
-        if (i == 0) {
-            deals_id = json_integer_value(json_object_get(deal, "id"));
-        }
+        info->summary_offset_node = list_tail(info->deals_json);
     }
     freeReplyObject(reply);
 
@@ -703,10 +708,8 @@ static int market_update(double timestamp, uint64_t id, struct market_info *info
             mpd_add(info->buy_total, info->buy_total, amount, &mpd_ctx);
         }
 
-        if (info->deals_json->len > MARKET_DEALS_MAX) {
-            list_node *node = list_tail(info->deals_json);
-            json_t *deals_json = node->value;
-
+        if (list_len(info->deals_json) > settings.deal_summary_max) {
+            json_t *deals_json = (info->summary_offset_node)->value;
             mpd_t *amount = decimal(json_string_value(json_object_get(deals_json, "amount")), 0);
             const char *type = json_string_value(json_object_get(deals_json, "type"));
             if (strcmp(type, "sell") == 0) {
@@ -715,7 +718,12 @@ static int market_update(double timestamp, uint64_t id, struct market_info *info
                 mpd_sub(info->buy_total, info->buy_total, amount, &mpd_ctx);
             }
             mpd_del(amount);
+            info->summary_offset_node = list_prev_node(info->summary_offset_node);
+        } else {
+            info->summary_offset_node = list_tail(info->deals_json);
+        }
 
+        if (list_len(info->deals_json) > MARKET_DEALS_MAX) {
             list_del(info->deals_json, list_tail(info->deals_json));
         }
 

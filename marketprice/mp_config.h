@@ -56,6 +56,7 @@ struct settings {
     int                 hour_max;
     int                 kline_max;
     int                 worker_num;
+    int                 deal_summary_max;
     double              cache_timeout;
     double              worker_timeout;
     char                *accesshttp;
