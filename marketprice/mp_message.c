@@ -45,7 +45,7 @@ struct market_info {
     list_t *deals_json;
     list_t *real_deals;
     list_t *real_deals_json;
-    list_node *summary_offset_node;
+    list_node *summary_tail;
     double update_time;
 };
 
@@ -177,7 +177,7 @@ static int load_market_deals(redisContext *context, sds key, struct market_info 
             mpd_add(info->buy_total, info->buy_total, amount, &mpd_ctx);
         }
         mpd_del(amount);
-        info->summary_offset_node = list_tail(info->deals_json);
+        info->summary_tail = list_tail(info->deals_json);
     }
     freeReplyObject(reply);
 
@@ -709,18 +709,18 @@ static int market_update(double timestamp, uint64_t id, struct market_info *info
         }
 
         if (list_len(info->deals_json) > settings.deal_summary_max) {
-            json_t *deals_json = (info->summary_offset_node)->value;
-            mpd_t *amount = decimal(json_string_value(json_object_get(deals_json, "amount")), 0);
+            json_t *deals_json = (info->summary_tail)->value;
+            mpd_t *sub_amount = decimal(json_string_value(json_object_get(deals_json, "amount")), 0);
             const char *type = json_string_value(json_object_get(deals_json, "type"));
             if (strcmp(type, "sell") == 0) {
-                mpd_sub(info->sell_total, info->sell_total, amount, &mpd_ctx);
+                mpd_sub(info->sell_total, info->sell_total, sub_amount, &mpd_ctx);
             } else {
-                mpd_sub(info->buy_total, info->buy_total, amount, &mpd_ctx);
+                mpd_sub(info->buy_total, info->buy_total, sub_amount, &mpd_ctx);
             }
-            mpd_del(amount);
-            info->summary_offset_node = list_prev_node(info->summary_offset_node);
+            mpd_del(sub_amount);
+            info->summary_tail = list_prev_node(info->summary_tail);
         } else {
-            info->summary_offset_node = list_tail(info->deals_json);
+            info->summary_tail = list_tail(info->deals_json);
         }
 
         if (list_len(info->deals_json) > MARKET_DEALS_MAX) {
