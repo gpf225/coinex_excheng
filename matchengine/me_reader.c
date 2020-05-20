@@ -462,7 +462,7 @@ static int on_cmd_stop_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
-bool check_iceberg(order_t *order)
+static bool check_iceberg(order_t *order)
 {
     return (order->option & OPTION_ICEBERG) ? true : false;
 }
