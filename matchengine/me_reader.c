@@ -464,10 +464,7 @@ static int on_cmd_stop_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 bool check_iceberg(order_t *order)
 {
-    bool is_iceberg = (order->option & OPTION_ICEBERG) ? true : false;
-    if (is_iceberg)
-        return true;
-    return false;
+    return (order->option & OPTION_ICEBERG) ? true : false;
 }
 
 static json_t *get_depth(market_t *market, size_t limit)
