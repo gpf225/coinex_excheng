@@ -708,8 +708,8 @@ static int market_update(double timestamp, uint64_t id, struct market_info *info
             mpd_add(info->buy_total, info->buy_total, amount, &mpd_ctx);
         }
 
-        if (list_len(info->deals_json) > settings.deal_summary_max) {
-            json_t *deals_json = (info->summary_tail)->value;
+        if (settings.deal_summary_max > 0 && list_len(info->deals_json) > settings.deal_summary_max) {
+            json_t *deals_json = info->summary_tail->value;
             mpd_t *sub_amount = decimal(json_string_value(json_object_get(deals_json, "amount")), 0);
             const char *type = json_string_value(json_object_get(deals_json, "type"));
             if (strcmp(type, "sell") == 0) {
