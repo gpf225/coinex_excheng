@@ -611,6 +611,32 @@ static void kline_history_process(int type)
     dict_release_iterator(iter);
 }
 
+static int deal_summary(struct market_info *info, int side, mpd_t *amount)
+{
+    if (side == MARKET_TRADE_SIDE_SELL) {
+        mpd_add(info->sell_total, info->sell_total, amount, &mpd_ctx);
+    } else {
+        mpd_add(info->buy_total, info->buy_total, amount, &mpd_ctx);
+    }
+
+    if (list_len(info->deals_json) > settings.deal_summary_max) {
+        json_t *deals_json = info->summary_tail->value;
+        mpd_t *sub_amount = decimal(json_string_value(json_object_get(deals_json, "amount")), 0);
+        const char *type = json_string_value(json_object_get(deals_json, "type"));
+        if (strcmp(type, "sell") == 0) {
+            mpd_sub(info->sell_total, info->sell_total, sub_amount, &mpd_ctx);
+        } else {
+            mpd_sub(info->buy_total, info->buy_total, sub_amount, &mpd_ctx);
+        }
+        mpd_del(sub_amount);
+        info->summary_tail = list_prev_node(info->summary_tail);
+    } else {
+        info->summary_tail = list_tail(info->deals_json);
+    }
+
+    return 0;
+}
+
 static int market_update(double timestamp, uint64_t id, struct market_info *info, int side, uint32_t ask_user_id, uint32_t bid_user_id, mpd_t *price, mpd_t *amount)
 {
     // update sec
@@ -702,27 +728,10 @@ static int market_update(double timestamp, uint64_t id, struct market_info *info
             json_incref(deal);
         }
 
-        if (side == MARKET_TRADE_SIDE_SELL) {
-            mpd_add(info->sell_total, info->sell_total, amount, &mpd_ctx);
-        } else {
-            mpd_add(info->buy_total, info->buy_total, amount, &mpd_ctx);
+        if (settings.deal_summary_max > 0) {
+            deal_summary(info, side, amount);
         }
-
-        if (settings.deal_summary_max > 0 && list_len(info->deals_json) > settings.deal_summary_max) {
-            json_t *deals_json = info->summary_tail->value;
-            mpd_t *sub_amount = decimal(json_string_value(json_object_get(deals_json, "amount")), 0);
-            const char *type = json_string_value(json_object_get(deals_json, "type"));
-            if (strcmp(type, "sell") == 0) {
-                mpd_sub(info->sell_total, info->sell_total, sub_amount, &mpd_ctx);
-            } else {
-                mpd_sub(info->buy_total, info->buy_total, sub_amount, &mpd_ctx);
-            }
-            mpd_del(sub_amount);
-            info->summary_tail = list_prev_node(info->summary_tail);
-        } else {
-            info->summary_tail = list_tail(info->deals_json);
-        }
-
+    
         if (list_len(info->deals_json) > MARKET_DEALS_MAX) {
             list_del(info->deals_json, list_tail(info->deals_json));
         }
