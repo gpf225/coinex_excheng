@@ -54,10 +54,10 @@ enum {
 # define OPTION_UNLIMITED_MIN_AMOUNT    0x4
 # define OPTION_IMMEDIATED_OR_CANCEL    0x8
 # define OPTION_FILL_OR_KILL            0x10
-# define OPTION_ICEBERG                 0x20
+# define OPTION_HIDDEN                  0x20
 # define OPTION_STOP_ORDER              0x40
 # define OPTION_MAKER_ONLY              0x80
-
+ 
 # define TOPIC_DEAL                  "deals"
 # define TOPIC_STOP                  "stops"
 # define TOPIC_ORDER                 "orders"

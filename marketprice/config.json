@@ -29,5 +29,6 @@
     },
     "brokers": "127.0.0.1:9092",
     "accesshttp": "http://127.0.0.1:8080",
-    "worker_num": 4
+    "worker_num": 4,
+    "deal_summary_max": 1000
 }
