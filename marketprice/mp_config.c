@@ -58,7 +58,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_real(root, "worker_timeout", &settings.worker_timeout, false, 0.5));
     ERR_RET_LN(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
 
-    if (settings.deal_summary_max > MARKET_DEALS_MAX)
+    if (settings.deal_summary_max <= 0 || settings.deal_summary_max > MARKET_DEALS_MAX)
         return -__LINE__;
     return 0;
 }

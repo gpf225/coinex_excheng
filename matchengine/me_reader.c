@@ -462,9 +462,9 @@ static int on_cmd_stop_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
-static bool check_iceberg(order_t *order)
+inline static bool is_hidden_order(order_t *order)
 {
-    return (order->option & OPTION_ICEBERG) ? true : false;
+    return (order->option & OPTION_HIDDEN) ? true : false;
 }
 
 static json_t *get_depth(market_t *market, size_t limit)
@@ -483,7 +483,7 @@ static json_t *get_depth(market_t *market, size_t limit)
         }
         order_t *order = node->value;
 
-        if (check_iceberg(order)) {
+        if (is_hidden_order(order)) {
             node = skiplist_next(iter);
             continue;
         }
@@ -502,7 +502,7 @@ static json_t *get_depth(market_t *market, size_t limit)
             }
             order = node->value;
 
-            if (check_iceberg(order)) {
+            if (is_hidden_order(order)) {
                 continue;
             }
             if (mpd_cmp(price, order->price, &mpd_ctx) == 0) {
@@ -529,7 +529,7 @@ static json_t *get_depth(market_t *market, size_t limit)
         }
         order_t *order = node->value;
 
-        if (check_iceberg(order)) {
+        if (is_hidden_order(order)) {
             node = skiplist_next(iter);
             continue;
         }
@@ -548,7 +548,7 @@ static json_t *get_depth(market_t *market, size_t limit)
             }
             order = node->value;
 
-            if (check_iceberg(order)) {
+            if (is_hidden_order(order)) {
                 continue;
             }
             if (mpd_cmp(price, order->price, &mpd_ctx) == 0) {
@@ -595,7 +595,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         }
         order_t *order = node->value;
 
-        if (check_iceberg(order)) {
+        if (is_hidden_order(order)) {
             node = skiplist_next(iter);
             continue;
         }
@@ -618,7 +618,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
             }
             order = node->value;
 
-            if (check_iceberg(order)) {
+            if (is_hidden_order(order)) {
                 continue;
             }
 
@@ -647,7 +647,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         }
         order_t *order = node->value;
 
-        if (check_iceberg(order)) {
+        if (is_hidden_order(order)) {
             node = skiplist_next(iter);
             continue;
         }
@@ -667,7 +667,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
             }
             order = node->value;
     
-            if (check_iceberg(order)) {
+            if (is_hidden_order(order)) {
                 continue;
             }
             if (mpd_cmp(price, order->price, &mpd_ctx) <= 0) {

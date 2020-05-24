@@ -611,7 +611,7 @@ static void kline_history_process(int type)
     dict_release_iterator(iter);
 }
 
-static int deal_summary(struct market_info *info, int side, mpd_t *amount)
+static int deal_summary_update(struct market_info *info, int side, mpd_t *amount)
 {
     if (side == MARKET_TRADE_SIDE_SELL) {
         mpd_add(info->sell_total, info->sell_total, amount, &mpd_ctx);
@@ -728,10 +728,8 @@ static int market_update(double timestamp, uint64_t id, struct market_info *info
             json_incref(deal);
         }
 
-        if (settings.deal_summary_max > 0) {
-            deal_summary(info, side, amount);
-        }
-    
+        deal_summary_update(info, side, amount);
+
         if (list_len(info->deals_json) > MARKET_DEALS_MAX) {
             list_del(info->deals_json, list_tail(info->deals_json));
         }
