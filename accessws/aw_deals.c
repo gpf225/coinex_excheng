@@ -185,7 +185,11 @@ int deals_new(uint32_t user_id, uint64_t id, double timestamp, int type, const c
 
     json_t *message = json_object();
     json_object_set_new(message, "id", json_integer(id));
-    json_object_set_new(message, "client_id", json_string(client_id));
+    if (client_id == NULL) {
+        json_object_set_new(message, "client_id", json_string(""));
+    } else {
+        json_object_set_new(message, "client_id", json_string(client_id));
+    }
     json_object_set_new(message, "time", json_real(timestamp));
     if (type == MARKET_TRADE_SIDE_SELL) {
         json_object_set_new(message, "type", json_string("sell"));
