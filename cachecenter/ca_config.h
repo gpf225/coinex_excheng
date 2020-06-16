@@ -63,6 +63,7 @@ struct settings {
     double              deals_interval;
     double              status_interval;
     double              depth_interval_time;
+    double              depth_resend_timeout;
     int                 depth_limit_max;
     int                 deal_max;
     int                 worker_num;
