@@ -143,7 +143,7 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
 
     uint64_t now = current_millisecond();
     struct dict_depth_sub_val *val = entry->val;
-    if (is_depth_equal(val->last, result) && now - val->time <= 1000)
+    if (is_depth_equal(val->last, result) && now - val->time <= settings.depth_resend_timeout * 1000)
         return 0;
 
     if (val->last != NULL)
