@@ -230,41 +230,37 @@ int asset_unsubscribe(uint32_t user_id, nw_ses *ses)
     return 0;
 }
 
-int asset_on_update(uint32_t user_id, uint32_t account, const char *asset)
+int asset_on_update(uint32_t user_id, uint32_t account, const char *asset, const char *available, const char *frozen)
 {
     void *key = (void *)(uintptr_t)user_id;
     dict_entry *entry = dict_find(dict_sub, key);
     if (entry == NULL)
-        return 0;
+        return 0 ;
 
-    bool notify = false;
+    json_t *params = json_array();
+    json_t *result = json_object();
+    json_t *unit = json_object();
+
+    json_object_set_new(unit, "available", json_string(available));
+    json_object_set_new(unit, "frozen", json_string(frozen));
+    json_object_set_new(result, asset, unit);
+
+    json_array_append_new(params, result);
+    json_array_append_new(params, json_integer(account));
+
+    size_t count = 0;
     list_t *list = entry->val;
     list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
     list_node *node;
     while ((node = list_next(iter)) != NULL) {
         struct sub_unit *unit = node->value;
-        if (strlen(unit->asset) == 0 || strcmp(unit->asset, asset) == 0) {
-            notify = true;
-            break;
-        }
+            ws_send_notify(unit->ses, "asset.update", params);
+            count += 1;
     }
     list_release_iterator(iter);
-    if (!notify)
-        return 0;
 
-    json_t *trade_params = json_array();
-    json_array_append_new(trade_params, json_integer(user_id));
-    json_array_append_new(trade_params, json_integer(account));
-    json_array_append_new(trade_params, json_string(asset));
-
-    nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = state_entry->data;
-    state->user_id = user_id;
-    state->account = account;
-    sstrncpy(state->asset, asset, sizeof(state->asset));
-
-    rpc_request_json(matchengine, CMD_ASSET_QUERY, state_entry->id, 0, trade_params);
-    json_decref(trade_params);
+    json_decref(params);
+    profile_inc("asset.update", count);
 
     return 0;
 }

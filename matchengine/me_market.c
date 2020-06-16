@@ -169,6 +169,55 @@ static void stop_free(stop_t *stop)
     free(stop);
 }
 
+json_t *get_order_balance(order_t *order, market_t *m)
+{    
+    uint32_t user_id = order->user_id;
+    uint32_t account = order->account;
+
+    struct asset_type *stock_type = get_asset_type(order->account, m->stock);
+    struct asset_type *money_type = get_asset_type(order->account, m->money);
+
+    mpd_t *stock_available = balance_available(user_id, account, m->stock);
+    mpd_t *stock_frozen = balance_frozen_lock(user_id, account, m->stock);
+    mpd_rescale(stock_available, stock_available, -stock_type->prec_show, &mpd_ctx);
+    mpd_rescale(stock_frozen, stock_frozen, -stock_type->prec_show, &mpd_ctx);
+
+    mpd_t *money_available = balance_available(user_id, account, m->money);
+    mpd_t *money_frozen = balance_frozen_lock(user_id, account, m->money);
+    mpd_rescale(money_available, money_available, -money_type->prec_show, &mpd_ctx);
+    mpd_rescale(money_frozen, money_frozen, -money_type->prec_show, &mpd_ctx);
+
+    json_t *info = json_object();
+    json_object_set_new_mpd(info, "stock_available", stock_available);
+    json_object_set_new_mpd(info, "stock_frozen", stock_frozen);
+
+    json_object_set_new_mpd(info, "money_available", money_available);
+    json_object_set_new_mpd(info, "money_frozen", money_frozen);
+
+    const char *fee_asset = order->fee_asset;
+    if (fee_asset) {
+        struct asset_type *fee_type = get_asset_type(order->account, fee_asset);
+        if (fee_type) {
+            mpd_t *fee_available = balance_available(user_id, account, fee_asset);
+            mpd_t *fee_frozen = balance_frozen_lock(user_id, account, fee_asset);
+            mpd_rescale(fee_available, fee_available, -fee_type->prec_show, &mpd_ctx);
+            mpd_rescale(fee_frozen, fee_frozen, -fee_type->prec_show, &mpd_ctx);
+
+            json_object_set_new_mpd(info, "fee_available", fee_available);
+            json_object_set_new_mpd(info, "fee_frozen", fee_frozen);
+            mpd_del(fee_available);
+            mpd_del(fee_frozen);
+        }   
+    }
+
+    mpd_del(stock_available);
+    mpd_del(stock_frozen);
+    mpd_del(money_available);
+    mpd_del(money_frozen);
+
+    return info;
+}
+
 json_t *get_order_info(order_t *order, bool with_last_deal)
 {
     json_t *info = json_object();

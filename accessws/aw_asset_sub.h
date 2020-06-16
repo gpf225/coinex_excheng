@@ -12,7 +12,7 @@ int init_asset_sub(void);
 
 int asset_subscribe_sub(nw_ses *ses, json_t *sub_users);
 int asset_unsubscribe_sub(nw_ses *ses);
-int asset_on_update_sub(uint32_t user_id, const char *asset);
+int asset_on_update_sub(uint32_t user_id, const char *asset, const char *available, const char *frozen);
 size_t asset_subscribe_sub_number(void);
 
 # endif

@@ -8,6 +8,7 @@
 # include "me_balance.h"
 # include "me_history.h"
 # include "me_message.h"
+# include "me_asset.h"
 
 dict_t *dict_update;
 static nw_timer timer;
@@ -127,7 +128,17 @@ int update_user_balance(bool real, uint32_t user_id, uint32_t account, const cha
         char *detail_str = json_dumps(detail, 0);
         append_user_balance_history(now, user_id, account, asset, business, change, detail_str);
         free(detail_str);
-        push_balance_message(now, user_id, account, asset, business, change, result);
+
+        struct asset_type *type = get_asset_type(account, asset);
+        mpd_t *frozen_show = balance_frozen_lock(user_id, account, asset);
+        mpd_rescale(frozen_show, frozen_show, -type->prec_show, &mpd_ctx);
+
+        mpd_t *available_show = mpd_qncopy(result);
+        mpd_rescale(available_show, available_show, -type->prec_show, &mpd_ctx);
+        push_balance_message(now, user_id, account, asset, business, change, available_show, frozen_show);
+
+        mpd_del(frozen_show);
+        mpd_del(available_show);
     }
 
     return 0;
@@ -159,7 +170,17 @@ int update_user_lock(bool real, uint32_t user_id, uint32_t account, const char *
         mpd_t *result = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, asset);
         if (result == NULL)
             result = mpd_zero;
-        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, result);
+        
+        struct asset_type *type = get_asset_type(account, asset);
+        mpd_t *available_show = mpd_qncopy(result);
+        mpd_rescale(available_show, available_show, -type->prec_show, &mpd_ctx);
+
+        mpd_t *frozen_show = balance_frozen_lock(user_id, account, asset);
+        mpd_rescale(frozen_show, frozen_show, -type->prec_show, &mpd_ctx);
+        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, available_show, frozen_show);
+
+        mpd_del(frozen_show);
+        mpd_del(available_show);
     }
 
     return 0;
@@ -191,7 +212,17 @@ int update_user_unlock(bool real, uint32_t user_id, uint32_t account, const char
         mpd_t *result = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, asset);
         if (result == NULL)
             result = mpd_zero;
-        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, result);
+        
+        struct asset_type *type = get_asset_type(account, asset);
+        mpd_t *available_show = mpd_qncopy(result);
+        mpd_rescale(available_show, available_show, -type->prec_show, &mpd_ctx);
+
+        mpd_t *frozen_show = balance_frozen_lock(user_id, account, asset);
+        mpd_rescale(frozen_show, frozen_show, -type->prec_show, &mpd_ctx);
+        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, available_show, frozen_show);
+
+        mpd_del(frozen_show);
+        mpd_del(available_show);
     }
 
     return 0;
