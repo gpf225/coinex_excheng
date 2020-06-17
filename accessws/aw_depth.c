@@ -604,6 +604,11 @@ int depth_unsubscribe(nw_ses *ses)
                 send_depth_request(CMD_CACHE_DEPTH_UNSUBSCRIBE, key);
             }
         }
+
+        if (dict_size(obj->sessions) == 0) {
+            json_decref(obj->last);
+            obj->last = NULL;
+        }
     }
     dict_release_iterator(iter);
 
@@ -620,11 +625,6 @@ int depth_send_clean(nw_ses *ses, const char *market, uint32_t limit, const char
         return 0;
 
     struct depth_val *obj = entry->val;
-    time_t now = time(NULL);
-    if (now - obj->last_clean >= CLEAN_INTERVAL) {
-        return 0;
-    }
-    
     if (obj->last) {
         json_t *params = json_array();
         json_array_append_new(params, json_boolean(true));
