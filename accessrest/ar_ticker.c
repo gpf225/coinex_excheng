@@ -7,6 +7,10 @@
 # include "ar_server.h"
 # include "ar_ticker.h"
 
+# define TRADE_ZONE_SUFFIX       "_ZONE"
+# define TRADE_ZONE_REAL_SUFFIX  "_ZONE_REAL"
+# define INDEX_SUFFIX            "_INDEX"
+
 static dict_t  *dict_state;
 static rpc_clt *cache_state;
 static json_t  *ticker_all;
@@ -86,6 +90,13 @@ static int update_market(json_t *row, int update_id)
     return update_ticker(market, update_id, date, state, depth);
 }
 
+static bool is_ticker_all(const char *market)
+{
+    if (strstr(market, TRADE_ZONE_SUFFIX) || strstr(market, TRADE_ZONE_REAL_SUFFIX) || strstr(market, INDEX_SUFFIX))
+        return false;
+    return true;
+}
+
 static void update_ticker_all(void)
 {
     json_t *ticker = json_object();
@@ -93,6 +104,8 @@ static void update_ticker_all(void)
     dict_iterator *iter = dict_get_iterator(dict_state);
     while ((entry = dict_next(iter)) != NULL) {
         const char *market = entry->key;
+        if (!is_ticker_all(market))
+            continue;
         struct state_val *info = entry->val;
         if (info->data) {
             json_object_set(ticker, market, json_object_get(info->data, "ticker"));
