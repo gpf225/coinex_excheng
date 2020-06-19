@@ -25,13 +25,6 @@ typedef struct request_data_t {
     json_t *sub_users;
 }request_data_t;
 
-static void request_data_free(request_data_t *request)
-{
-    if (request->sub_users != NULL) {
-        json_decref(request->sub_users);
-    }
-}
-
 static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
     sds *reply = userdata;
@@ -143,7 +136,11 @@ static void on_finish(nw_job_entry *entry)
 
 static void on_cleanup(nw_job_entry *entry)
 {
-    request_data_free(entry->request);
+    request_data_t *request = entry->request;
+    if (request->sub_users) {
+        json_decref(request->sub_users);
+    }
+    free(request);
     if (entry->reply) {
         json_decref(entry->reply);
     }
@@ -206,3 +203,14 @@ size_t pending_auth_sub_request(void)
     return job_context->request_count;
 }
 
+void auth_sub_cancle(nw_ses *ses)
+{
+    nw_state_entry *entry;
+    nw_state_iterator *iter = nw_state_get_iterator(state_context);
+    while ((entry = nw_state_next(iter)) != NULL) {
+        struct state_data *data = entry->data;
+        if (data->ses == ses)
+            nw_state_del(state_context, entry->id);
+    }
+    nw_state_iterator_release(iter);
+}
