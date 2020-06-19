@@ -1524,16 +1524,27 @@ json_t *get_market_status(const char *market, int period)
         kinfo = kline_info_new(mpd_zero);
 
     json_t *result = json_object();
+    if (info->trade_type == TRADE_TYPE_ZONE) {
+        json_object_set_new_mpd(result, "last", mpd_zero);
+        json_object_set_new_mpd(result, "open", mpd_zero);
+        json_object_set_new_mpd(result, "close", mpd_zero);
+        json_object_set_new_mpd(result, "high", mpd_zero);
+        json_object_set_new_mpd(result, "low", mpd_zero);
+        json_object_set_new_mpd(result, "volume", mpd_zero);
+        json_object_set_new_mpd(result, "sell_total", mpd_zero);
+        json_object_set_new_mpd(result, "buy_total", mpd_zero);
+    } else {
+        json_object_set_new_mpd(result, "last", info->last);
+        json_object_set_new_mpd(result, "open", kinfo->open);
+        json_object_set_new_mpd(result, "close", kinfo->close);
+        json_object_set_new_mpd(result, "high", kinfo->high);
+        json_object_set_new_mpd(result, "low", kinfo->low);
+        json_object_set_new_mpd(result, "volume", kinfo->volume);
+        json_object_set_new_mpd(result, "sell_total", info->sell_total);
+        json_object_set_new_mpd(result, "buy_total", info->buy_total);
+    }
     json_object_set_new(result, "period", json_integer(period));
-    json_object_set_new_mpd(result, "last", info->last);
-    json_object_set_new_mpd(result, "open", kinfo->open);
-    json_object_set_new_mpd(result, "close", kinfo->close);
-    json_object_set_new_mpd(result, "high", kinfo->high);
-    json_object_set_new_mpd(result, "low", kinfo->low);
-    json_object_set_new_mpd(result, "volume", kinfo->volume);
     json_object_set_new_mpd(result, "deal", kinfo->deal);
-    json_object_set_new_mpd(result, "sell_total", info->sell_total);
-    json_object_set_new_mpd(result, "buy_total", info->buy_total);
 
     kline_info_free(kinfo);
 
