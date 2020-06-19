@@ -272,8 +272,6 @@ static int on_market_ticker(nw_ses *ses, dict_t *params)
         return reply_invalid_params(ses);
     char *market = entry->val;
     strtoupper(market);
-    if (!market_exist(market))
-        return reply_invalid_params(ses);
 
     json_t *data = get_market_ticker(market);
     if (data == NULL) {
