@@ -1004,7 +1004,6 @@ static void on_close(nw_ses *ses, const char *remote)
     struct clt_info *info = ws_ses_privdata(ses);
     log_trace("remote: %"PRIu64":%s websocket connection close", ses->id, remote);
 
-    auth_cancle(ses);
     kline_unsubscribe(ses);
     depth_unsubscribe(ses);
     state_unsubscribe(ses);
@@ -1012,7 +1011,6 @@ static void on_close(nw_ses *ses, const char *remote)
     deals_unsubscribe(ses, info->user_id);
 
     if (info->auth) {
-        auth_sub_cancle(ses);
         order_unsubscribe(info->user_id, ses);
         asset_unsubscribe(info->user_id, ses);
         notice_unsubscribe(info->user_id, ses);

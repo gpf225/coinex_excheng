@@ -10,7 +10,6 @@ int init_auth(void);
 
 int send_auth_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params);
 size_t pending_auth_request(void);
-void auth_cancle(nw_ses *ses);
 
 # endif
 

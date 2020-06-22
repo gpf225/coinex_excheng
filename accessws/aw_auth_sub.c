@@ -202,15 +202,3 @@ size_t pending_auth_sub_request(void)
 {
     return job_context->request_count;
 }
-
-void auth_sub_cancle(nw_ses *ses)
-{
-    nw_state_entry *entry;
-    nw_state_iterator *iter = nw_state_get_iterator(state_context);
-    while ((entry = nw_state_next(iter)) != NULL) {
-        struct state_data *data = entry->data;
-        if (data->ses == ses)
-            nw_state_del(state_context, entry->id);
-    }
-    nw_state_iterator_release(iter);
-}
