@@ -58,6 +58,10 @@ struct users_trade_val {
     mpd_t   *buy_volume;
     mpd_t   *sell_amount;
     mpd_t   *sell_volume;
+    mpd_t   *taker_amount;
+    mpd_t   *taker_volume;
+    mpd_t   *maker_amount;
+    mpd_t   *maker_volume;
 
     int     deal_count;
     int     deal_buy_count;
@@ -148,6 +152,11 @@ static void dict_users_trade_val_free(void *val)
     mpd_del(obj->sell_amount);
     mpd_del(obj->buy_volume);
     mpd_del(obj->sell_volume);
+    mpd_del(obj->taker_amount);
+    mpd_del(obj->taker_volume);
+    mpd_del(obj->maker_amount);
+    mpd_del(obj->maker_volume);
+
     free(obj);
 }
 
@@ -342,6 +351,11 @@ struct users_trade_val *get_user_trade_info(dict_t *dict, uint32_t user_id)
     user_info->buy_volume  = mpd_qncopy(mpd_zero);
     user_info->sell_amount = mpd_qncopy(mpd_zero);
     user_info->sell_volume = mpd_qncopy(mpd_zero);
+    user_info->taker_amount = mpd_qncopy(mpd_zero);
+    user_info->taker_volume = mpd_qncopy(mpd_zero);
+    user_info->maker_amount = mpd_qncopy(mpd_zero);
+    user_info->maker_volume = mpd_qncopy(mpd_zero);
+
     dict_add(dict, key, user_info);
 
     return user_info;
@@ -401,7 +415,7 @@ static int update_market_volume(struct daily_trade_val *trade_info, int side, mp
     return 0;
 }
 
-static int update_user_volume(dict_t *users_trade, dict_t *users_detail, uint32_t user_id, time_t timestamp, int side, mpd_t *amount, mpd_t *volume)
+static int update_user_volume(dict_t *users_trade, dict_t *users_detail, uint32_t user_id, time_t timestamp, int side, mpd_t *amount, mpd_t *volume, bool is_taker)
 {
     struct users_trade_val *user_info = get_user_trade_info(users_trade, user_id);
     if (user_info == NULL)
@@ -418,6 +432,14 @@ static int update_user_volume(dict_t *users_trade, dict_t *users_detail, uint32_
         user_info->deal_sell_count += 1;
         mpd_add(user_info->sell_amount, user_info->sell_amount, amount, &mpd_ctx);
         mpd_add(user_info->sell_volume, user_info->sell_volume, volume, &mpd_ctx);
+    }
+
+    if (is_taker) {
+        mpd_add(user_info->taker_amount, user_info->taker_amount, amount, &mpd_ctx);
+        mpd_add(user_info->taker_volume, user_info->taker_volume, volume, &mpd_ctx);
+    } else {
+        mpd_add(user_info->maker_amount, user_info->maker_amount, amount, &mpd_ctx);
+        mpd_add(user_info->maker_volume, user_info->maker_volume, volume, &mpd_ctx);
     }
 
     struct user_detail_val *user_detail = get_user_detail_info(users_detail, user_id, timestamp);
@@ -560,9 +582,17 @@ static void on_deals_message(sds message, int64_t offset)
         goto cleanup;
     }
 
+    bool ask_is_taker = false;
+    bool bid_is_taker = false;
+    if (side == MARKET_TRADE_SIDE_SELL) {
+        ask_is_taker = true;
+    } else {
+        bid_is_taker = true;
+    }
+
     update_market_volume(trade_info, side, amount, volume);
-    update_user_volume(trade_info->users_trade, market_info->users_detail, ask_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_SELL, amount, volume);
-    update_user_volume(trade_info->users_trade, market_info->users_detail, bid_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_BUY,  amount, volume);
+    update_user_volume(trade_info->users_trade, market_info->users_detail, ask_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_SELL, amount, volume, ask_is_taker);
+    update_user_volume(trade_info->users_trade, market_info->users_detail, bid_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_BUY,  amount, volume, bid_is_taker);
 
     if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
         update_fee(trade_info->fees_detail, ask_user_id, ask_fee_asset, ask_fee);
@@ -850,8 +880,8 @@ static int dump_user_dict_info(MYSQL *conn, const char *market_name, const char 
 
         if (index == 0) {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `user_id`, `market`, `stock_asset`, `money_asset`, `deal_amount`, `deal_volume`, "
-                    "`buy_amount`, `buy_volume`, `sell_amount`, `sell_volume`, `deal_count`, `deal_buy_count`, `deal_sell_count`, "
-                    "`limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order`) VALUES ", table);
+                    "`buy_amount`, `buy_volume`, `sell_amount`, `sell_volume`, `taker_amount`, `taker_volume`, `maker_amount`, `maker_volume`, `deal_count`, "
+                    "`deal_buy_count`, `deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
@@ -863,6 +893,11 @@ static int dump_user_dict_info(MYSQL *conn, const char *market_name, const char 
         sql = sql_append_mpd(sql, user_info->buy_volume, true);
         sql = sql_append_mpd(sql, user_info->sell_amount, true);
         sql = sql_append_mpd(sql, user_info->sell_volume, true);
+        sql = sql_append_mpd(sql, user_info->taker_amount, true);
+        sql = sql_append_mpd(sql, user_info->taker_volume, true);
+        sql = sql_append_mpd(sql, user_info->maker_amount, true);
+        sql = sql_append_mpd(sql, user_info->maker_volume, true);
+
         sql = sdscatprintf(sql, "%d, %d, %d, %d, %d, %d, %d)", user_info->deal_count, user_info->deal_buy_count, user_info->deal_sell_count,
                 user_info->limit_buy_order, user_info->limit_sell_order, user_info->market_buy_order, user_info->market_sell_order);
 
