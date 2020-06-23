@@ -130,15 +130,19 @@ int update_user_balance(bool real, uint32_t user_id, uint32_t account, const cha
         free(detail_str);
 
         struct asset_type *type = get_asset_type(account, asset);
-        mpd_t *frozen_show = balance_frozen_lock(user_id, account, asset);
-        mpd_rescale(frozen_show, frozen_show, -type->prec_show, &mpd_ctx);
+        mpd_t *available = mpd_qncopy(result);
+        if (type->prec_save != type->prec_show) {
+            mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
+        }
+    
+        mpd_t *frozen = balance_frozen_lock(user_id, account, asset);
+        if (type->prec_save != type->prec_show) {
+            mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
+        }
 
-        mpd_t *available_show = mpd_qncopy(result);
-        mpd_rescale(available_show, available_show, -type->prec_show, &mpd_ctx);
-        push_balance_message(now, user_id, account, asset, business, change, available_show, frozen_show);
-
-        mpd_del(frozen_show);
-        mpd_del(available_show);
+        push_balance_message(now, user_id, account, asset, business, change, available, frozen);
+        mpd_del(available);
+        mpd_del(frozen);
     }
 
     return 0;
@@ -172,15 +176,19 @@ int update_user_lock(bool real, uint32_t user_id, uint32_t account, const char *
             result = mpd_zero;
         
         struct asset_type *type = get_asset_type(account, asset);
-        mpd_t *available_show = mpd_qncopy(result);
-        mpd_rescale(available_show, available_show, -type->prec_show, &mpd_ctx);
+        mpd_t *available = mpd_qncopy(result);
+        if (type->prec_save != type->prec_show) {
+            mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
+        }
 
-        mpd_t *frozen_show = balance_frozen_lock(user_id, account, asset);
-        mpd_rescale(frozen_show, frozen_show, -type->prec_show, &mpd_ctx);
-        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, available_show, frozen_show);
+        mpd_t *frozen = balance_frozen_lock(user_id, account, asset);
+        if (type->prec_save != type->prec_show) {
+            mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
+        }
 
-        mpd_del(frozen_show);
-        mpd_del(available_show);
+        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, available, frozen);
+        mpd_del(available);
+        mpd_del(frozen);
     }
 
     return 0;
@@ -214,15 +222,19 @@ int update_user_unlock(bool real, uint32_t user_id, uint32_t account, const char
             result = mpd_zero;
         
         struct asset_type *type = get_asset_type(account, asset);
-        mpd_t *available_show = mpd_qncopy(result);
-        mpd_rescale(available_show, available_show, -type->prec_show, &mpd_ctx);
+        mpd_t *available = mpd_qncopy(result);
+        if (type->prec_save != type->prec_show) {
+            mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
+        }
 
-        mpd_t *frozen_show = balance_frozen_lock(user_id, account, asset);
-        mpd_rescale(frozen_show, frozen_show, -type->prec_show, &mpd_ctx);
-        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, available_show, frozen_show);
+        mpd_t *frozen = balance_frozen_lock(user_id, account, asset);
+        if (type->prec_save != type->prec_show) {
+            mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
+        }
 
-        mpd_del(frozen_show);
-        mpd_del(available_show);
+        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, available, frozen);
+        mpd_del(available);
+        mpd_del(frozen);
     }
 
     return 0;

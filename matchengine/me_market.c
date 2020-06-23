@@ -197,9 +197,14 @@ json_t *get_order_balance(order_t *order, market_t *m)
     const char *fee_asset = order->fee_asset;
     if (fee_asset) {
         struct asset_type *fee_type = get_asset_type(order->account, fee_asset);
-        if (fee_type) {
-            mpd_t *fee_available = balance_available(user_id, account, fee_asset);
-            mpd_t *fee_frozen = balance_frozen_lock(user_id, account, fee_asset);
+        if (fee_type && strcmp(fee_asset, m->stock) != 0 && strcmp(fee_asset, m->money) != 0) {
+            uint32_t fee_account = order->account;
+            if (strcmp(order->fee_asset, SYSTEM_FEE_TOKEN) == 0) {
+                fee_account = 0;
+            }
+
+            mpd_t *fee_available = balance_available(user_id, fee_account, fee_asset);
+            mpd_t *fee_frozen = balance_frozen_lock(user_id, fee_account, fee_asset);
             mpd_rescale(fee_available, fee_available, -fee_type->prec_show, &mpd_ctx);
             mpd_rescale(fee_frozen, fee_frozen, -fee_type->prec_show, &mpd_ctx);
 
