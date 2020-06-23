@@ -199,7 +199,7 @@ json_t *get_order_balance(order_t *order, market_t *m)
         struct asset_type *fee_type = get_asset_type(order->account, fee_asset);
         if (fee_type && strcmp(fee_asset, m->stock) != 0 && strcmp(fee_asset, m->money) != 0) {
             uint32_t fee_account = order->account;
-            if (strcmp(order->fee_asset, SYSTEM_FEE_TOKEN) == 0) {
+            if (strcmp(fee_asset, SYSTEM_FEE_TOKEN) == 0) {
                 fee_account = 0;
             }
 
