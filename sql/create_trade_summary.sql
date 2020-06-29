@@ -19,6 +19,10 @@ CREATE TABLE `user_trade_summary_example` (
     `limit_sell_order`      INT UNSIGNED NOT NULL,
     `market_buy_order`      INT UNSIGNED NOT NULL,
     `market_sell_order`     INT UNSIGNED NOT NULL,
+    `maker_volume`          DECIMAL(40,20) NOT NULL default 0,
+    `maker_amount`          DECIMAL(40,20) NOT NULL default 0,
+    `taker_volume`          DECIMAL(40,20) NOT NULL default 0,
+    `taker_amount`          DECIMAL(40,20) NOT NULL default 0,
     INDEX `idx_date` (`trade_date`),
     INDEX `idx_user_date` (`user_id`, `trade_date`),
     INDEX `idx_stock_date` (`stock_asset`, `trade_date`)
