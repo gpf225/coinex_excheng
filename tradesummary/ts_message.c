@@ -29,6 +29,12 @@ struct fee_key {
     char asset[ASSET_NAME_MAX_LEN + 1];
 };
 
+struct client_fee_key {
+    uint32_t user_id;
+    char client_id[CLIENT_ID_MAX_LEN + 1];
+    char asset[ASSET_NAME_MAX_LEN + 1];
+};
+
 struct fee_val {
     mpd_t *value;
 };
@@ -36,6 +42,9 @@ struct fee_val {
 struct daily_trade_val {
     dict_t  *users_trade;
     dict_t  *fees_detail;
+
+    dict_t  *client_ids_trade;
+    dict_t  *client_fees_detail;
 
     mpd_t   *deal_amount;
     mpd_t   *deal_volume;
@@ -49,6 +58,11 @@ struct daily_trade_val {
     int     limit_sell_order;
     int     market_buy_order;
     int     market_sell_order;
+};
+
+struct client_user_trade_key {
+    uint32_t user_id;
+    char client_id[CLIENT_ID_MAX_LEN + 1];
 };
 
 struct users_trade_val {
@@ -110,6 +124,24 @@ static void *dict_fee_key_dup(const void *key)
 static void dict_fee_key_free(void *key)
 {
     free(key);
+}
+
+// client fee key
+static uint32_t dict_client_fee_key_hash_func(const void *key)
+{
+    return dict_generic_hash_function(key, sizeof(struct client_fee_key));
+}
+
+static int dict_client_fee_key_compare(const void *key1, const void *key2)
+{
+    return memcmp(key1, key2, sizeof(struct client_fee_key));
+}
+
+static void *dict_client_fee_key_dup(const void *key)
+{
+    struct client_fee_key *obj = malloc(sizeof(struct client_fee_key));
+    memcpy(obj, key, sizeof(struct client_fee_key));
+    return obj;
 }
 
 // market info val
@@ -551,8 +583,11 @@ static void on_deals_message(sds message, int64_t offset)
     const char *bid_fee_asset = json_string_value(json_object_get(obj, "bid_fee_asset"));
     const char *ask_fee_str = json_string_value(json_object_get(obj, "ask_fee"));
     const char *bid_fee_str = json_string_value(json_object_get(obj, "bid_fee"));
+    const char *ask_client_id = json_string_value(json_object_get(obj, "ask_client_id"));
+    const char *bid_client_id = json_string_value(json_object_get(obj, "bid_client_id"));
     if (timestamp == 0 || market == NULL || side == 0 || amount_str == NULL || volume_str == NULL || \
-            ask_fee_asset == NULL || bid_fee_asset == NULL || ask_fee_str == NULL || bid_fee_asset == NULL) {
+            ask_fee_asset == NULL || bid_fee_asset == NULL || ask_fee_str == NULL || bid_fee_asset == NULL || \ 
+            ask_client_id == NULL || bid_client_id == NULL) {
         log_error("invalid message: %s, offset: %"PRIi64, message, offset);
         goto cleanup;
     }
