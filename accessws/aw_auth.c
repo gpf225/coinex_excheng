@@ -169,7 +169,6 @@ int send_auth_request(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *p
 
 int init_auth(void)
 {
-
     nw_job_type jt;
     memset(&jt, 0, sizeof(jt));
     jt.on_job = on_job;
@@ -195,4 +194,3 @@ size_t pending_auth_request(void)
 {
     return job_context->request_count;
 }
-
