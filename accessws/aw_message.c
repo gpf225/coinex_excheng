@@ -103,11 +103,11 @@ static int process_orders_message(json_t *msg)
     if (order == NULL || balance == NULL)
         return -__LINE__;
 
-    const char *stock = json_string_value(json_object_get(msg, "stock"));
-    const char *money = json_string_value(json_object_get(msg, "money"));
-
     uint32_t user_id = json_integer_value(json_object_get(order, "user"));
     uint32_t account = json_integer_value(json_object_get(order, "account"));
+
+    const char *stock = json_string_value(json_object_get(msg, "stock"));
+    const char *money = json_string_value(json_object_get(msg, "money"));
 
     const char *stock_available = json_string_value(json_object_get(balance, "stock_available"));
     const char *stock_frozen = json_string_value(json_object_get(balance, "stock_frozen"));
@@ -115,13 +115,7 @@ static int process_orders_message(json_t *msg)
     const char *money_available = json_string_value(json_object_get(balance, "money_available"));
     const char *money_frozen = json_string_value(json_object_get(balance, "money_frozen"));
 
-    const json_t *fee_obj = json_object_get(balance, "fee");
-    const char *fee_available = json_string_value(json_object_get(fee_obj, "fee_available"));
-    const char *fee_frozen = json_string_value(json_object_get(fee_obj, "fee_frozen"));
-    const char *fee_asset = json_string_value(json_object_get(fee_obj, "fee_asset"));
-    uint32_t fee_account = json_integer_value(json_object_get(fee_obj, "fee_account"));
-
-    if (user_id == 0 || stock == NULL || money == NULL || stock_available == NULL || stock_frozen == NULL || money_available == NULL || money_frozen == NULL || fee_obj == NULL)
+    if (user_id == 0 || stock == NULL || money == NULL || stock_available == NULL || stock_frozen == NULL || money_available == NULL || money_frozen == NULL)
         return -__LINE__;
 
     order_on_update(user_id, event, order);
@@ -133,7 +127,15 @@ static int process_orders_message(json_t *msg)
         asset_on_update_sub(user_id, money, money_available, money_frozen);
     }
 
-    if (fee_asset && strcmp(fee_asset, stock) != 0 && strcmp(fee_asset, money) != 0) {
+    json_t *fee = json_object_get(msg, "fee");
+    if (fee != NULL) {
+        uint32_t fee_account = json_integer_value(json_object_get(fee, "account"));
+        const char *fee_asset = json_string_value(json_object_get(fee, "asset"));
+        const char *fee_available = json_string_value(json_object_get(fee, "available"));
+        const char *fee_frozen = json_string_value(json_object_get(fee, "frozen"));
+        if (fee_asset == NULL || fee_available == NULL || fee_frozen == NULL)
+            return -__LINE__;
+
         asset_on_update(user_id, fee_account, fee_asset, fee_available, fee_frozen);
         if (fee_account == 0) {
             asset_on_update_sub(user_id, fee_asset, fee_available, fee_frozen);
