@@ -82,6 +82,24 @@ int init_update(void)
     return 0;
 }
 
+static void balance_update_message(uint32_t user_id, uint32_t account, const char *business, double timestamp, const char *asset, mpd_t *result, mpd_t *change)
+{
+    struct asset_type *type = get_asset_type(account, asset);
+    mpd_t *available = mpd_qncopy(result);
+    if (type->prec_save != type->prec_show) {
+        mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
+    }
+
+    mpd_t *frozen = balance_frozen_lock(user_id, account, asset);
+    if (type->prec_save != type->prec_show) {
+        mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
+    }
+
+    push_balance_message(timestamp, user_id, account, asset, business, change, available, frozen);
+    mpd_del(available);
+    mpd_del(frozen);
+}
+
 int update_user_balance(bool real, uint32_t user_id, uint32_t account, const char *asset, const char *business, uint64_t business_id, mpd_t *change, json_t *detail)
 {
     struct update_key key;
@@ -127,22 +145,8 @@ int update_user_balance(bool real, uint32_t user_id, uint32_t account, const cha
         json_object_set_new(detail, "id", json_integer(business_id));
         char *detail_str = json_dumps(detail, 0);
         append_user_balance_history(now, user_id, account, asset, business, change, detail_str);
+        balance_update_message(user_id, account, business, now, asset, result, change);
         free(detail_str);
-
-        struct asset_type *type = get_asset_type(account, asset);
-        mpd_t *available = mpd_qncopy(result);
-        if (type->prec_save != type->prec_show) {
-            mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
-        }
-    
-        mpd_t *frozen = balance_frozen_lock(user_id, account, asset);
-        if (type->prec_save != type->prec_show) {
-            mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
-        }
-
-        push_balance_message(now, user_id, account, asset, business, change, available, frozen);
-        mpd_del(available);
-        mpd_del(frozen);
     }
 
     return 0;
@@ -174,21 +178,8 @@ int update_user_lock(bool real, uint32_t user_id, uint32_t account, const char *
         mpd_t *result = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, asset);
         if (result == NULL)
             result = mpd_zero;
-        
-        struct asset_type *type = get_asset_type(account, asset);
-        mpd_t *available = mpd_qncopy(result);
-        if (type->prec_save != type->prec_show) {
-            mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
-        }
-
-        mpd_t *frozen = balance_frozen_lock(user_id, account, asset);
-        if (type->prec_save != type->prec_show) {
-            mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
-        }
-
-        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, available, frozen);
-        mpd_del(available);
-        mpd_del(frozen);
+        double now = current_timestamp();
+        balance_update_message(user_id, account, business, now, asset, result, amount);
     }
 
     return 0;
@@ -220,21 +211,8 @@ int update_user_unlock(bool real, uint32_t user_id, uint32_t account, const char
         mpd_t *result = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, asset);
         if (result == NULL)
             result = mpd_zero;
-        
-        struct asset_type *type = get_asset_type(account, asset);
-        mpd_t *available = mpd_qncopy(result);
-        if (type->prec_save != type->prec_show) {
-            mpd_rescale(available, available, -type->prec_show, &mpd_ctx);
-        }
-
-        mpd_t *frozen = balance_frozen_lock(user_id, account, asset);
-        if (type->prec_save != type->prec_show) {
-            mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
-        }
-
-        push_balance_message(current_timestamp(), user_id, account, asset, business, amount, available, frozen);
-        mpd_del(available);
-        mpd_del(frozen);
+        double now = current_timestamp();
+        balance_update_message(user_id, account, business, now, asset, result, amount);
     }
 
     return 0;
