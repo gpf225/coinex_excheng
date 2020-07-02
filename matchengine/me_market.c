@@ -190,13 +190,11 @@ json_t *get_order_balance(order_t *order, market_t *m)
     json_t *info = json_object();
     json_object_set_new_mpd(info, "stock_available", stock_available);
     json_object_set_new_mpd(info, "stock_frozen", stock_frozen);
-
     json_object_set_new_mpd(info, "money_available", money_available);
     json_object_set_new_mpd(info, "money_frozen", money_frozen);
 
-    json_t *fee_item = json_object();
     const char *fee_asset = order->fee_asset;
-    if (fee_asset && strcmp(fee_asset, m->stock) != 0 && strcmp(fee_asset, m->money) != 0) {
+    if (fee_asset && mpd_cmp(order->asset_fee, mpd_zero, &mpd_ctx) > 0 && strcmp(fee_asset, m->stock) != 0 && strcmp(fee_asset, m->money) != 0) {
         uint32_t fee_account = order->account;
         if (strcmp(fee_asset, SYSTEM_FEE_TOKEN) == 0) {
             fee_account = 0;
@@ -204,21 +202,22 @@ json_t *get_order_balance(order_t *order, market_t *m)
 
         struct asset_type *fee_type = get_asset_type(fee_account, fee_asset);
         if (fee_type) {
+            json_t *fee_info = json_object();
             mpd_t *fee_available = balance_available(user_id, fee_account, fee_asset);
             mpd_t *fee_frozen = balance_frozen_lock(user_id, fee_account, fee_asset);
             mpd_rescale(fee_available, fee_available, -fee_type->prec_show, &mpd_ctx);
             mpd_rescale(fee_frozen, fee_frozen, -fee_type->prec_show, &mpd_ctx);
 
-            json_object_set_new_mpd(fee_item, "fee_available", fee_available);
-            json_object_set_new_mpd(fee_item, "fee_frozen", fee_frozen);
-            json_object_set_new    (fee_item, "fee_account", json_integer(fee_account));
-            json_object_set_new    (fee_item, "fee_asset", json_string(fee_asset));
+            json_object_set_new(fee_info, "account", json_integer(fee_account));
+            json_object_set_new(fee_info, "asset", json_string(fee_asset));
+            json_object_set_new_mpd(fee_info, "available", fee_available);
+            json_object_set_new_mpd(fee_info, "frozen", fee_frozen);
+            json_object_set_new(info, "fee", fee_info);
 
             mpd_del(fee_available);
             mpd_del(fee_frozen);
-        }  
+        }
     }
-    json_object_set_new(info, "fee", fee_item);
 
     mpd_del(stock_available);
     mpd_del(stock_frozen);
