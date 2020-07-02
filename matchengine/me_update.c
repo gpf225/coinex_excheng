@@ -82,8 +82,12 @@ int init_update(void)
     return 0;
 }
 
-static void balance_update_message(uint32_t user_id, uint32_t account, const char *business, double timestamp, const char *asset, mpd_t *result, mpd_t *change)
+static void balance_update_message(uint32_t user_id, uint32_t account, const char *asset)
 {
+    mpd_t *result = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, asset);
+    if (result == NULL)
+        result = mpd_zero;
+
     struct asset_type *type = get_asset_type(account, asset);
     mpd_t *available = mpd_qncopy(result);
     if (type->prec_save != type->prec_show) {
@@ -95,7 +99,7 @@ static void balance_update_message(uint32_t user_id, uint32_t account, const cha
         mpd_rescale(frozen, frozen, -type->prec_show, &mpd_ctx);
     }
 
-    push_balance_message(timestamp, user_id, account, asset, business, change, available, frozen);
+    push_balance_message(current_timestamp(), user_id, account, asset, available, frozen);
     mpd_del(available);
     mpd_del(frozen);
 }
@@ -145,7 +149,7 @@ int update_user_balance(bool real, uint32_t user_id, uint32_t account, const cha
         json_object_set_new(detail, "id", json_integer(business_id));
         char *detail_str = json_dumps(detail, 0);
         append_user_balance_history(now, user_id, account, asset, business, change, detail_str);
-        balance_update_message(user_id, account, business, now, asset, result, change);
+        balance_update_message(user_id, account, asset);
         free(detail_str);
     }
 
@@ -175,11 +179,7 @@ int update_user_lock(bool real, uint32_t user_id, uint32_t account, const char *
     dict_add(dict_update, &key, &val);
 
     if (real) {
-        mpd_t *result = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, asset);
-        if (result == NULL)
-            result = mpd_zero;
-        double now = current_timestamp();
-        balance_update_message(user_id, account, business, now, asset, result, amount);
+        balance_update_message(user_id, account, asset);
     }
 
     return 0;
@@ -208,11 +208,7 @@ int update_user_unlock(bool real, uint32_t user_id, uint32_t account, const char
     dict_add(dict_update, &key, &val);
 
     if (real) {
-        mpd_t *result = balance_get(user_id, account, BALANCE_TYPE_AVAILABLE, asset);
-        if (result == NULL)
-            result = mpd_zero;
-        double now = current_timestamp();
-        balance_update_message(user_id, account, business, now, asset, result, amount);
+        balance_update_message(user_id, account, asset);
     }
 
     return 0;

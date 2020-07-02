@@ -314,15 +314,13 @@ int push_order_message(uint32_t event, order_t *order, market_t *market)
     return 0;
 }
 
-int push_balance_message(double t, uint32_t user_id, uint32_t account, const char *asset, const char *business, mpd_t *change, mpd_t *available, mpd_t *frozen)
+int push_balance_message(double t, uint32_t user_id, uint32_t account, const char *asset, mpd_t *available, mpd_t *frozen)
 {
     json_t *message = json_object();
     json_object_set_new(message, "timestamp", json_real(t));
     json_object_set_new(message, "user_id", json_integer(user_id));
     json_object_set_new(message, "account", json_integer(account));
     json_object_set_new(message, "asset", json_string(asset));
-    json_object_set_new(message, "business", json_string(business));
-    json_object_set_new_mpd(message, "change", change);
     json_object_set_new_mpd(message, "available", available);
     json_object_set_new_mpd(message, "frozen", frozen);
 

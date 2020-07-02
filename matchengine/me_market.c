@@ -194,6 +194,7 @@ json_t *get_order_balance(order_t *order, market_t *m)
     json_object_set_new_mpd(info, "money_available", money_available);
     json_object_set_new_mpd(info, "money_frozen", money_frozen);
 
+    json_t *fee_item = json_object();
     const char *fee_asset = order->fee_asset;
     if (fee_asset && strcmp(fee_asset, m->stock) != 0 && strcmp(fee_asset, m->money) != 0) {
         uint32_t fee_account = order->account;
@@ -208,16 +209,16 @@ json_t *get_order_balance(order_t *order, market_t *m)
             mpd_rescale(fee_available, fee_available, -fee_type->prec_show, &mpd_ctx);
             mpd_rescale(fee_frozen, fee_frozen, -fee_type->prec_show, &mpd_ctx);
 
-            json_t *fee_item = json_object();
             json_object_set_new_mpd(fee_item, "fee_available", fee_available);
             json_object_set_new_mpd(fee_item, "fee_frozen", fee_frozen);
             json_object_set_new    (fee_item, "fee_account", json_integer(fee_account));
-            json_object_set_new    (info, "fee", fee_item);
+            json_object_set_new    (fee_item, "fee_asset", json_string(fee_asset));
 
             mpd_del(fee_available);
             mpd_del(fee_frozen);
         }  
     }
+    json_object_set_new(info, "fee", fee_item);
 
     mpd_del(stock_available);
     mpd_del(stock_frozen);

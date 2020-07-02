@@ -108,7 +108,6 @@ static int process_orders_message(json_t *msg)
 
     uint32_t user_id = json_integer_value(json_object_get(order, "user"));
     uint32_t account = json_integer_value(json_object_get(order, "account"));
-    const char *fee_asset = json_string_value(json_object_get(order, "fee_asset"));
 
     const char *stock_available = json_string_value(json_object_get(balance, "stock_available"));
     const char *stock_frozen = json_string_value(json_object_get(balance, "stock_frozen"));
@@ -116,20 +115,13 @@ static int process_orders_message(json_t *msg)
     const char *money_available = json_string_value(json_object_get(balance, "money_available"));
     const char *money_frozen = json_string_value(json_object_get(balance, "money_frozen"));
 
-    const char *fee_available = NULL;
-    const char *fee_frozen = NULL;
-    uint32_t fee_account = 0;
-
     const json_t *fee_obj = json_object_get(balance, "fee");
-    if (fee_obj) {
-        fee_available = json_string_value(json_object_get(fee_obj, "fee_available"));
-        fee_frozen = json_string_value(json_object_get(fee_obj, "fee_frozen"));
-        fee_account = json_integer_value(json_object_get(fee_obj, "fee_account"));
-    }
+    const char *fee_available = json_string_value(json_object_get(fee_obj, "fee_available"));
+    const char *fee_frozen = json_string_value(json_object_get(fee_obj, "fee_frozen"));
+    const char *fee_asset = json_string_value(json_object_get(fee_obj, "fee_asset"));
+    uint32_t fee_account = json_integer_value(json_object_get(fee_obj, "fee_account"));
 
-    if (user_id == 0 || stock == NULL || money == NULL || stock_available == NULL || stock_frozen == NULL || money_available == NULL || money_frozen == NULL)
-        return -__LINE__;
-    if (fee_obj && (!fee_available || !fee_frozen))
+    if (user_id == 0 || stock == NULL || money == NULL || stock_available == NULL || stock_frozen == NULL || money_available == NULL || money_frozen == NULL || fee_obj == NULL)
         return -__LINE__;
 
     order_on_update(user_id, event, order);
@@ -141,7 +133,7 @@ static int process_orders_message(json_t *msg)
         asset_on_update_sub(user_id, money, money_available, money_frozen);
     }
 
-    if (fee_asset && fee_obj && strcmp(fee_asset, stock) != 0 && strcmp(fee_asset, money) != 0) {
+    if (fee_asset && strcmp(fee_asset, stock) != 0 && strcmp(fee_asset, money) != 0) {
         asset_on_update(user_id, fee_account, fee_asset, fee_available, fee_frozen);
         if (fee_account == 0) {
             asset_on_update_sub(user_id, fee_asset, fee_available, fee_frozen);
