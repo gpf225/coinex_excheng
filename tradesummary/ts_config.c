@@ -88,7 +88,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_str(root, "brokers", &settings.brokers, NULL));
     ERR_RET_LN(read_cfg_int(root, "keep_days", &settings.keep_days, false, 3));
     ERR_RET_LN(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
-    ERR_RET_LN(load_client_ids(json_object_get(root, "convert_fee")));
+    ERR_RET_LN(load_client_ids(json_object_get(root, "client_ids")));
     return 0;
 }
 
