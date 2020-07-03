@@ -127,7 +127,7 @@ static int process_orders_message(json_t *msg)
         asset_on_update_sub(user_id, money, money_available, money_frozen);
     }
 
-    json_t *fee = json_object_get(msg, "fee");
+    json_t *fee = json_object_get(balance, "fee");
     if (fee != NULL) {
         uint32_t fee_account = json_integer_value(json_object_get(fee, "account"));
         const char *fee_asset = json_string_value(json_object_get(fee, "asset"));
