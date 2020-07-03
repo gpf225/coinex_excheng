@@ -169,6 +169,64 @@ static void stop_free(stop_t *stop)
     free(stop);
 }
 
+json_t *get_order_balance(order_t *order, market_t *m)
+{    
+    uint32_t user_id = order->user_id;
+    uint32_t account = order->account;
+
+    struct asset_type *stock_type = get_asset_type(order->account, m->stock);
+    struct asset_type *money_type = get_asset_type(order->account, m->money);
+
+    mpd_t *stock_available = balance_available(user_id, account, m->stock);
+    mpd_t *stock_frozen = balance_frozen_lock(user_id, account, m->stock);
+    mpd_rescale(stock_available, stock_available, -stock_type->prec_show, &mpd_ctx);
+    mpd_rescale(stock_frozen, stock_frozen, -stock_type->prec_show, &mpd_ctx);
+
+    mpd_t *money_available = balance_available(user_id, account, m->money);
+    mpd_t *money_frozen = balance_frozen_lock(user_id, account, m->money);
+    mpd_rescale(money_available, money_available, -money_type->prec_show, &mpd_ctx);
+    mpd_rescale(money_frozen, money_frozen, -money_type->prec_show, &mpd_ctx);
+
+    json_t *info = json_object();
+    json_object_set_new_mpd(info, "stock_available", stock_available);
+    json_object_set_new_mpd(info, "stock_frozen", stock_frozen);
+    json_object_set_new_mpd(info, "money_available", money_available);
+    json_object_set_new_mpd(info, "money_frozen", money_frozen);
+
+    const char *fee_asset = order->fee_asset;
+    if (fee_asset && mpd_cmp(order->asset_fee, mpd_zero, &mpd_ctx) > 0 && strcmp(fee_asset, m->stock) != 0 && strcmp(fee_asset, m->money) != 0) {
+        uint32_t fee_account = order->account;
+        if (strcmp(fee_asset, SYSTEM_FEE_TOKEN) == 0) {
+            fee_account = 0;
+        }
+
+        struct asset_type *fee_type = get_asset_type(fee_account, fee_asset);
+        if (fee_type) {
+            json_t *fee_info = json_object();
+            mpd_t *fee_available = balance_available(user_id, fee_account, fee_asset);
+            mpd_t *fee_frozen = balance_frozen_lock(user_id, fee_account, fee_asset);
+            mpd_rescale(fee_available, fee_available, -fee_type->prec_show, &mpd_ctx);
+            mpd_rescale(fee_frozen, fee_frozen, -fee_type->prec_show, &mpd_ctx);
+
+            json_object_set_new(fee_info, "account", json_integer(fee_account));
+            json_object_set_new(fee_info, "asset", json_string(fee_asset));
+            json_object_set_new_mpd(fee_info, "available", fee_available);
+            json_object_set_new_mpd(fee_info, "frozen", fee_frozen);
+            json_object_set_new(info, "fee", fee_info);
+
+            mpd_del(fee_available);
+            mpd_del(fee_frozen);
+        }
+    }
+
+    mpd_del(stock_available);
+    mpd_del(stock_frozen);
+    mpd_del(money_available);
+    mpd_del(money_frozen);
+
+    return info;
+}
+
 json_t *get_order_info(order_t *order, bool with_last_deal)
 {
     json_t *info = json_object();
@@ -462,6 +520,10 @@ static int finish_order(bool real, market_t *m, order_t *order)
         }
     } else if (is_reader) {
         record_fini_order(order);
+    }
+
+    if (real) {
+        push_order_message(ORDER_EVENT_FINISH, order, m);
     }
 
     order_free(order);
@@ -1023,9 +1085,6 @@ static int execute_limit_ask_order(bool real, market_t *m, order_t *taker)
         maker->last_role = MARKET_ROLE_MAKER;
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
-            if (real) {
-                push_order_message(ORDER_EVENT_FINISH, maker, m);
-            }
             finish_order(real, m, maker);
         } else {
             if (real) {
@@ -1237,9 +1296,6 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
         maker->last_role = MARKET_ROLE_MAKER;
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
-            if (real) {
-                push_order_message(ORDER_EVENT_FINISH, maker, m);
-            }
             finish_order(real, m, maker);
         } else {
             if (real) {
@@ -1841,9 +1897,6 @@ static int execute_market_ask_order(bool real, market_t *m, order_t *taker)
         maker->last_role = MARKET_ROLE_MAKER;
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
-            if (real) {
-                push_order_message(ORDER_EVENT_FINISH, maker, m);
-            }
             finish_order(real, m, maker);
         } else {
             if (real) {
@@ -2054,9 +2107,6 @@ static int execute_market_bid_order(bool real, market_t *m, order_t *taker)
         maker->last_role = MARKET_ROLE_MAKER;
 
         if (mpd_cmp(maker->left, mpd_zero, &mpd_ctx) == 0) {
-            if (real) {
-                push_order_message(ORDER_EVENT_FINISH, maker, m);
-            }
             finish_order(real, m, maker);
         } else {
             if (real) {
@@ -2603,7 +2653,6 @@ int market_self_deal(bool real, market_t *market, mpd_t *amount, mpd_t *price, u
 int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
 {
     if (real) {
-        push_order_message(ORDER_EVENT_FINISH, order, m);
         *result = get_order_info(order, false);
     }
     int ret = finish_order(real, m, order);
@@ -2625,10 +2674,6 @@ int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market
     while ((node = skiplist_next(iter)) != NULL) {
         order_t *order = node->value;
         if (side == 0 || side == order->side) {
-            if (real) {
-                push_order_message(ORDER_EVENT_FINISH, order, m);
-            }
-
             ret = finish_order(real, m, order);
             if (ret < 0) {
                 log_fatal("cancel order: %"PRIu64" fail: %d", order->id, ret);
@@ -3138,18 +3183,12 @@ int market_execute_call_auction(bool real, market_t *m, mpd_t *volume)
         if (mpd_cmp(ask_order->left, mpd_zero, &mpd_ctx) == 0) {
             mpd_copy(ask_order->last_deal_amount, ask_order->amount, &mpd_ctx);
             mpd_copy(ask_order->last_deal_price, m->last, &mpd_ctx);
-            if (real) {
-                push_order_message(ORDER_EVENT_FINISH, ask_order, m);
-            }
             finish_order(real, m, ask_order);
         }
 
         if (mpd_cmp(bid_order->left, mpd_zero, &mpd_ctx) == 0) {
             mpd_copy(bid_order->last_deal_amount, bid_order->amount, &mpd_ctx);
             mpd_copy(bid_order->last_deal_price, m->last, &mpd_ctx);
-            if (real) {
-                push_order_message(ORDER_EVENT_FINISH, bid_order, m);
-            }
             finish_order(real, m, bid_order);
         }
         mpd_add(deal_volume, deal_volume, deal_amount, &mpd_ctx);

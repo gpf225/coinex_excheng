@@ -368,7 +368,7 @@ mpd_t *balance_available(uint32_t user_id, uint32_t account, const char *asset)
     return balance;
 }
 
-static mpd_t *balance_frozen_lock(uint32_t user_id, uint32_t account, const char *asset)
+mpd_t *balance_frozen_lock(uint32_t user_id, uint32_t account, const char *asset)
 {
     mpd_t *balance = mpd_qncopy(mpd_zero);
     dict_t *dict = dict_account_query(user_id, account);
