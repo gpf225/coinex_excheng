@@ -68,8 +68,8 @@ CREATE TABLE `client_trade_summary_example` (
     `taker_volume`          DECIMAL(40,20) NOT NULL default 0,
     `taker_amount`          DECIMAL(40,20) NOT NULL default 0,
     INDEX `idx_date` (`trade_date`),
-    INDEX `idx_user_date` (`user_id`, `trade_date`),
-    INDEX `idx_stock_date` (`stock_asset`, `trade_date`)
+    INDEX `idx_client_market_date` (`client_id`, `market`, `trade_date`),
+    INDEX `idx_client_market_user_date` (`client_id`, `market`, `user_id`, `trade_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- client_id每日交易费统计历史表，按月分表
@@ -82,8 +82,8 @@ CREATE TABLE `client_fee_summary_example` (
     `asset`                 VARCHAR(30) NOT NULL,
     `fee`                   DECIMAL(40,20) NOT NULL,
     INDEX `idx_date` (`trade_date`),
-    INDEX `idx_asset_date` (`asset`, `trade_date`),
-    INDEX `idx_user_date` (`user_id`, `trade_date`)
+    INDEX `idx_client_asset_date` (`client_id`, `asset`, `trade_date`),
+    INDEX `idx_client_asset_user_date` (`client_id`, `asset`, `user_id`, `trade_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- 市场每日交易统计历史表，不分表
