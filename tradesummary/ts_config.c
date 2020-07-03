@@ -36,12 +36,12 @@ static int load_client_ids(json_t *node)
     }
 
     settings.client_id_count = json_array_size(node);
-    settings.summary_client_ids = malloc(sizeof(char *) * settings.client_id_count)
+    settings.client_ids = malloc(sizeof(char *) * settings.client_id_count);
     for (size_t i = 0; i < settings.client_id_count; i++) {
         if (!json_is_string(json_array_get(node, i)) || !is_client_id_valid(json_string_value(json_array_get(node, i)))) {
             return __LINE__;
         }
-        settings.summary_client_ids[i] = strdup(json_string_value(json_array_get(node, i)));
+        settings.client_ids[i] = strdup(json_string_value(json_array_get(node, i)));
     }
     return 0;
 }

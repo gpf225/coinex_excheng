@@ -30,5 +30,5 @@
     "brokers": "127.0.0.1:9092",
     "keep_day": 7,
     "accesshttp": "http://127.0.0.1:8080",
-    "summary_client_ids": ["1234", "abcd"]
+    "client_ids": ["1234", "abcd"]
 }
