@@ -1172,17 +1172,16 @@ static int dump_client_fee_dict_info(MYSQL *conn, const char *market_name, time_
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(fees_detail);
     while ((entry = dict_next(iter)) != NULL) {
-        
-        struct fee_key *fkey = entry->key;
+        struct client_fee_key *fkey = entry->key;
         struct fee_val *fval = entry->val;
 
         if (index == 0) {
-            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `user_id`, `market`, `asset`, `fee`) VALUES ", table);
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `client_id`, `user_id`, `market`, `asset`, `fee`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
 
-        sql = sdscatprintf(sql, "(NULL, '%s', %u, '%s', '%s', ", get_utc_date_from_time(timestamp, "%Y-%m-%d"), fkey->user_id, market_name, fkey->asset);
+        sql = sdscatprintf(sql, "(NULL, '%s', '%s', %u, '%s', '%s', ", get_utc_date_from_time(timestamp, "%Y-%m-%d"), fkey->client_id, fkey->user_id, market_name, fkey->asset);
         sql = sql_append_mpd(sql, fval->value, false);
         sql = sdscatprintf(sql, ")");
 
@@ -1286,9 +1285,19 @@ static int dump_market(MYSQL *conn, json_t *markets, time_t timestamp)
             log_error("dump_users_info: %s timestamp: %ld fail", market_name, timestamp);
             return -__LINE__;
         }
+        ret = dump_client_dict_info(conn, market_name, stock, money, timestamp, trade_info->client_trade);
+        if (ret < 0) {
+            log_error("dump_client_trade_info: %s timestamp: %ld fail", market_name, timestamp);
+            return -__LINE__;
+        }
         ret = dump_fee_dict_info(conn, market_name, timestamp, trade_info->fees_detail);
         if (ret < 0) {
             log_error("dump_fee_info: %s timestamp: %ld fail", market_name, timestamp);
+            return -__LINE__;
+        }
+        ret = dump_client_fee_dict_info(conn, market_name, timestamp, trade_info->client_fees_detail);
+        if (ret < 0) {
+            log_error("dump_client_fee_info: %s timestamp: %ld fail", market_name, timestamp);
             return -__LINE__;
         }
     }
