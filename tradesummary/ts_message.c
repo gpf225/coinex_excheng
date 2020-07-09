@@ -744,9 +744,9 @@ static void on_deals_message(sds message, int64_t offset)
 
     update_market_volume(trade_info, side, amount, volume);
     update_user_volume(trade_info->users_trade, market_info->users_detail, ask_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_SELL, amount, volume, ask_is_taker);
-    log_info("update client volume: %s", bid_client_id);
     bool is_ask_client = false;
     if (check_client_id(ask_client_id)) {
+        log_info("update client volume: %s", ask_client_id);
         is_ask_client = true;
         update_client_volume(trade_info->client_trade, ask_client_id, ask_user_id, MARKET_TRADE_SIDE_SELL, amount, volume, ask_is_taker);
     }
@@ -767,11 +767,10 @@ static void on_deals_message(sds message, int64_t offset)
         }
     }
 
-    log_info("update client volume: %s", bid_client_id);
     if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
         update_fee(trade_info->fees_detail, bid_user_id, bid_fee_asset, bid_fee);
         if (is_bid_client) {
-            update_client_fee(trade_info->client_fees_detail, bid_client_id, ask_user_id, ask_fee_asset, ask_fee);
+            update_client_fee(trade_info->client_fees_detail, bid_client_id, bid_user_id, bid_fee_asset, bid_fee);
         }
     }
 
