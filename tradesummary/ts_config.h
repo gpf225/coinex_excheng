@@ -49,6 +49,8 @@ struct settings {
     int                 keep_days;
     char                *accesshttp;
     char                *brokers;
+    char                **client_ids;
+    size_t              client_id_count;
 };
 
 extern struct settings settings;
