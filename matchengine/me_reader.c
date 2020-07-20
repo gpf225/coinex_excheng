@@ -462,6 +462,11 @@ static int on_cmd_stop_book(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+inline static bool is_hidden_order(order_t *order)
+{
+    return (order->option & OPTION_HIDDEN) ? true : false;
+}
+
 static json_t *get_depth(market_t *market, size_t limit)
 {
     mpd_t *price = mpd_new(&mpd_ctx);
@@ -476,8 +481,14 @@ static json_t *get_depth(market_t *market, size_t limit)
         if (count > settings.depth_merge_max) {
             break;
         }
-        index++;
         order_t *order = node->value;
+
+        if (is_hidden_order(order)) {
+            node = skiplist_next(iter);
+            continue;
+        }
+        index++;
+
         mpd_copy(price, order->price, &mpd_ctx);
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) < 0) {
             node = skiplist_next(iter);
@@ -491,6 +502,9 @@ static json_t *get_depth(market_t *market, size_t limit)
             }
             order = node->value;
 
+            if (is_hidden_order(order)) {
+                continue;
+            }
             if (mpd_cmp(price, order->price, &mpd_ctx) == 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
             } else {
@@ -513,8 +527,14 @@ static json_t *get_depth(market_t *market, size_t limit)
         if (count > settings.depth_merge_max) {
             break;
         }
-        index++;
         order_t *order = node->value;
+
+        if (is_hidden_order(order)) {
+            node = skiplist_next(iter);
+            continue;
+        }
+        index++;
+
         mpd_copy(price, order->price, &mpd_ctx);
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) > 0) {
             node = skiplist_next(iter);
@@ -527,6 +547,10 @@ static json_t *get_depth(market_t *market, size_t limit)
                 break;
             }
             order = node->value;
+
+            if (is_hidden_order(order)) {
+                continue;
+            }
             if (mpd_cmp(price, order->price, &mpd_ctx) == 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
             } else {
@@ -569,8 +593,14 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         if (count > settings.depth_merge_max) {
             break;
         }
-        index++;
         order_t *order = node->value;
+
+        if (is_hidden_order(order)) {
+            node = skiplist_next(iter);
+            continue;
+        }
+        index++;
+
         mpd_divmod(q, r, order->price, interval, &mpd_ctx);
         mpd_mul(price, q, interval, &mpd_ctx);
         if (mpd_cmp(r, mpd_zero, &mpd_ctx) != 0) {
@@ -587,12 +617,18 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
                 break;
             }
             order = node->value;
+
+            if (is_hidden_order(order)) {
+                continue;
+            }
+
             if (mpd_cmp(price, order->price, &mpd_ctx) >= 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
             } else {
                 break;
             }
         }
+
         json_t *info = json_array();
         json_array_append_new_mpd(info, price);
         json_array_append_new_mpd(info, amount);
@@ -609,8 +645,14 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         if (count > settings.depth_merge_max) {
             break;
         }
-        index++;
         order_t *order = node->value;
+
+        if (is_hidden_order(order)) {
+            node = skiplist_next(iter);
+            continue;
+        }
+        index++;
+
         mpd_divmod(q, r, order->price, interval, &mpd_ctx);
         mpd_mul(price, q, interval, &mpd_ctx);
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) > 0) {
@@ -624,13 +666,16 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
                 break;
             }
             order = node->value;
+    
+            if (is_hidden_order(order)) {
+                continue;
+            }
             if (mpd_cmp(price, order->price, &mpd_ctx) <= 0) {
                 mpd_add(amount, amount, order->left, &mpd_ctx);
             } else {
                 break;
             }
         }
-
         json_t *info = json_array();
         json_array_append_new_mpd(info, price);
         json_array_append_new_mpd(info, amount);

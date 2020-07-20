@@ -26,6 +26,7 @@ CREATE TABLE `order_history_example` (
     `market`        VARCHAR(30) NOT NULL COMMENT "市场名称",
     `source`        VARCHAR(30) NOT NULL COMMENT "订单来源",
     `fee_asset`     VARCHAR(30) NOT NULL COMMENT "手续费货币类型",
+    `client_id`     VARCHAR(32) NOT NULL default "" COMMENT "用户自定义订单ID，默认为空",
     `fee_discount`  DECIMAL(40,4) NOT NULL COMMENT "手续费折扣",
     `t`             TINYINT UNSIGNED NOT NULL COMMENT "订单类型，市价单或者限价单",
     `side`          TINYINT UNSIGNED NOT NULL COMMENT "订单方向，买入或者卖出",
@@ -42,7 +43,8 @@ CREATE TABLE `order_history_example` (
     INDEX `idx_user_side_time` (`user_id`, `side`, `create_time`),
     INDEX `idx_user_market_time` (`user_id`, `market`, `create_time`),
     INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `create_time`),
-    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `create_time`)
+    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `create_time`),
+    INDEX `idx_user_account_market_time` (`user_id`, `account`, `market`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id
@@ -57,6 +59,7 @@ CREATE TABLE `stop_history_example` (
     `market`        VARCHAR(30) NOT NULL COMMENT "市场名称",
     `source`        VARCHAR(30) NOT NULL COMMENT "订单来源",
     `fee_asset`     VARCHAR(30) NOT NULL COMMENT "手续费货币类型",
+    `client_id`     VARCHAR(32) NOT NULL default "" COMMENT "用户自定义订单ID，默认为空",
     `fee_discount`  DECIMAL(40,4) NOT NULL COMMENT "手续费折扣",
     `t`             TINYINT UNSIGNED NOT NULL COMMENT "订单类型，市价单或者限价单",
     `side`          TINYINT UNSIGNED NOT NULL COMMENT "订单方向，买入或者卖出",
@@ -70,7 +73,8 @@ CREATE TABLE `stop_history_example` (
     INDEX `idx_user_side_time` (`user_id`, `side`, `create_time`),
     INDEX `idx_user_market_time` (`user_id`, `market`, `create_time`),
     INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `create_time`),
-    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `create_time`)
+    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `create_time`),
+    INDEX `idx_user_account_market_time` (`user_id`, `account`, `market`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- split by user_id
@@ -99,5 +103,6 @@ CREATE TABLE `user_deal_history_example` (
     INDEX `idx_user_side_time` (`user_id`, `side`, `time`),
     INDEX `idx_user_market_time` (`user_id`, `market`, `time`),
     INDEX `idx_user_market_side_time` (`user_id`, `market`, `side`, `time`),
-    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `time`)
+    INDEX `idx_user_account_market_side_time` (`user_id`, `account`, `market`, `side`, `time`),
+    INDEX `idx_user_account_market_time` (`user_id`, `account`, `market`, `time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

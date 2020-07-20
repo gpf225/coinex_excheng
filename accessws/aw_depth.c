@@ -604,6 +604,11 @@ int depth_unsubscribe(nw_ses *ses)
                 send_depth_request(CMD_CACHE_DEPTH_UNSUBSCRIBE, key);
             }
         }
+
+        if (dict_size(obj->sessions) == 0) {
+            json_decref(obj->last);
+            obj->last = NULL;
+        }
     }
     dict_release_iterator(iter);
 

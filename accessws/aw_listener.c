@@ -90,6 +90,7 @@ static int init_worker_svr(void)
     cfg.heartbeat_check = true;
 
     rpc_svr_type type;
+    memset(&type, 0, sizeof(type));
     type.on_recv_pkg = worker_on_recv_pkg;
     type.on_new_connection = worker_on_new_connection;
     type.on_connection_close = worker_on_connection_close;

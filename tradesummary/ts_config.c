@@ -7,6 +7,45 @@
 
 struct settings settings;
 
+static bool is_client_id_valid(const char *client_id)
+{
+    if (!client_id) {
+        return false;
+    }
+
+    size_t len = strlen(client_id);
+    if (len > CLIENT_ID_MAX_LEN) {
+        return false;
+    }
+
+    bool is_valid = true;
+    for (int i = 0; i < len; ++i) {
+        if (client_id[i] == '-' || client_id[i] == '_' || isalnum(client_id[i])) {
+            continue;
+        }
+        is_valid = false;
+        break;
+    }
+    return is_valid;
+}
+
+static int load_client_ids(json_t *node)
+{
+    if (node == NULL || !json_is_array(node) || json_array_size(node) == 0) {
+        return 0;
+    }
+
+    settings.client_id_count = json_array_size(node);
+    settings.client_ids = malloc(sizeof(char *) * settings.client_id_count);
+    for (size_t i = 0; i < settings.client_id_count; i++) {
+        if (!json_is_string(json_array_get(node, i)) || !is_client_id_valid(json_string_value(json_array_get(node, i)))) {
+            return __LINE__;
+        }
+        settings.client_ids[i] = strdup(json_string_value(json_array_get(node, i)));
+    }
+    return 0;
+}
+
 static int read_config_from_json(json_t *root)
 {
     int ret;
@@ -49,7 +88,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_str(root, "brokers", &settings.brokers, NULL));
     ERR_RET_LN(read_cfg_int(root, "keep_days", &settings.keep_days, false, 3));
     ERR_RET_LN(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
-
+    ERR_RET_LN(load_client_ids(json_object_get(root, "client_ids")));
     return 0;
 }
 

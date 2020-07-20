@@ -141,14 +141,15 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     if (entry == NULL)
         return -__LINE__;
 
+    uint64_t now = current_millisecond();
     struct dict_depth_sub_val *val = entry->val;
-    if (is_depth_equal(val->last, result))
+    if (is_depth_equal(val->last, result) && now - val->time <= settings.depth_resend_timeout * 1000)
         return 0;
 
     if (val->last != NULL)
         json_decref(val->last);
     val->last = result;
-    val->time = current_millisecond();
+    val->time = now;
     json_incref(val->last);
 
     json_t *result_body = json_object();
