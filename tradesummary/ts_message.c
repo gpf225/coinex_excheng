@@ -955,6 +955,26 @@ static int clear_dump_data(MYSQL *conn, time_t timestamp)
     }
 
     sdsclear(sql);
+    sql = sdscatprintf(sql, "DELETE from client_trade_summary_%s where trade_date = '%s'", date_mon, date_day);
+    log_trace("exec sql: %s", sql);
+    ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        ret = -__LINE__;
+        goto cleanup;
+    }
+
+    sdsclear(sql);
+    sql = sdscatprintf(sql, "DELETE from client_fee_summary_%s where trade_date = '%s'", date_mon, date_day);
+    log_trace("exec sql: %s", sql);
+    ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        ret = -__LINE__;
+        goto cleanup;
+    }
+
+    sdsclear(sql);
     sql = sdscatprintf(sql, "DELETE from coin_trade_summary where trade_date = '%s'", date_day);
     log_trace("exec sql: %s", sql);
     ret = mysql_real_query(conn, sql, sdslen(sql));
