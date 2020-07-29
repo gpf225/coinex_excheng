@@ -636,7 +636,7 @@ static int on_cmd_order_cancel_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
 static bool check_stop_option(uint32_t option)
 {
-    if ((option & (~OPTION_CHECK_MASK)) != 0 || (option & OPTION_MAKER_ONLY) || (ption & OPTION_FILL_OR_KILL))
+    if ((option & (~OPTION_CHECK_MASK)) != 0 || (option & OPTION_MAKER_ONLY) || (option & OPTION_FILL_OR_KILL))
         return false;
     return true;
 }
