@@ -634,6 +634,13 @@ static int on_cmd_order_cancel_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return rpc_reply_success(ses, pkg);
 }
 
+static bool check_stop_option(uint32_t option)
+{
+    if ((option & (~OPTION_CHECK_MASK)) != 0 || (option & OPTION_MAKER_ONLY) || (ption & OPTION_FILL_OR_KILL))
+        return false;
+    return true;
+}
+
 static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) < 13)
@@ -735,7 +742,7 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     uint32_t option = 0;
     if (json_is_integer(json_array_get(params, 12))) {
         option = json_integer_value(json_array_get(params, 12));
-        if ((option & (~OPTION_CHECK_MASK)) != 0)
+        if (!check_stop_option(option))
             goto invalid_argument;
     }
 
@@ -878,7 +885,7 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     uint32_t option = 0;
     if (json_is_integer(json_array_get(params, 10))) {
         option = json_integer_value(json_array_get(params, 10));
-        if ((option & (~OPTION_CHECK_MASK)) != 0)
+        if (!check_stop_option(option))
             goto invalid_argument;
     }
 
