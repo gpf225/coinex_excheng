@@ -1208,7 +1208,7 @@ static bool is_queue_block()
     return false;
 }
 
-static bool is_service_availablce(void)
+static bool is_service_available(void)
 {
     bool queue_block = is_queue_block();
     bool operlog_block = is_operlog_block();
@@ -1232,7 +1232,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     int ret;
     switch (pkg->command) {
     case CMD_ASSET_UPDATE:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1243,7 +1243,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ASSET_LOCK:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1254,7 +1254,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ASSET_UNLOCK:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1265,7 +1265,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ASSET_BACKUP:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1276,7 +1276,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_PUT_LIMIT:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1287,7 +1287,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_PUT_MARKET:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1298,7 +1298,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_CANCEL:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1309,7 +1309,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_CANCEL_ALL:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1320,7 +1320,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_PUT_STOP_LIMIT:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1331,7 +1331,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_PUT_STOP_MARKET:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1342,7 +1342,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_CANCEL_STOP:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1353,7 +1353,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_CANCEL_STOP_ALL:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1378,7 +1378,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_MARKET_SELF_DEAL:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1389,7 +1389,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_CALL_AUCTION_START:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1400,7 +1400,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_CALL_AUCTION_EXECUTE:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
