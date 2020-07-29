@@ -33,7 +33,10 @@ static int push_operlog(const char *method, json_t *params)
 
     log_trace("operlog: %s", detail);
     for (int i = 0; i < settings.reader_num; ++i) {
-        queue_push(&queue_writers[i], detail, strlen(detail));
+        int ret = queue_push(&queue_writers[i], detail, strlen(detail));
+        if (ret < 0) {
+            log_fatal("queue push fail, queue: %d, detail: %s", i, detail);
+        }
     }
     append_operlog(detail);
     free(detail);
@@ -1368,6 +1371,10 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_MARKET_SELF_DEAL:
+        if (!is_service_availablce()) {
+            rpc_reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
         profile_inc("cmd_market_self_deal", 1);
         ret = on_cmd_self_market_deal(ses, pkg, params);
         if (ret < 0) {
@@ -1375,6 +1382,10 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_CALL_AUCTION_START:
+        if (!is_service_availablce()) {
+            rpc_reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
         profile_inc("cmd_call_auction_start", 1);
         ret = on_cmd_call_auction_start(ses, pkg, params);
         if (ret < 0) {
@@ -1382,6 +1393,10 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_CALL_AUCTION_EXECUTE:
+        if (!is_service_availablce()) {
+            rpc_reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
         profile_inc("cmd_call_auction_execute", 1);
         ret = on_cmd_call_auction_execute(ses, pkg, params);
         if (ret < 0) {
