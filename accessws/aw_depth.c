@@ -652,3 +652,34 @@ size_t depth_subscribe_number(void)
     return count;
 }
 
+size_t depth_subscribe_market_interval_limit(void)
+{
+    size_t count = 0;
+    dict_iterator *iter = dict_get_iterator(dict_depth_sub);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        struct depth_val *obj = entry->val;
+        if (dict_size(obj->sessions) > 0) {
+            count++;
+        }
+    }
+    dict_release_iterator(iter);
+    return count;
+}
+
+size_t depth_subscribe_market_interval(void)
+{
+    size_t count = 0;
+    dict_iterator *iter = dict_get_iterator(dict_depth_sub_counter);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        struct depth_sub_counter *val = entry->val;
+        if (val->count > 0) {
+            count++;
+        }
+    }
+    dict_release_iterator(iter);
+    return count;
+}
+
+

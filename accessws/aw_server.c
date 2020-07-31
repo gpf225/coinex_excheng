@@ -1339,6 +1339,8 @@ static void on_timer(nw_timer *timer, void *privdata)
     profile_set("subscribe_order", order_subscribe_number());
     profile_set("subscribe_asset", asset_subscribe_number());
     profile_set("subscribe_notice", notice_subscribe_number());
+    profile_set("subscribe_depth_m_i_l", depth_subscribe_market_interval_limit());
+    profile_set("subscribe_depth_m_i", depth_subscribe_market_interval());
 }
 
 static int init_cache_backend(rpc_clt_type *ct)
