@@ -1,6 +1,7 @@
 all:
 	gcc test_list.c -std=gnu99 -g -o test_list.exe -I ../../utils/ -L ../../utils/ -lutils
 	gcc test_decimal.c -std=gnu99 -g -o test_decimal.exe -I ../../utils/ -L ../../utils/ -lutils -lmpdec -ljansson
+	gcc test_mpd_round.c -std=gnu99 -g -o test_mpd_round.exe -I ../../utils/ -L ../../utils/ -lutils -lmpdec -ljansson
 	gcc test_http.c -std=gnu99 -g -o test_http.exe -I ../../utils/ -I ../../network/ -L ../../utils/ -lutils -L ../../network/ -lnetwork -lm
 	gcc test_skiplist.c -std=gnu99 -g -o test_skiplist.exe -I ../../utils/ -L ../../utils/ -lutils
 	gcc test_dict.c -std=gnu99 -g -o test_dict.exe -I ../../utils/ -L ../../utils/ -L ../../utils -lutils -L ../../network -lnetwork -Wl,-Bstatic -lev -ljansson -lmpdec -lmysqlclient -lrdkafka -lhiredis -lcurl -lssl -lcrypto -lz -Wl,-Bdynamic -lm -lpthread -ldl -lstdc++

@@ -16,6 +16,8 @@ extern mpd_t *mpd_ten;
 extern mpd_t *mpd_zero;
 
 int init_mpd(void);
+int mpd_set_round_up(void);
+int mpd_set_round_down(void);
 mpd_t *decimal(const char *str, int prec);
 
 char *rstripzero(char *str);

@@ -579,8 +579,6 @@ static json_t *get_depth(market_t *market, size_t limit)
 
 static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
 {
-    mpd_t *q = mpd_new(&mpd_ctx);
-    mpd_t *r = mpd_new(&mpd_ctx);
     mpd_t *price = mpd_new(&mpd_ctx);
     mpd_t *amount = mpd_new(&mpd_ctx);
 
@@ -589,6 +587,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
     skiplist_node *node = skiplist_next(iter);
     size_t count = 1;
     size_t index = 0;
+    mpd_set_round_up();
     while (node && index < limit) {
         if (count > settings.depth_merge_max) {
             break;
@@ -601,11 +600,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         }
         index++;
 
-        mpd_divmod(q, r, order->price, interval, &mpd_ctx);
-        mpd_mul(price, q, interval, &mpd_ctx);
-        if (mpd_cmp(r, mpd_zero, &mpd_ctx) != 0) {
-            mpd_add(price, price, interval, &mpd_ctx);
-        }
+        mpd_quantize(price, order->price, interval, &mpd_ctx);
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) < 0) {
             node = skiplist_next(iter);
             continue;
@@ -641,6 +636,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
     node = skiplist_next(iter);
     count = 1;
     index = 0;
+    mpd_set_round_down();
     while (node && index < limit) {
         if (count > settings.depth_merge_max) {
             break;
@@ -653,8 +649,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         }
         index++;
 
-        mpd_divmod(q, r, order->price, interval, &mpd_ctx);
-        mpd_mul(price, q, interval, &mpd_ctx);
+        mpd_quantize(price, order->price, interval, &mpd_ctx);
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) > 0) {
             node = skiplist_next(iter);
             continue;
@@ -682,9 +677,6 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         json_array_append_new(bids, info);
     }
     skiplist_release_iterator(iter);
-
-    mpd_del(q);
-    mpd_del(r);
     mpd_del(price);
     mpd_del(amount);
 
