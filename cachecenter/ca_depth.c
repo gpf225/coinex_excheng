@@ -28,7 +28,6 @@ struct dict_depth_sub_val {
 };
 
 struct state_data {
-    uint64_t update_id;
     bool     direct_request;
     char     market[MARKET_NAME_MAX_LEN + 1];
     char     interval[INTERVAL_MAX_LEN + 1];
@@ -206,6 +205,95 @@ static void on_backend_connect(nw_ses *ses, bool result)
     }
 }
 
+static json_t *get_depth_merge(json_t *depth, const char *interval_str)
+{
+    mpd_t *price = mpd_new(&mpd_ctx);
+    mpd_t *amount = mpd_new(&mpd_ctx);
+    mpd_t *interval = decimal(interval_str, 0);
+
+    mpd_set_round_up();
+    json_t *asks_new = json_array();
+    json_t *asks = json_object_get(depth, "asks");
+    size_t count = json_array_size(asks);
+    size_t index = 0;
+    while (index < count) {
+        json_t *node = json_array_get(asks, index);
+        mpd_t *node_price = decimal(json_string_value(json_array_get(node, 0)), 0);
+        mpd_t *node_amount = decimal(json_string_value(json_array_get(node, 1)), 0);
+        mpd_quantize(price, node_price, interval, &mpd_ctx);
+        mpd_copy(amount, node_amount, &mpd_ctx);
+        index++;
+        mpd_del(node_price);
+        mpd_del(node_amount);
+        while (index < count) {
+            node = json_array_get(asks, index);
+            node_price = decimal(json_string_value(json_array_get(node, 0)), 0);
+            node_amount = decimal(json_string_value(json_array_get(node, 1)), 0);
+            if (mpd_cmp(price, node_price, &mpd_ctx) >= 0) {
+                mpd_add(amount, amount, node_amount, &mpd_ctx);
+                index++;
+            } else {
+                break;
+            }
+            mpd_del(node_price);
+            mpd_del(node_amount);
+        }
+        json_t *info = json_array();
+        json_array_append_new_mpd(info, price);
+        json_array_append_new_mpd(info, amount);
+        json_array_append_new(asks_new, info);
+    }
+
+    mpd_set_round_down();
+    json_t *bids_new = json_array();
+    json_t *bids = json_object_get(depth, "bids");
+    count = json_array_size(bids);
+    index = 0;
+    while (index < count) {
+        json_t *node = json_array_get(bids, index);
+        mpd_t *node_price = decimal(json_string_value(json_array_get(node, 0)), 0);
+        mpd_t *node_amount = decimal(json_string_value(json_array_get(node, 1)), 0);
+        mpd_quantize(price, node_price, interval, &mpd_ctx);
+        mpd_copy(amount, node_amount, &mpd_ctx);
+        index++;
+        mpd_del(node_price);
+        mpd_del(node_amount);
+
+        while (index < count) {
+            node = json_array_get(bids, index);
+            node_price = decimal(json_string_value(json_array_get(node, 0)), 0);
+            node_amount = decimal(json_string_value(json_array_get(node, 1)), 0);
+            if (mpd_cmp(price, node_price, &mpd_ctx) <= 0) {
+                mpd_add(amount, amount, node_amount, &mpd_ctx);
+                index++;
+            } else {
+                break;
+            }
+            mpd_del(node_price);
+            mpd_del(node_amount);
+        }
+        json_t *info = json_array();
+        json_array_append_new_mpd(info, price);
+        json_array_append_new_mpd(info, amount);
+        json_array_append_new(bids_new, info);
+    }
+    mpd_del(price);
+    mpd_del(amount);
+    mpd_del(interval);
+
+    json_t *result = json_object();
+    json_object_set_new(result, "asks", asks_new);
+    json_object_set_new(result, "bids", bids_new);
+    json_t *last = json_object_get(depth, "last");
+    json_t *time = json_object_get(depth, "time");
+    json_incref(last);
+    json_incref(time);
+    json_object_set_new(result, "last", last);
+    json_object_set_new(result, "time", time);
+
+    return result;
+}
+
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
     if (pkg->command != CMD_ORDER_DEPTH) {
@@ -249,21 +337,35 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         if (state->direct_request)
             reply_filter_message(filter_key, is_error, error, result);
     } else {
+        sds market_cache_key = get_depth_key(state->market, "0");
         struct dict_cache_val *cache = get_cache(filter_key);
-        if (cache && update_id == state->update_id) {
+        struct dict_cache_val *market_cache = get_cache(market_cache_key);
+        if (update_id > 0 && market_cache && update_id == market_cache->update_id) {
             json_t *last = json_object_get(result, "last");
-            json_incref(last);
-            json_object_set_new(cache->result, "last", last);
-            result = cache->result;
+            update_cache(market_cache, last);
+            if (cache && update_id == cache->update_id) {
+                update_cache(cache, last);
+                result = cache->result;
+            } else {
+                result = get_depth_merge(market_cache->result, state->interval);
+                //todo json_dcref();
+                add_cache(filter_key, result, update_id);
+                json_decref(result);
+            }
         } else {
+            add_cache(market_cache_key, result, update_id);
+            result = get_depth_merge(result, state->interval);
             add_cache(filter_key, result, update_id);
+            json_decref(result);
         }
 
+        cache = get_cache(filter_key);
         if (state->direct_request) {
-            reply_filter_message(filter_key, is_error, error, result);
+            reply_filter_message(filter_key, is_error, error, cache->result);
         } else {
-            depth_sub_reply(state->market, state->interval, result);
+            depth_sub_reply(state->market, state->interval, cache->result);
         }
+        sdsfree(market_cache_key);
     }
 
     json_decref(reply);
@@ -271,18 +373,27 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     nw_state_del(state_context, pkg->sequence);
 }
 
-static bool process_cache(nw_ses *ses, rpc_pkg *pkg, struct dict_cache_val *cache)
+static bool process_cache(nw_ses *ses, rpc_pkg *pkg, struct dict_cache_val *market_cache, sds cache_key, const char *interval)
 {
     uint64_t now = current_millisecond();
-    if (cache == NULL || cache->time + settings.depth_interval_time * 1000 < now)
+    if (market_cache == NULL || market_cache->time + settings.depth_interval_time * 1000 < now)
         return false;
-    
-    uint64_t ttl = cache->time + settings.depth_interval_time * 1000 - now;
+
+    uint64_t ttl = market_cache->time + settings.depth_interval_time * 1000 - now;
     json_t *reply = json_object();
     json_object_set_new(reply, "error", json_null());
-    json_object_set    (reply, "result", cache->result);
     json_object_set_new(reply, "id", json_integer(pkg->req_id));
     json_object_set_new(reply, "ttl", json_integer(ttl));
+
+    struct dict_cache_val *cache = get_cache(cache_key);
+    if (cache == NULL || cache->update_id != market_cache->update_id) {
+        json_t *result = get_depth_merge(market_cache->result, interval);
+        add_cache(cache_key, result, market_cache->update_id);
+        json_object_set_new(reply, "result", result);
+    } else {
+        json_object_set(reply, "result", cache->result);
+    }
+
     rpc_reply_json(ses, pkg, reply);
     json_decref(reply);
     profile_inc("depth_hit_cache", 1);
@@ -291,36 +402,41 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, struct dict_cache_val *cach
 
 int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval)
 {
+    sds market_cache_key = get_depth_key(market, "0");
     sds cache_key = get_depth_key(market, interval);
-    struct dict_cache_val *cache = get_cache(cache_key);
+    struct dict_cache_val *market_cache = get_cache(market_cache_key);
     if (ses) {
-        if (process_cache(ses, pkg, cache)) {
+        if (process_cache(ses, pkg, market_cache, cache_key, interval)) {
             sdsfree(cache_key);
+            sdsfree(market_cache_key);
             return 0;
         }
 
         int ret = add_filter_queue(cache_key, ses, pkg);
         if (ret > 0) {
             sdsfree(cache_key);
+            sdsfree(market_cache_key);
             return 0;
         }
     }
     sdsfree(cache_key);
+    sdsfree(market_cache_key);
 
+    uint64_t update_id = 0;
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     sstrncpy(state->market, market, sizeof(state->market));
     sstrncpy(state->interval, interval, sizeof(state->interval));
     state->direct_request = (ses != NULL) ? true : false;
-    if (cache) {
-        state->update_id = cache->update_id;
+    if (market_cache) {
+        update_id = market_cache->update_id;
     }
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, json_integer(settings.depth_limit_max));
     json_array_append_new(params, json_string(interval));
-    json_array_append_new(params, json_integer(state->update_id));
+    json_array_append_new(params, json_integer(update_id));
 
     rpc_request_json(matchengine, CMD_ORDER_DEPTH, state_entry->id, 0, params);
     json_decref(params);

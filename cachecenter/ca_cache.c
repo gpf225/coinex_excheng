@@ -40,6 +40,14 @@ int delete_cache(sds cache_key)
     return dict_delete(dict_cache, cache_key);
 }
 
+int update_cache(struct dict_cache_val *cache, json_t *last)
+{
+    json_incref(last);
+    json_object_set_new(cache->result, "last", last);
+    cache->time = current_millisecond();
+    return 0;
+}
+
 struct dict_cache_val *get_cache(sds key)
 {
     dict_entry *entry = dict_find(dict_cache, key);

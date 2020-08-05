@@ -10,6 +10,7 @@ struct dict_cache_val {
 int init_cache(void);
 int add_cache(sds cache_key, json_t *result, uint64_t update_id);
 int delete_cache(sds cache_key);
+int update_cache(struct dict_cache_val *cache, json_t *last);
 struct dict_cache_val *get_cache(sds key);
 
 # endif

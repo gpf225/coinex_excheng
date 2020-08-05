@@ -727,7 +727,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
 
     json_t *result = NULL;
-    if (market->update_id == update_id) {
+    if (update_id > 0 && market->update_id == update_id) {
         result = json_object();
         json_object_set_new_mpd(result, "last", market->last);
         int ret = rpc_reply_result(ses, pkg, result);
