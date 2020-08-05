@@ -152,6 +152,7 @@ json_t *get_market_last_info(void)
     while ((entry = dict_next(iter)) != NULL) {
         market_t *m = entry->val;
         json_t *market_info = json_object();
+        json_object_set_new(market_info, "update_id", json_integer(m->update_id));
         json_object_set_new(market_info, "call_auction", json_boolean(m->call_auction));
         json_object_set_new_mpd(market_info, "last", m->last);
         json_object_set_new(result, m->name, market_info);

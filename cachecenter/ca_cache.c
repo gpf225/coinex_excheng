@@ -7,8 +7,6 @@
 # include "ca_cache.h"
 
 static dict_t *dict_cache;
-static nw_timer cache_timer;
-
 
 static void *dict_cache_val_dup(const void *val)
 {
@@ -25,46 +23,30 @@ static void dict_cache_val_free(void *val)
     free(val);
 }
 
-static void on_cache_clear_timer(nw_timer *timer, void *privdata)
-{
-    dict_entry *entry;
-    dict_iterator *iter = dict_get_iterator(dict_cache);
-
-    while ((entry = dict_next(iter)) != NULL) {
-        struct dict_cache_val *val = entry->val;
-        uint64_t now = current_millisecond();
-
-        if (now - val->time > settings.interval_time * 1000)
-            dict_delete(dict_cache, entry->key);
-    }
-    dict_release_iterator(iter);
-} 
-
-int add_cache(sds cache_key, json_t *result)
+int add_cache(sds cache_key, json_t *result, uint64_t update_id)
 {
     struct dict_cache_val cache;
     cache.time = current_millisecond();
     cache.result = result;
+    cache.update_id = update_id;
     json_incref(result);
     dict_replace(dict_cache, cache_key, &cache);
 
     return 0;
 }
 
-struct dict_cache_val *get_cache(sds key, int cache_time)
+int delete_cache(sds cache_key)
+{
+    return dict_delete(dict_cache, cache_key);
+}
+
+struct dict_cache_val *get_cache(sds key)
 {
     dict_entry *entry = dict_find(dict_cache, key);
     if (entry == NULL)
         return NULL;
 
-    struct dict_cache_val *cache = entry->val;
-    uint64_t now = current_millisecond();
-    if ((now - cache->time) >= cache_time) {
-        dict_delete(dict_cache, key);
-        return NULL;
-    }
-
-    return cache;
+    return entry->val;
 }
 
 int init_cache(void)
@@ -82,9 +64,6 @@ int init_cache(void)
     dict_cache = dict_create(&dt, 512);
     if (dict_cache == NULL)
         return -__LINE__;
-
-    nw_timer_set(&cache_timer, 60, true, on_cache_clear_timer, NULL);
-    nw_timer_start(&cache_timer);
 
     return 0;
 }

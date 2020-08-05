@@ -28,9 +28,10 @@ struct dict_depth_sub_val {
 };
 
 struct state_data {
-    bool    direct_request;
-    char    market[MARKET_NAME_MAX_LEN + 1];
-    char    interval[INTERVAL_MAX_LEN + 1];
+    uint64_t update_id;
+    bool     direct_request;
+    char     market[MARKET_NAME_MAX_LEN + 1];
+    char     interval[INTERVAL_MAX_LEN + 1];
 };
 
 static uint32_t dict_depth_hash_func(const void *key)
@@ -195,32 +196,6 @@ static int depth_send_last(nw_ses *ses, json_t *data, const char *market, const 
     return 0;
 }
 
-static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval)
-{
-    sds cache_key = get_depth_key(market, interval);
-    uint64_t now = current_millisecond();
-    struct dict_cache_val *cache = get_cache(cache_key, settings.depth_interval_time * 1000);
-    if (cache == NULL) {
-        sdsfree(cache_key);
-        return false;
-    }
-
-    uint64_t ttl = cache->time + settings.depth_interval_time * 1000 - now;
-
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", json_null());
-    json_object_set    (reply, "result", cache->result);
-    json_object_set_new(reply, "id", json_integer(pkg->req_id));
-    json_object_set_new(reply, "ttl", json_integer(ttl));
-
-    rpc_reply_json(ses, pkg, reply);
-    json_decref(reply);
-    sdsfree(cache_key);
-    profile_inc("depth_hit_cache", 1);
-
-    return true;
-}
-
 static void on_backend_connect(nw_ses *ses, bool result)
 {
     rpc_clt *clt = ses->privdata;
@@ -257,6 +232,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     bool is_error = false;
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
+    uint64_t update_id = 0;
     if (error == NULL || !json_is_null(error) || result == NULL) {
         sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
         log_error("error depth reply from: %s, market: %s, interval: %s cmd: %u, reply: %s", \
@@ -265,46 +241,86 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         is_error = true;
         profile_inc("depth_reply_fail", 1);
     } else {
+        update_id = json_integer_value(json_object_get(result, "update_id"));
         profile_inc("depth_reply_success", 1);
     }
 
-    if (state->direct_request) {
-        reply_filter_message(filter_key, is_error, reply);
-    } else if (!is_error) {
-        depth_sub_reply(state->market, state->interval, result);
+    if (is_error) {
+        if (state->direct_request)
+            reply_filter_message(filter_key, is_error, error, result);
+    } else {
+        struct dict_cache_val *cache = get_cache(filter_key);
+        if (cache && update_id == state->update_id) {
+            json_t *last = json_object_get(result, "last");
+            json_incref(last);
+            json_object_set_new(cache->result, "last", last);
+            result = cache->result;
+        } else {
+            add_cache(filter_key, result, update_id);
+        }
+
+        if (state->direct_request) {
+            reply_filter_message(filter_key, is_error, error, result);
+        } else {
+            depth_sub_reply(state->market, state->interval, result);
+        }
     }
 
-    add_cache(filter_key, result);
     json_decref(reply);
     sdsfree(filter_key);
     nw_state_del(state_context, pkg->sequence);
 }
 
+static bool process_cache(nw_ses *ses, rpc_pkg *pkg, struct dict_cache_val *cache)
+{
+    uint64_t now = current_millisecond();
+    if (cache == NULL || cache->time + settings.depth_interval_time * 1000 < now)
+        return false;
+    
+    uint64_t ttl = cache->time + settings.depth_interval_time * 1000 - now;
+    json_t *reply = json_object();
+    json_object_set_new(reply, "error", json_null());
+    json_object_set    (reply, "result", cache->result);
+    json_object_set_new(reply, "id", json_integer(pkg->req_id));
+    json_object_set_new(reply, "ttl", json_integer(ttl));
+    rpc_reply_json(ses, pkg, reply);
+    json_decref(reply);
+    profile_inc("depth_hit_cache", 1);
+    return true;
+}
+
 int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval)
 {
+    sds cache_key = get_depth_key(market, interval);
+    struct dict_cache_val *cache = get_cache(cache_key);
     if (ses) {
-        if (process_cache(ses, pkg, market, interval)) {
+        if (process_cache(ses, pkg, cache)) {
+            sdsfree(cache_key);
             return 0;
         }
 
-        sds filter_key = get_depth_key(market, interval);
-        int ret = add_filter_queue(filter_key, ses, pkg);
-        sdsfree(filter_key);
+        int ret = add_filter_queue(cache_key, ses, pkg);
         if (ret > 0) {
+            sdsfree(cache_key);
             return 0;
         }
     }
+    sdsfree(cache_key);
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     sstrncpy(state->market, market, sizeof(state->market));
     sstrncpy(state->interval, interval, sizeof(state->interval));
     state->direct_request = (ses != NULL) ? true : false;
+    if (cache) {
+        state->update_id = cache->update_id;
+    }
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, json_integer(settings.depth_limit_max));
     json_array_append_new(params, json_string(interval));
+    json_array_append_new(params, json_integer(state->update_id));
 
     rpc_request_json(matchengine, CMD_ORDER_DEPTH, state_entry->id, 0, params);
     json_decref(params);
@@ -321,12 +337,11 @@ static void on_timer(nw_timer *timer, void *privdata)
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_depth_key *key = entry->key;
         struct dict_depth_sub_val *val = entry->val;
-        if (dict_size(val->sessions) == 0) {
+        if (dict_size(val->sessions) == 0 || !market_exist(key->market)) {
+            sds cache_key = get_depth_key(key->market, key->interval);
+            delete_cache(cache_key);
             dict_delete(dict_depth_sub, entry->key);
-            continue;
-        }
-        if (!market_exist(key->market)) {
-            dict_delete(dict_depth_sub, entry->key);
+            sdsfree(cache_key);
             continue;
         }
 

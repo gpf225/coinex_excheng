@@ -116,26 +116,26 @@ void delete_filter_queue(sds key)
     dict_delete(dict_filter, key);
 }
 
-static void reply_to_ses(bool is_error, json_t *reply, nw_ses *ses, list_t *list)
+static void reply_to_ses(bool is_error, json_t *error, json_t *result, nw_ses *ses, list_t *list)
 {
     list_node *node = NULL;
     list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
     while ((node = list_next(iter)) != NULL) {
         struct filter_list_item *item = node->value;
-        json_t *result = json_object();
-        json_object_set(result, "error", json_object_get(reply, "error"));
-        json_object_set(result, "result", json_object_get(reply, "result"));
+        json_t *reply = json_object();
+        json_object_set(reply, "error", error);
+        json_object_set(reply, "result", result);
         if (!is_error)
-            json_object_set_new(result, "ttl", json_integer(settings.interval_time * 1000));
-        json_object_set_new(result, "id", json_integer(item->pkg.req_id));
+            json_object_set_new(reply, "ttl", json_integer(settings.interval_time * 1000));
+        json_object_set_new(reply, "id", json_integer(item->pkg.req_id));
 
-        rpc_reply_json(ses, &item->pkg, result);
-        json_decref(result);
+        rpc_reply_json(ses, &item->pkg, reply);
+        json_decref(reply);
     }
     list_release_iterator(iter);
 }
 
-void reply_filter_message(sds key, bool is_error, json_t *reply)
+void reply_filter_message(sds key, bool is_error, json_t *error, json_t *result)
 {
     dict_entry *entry = dict_find(dict_filter, key);
     if (entry == NULL) {
@@ -145,7 +145,7 @@ void reply_filter_message(sds key, bool is_error, json_t *reply)
     struct dict_filter_val *val = entry->val;
     dict_iterator *iter = dict_get_iterator(val->dict_filter_session);
     while ((entry = dict_next(iter)) != NULL) {
-        reply_to_ses(is_error, reply, entry->key, entry->val);
+        reply_to_ses(is_error, error, result, entry->key, entry->val);
     }
     dict_release_iterator(iter);
     dict_delete(dict_filter, key);
