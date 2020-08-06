@@ -570,9 +570,9 @@ static json_t *get_depth(market_t *market, size_t limit)
     json_t *result = json_object();
     json_object_set_new(result, "asks", asks);
     json_object_set_new(result, "bids", bids);
+    json_object_set_new(result, "update_id", json_integer(market->update_id));
     json_object_set_new_mpd(result, "last", market->last);
     json_object_set_new(result, "time", json_integer(current_millisecond()));
-
 
     return result;
 }
@@ -606,6 +606,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (update_id > 0 && market->update_id == update_id) {
         result = json_object();
         json_object_set_new_mpd(result, "last", market->last);
+        json_object_set_new(result, "update_id", json_integer(market->update_id));
         int ret = rpc_reply_result(ses, pkg, result);
         json_decref(result);
         return ret;

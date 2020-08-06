@@ -313,28 +313,28 @@ static json_t *get_depth_merge(json_t *depth, const char *interval_str)
 
 static void process_cache(struct state_data *state, sds filter_key, json_t *depth, uint64_t update_id)
 {
+    char *message = json_dumps(depth, 0);
+    log_trace("depth: %s, update_id: %ld", message, update_id);
+    free(message);
+
     sds market_cache_key = get_depth_key(state->market, "0");
-    struct dict_cache_val *cache = get_cache(filter_key);
     struct dict_cache_val *market_cache = get_cache(market_cache_key);
     if (update_id > 0 && market_cache && update_id == market_cache->update_id) {
         json_t *last = json_object_get(depth, "last");
         update_cache(market_cache, last);
-        if (cache && update_id == cache->update_id) {
-            update_cache(cache, last);
-        } else {
-            if (strcmp(state->interval, "0") == 0) {
+        if (strcmp(state->interval, "0") != 0) {
+            struct dict_cache_val *cache = get_cache(filter_key);
+            if (cache && update_id == cache->update_id) {
+                update_cache(cache, last);
+            } else {
                 json_t *result = get_depth_merge(market_cache->result, state->interval);
                 add_cache(filter_key, result, update_id);
                 json_decref(result);
-            } else {
-                add_cache(filter_key, market_cache->result, update_id);
             }
         }
     } else {
         add_cache(market_cache_key, depth, update_id);
-        if (strcmp(state->interval, "0") == 0) {
-            add_cache(filter_key, depth, update_id);
-        } else {
+        if (strcmp(state->interval, "0") != 0) {
             json_t *result = get_depth_merge(depth, state->interval);
             add_cache(filter_key, result, update_id);
             json_decref(result);
@@ -366,15 +366,16 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     struct state_data *state = entry->data;
     sds filter_key = get_depth_key(state->market, state->interval);
 
+    sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+    log_trace("reply from: %s, market: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), state->market, pkg->command, reply_str);
+
     bool is_error = false;
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
     uint64_t update_id = 0;
     if (error == NULL || !json_is_null(error) || result == NULL) {
-        sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
         log_error("error depth reply from: %s, market: %s, interval: %s cmd: %u, reply: %s", \
                 nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str);
-        sdsfree(reply_str);
         is_error = true;
         profile_inc("depth_reply_fail", 1);
     } else {
@@ -397,6 +398,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     json_decref(reply);
     sdsfree(filter_key);
+    sdsfree(reply_str);
     nw_state_del(state_context, pkg->sequence);
 }
 
@@ -412,18 +414,17 @@ static bool check_cache(nw_ses *ses, rpc_pkg *pkg, struct dict_cache_val *market
     json_object_set_new(reply, "id", json_integer(pkg->req_id));
     json_object_set_new(reply, "ttl", json_integer(ttl));
 
-    struct dict_cache_val *cache = get_cache(cache_key);
-    if (cache == NULL || cache->update_id != market_cache->update_id) {
-        if (strcmp(interval, "0") == 0) {
-            add_cache(cache_key, market_cache->result, market_cache->update_id);
-            json_object_set(reply, "result", market_cache->result);
-        } else {
+    if (strcmp(interval, "0") == 0) {
+        json_object_set(reply, "result", market_cache->result);
+    } else {
+        struct dict_cache_val *cache = get_cache(cache_key);
+        if (cache == NULL || cache->update_id != market_cache->update_id) {
             json_t *result = get_depth_merge(market_cache->result, interval);
             add_cache(cache_key, result, market_cache->update_id);
             json_object_set_new(reply, "result", result);
+        } else {
+            json_object_set(reply, "result", cache->result);
         }
-    } else {
-        json_object_set(reply, "result", cache->result);
     }
 
     rpc_reply_json(ses, pkg, reply);
