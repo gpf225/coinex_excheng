@@ -313,10 +313,6 @@ static json_t *get_depth_merge(json_t *depth, const char *interval_str)
 
 static void process_cache(struct state_data *state, sds filter_key, json_t *depth, uint64_t update_id)
 {
-    char *message = json_dumps(depth, 0);
-    log_trace("depth: %s, update_id: %ld", message, update_id);
-    free(message);
-
     sds market_cache_key = get_depth_key(state->market, "0");
     struct dict_cache_val *market_cache = get_cache(market_cache_key);
     if (update_id > 0 && market_cache && update_id == market_cache->update_id) {
