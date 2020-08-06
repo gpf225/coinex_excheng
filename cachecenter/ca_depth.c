@@ -207,6 +207,8 @@ static void on_backend_connect(nw_ses *ses, bool result)
 
 static json_t *get_depth_merge(json_t *depth, const char *interval_str)
 {
+    mpd_t *q = mpd_new(&mpd_ctx);
+    mpd_t *r = mpd_new(&mpd_ctx);
     mpd_t *price = mpd_new(&mpd_ctx);
     mpd_t *amount = mpd_new(&mpd_ctx);
     mpd_t *interval = decimal(interval_str, 0);
@@ -220,11 +222,20 @@ static json_t *get_depth_merge(json_t *depth, const char *interval_str)
         json_t *node = json_array_get(asks, index);
         mpd_t *node_price = decimal(json_string_value(json_array_get(node, 0)), 0);
         mpd_t *node_amount = decimal(json_string_value(json_array_get(node, 1)), 0);
-        mpd_quantize(price, node_price, interval, &mpd_ctx);
+        if (mpd_cmp(interval, mpd_one, &mpd_ctx) >= 0) {
+            mpd_divmod(q, r, node_price, interval, &mpd_ctx);
+            mpd_mul(price, q, interval, &mpd_ctx);
+            if (mpd_cmp(r, mpd_zero, &mpd_ctx) != 0) {
+                mpd_add(price, price, interval, &mpd_ctx);
+            }
+        } else {
+            mpd_quantize(price, node_price, interval, &mpd_ctx);
+        }
         mpd_copy(amount, node_amount, &mpd_ctx);
-        index++;
         mpd_del(node_price);
         mpd_del(node_amount);
+
+        index++;
         while (index < count) {
             node = json_array_get(asks, index);
             node_price = decimal(json_string_value(json_array_get(node, 0)), 0);
@@ -233,6 +244,8 @@ static json_t *get_depth_merge(json_t *depth, const char *interval_str)
                 mpd_add(amount, amount, node_amount, &mpd_ctx);
                 index++;
             } else {
+                mpd_del(node_price);
+                mpd_del(node_amount);
                 break;
             }
             mpd_del(node_price);
@@ -253,12 +266,12 @@ static json_t *get_depth_merge(json_t *depth, const char *interval_str)
         json_t *node = json_array_get(bids, index);
         mpd_t *node_price = decimal(json_string_value(json_array_get(node, 0)), 0);
         mpd_t *node_amount = decimal(json_string_value(json_array_get(node, 1)), 0);
-        mpd_quantize(price, node_price, interval, &mpd_ctx);
+        mpd_divmod(q, r, node_price, interval, &mpd_ctx);
+        mpd_mul(price, q, interval, &mpd_ctx);
         mpd_copy(amount, node_amount, &mpd_ctx);
-        index++;
         mpd_del(node_price);
         mpd_del(node_amount);
-
+        index++;
         while (index < count) {
             node = json_array_get(bids, index);
             node_price = decimal(json_string_value(json_array_get(node, 0)), 0);
@@ -267,6 +280,8 @@ static json_t *get_depth_merge(json_t *depth, const char *interval_str)
                 mpd_add(amount, amount, node_amount, &mpd_ctx);
                 index++;
             } else {
+                mpd_del(node_price);
+                mpd_del(node_amount);
                 break;
             }
             mpd_del(node_price);
@@ -277,10 +292,12 @@ static json_t *get_depth_merge(json_t *depth, const char *interval_str)
         json_array_append_new_mpd(info, amount);
         json_array_append_new(bids_new, info);
     }
+    mpd_del(q);
+    mpd_del(r);
     mpd_del(price);
     mpd_del(amount);
     mpd_del(interval);
-
+    
     json_t *result = json_object();
     json_object_set_new(result, "asks", asks_new);
     json_object_set_new(result, "bids", bids_new);
@@ -292,6 +309,38 @@ static json_t *get_depth_merge(json_t *depth, const char *interval_str)
     json_object_set_new(result, "time", time);
 
     return result;
+}
+
+static void process_cache(struct state_data *state, sds filter_key, json_t *depth, uint64_t update_id)
+{
+    sds market_cache_key = get_depth_key(state->market, "0");
+    struct dict_cache_val *cache = get_cache(filter_key);
+    struct dict_cache_val *market_cache = get_cache(market_cache_key);
+    if (update_id > 0 && market_cache && update_id == market_cache->update_id) {
+        json_t *last = json_object_get(depth, "last");
+        update_cache(market_cache, last);
+        if (cache && update_id == cache->update_id) {
+            update_cache(cache, last);
+        } else {
+            if (strcmp(state->interval, "0") == 0) {
+                json_t *result = get_depth_merge(market_cache->result, state->interval);
+                add_cache(filter_key, result, update_id);
+                json_decref(result);
+            } else {
+                add_cache(filter_key, market_cache->result, update_id);
+            }
+        }
+    } else {
+        add_cache(market_cache_key, depth, update_id);
+        if (strcmp(state->interval, "0") == 0) {
+            add_cache(filter_key, depth, update_id);
+        } else {
+            json_t *result = get_depth_merge(depth, state->interval);
+            add_cache(filter_key, result, update_id);
+            json_decref(result);
+        }
+    }
+    sdsfree(market_cache_key);
 }
 
 static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
@@ -337,35 +386,13 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         if (state->direct_request)
             reply_filter_message(filter_key, is_error, error, result);
     } else {
-        sds market_cache_key = get_depth_key(state->market, "0");
+        process_cache(state, filter_key, result, update_id);
         struct dict_cache_val *cache = get_cache(filter_key);
-        struct dict_cache_val *market_cache = get_cache(market_cache_key);
-        if (update_id > 0 && market_cache && update_id == market_cache->update_id) {
-            json_t *last = json_object_get(result, "last");
-            update_cache(market_cache, last);
-            if (cache && update_id == cache->update_id) {
-                update_cache(cache, last);
-                result = cache->result;
-            } else {
-                result = get_depth_merge(market_cache->result, state->interval);
-                //todo json_dcref();
-                add_cache(filter_key, result, update_id);
-                json_decref(result);
-            }
-        } else {
-            add_cache(market_cache_key, result, update_id);
-            result = get_depth_merge(result, state->interval);
-            add_cache(filter_key, result, update_id);
-            json_decref(result);
-        }
-
-        cache = get_cache(filter_key);
         if (state->direct_request) {
             reply_filter_message(filter_key, is_error, error, cache->result);
         } else {
             depth_sub_reply(state->market, state->interval, cache->result);
         }
-        sdsfree(market_cache_key);
     }
 
     json_decref(reply);
@@ -373,7 +400,7 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     nw_state_del(state_context, pkg->sequence);
 }
 
-static bool process_cache(nw_ses *ses, rpc_pkg *pkg, struct dict_cache_val *market_cache, sds cache_key, const char *interval)
+static bool check_cache(nw_ses *ses, rpc_pkg *pkg, struct dict_cache_val *market_cache, sds cache_key, const char *interval)
 {
     uint64_t now = current_millisecond();
     if (market_cache == NULL || market_cache->time + settings.depth_interval_time * 1000 < now)
@@ -387,9 +414,14 @@ static bool process_cache(nw_ses *ses, rpc_pkg *pkg, struct dict_cache_val *mark
 
     struct dict_cache_val *cache = get_cache(cache_key);
     if (cache == NULL || cache->update_id != market_cache->update_id) {
-        json_t *result = get_depth_merge(market_cache->result, interval);
-        add_cache(cache_key, result, market_cache->update_id);
-        json_object_set_new(reply, "result", result);
+        if (strcmp(interval, "0") == 0) {
+            add_cache(cache_key, market_cache->result, market_cache->update_id);
+            json_object_set(reply, "result", market_cache->result);
+        } else {
+            json_t *result = get_depth_merge(market_cache->result, interval);
+            add_cache(cache_key, result, market_cache->update_id);
+            json_object_set_new(reply, "result", result);
+        }
     } else {
         json_object_set(reply, "result", cache->result);
     }
@@ -406,7 +438,7 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
     sds cache_key = get_depth_key(market, interval);
     struct dict_cache_val *market_cache = get_cache(market_cache_key);
     if (ses) {
-        if (process_cache(ses, pkg, market_cache, cache_key, interval)) {
+        if (check_cache(ses, pkg, market_cache, cache_key, interval)) {
             sdsfree(cache_key);
             sdsfree(market_cache_key);
             return 0;
@@ -435,7 +467,6 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, json_integer(settings.depth_limit_max));
-    json_array_append_new(params, json_string(interval));
     json_array_append_new(params, json_integer(update_id));
 
     rpc_request_json(matchengine, CMD_ORDER_DEPTH, state_entry->id, 0, params);
@@ -445,7 +476,7 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
     return 0;
 }
 
-static void on_timer(nw_timer *timer, void *privdata) 
+static void on_timer(nw_timer *timer, void *privdata)
 {
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_depth_sub);
