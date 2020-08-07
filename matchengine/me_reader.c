@@ -594,7 +594,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!json_is_integer(json_array_get(params, 1)))
         return rpc_reply_error_invalid_argument(ses, pkg);
     size_t limit = json_integer_value(json_array_get(params, 1));
-    if (limit > ORDER_BOOK_MAX_LEN)
+    if (limit > DEPTH_MAX_LIMIT)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     //update_id
