@@ -59,10 +59,10 @@ struct settings {
     double              index_interval;
     depth_interval_cfg  depth_interval;
 
-    double              interval_time;
     double              deals_interval;
     double              status_interval;
     double              depth_interval_time;
+    double              depth_cache_clear;
     double              depth_resend_timeout;
     int                 depth_limit_max;
     int                 deal_max;

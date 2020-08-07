@@ -362,16 +362,15 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     struct state_data *state = entry->data;
     sds filter_key = get_depth_key(state->market, state->interval);
 
-    sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
-    log_trace("reply from: %s, market: %s, cmd: %u, reply: %s", nw_sock_human_addr(&ses->peer_addr), state->market, pkg->command, reply_str);
-
     bool is_error = false;
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
     uint64_t update_id = 0;
     if (error == NULL || !json_is_null(error) || result == NULL) {
+        sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
         log_error("error depth reply from: %s, market: %s, interval: %s cmd: %u, reply: %s", \
                 nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str);
+        sdsfree(reply_str);
         is_error = true;
         profile_inc("depth_reply_fail", 1);
     } else {
@@ -394,7 +393,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     json_decref(reply);
     sdsfree(filter_key);
-    sdsfree(reply_str);
     nw_state_del(state_context, pkg->sequence);
 }
 
@@ -419,6 +417,8 @@ static bool check_cache(nw_ses *ses, rpc_pkg *pkg, struct dict_cache_val *market
             add_cache(cache_key, result, market_cache->update_id);
             json_object_set_new(reply, "result", result);
         } else {
+            json_t *last = json_object_get(market_cache->result, "last");
+            update_cache(cache, last);
             json_object_set(reply, "result", cache->result);
         }
     }
@@ -482,13 +482,9 @@ static void on_timer(nw_timer *timer, void *privdata)
         struct dict_depth_key *key = entry->key;
         struct dict_depth_sub_val *val = entry->val;
         if (dict_size(val->sessions) == 0 || !market_exist(key->market)) {
-            sds cache_key = get_depth_key(key->market, key->interval);
-            delete_cache(cache_key);
             dict_delete(dict_depth_sub, entry->key);
-            sdsfree(cache_key);
             continue;
         }
-
         log_trace("depth sub request, market: %s, interval: %s", key->market, key->interval);
         depth_request(NULL, NULL, key->market, key->interval);
     }

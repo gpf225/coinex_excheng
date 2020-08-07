@@ -126,7 +126,7 @@ static void reply_to_ses(bool is_error, json_t *error, json_t *result, nw_ses *s
         json_object_set(reply, "error", error);
         json_object_set(reply, "result", result);
         if (!is_error)
-            json_object_set_new(reply, "ttl", json_integer(settings.interval_time * 1000));
+            json_object_set_new(reply, "ttl", json_integer(settings.depth_interval_time * 1000));
         json_object_set_new(reply, "id", json_integer(item->pkg.req_id));
 
         rpc_reply_json(ses, &item->pkg, reply);

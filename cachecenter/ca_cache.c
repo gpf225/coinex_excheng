@@ -7,6 +7,7 @@
 # include "ca_cache.h"
 
 static dict_t *dict_cache;
+static nw_timer cache_timer;
 
 static void *dict_cache_val_dup(const void *val)
 {
@@ -21,6 +22,21 @@ static void dict_cache_val_free(void *val)
     if (obj->result != NULL)
     	json_decref(obj->result);
     free(val);
+}
+
+static void on_cache_clear_timer(nw_timer *timer, void *privdata)
+{
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_cache);
+
+    while ((entry = dict_next(iter)) != NULL) {
+        struct dict_cache_val *val = entry->val;
+        uint64_t now = current_millisecond();
+
+        if (now - val->time > settings.depth_cache_clear * 1000)
+            dict_delete(dict_cache, entry->key);
+    }
+    dict_release_iterator(iter);
 }
 
 int add_cache(sds cache_key, json_t *result, uint64_t update_id)
@@ -73,6 +89,8 @@ int init_cache(void)
     if (dict_cache == NULL)
         return -__LINE__;
 
+    nw_timer_set(&cache_timer, 60, true, on_cache_clear_timer, NULL);   
+    nw_timer_start(&cache_timer);
     return 0;
 }
 

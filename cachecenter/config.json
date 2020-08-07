@@ -48,7 +48,7 @@
     },
     "worker_num": 4,
     "backend_timeout": 0.1,
-    "interval_time": 1.0,
+    "depth_cache_clear": 60, 
     "depth_interval": 1.0,
     "deals_interval": 1.0,
     "status_interval": 1.0,
