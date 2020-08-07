@@ -28,9 +28,9 @@ struct dict_depth_sub_val {
 };
 
 struct state_data {
-    bool     direct_request;
-    char     market[MARKET_NAME_MAX_LEN + 1];
-    char     interval[INTERVAL_MAX_LEN + 1];
+    bool    direct_request;
+    char    market[MARKET_NAME_MAX_LEN + 1];
+    char    interval[INTERVAL_MAX_LEN + 1];
 };
 
 static uint32_t dict_depth_hash_func(const void *key)
