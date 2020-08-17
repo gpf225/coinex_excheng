@@ -113,7 +113,9 @@ int init_writer()
 
         key_t queue_shm_key = QUEUE_SHMKEY_START + i;
 
+        printf("init_writer1\n");
         int ret = queue_writer_init(&queue_writers[i], NULL, queue_name, queue_pipe_path, queue_shm_key, QUEUE_MEM_SIZE);
+        printf("init_writer2\n");
         if (ret < 0) {
             log_error("queue_writer_init %d error: %d", i, ret);
             return ret;
@@ -172,6 +174,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    
     for (int i = 0; i < READER_WORKER_NUM; ++i) {
         int pid = fork();
         if (pid < 0) {
@@ -179,7 +182,7 @@ int main(int argc, char *argv[])
         } else if (pid != 0) {
             process_title_set("me_reader_%d", i);
             daemon(1, 1);
-            process_keepalive();
+            process_keepalive(false);
 
             ret = init_reader(i);
             if (ret < 0) {
@@ -189,10 +192,9 @@ int main(int argc, char *argv[])
             goto run;
         }
     }
-
     process_title_set("me_writer");
     daemon(1, 1);
-    process_keepalive();
+    process_keepalive(false);
     ret = init_writer();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init writer fail: %d", ret);
