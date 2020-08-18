@@ -239,11 +239,6 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     struct state_data *state = entry->data;
     sds filter_key = get_cache_key(state->market, state->interval);
 
-    sds reply_str1 = sdsnewlen(pkg->body, pkg->body_size);
-    log_error("error depth reply from: %s, market: %s, interval: %s cmd: %u, reply: %s", \
-            nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str1);
-    sdsfree(reply_str1);
-
     bool is_error = false;
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
