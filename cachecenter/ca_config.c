@@ -70,7 +70,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_real(root, "market_interval", &settings.market_interval, false, 10));
     ERR_RET_LN(read_cfg_real(root, "index_interval", &settings.index_interval, false, 10));
     ERR_RET_LN(read_cfg_real(root, "depth_resend_timeout", &settings.depth_resend_timeout, false, 1.0));
-    ERR_RET_LN(read_cfg_int(root, "depth_limit_max", &settings.depth_limit_max, false, 100));
+    ERR_RET_LN(read_cfg_int(root, "depth_limit_max", &settings.depth_limit_max, false, 50));
     ERR_RET_LN(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
     ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 2));
     ERR_RET_LN(read_cfg_int(root, "deal_max_request", &settings.deal_max_request, false, 20));
