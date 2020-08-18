@@ -576,14 +576,6 @@ static json_t *get_depth(market_t *market, size_t limit)
     return result;
 }
 
-static void interval_rstripzero(mpd_t *interval)
-{
-    char *str = mpd_format(interval, "f", &mpd_ctx);
-    str = rstripzero(str);
-    mpd_set_string(interval, str, &mpd_ctx);
-    free(str);
-}
-
 static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
 {
     mpd_t *q = mpd_new(&mpd_ctx);
@@ -597,13 +589,6 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
     size_t count = 1;
     size_t index = 0;
 
-    bool use_quantize = false;
-    if (mpd_cmp(interval, mpd_one, &mpd_ctx) < 0) {
-        use_quantize = true;
-        interval_rstripzero(interval);
-        mpd_set_round_up();
-    }
-
     while (node && index < limit) {
         if (count > settings.depth_merge_max) {
             break;
@@ -616,14 +601,10 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         }
         index++;
 
-        if (use_quantize) {
-            mpd_quantize(price, order->price, interval, &mpd_ctx);
-        } else {
-            mpd_divmod(q, r, order->price, interval, &mpd_ctx);
-            mpd_mul(price, q, interval, &mpd_ctx);
-            if (mpd_cmp(r, mpd_zero, &mpd_ctx) != 0) {
-                mpd_add(price, price, interval, &mpd_ctx);
-            }
+        mpd_divmod(q, r, order->price, interval, &mpd_ctx);
+        mpd_mul(price, q, interval, &mpd_ctx);
+        if (mpd_cmp(r, mpd_zero, &mpd_ctx) != 0) {
+            mpd_add(price, price, interval, &mpd_ctx);
         }
 
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) < 0) {
@@ -661,7 +642,6 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
     node = skiplist_next(iter);
     count = 1;
     index = 0;
-    mpd_set_round_down();
     while (node && index < limit) {
         if (count > settings.depth_merge_max) {
             break;
@@ -674,13 +654,8 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         }
         index++;
 
-        if (use_quantize) {
-            mpd_quantize(price, order->price, interval, &mpd_ctx);
-        } else {
-            mpd_divmod(q, r, order->price, interval, &mpd_ctx);
-            mpd_mul(price, q, interval, &mpd_ctx);
-        }
-
+        mpd_divmod(q, r, order->price, interval, &mpd_ctx);
+        mpd_mul(price, q, interval, &mpd_ctx);
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) > 0) {
             node = skiplist_next(iter);
             continue;
@@ -786,7 +761,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         sdsfree(cache_key);
         return rpc_reply_error_internal_error(ses, pkg);
     }
-    
+
     json_object_set_new(result, "update_id", json_integer(market->update_id));
     add_cache(cache_key, result);
     sdsfree(cache_key);

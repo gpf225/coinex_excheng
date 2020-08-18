@@ -26,18 +26,6 @@ int init_mpd(void)
     return 0;
 }
 
-int mpd_set_round_up(void)
-{
-    mpd_ctx.round = MPD_ROUND_UP;
-    return 0;
-}
-
-int mpd_set_round_down(void)
-{
-    mpd_ctx.round = MPD_ROUND_DOWN;
-    return 0;
-}
-
 mpd_t *decimal(const char *str, int prec)
 {
     mpd_t *result = mpd_new(&mpd_ctx);
