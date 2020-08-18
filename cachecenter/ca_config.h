@@ -37,11 +37,6 @@
 # include "ut_comm_dict.h"
 # include "ut_json_rpc.h"
 
-typedef struct depth_merge_cfg {
-    int    count;
-    char   **interval;
-} depth_interval_cfg;
-
 struct settings {
     bool                debug;
     process_cfg         process;
@@ -57,12 +52,10 @@ struct settings {
     double              backend_timeout;
     double              market_interval;
     double              index_interval;
-    depth_interval_cfg  depth_interval;
 
     double              deals_interval;
     double              status_interval;
-    double              depth_interval_time;
-    double              depth_cache_clear;
+    double              depth_interval;
     double              depth_resend_timeout;
     int                 depth_limit_max;
     int                 deal_max;

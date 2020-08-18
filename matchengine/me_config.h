@@ -41,7 +41,7 @@
 # include "ut_json_rpc.h"
 # include "ut_comm_dict.h"
 
-# define DEPTH_MAX_LIMIT        401
+# define DEPTH_MAX_LIMIT        101
 # define ORDER_BOOK_MAX_LEN     101
 # define ORDER_LIST_MAX_LEN     101
 
