@@ -7,24 +7,6 @@
 
 struct settings settings;
 
-static int read_depth_interval_cfg(json_t *root, const char *key)
-{
-    json_t *obj = json_object_get(root, key);
-    if (obj == NULL || !json_is_array(obj))
-        return -__LINE__;
-
-    settings.depth_interval.count = json_array_size(obj);
-    settings.depth_interval.interval = malloc(sizeof(char *) * settings.depth_interval.count);
-
-    for (int i = 0; i < settings.depth_interval.count; ++i) {
-        settings.depth_interval.interval[i] = strdup(json_string_value(json_array_get(obj, i)));
-        if (settings.depth_interval.interval[i] == NULL)
-            return -__LINE__;
-    }
-
-    return 0;
-}
-
 static int read_config_from_json(json_t *root)
 {
     int ret;
@@ -82,8 +64,8 @@ static int read_config_from_json(json_t *root)
 
     ERR_RET_LN(read_cfg_real(root, "deals_interval", &settings.deals_interval, false, 1.0));
     ERR_RET_LN(read_cfg_real(root, "status_interval", &settings.status_interval, false, 1.0));
-    ERR_RET_LN(read_cfg_real(root, "depth_interval", &settings.depth_interval_time, false, 1.0));
-    ERR_RET_LN(read_cfg_real(root, "interval_time", &settings.interval_time, false, 1.0));
+    ERR_RET_LN(read_cfg_real(root, "depth_interval", &settings.depth_interval, false, 1.0));
+
     ERR_RET_LN(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 0.2));
     ERR_RET_LN(read_cfg_real(root, "market_interval", &settings.market_interval, false, 10));
     ERR_RET_LN(read_cfg_real(root, "index_interval", &settings.index_interval, false, 10));
@@ -92,8 +74,6 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
     ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 2));
     ERR_RET_LN(read_cfg_int(root, "deal_max_request", &settings.deal_max_request, false, 20));
-    
-    ERR_RET(read_depth_interval_cfg(root, "depth_merge"));
 
     return 0;
 }

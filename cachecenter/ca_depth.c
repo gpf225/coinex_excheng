@@ -82,14 +82,14 @@ static dict_t* dict_create_depth_session(void)
     return dict_create(&dt, 16);
 }
 
-static void depth_set_key(struct dict_depth_key *key, const char *market, const char *interval)
+static void get_sub_key(struct dict_depth_key *key, const char *market, const char *interval)
 {
     memset(key, 0, sizeof(struct dict_depth_key));
     sstrncpy(key->market, market, sizeof(key->market));
     sstrncpy(key->interval, interval, sizeof(key->interval));
 }
 
-static sds get_depth_key(const char *market, const char *interval)
+static sds get_cache_key(const char *market, const char *interval)
 {
     sds key = sdsempty();
     return sdscatprintf(key, "depth_%s_%s", market, interval);
@@ -101,7 +101,7 @@ static void on_timeout(nw_state_entry *entry)
     struct state_data *state = entry->data;
     log_error("query timeout, state id: %u", entry->id);
 
-    sds filter_key = get_depth_key(state->market, state->interval);
+    sds filter_key = get_cache_key(state->market, state->interval);
     delete_filter_queue(filter_key);
     sdsfree(filter_key);
 }
@@ -136,7 +136,7 @@ static bool is_depth_equal(json_t *last, json_t *now)
 static int depth_sub_reply(const char *market, const char *interval, json_t *result)
 {
     struct dict_depth_key key;
-    depth_set_key(&key, market, interval);  
+    get_sub_key(&key, market, interval);  
     dict_entry *entry = dict_find(dict_depth_sub, &key);
     if (entry == NULL)
         return -__LINE__;
@@ -155,7 +155,7 @@ static int depth_sub_reply(const char *market, const char *interval, json_t *res
     json_t *result_body = json_object();
     json_object_set_new(result_body, "market", json_string(market));
     json_object_set_new(result_body, "interval", json_string(interval));
-    json_object_set_new(result_body, "ttl", json_integer(settings.depth_interval_time * 1000));
+    json_object_set_new(result_body, "ttl", json_integer(settings.depth_interval * 1000));
     json_object_set    (result_body, "data", result);
 
     json_t *reply = json_object();
@@ -195,32 +195,6 @@ static int depth_send_last(nw_ses *ses, json_t *data, const char *market, const 
     return 0;
 }
 
-static bool process_cache(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval)
-{
-    sds cache_key = get_depth_key(market, interval);
-    uint64_t now = current_millisecond();
-    struct dict_cache_val *cache = get_cache(cache_key, settings.depth_interval_time * 1000);
-    if (cache == NULL) {
-        sdsfree(cache_key);
-        return false;
-    }
-
-    uint64_t ttl = cache->time + settings.depth_interval_time * 1000 - now;
-
-    json_t *reply = json_object();
-    json_object_set_new(reply, "error", json_null());
-    json_object_set    (reply, "result", cache->result);
-    json_object_set_new(reply, "id", json_integer(pkg->req_id));
-    json_object_set_new(reply, "ttl", json_integer(ttl));
-
-    rpc_reply_json(ses, pkg, reply);
-    json_decref(reply);
-    sdsfree(cache_key);
-    profile_inc("depth_hit_cache", 1);
-
-    return true;
-}
-
 static void on_backend_connect(nw_ses *ses, bool result)
 {
     rpc_clt *clt = ses->privdata;
@@ -228,6 +202,17 @@ static void on_backend_connect(nw_ses *ses, bool result)
         log_info("connect %s:%s success", clt->name, nw_sock_human_addr(&ses->peer_addr));
     } else {
         log_info("connect %s:%s fail", clt->name, nw_sock_human_addr(&ses->peer_addr));
+    }
+}
+
+static void process_cache(struct state_data *state, sds filter_key, json_t *depth, uint64_t update_id)
+{
+    struct dict_cache_val *cache = get_cache(filter_key);
+    if (cache && update_id == cache->update_id) {
+        json_t *last = json_object_get(depth, "last");
+        update_cache(cache, last);
+    } else {
+        add_cache(filter_key, depth, update_id);
     }
 }
 
@@ -252,59 +237,97 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     struct state_data *state = entry->data;
-    sds filter_key = get_depth_key(state->market, state->interval);
+    sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+    log_trace("depth reply from: %s, market: %s, interval: %s cmd: %u, reply: %s", \
+                nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str);
+
+    sds filter_key = get_cache_key(state->market, state->interval);
 
     bool is_error = false;
     json_t *error = json_object_get(reply, "error");
     json_t *result = json_object_get(reply, "result");
+    uint64_t update_id = 0;
     if (error == NULL || !json_is_null(error) || result == NULL) {
-        sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
         log_error("error depth reply from: %s, market: %s, interval: %s cmd: %u, reply: %s", \
                 nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str);
-        sdsfree(reply_str);
         is_error = true;
         profile_inc("depth_reply_fail", 1);
     } else {
+        update_id = json_integer_value(json_object_get(result, "update_id"));
         profile_inc("depth_reply_success", 1);
     }
+    sdsfree(reply_str);
 
-    if (state->direct_request) {
-        reply_filter_message(filter_key, is_error, reply);
-    } else if (!is_error) {
-        depth_sub_reply(state->market, state->interval, result);
+    if (is_error) {
+        if (state->direct_request)
+            reply_filter_message(filter_key, is_error, error, result);
+    } else {
+        process_cache(state, filter_key, result, update_id);
+        struct dict_cache_val *cache = get_cache(filter_key);
+        if (state->direct_request) {
+            reply_filter_message(filter_key, is_error, error, cache->result);
+        } else {
+            depth_sub_reply(state->market, state->interval, cache->result);
+        }
     }
 
-    add_cache(filter_key, result);
     json_decref(reply);
     sdsfree(filter_key);
     nw_state_del(state_context, pkg->sequence);
 }
 
+static bool check_cache(nw_ses *ses, rpc_pkg *pkg, struct dict_cache_val *cache, const char *interval)
+{
+    uint64_t now = current_millisecond();
+    if (cache == NULL || cache->time + settings.depth_interval * 1000 < now)
+        return false;
+
+    uint64_t ttl = cache->time + settings.depth_interval * 1000 - now;
+    json_t *reply = json_object();
+    json_object_set_new(reply, "error", json_null());
+    json_object_set_new(reply, "id", json_integer(pkg->req_id));
+    json_object_set_new(reply, "ttl", json_integer(ttl));
+    json_object_set(reply, "result", cache->result);
+
+    rpc_reply_json(ses, pkg, reply);
+    json_decref(reply);
+    profile_inc("depth_hit_cache", 1);
+    return true;
+}
+
 int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *interval)
 {
+    sds cache_key = get_cache_key(market, interval);
+    struct dict_cache_val *cache = get_cache(cache_key);
     if (ses) {
-        if (process_cache(ses, pkg, market, interval)) {
+        if (check_cache(ses, pkg, cache, interval)) {
+            sdsfree(cache_key);
             return 0;
         }
 
-        sds filter_key = get_depth_key(market, interval);
-        int ret = add_filter_queue(filter_key, ses, pkg);
-        sdsfree(filter_key);
+        int ret = add_filter_queue(cache_key, ses, pkg);
         if (ret > 0) {
+            sdsfree(cache_key);
             return 0;
         }
     }
+    sdsfree(cache_key);
 
+    uint64_t update_id = 0;
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
     sstrncpy(state->market, market, sizeof(state->market));
     sstrncpy(state->interval, interval, sizeof(state->interval));
     state->direct_request = (ses != NULL) ? true : false;
+    if (cache) {
+        update_id = cache->update_id;
+    }
 
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, json_integer(settings.depth_limit_max));
     json_array_append_new(params, json_string(interval));
+    json_array_append_new(params, json_integer(update_id));
 
     rpc_request_json(matchengine, CMD_ORDER_DEPTH, state_entry->id, 0, params);
     json_decref(params);
@@ -313,7 +336,7 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
     return 0;
 }
 
-static void on_timer(nw_timer *timer, void *privdata) 
+static void on_timer(nw_timer *timer, void *privdata)
 {
     dict_entry *entry = NULL;
     dict_iterator *iter = dict_get_iterator(dict_depth_sub);
@@ -321,15 +344,13 @@ static void on_timer(nw_timer *timer, void *privdata)
     while ((entry = dict_next(iter)) != NULL) {
         struct dict_depth_key *key = entry->key;
         struct dict_depth_sub_val *val = entry->val;
-        if (dict_size(val->sessions) == 0) {
+        if (dict_size(val->sessions) == 0 || !market_exist(key->market)) {
+            sds cache_key = get_cache_key(key->market, key->interval);
+            delete_cache(cache_key);
+            sdsfree(cache_key);
             dict_delete(dict_depth_sub, entry->key);
             continue;
         }
-        if (!market_exist(key->market)) {
-            dict_delete(dict_depth_sub, entry->key);
-            continue;
-        }
-
         log_trace("depth sub request, market: %s, interval: %s", key->market, key->interval);
         depth_request(NULL, NULL, key->market, key->interval);
     }
@@ -340,7 +361,7 @@ int depth_subscribe(nw_ses *ses, const char *market, const char *interval)
 {
     log_info("depth subscribe from: %s, market: %s, interval: %s", nw_sock_human_addr(&ses->peer_addr), market, interval);
     struct dict_depth_key key;
-    depth_set_key(&key, market, interval);  
+    get_sub_key(&key, market, interval);
 
     dict_entry *entry = dict_find(dict_depth_sub, &key);
     if (entry == NULL) {
@@ -362,8 +383,8 @@ int depth_subscribe(nw_ses *ses, const char *market, const char *interval)
     dict_add(obj->sessions, ses, NULL);
     if (obj->last) {
         uint64_t now = current_millisecond();
-        if (now < (obj->time + settings.depth_interval_time * 1000)) {
-            uint64_t ttl = obj->time + settings.depth_interval_time * 1000 - now;
+        if (now < (obj->time + settings.depth_interval * 1000)) {
+            uint64_t ttl = obj->time + settings.depth_interval * 1000 - now;
             depth_send_last(ses, obj->last, market, interval, ttl);
         } else {
             depth_send_last(ses, obj->last, market, interval, 0);
@@ -377,12 +398,13 @@ int depth_unsubscribe(nw_ses *ses, const char *market, const char *interval)
 {
     log_info("depth unsubscribe from: %s, market: %s, interval: %s", nw_sock_human_addr(&ses->peer_addr), market, interval);
     struct dict_depth_key key;
-    depth_set_key(&key, market, interval);  
+    get_sub_key(&key, market, interval);
 
     dict_entry *entry = dict_find(dict_depth_sub, &key);
     if (entry) {
         struct dict_depth_sub_val *val = entry->val;
         dict_delete(val->sessions, ses);
+        log_trace("sessions size: %d", dict_size(val->sessions));
     }
 
     return 0;
@@ -433,7 +455,7 @@ int init_depth(void)
     if (dict_depth_sub == NULL)
         return -__LINE__;
 
-    nw_timer_set(&timer, settings.depth_interval_time, true, on_timer, NULL);
+    nw_timer_set(&timer, settings.depth_interval, true, on_timer, NULL);
     nw_timer_start(&timer);
 
     return 0;

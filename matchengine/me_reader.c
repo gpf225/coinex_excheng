@@ -573,7 +573,6 @@ static json_t *get_depth(market_t *market, size_t limit)
     json_object_set_new_mpd(result, "last", market->last);
     json_object_set_new(result, "time", json_integer(current_millisecond()));
 
-
     return result;
 }
 
@@ -589,6 +588,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
     skiplist_node *node = skiplist_next(iter);
     size_t count = 1;
     size_t index = 0;
+
     while (node && index < limit) {
         if (count > settings.depth_merge_max) {
             break;
@@ -606,6 +606,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
         if (mpd_cmp(r, mpd_zero, &mpd_ctx) != 0) {
             mpd_add(price, price, interval, &mpd_ctx);
         }
+
         if (market->call_auction && mpd_cmp(price, market->last, &mpd_ctx) < 0) {
             node = skiplist_next(iter);
             continue;
@@ -699,7 +700,7 @@ static json_t *get_depth_merge(market_t* market, size_t limit, mpd_t *interval)
 
 static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
-    if (json_array_size(params) != 3)
+    if (json_array_size(params) != 4)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // market
@@ -714,7 +715,7 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     if (!json_is_integer(json_array_get(params, 1)))
         return rpc_reply_error_invalid_argument(ses, pkg);
     size_t limit = json_integer_value(json_array_get(params, 1));
-    if (limit > ORDER_BOOK_MAX_LEN)
+    if (limit > DEPTH_MAX_LIMIT)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     // interval
@@ -728,26 +729,40 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         return rpc_reply_error_invalid_argument(ses, pkg);
     }
 
+    //update_id
+    if (!json_is_integer(json_array_get(params, 3)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint64_t update_id = json_integer_value(json_array_get(params, 3));
+
+    json_t *result = NULL;
+    if (update_id > 0 && market->update_id == update_id) {
+        result = json_object();
+        json_object_set_new_mpd(result, "last", market->last);
+        json_object_set_new(result, "update_id", json_integer(market->update_id));
+        int ret = rpc_reply_result(ses, pkg, result);
+        json_decref(result);
+        return ret;
+    }
+
     sds cache_key = NULL;
     if (check_cache(ses, pkg, &cache_key)) {
-        mpd_del(interval);
         return 0;
     }
 
     profile_inc("get_depth", 1);
-    json_t *result = NULL;
     if (mpd_cmp(interval, mpd_zero, &mpd_ctx) == 0) {
         result = get_depth(market, limit);
     } else {
         result = get_depth_merge(market, limit, interval);
     }
     mpd_del(interval);
-
+    
     if (result == NULL) {
         sdsfree(cache_key);
         return rpc_reply_error_internal_error(ses, pkg);
     }
 
+    json_object_set_new(result, "update_id", json_integer(market->update_id));
     add_cache(cache_key, result);
     sdsfree(cache_key);
 
