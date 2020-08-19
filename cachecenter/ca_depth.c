@@ -237,6 +237,10 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     }
 
     struct state_data *state = entry->data;
+    sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
+    log_trace("depth reply from: %s, market: %s, interval: %s cmd: %u, reply: %s", \
+                nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str);
+
     sds filter_key = get_cache_key(state->market, state->interval);
 
     bool is_error = false;
@@ -244,16 +248,15 @@ static void on_backend_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     json_t *result = json_object_get(reply, "result");
     uint64_t update_id = 0;
     if (error == NULL || !json_is_null(error) || result == NULL) {
-        sds reply_str = sdsnewlen(pkg->body, pkg->body_size);
         log_error("error depth reply from: %s, market: %s, interval: %s cmd: %u, reply: %s", \
                 nw_sock_human_addr(&ses->peer_addr), state->market, state->interval, pkg->command, reply_str);
-        sdsfree(reply_str);
         is_error = true;
         profile_inc("depth_reply_fail", 1);
     } else {
         update_id = json_integer_value(json_object_get(result, "update_id"));
         profile_inc("depth_reply_success", 1);
     }
+    sdsfree(reply_str);
 
     if (is_error) {
         if (state->direct_request)
