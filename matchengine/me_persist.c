@@ -54,6 +54,10 @@ static int update_market_last(const char *market_price)
         json_t *call_auction = json_object_get(value, "call_auction");
         if (json_is_boolean(call_auction))
             m->call_auction = json_boolean_value(call_auction);
+
+        json_t *update_id = json_object_get(value, "update_id");
+        if (json_is_integer(update_id))
+            m->update_id = json_integer_value(update_id);
     }
     json_decref(info);
 

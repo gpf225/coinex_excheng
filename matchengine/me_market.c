@@ -1707,7 +1707,7 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         check_stop_high(real, m);
     }
     mpd_del(pre_last);
-
+    m->update_id++;
     return 0;
 }
 
@@ -2409,7 +2409,7 @@ int market_put_market_order(bool real, json_t **result, market_t *m, uint32_t us
         check_stop_high(real, m);
     }
     mpd_del(pre_last);
-
+    m->update_id++;
     return 0;
 }
 
@@ -2659,6 +2659,7 @@ int market_cancel_order(bool real, json_t **result, market_t *m, order_t *order)
     if (ret == 0 && m->call_auction) {
         calc_call_auction_basic_price(m, false);
     }
+    m->update_id++;
     return ret;
 }
 
@@ -2686,7 +2687,7 @@ int market_cancel_order_all(bool real, uint32_t user_id, int32_t account, market
     if (m->call_auction) {
         calc_call_auction_basic_price(m, false);
     }
-
+    m->update_id++;
     return ret;
 }
 
@@ -3201,7 +3202,7 @@ int market_execute_call_auction(bool real, market_t *m, mpd_t *volume)
     mpd_del(deal_volume);
     skiplist_release_iterator(ask_iter);
     skiplist_release_iterator(bid_iter);
-
+    m->update_id++;
     return ret;
 }
 

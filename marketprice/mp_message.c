@@ -9,6 +9,7 @@
 # include "mp_message.h"
 # include "mp_kline.h"
 # include "mp_history.h"
+# include "mp_request.h"
 
 # define TRADE_ZONE_SUFFIX       "_ZONE"
 # define TRADE_ZONE_REAL_SUFFIX  "_ZONE_REAL"
@@ -359,71 +360,6 @@ static struct market_info *create_market(const char *market, const char *stock, 
     return info;
 }
 
-static size_t post_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
-{
-    sds *reply = userdata;
-    *reply = sdscatlen(*reply, ptr, size * nmemb);
-    return size * nmemb;
-}
-
-static json_t *http_request(const char *method, json_t *params)
-{
-    json_t *reply  = NULL;
-    json_t *error  = NULL;
-    json_t *result = NULL;
-
-    json_t *request = json_object();
-    json_object_set_new(request, "method", json_string(method));
-    if (params) {
-        json_object_set(request, "params", params);
-    } else {
-        json_object_set_new(request, "params", json_array());
-    }
-    json_object_set_new(request, "id", json_integer(time(NULL)));
-    char *request_data = json_dumps(request, 0);
-    json_decref(request);
-
-    CURL *curl = curl_easy_init();
-    sds reply_str = sdsempty();
-
-    struct curl_slist *chunk = NULL;
-    chunk = curl_slist_append(chunk, "Content-Type: application/json");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
-    curl_easy_setopt(curl, CURLOPT_URL, settings.accesshttp);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, post_write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &reply_str);
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, (long)(1000));
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request_data);
-
-    CURLcode ret = curl_easy_perform(curl);
-    if (ret != CURLE_OK) {
-        log_fatal("curl_easy_perform fail: %s", curl_easy_strerror(ret));
-        goto cleanup;
-    }
-
-    reply = json_loads(reply_str, 0, NULL);
-    if (reply == NULL)
-        goto cleanup;
-    error = json_object_get(reply, "error");
-    if (!json_is_null(error)) {
-        log_error("get market list fail: %s", reply_str);
-        goto cleanup;
-    }
-    result = json_object_get(reply, "result");
-    json_incref(result);
-
-cleanup:
-    free(request_data);
-    sdsfree(reply_str);
-    curl_easy_cleanup(curl);
-    curl_slist_free_all(chunk);
-    if (reply)
-        json_decref(reply);
-
-    return result;
-}
-
 static int init_single_market(redisContext *context, const char *name, const char *stock, const char *money, int trade_type)
 {
     struct market_info *info = create_market(name, stock, money, trade_type);
@@ -490,7 +426,7 @@ static int init_market(void)
     if (context == NULL)
         return -__LINE__;
 
-    json_t *market_list = http_request("market.list", NULL);
+    json_t *market_list = get_market_list();
     if (market_list == NULL) {
         log_error("get market list fail");
         redisFree(context);
@@ -499,6 +435,7 @@ static int init_market(void)
     for (size_t i = 0; i < json_array_size(market_list); ++i) {
         json_t *item = json_array_get(market_list, i);
         const char *name = json_string_value(json_object_get(item, "name"));
+        log_trace("market: %s", name);
         const char *stock = json_string_value(json_object_get(item, "stock"));
         const char *money = json_string_value(json_object_get(item, "money"));
         if (get_market_id(name) != worker_id && worker_id != settings.worker_num)
@@ -538,7 +475,7 @@ static int init_market(void)
     }
     json_decref(market_list);
 
-    json_t *index_list = http_request("index.list", NULL);
+    json_t *index_list = get_index_list();
     if (index_list == NULL) {
         log_error("get index list fail");
         redisFree(context);
@@ -548,6 +485,7 @@ static int init_market(void)
     const char *key;
     json_t *val;
     json_object_foreach(index_list, key, val) {
+        log_trace("index name: %s", key);
         char *index_name = convert_index_name(key);
         if (get_market_id(index_name) != worker_id)
             continue;
@@ -1290,13 +1228,13 @@ static void on_redis_timer(nw_timer *timer, void *privdata)
     }
 }
 
-static int update_market_list(void)
+static int update_market_list(json_t *market_list)
 {
-    json_t *list = http_request("market.list", NULL);
-    if (list == NULL)
+    if (market_list == NULL)
         return -__LINE__;
-    for (size_t i = 0; i < json_array_size(list); ++i) {
-        json_t *item = json_array_get(list, i);
+
+    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+        json_t *item = json_array_get(market_list, i);
         const char *name = json_string_value(json_object_get(item, "name"));
         const char *stock = json_string_value(json_object_get(item, "stock"));
         const char *money = json_string_value(json_object_get(item, "money"));
@@ -1306,7 +1244,6 @@ static int update_market_list(void)
         if (info == NULL) {
             info = create_market(name, stock, money, TRADE_TYPE_NORMAL);
             if (info == NULL) {
-                json_decref(list);
                 return -__LINE__;
             }
             log_info("add market: %s", name);
@@ -1325,7 +1262,6 @@ static int update_market_list(void)
             if (info == NULL) {
                 info = create_market(trade_zone_name, NULL, NULL, TRADE_TYPE_ZONE);
                 if (info == NULL) {
-                    json_decref(list);
                     return -__LINE__;
                 }
                 log_info("add market: %s", trade_zone_name);
@@ -1336,21 +1272,18 @@ static int update_market_list(void)
             if (info == NULL) {
                 info = create_market(trade_zone_real_name, NULL, NULL, TRADE_TYPE_ZONE);
                 if (info == NULL) {
-                    json_decref(list);
                     return -__LINE__;
                 }
                 log_info("add market: %s", trade_zone_real_name);
             }
         }
     }
-    json_decref(list);
 
     return 0;
 }
 
-static int update_index_list(void)
+static int update_index_list(json_t *index_list)
 {
-    json_t *index_list = http_request("index.list", NULL);
     if (index_list == NULL)
         return -__LINE__;
 
@@ -1364,13 +1297,11 @@ static int update_index_list(void)
         if (info == NULL) {
             info = create_market(index_name, NULL, NULL, TRADE_TYPE_INDEX);
             if (info == NULL) {
-                json_decref(index_list);
                 return -__LINE__;
             }
             log_info("add market: %s", index_name);
         }
     }
-    json_decref(index_list);
 
     return 0;
 }
@@ -1378,11 +1309,11 @@ static int update_index_list(void)
 static void on_market_timer(nw_timer *timer, void *privdata)
 {
     int ret;
-    ret = update_market_list();
+    ret = add_request("market.list", update_market_list);
     if (ret < 0) {
         log_error("update_market_list fail: %d", ret);
     }
-    ret = update_index_list();
+    ret = add_request("index.list", update_index_list);
     if (ret < 0) {
         log_error("update_index_list fail: %d", ret);
     }
@@ -1393,6 +1324,11 @@ int init_message(int id)
     worker_id = id;
 
     int ret;
+    ret = init_request();
+    if (ret < 0) {
+        return ret;
+    }
+
     ret = init_market();
     if (ret < 0) {
         return ret;

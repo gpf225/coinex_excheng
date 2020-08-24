@@ -271,6 +271,7 @@ static int query_market_depth(const char *market)
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, json_integer(1));
     json_array_append_new(params, json_string("0"));
+    json_array_append_new(params, json_integer(0));
 
     nw_state_entry *state_entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = state_entry->data;
