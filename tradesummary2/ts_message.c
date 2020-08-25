@@ -276,50 +276,6 @@ static int trade_amount_rank_val_compare(const void *val1, const void *val2)
     return 1;
 }
 
-static int set_message_offset(const char *topic, time_t when, int64_t offset)
-{
-    redisContext *context = redis_connect(&settings.redis);
-    if (context == NULL)
-        return -__LINE__;
-
-    redisReply *reply = redisCmd(context, "HSET s:offset:%s %ld %"PRIi64, topic, when, offset);
-    if (reply == NULL) {
-        return -__LINE__;
-    }
-
-    freeReplyObject(reply);
-    redisFree(context);
-    return 0;
-}
-
-static int64_t get_message_offset(const char *topic)
-{
-    redisContext *context = redis_connect(&settings.redis);
-    if (context == NULL)
-        return -__LINE__;
-
-    time_t now = time(NULL) / 3600 * 3600;
-    for (time_t start = now - settings.keep_days * 86400; start <= now; start += 3600) {
-        redisReply *reply = redisCmd(context, "HGET s:offset:%s %ld", topic, start);
-        if (reply == NULL) {
-            redisFree(context);
-            return -__LINE__;
-        }
-        if (reply->type == REDIS_REPLY_STRING) {
-            int64_t offset = strtoll(reply->str, NULL, 0);
-            freeReplyObject(reply);
-            redisFree(context);
-            return offset;
-        } else {
-            freeReplyObject(reply);
-            continue;
-        }
-    }
-
-    redisFree(context);
-    return 0;
-}
-
 static int set_persist_offset(redisContext *context, time_t timestamp, int64_t order_offset, int64_t deal_offset)
 {
     json_t *offset_obj = json_object();
@@ -355,16 +311,18 @@ static int get_persist_offset(redisContext *context, time_t *timestamp, int64_t 
         }
     }
 
-    json_t *offset_obj = json_loadb(reply->element[index]->str, strlen(reply->element[index]->str), 0, NULL);
-    if (offset_obj == NULL || !json_is_object(offset_obj)) {
-        freeReplyObject(reply);
-        return -__LINE__; 
+    if (order_offset != NULL && deal_offset != NULL) {
+        json_t *offset_obj = json_loadb(reply->element[index]->str, strlen(reply->element[index]->str), 0, NULL);
+        if (offset_obj == NULL || !json_is_object(offset_obj)) {
+            freeReplyObject(reply);
+            return -__LINE__; 
+        }
+
+        *order_offset = json_integer_value(json_object_get(offset_obj, "order_offset"));
+        *deal_offset = json_integer_value(json_object_get(offset_obj, "deal_offset"));
+
+        json_decref(offset_obj);
     }
-
-    *order_offset = json_integer_value(json_object_get(offset_obj, "order_offset"));
-    *deal_offset = json_integer_value(json_object_get(offset_obj, "deal_offset"));
-
-    json_decref(offset_obj);
     freeReplyObject(reply);
     return 0;
 }
@@ -767,11 +725,6 @@ static void on_deals_message(sds message, int64_t offset)
         goto cleanup;
     }
 
-    time_t time_hour = ((int)timestamp) / 3600 * 3600;
-    if (last_message_hour != 0 && last_message_hour != time_hour)
-        set_message_offset("deals", time_hour, kafka_deals_offset);
-    last_message_hour = time_hour;
-
     struct market_info_val *market_info = get_market_info((char *)market);
     if (market_info == NULL) {
         log_error("get_market_info: %s fail", market);
@@ -880,11 +833,6 @@ static void on_orders_message(sds message, int64_t offset)
         log_error("invalid message: %s, offset: %"PRIi64, message, offset);
         goto cleanup;
     }
-
-    time_t time_hour = ((int)timestamp) / 3600 * 3600;
-    if (last_message_hour != 0 && last_message_hour != time_hour)
-        set_message_offset("orders", time_hour, kafka_orders_offset);
-    last_message_hour = time_hour;
 
     struct market_info_val *market_info = get_market_info((char *)market);
     if (market_info == NULL) {
@@ -1690,13 +1638,13 @@ static int load_fee_summary(redisContext *context, const char *market_name, time
     return ret;
 }
 
-static int persist_user_detail(redisContext *context, const char *market_name, dict_t *user_detail)
+static int persist_user_detail(redisContext *context, const char *market_name, dict_t *user_detail, time_t last_persist, time_t *new_persist)
 {
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(user_detail);
     while ((entry = dict_next(iter)) != NULL) {
         uint32_t timestamp = (uintptr_t)entry->key;
-        if (timestamp < last_persist) {
+        if (timestamp <= last_persist) {
             continue;
         }
 
@@ -1719,8 +1667,9 @@ static int persist_user_detail(redisContext *context, const char *market_name, d
 
             freeReplyObject(reply);
         }
+        *new_persist = timestamp;
     }
-    return ret;
+    return 0;
 }
 
 static int load_user_detail(redisContext *context, const char *market_name, time_t end, dict_t *users_detail)
@@ -1764,44 +1713,45 @@ static int load_user_detail(redisContext *context, const char *market_name, time
     return ret;
 }
 
-static int persist_market(redisContext *context, json_t *markets)
+static int persist_market(redisContext *context, json_t *markets, time_t last_persist, time_t last_dump, time_t *new_persist)
 {
+    int ret;
+    time_t last_persist_day = last_persist / 86400 * 86400;
+    time_t start_day = last_persist_day > 0 ? last_persist_day : last_dump;
+    time_t now = time(NULL);
+    time_t now_day = now / 86400 * 86400;
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market_info);
     while ((entry = dict_next(iter)) != NULL) {
         const char *market_name = entry->key;
-        json_t *attr = json_object_get(markets, market_name);
-        if (attr == NULL)
-            continue;
-        const char *stock = json_string_value(json_object_get(attr, "stock"));
-        const char *money = json_string_value(json_object_get(attr, "money"));
-
         struct market_info_val *market_info = entry->val;
-        void *tkey = (void *)(uintptr_t)timestamp;
-        dict_entry *result = dict_find(market_info->daily_trade, tkey);
-        if (result == NULL)
-            continue;
+        for (time_t timestamp = start_day; timestamp <= now_day; timestamp += 86400) {
+            void *tkey = (void *)(uintptr_t)timestamp;
+            dict_entry *result = dict_find(market_info->daily_trade, tkey);
+            if (result == NULL)
+                continue;
 
-        int ret;
-        struct daily_trade_val *trade_info = result->val;
-        ret = persist_market_summary(conn, market_name, stock, money, timestamp, trade_info);
-        if (ret < 0) {
-            log_error("persist_market_info: %s timestamp: %ld fail", market_name, timestamp);
-            return -__LINE__;
+            struct daily_trade_val *trade_info = result->val;
+            ret = persist_market_summary(conn, market_name, timestamp, trade_info);
+            if (ret < 0) {
+                log_error("persist_market_info: %s timestamp: %ld fail", market_name, timestamp);
+                return -__LINE__;
+            }
+            ret = persist_user_summary(conn, market_name, timestamp, trade_info->users_trade);
+            if (ret < 0) {
+                log_error("persist_users_summary: %s timestamp: %ld fail", market_name, timestamp);
+                return -__LINE__;
+            }
+            ret = persist_fee_summary(conn, market_name, timestamp, trade_info->fees_detail);
+            if (ret < 0) {
+                log_error("persist_fee_summary: %s timestamp: %ld fail", market_name, timestamp);
+                return -__LINE__;
+            }
         }
-        ret = persist_user_summary(conn, market_name, stock, money, timestamp, trade_info->users_trade);
+        
+        ret = persist_user_detail(conn, market_name, market_info->user_detail, last_persist, new_persist);
         if (ret < 0) {
-            log_error("persist_users_summary: %s timestamp: %ld fail", market_name, timestamp);
-            return -__LINE__;
-        }
-        ret = persist_fee_summary(conn, market_name, timestamp, trade_info->fees_detail);
-        if (ret < 0) {
-            log_error("persist_fee_summary: %s timestamp: %ld fail", market_name, timestamp);
-            return -__LINE__;
-        }
-        ret = persist_user_detail(conn, market_name, market_info->user_detail);
-        if (ret < 0) {
-            log_error("persist_user_detail: %s timestamp: %ld fail", market_name, timestamp);
+            log_error("persist_user_detail: %s last_persist: %ld fail", market_name, last_persist);
             return -__LINE__;
         }
     }
@@ -1812,7 +1762,7 @@ static int persist_market(redisContext *context, json_t *markets)
     return 0;
 }
 
-static int persist_to_redis(time_t timestamp)
+static int persist_to_redis(time_t last_persist, time_t last_dump)
 {
     log_info("start dump to redis");
     redisContext *context = redis_connect(&settings.redis);
@@ -1825,15 +1775,15 @@ static int persist_to_redis(time_t timestamp)
         return -__LINE__;
     }
 
-    ret = persist_market(context, markets);
+    time_t new_persist = 0;
+    ret = persist_market(context, markets, last_persist, last_dump, &new_persist);
     if (ret < 0) {
         redisFree(context);
         log_error("dump_market_list_info fail: %d", ret);
         return -__LINE__;
     }
 
-    set_persist_offset(context, timestamp, kafka_orders_offset, kafka_deals_offset);
-    last_persist = timestamp;
+    set_persist_offset(context, new_persist, kafka_orders_offset, kafka_deals_offset);
     redisFree(context);
     return 0;
 }
@@ -1899,14 +1849,13 @@ static int load_from_redis()
 
     ret = load_market(context, markets, timestamp);
 
-    last_persist = timestamp;
     redisFree(context);
     return 0;
 }
 
-static void make_slice(time_t timestamp)
+static void make_slice(time_t last_persist, time_t last_dump)
 {
-    log_info("last_dump: %zd, day_start: %zd", last_dump, day_start);
+    log_info("last_persist: %zd, last_dump: %zd", last_persist, last_dump);
     dlog_flush_all();
     int pid = fork();
     if (pid < 0) {
@@ -1916,7 +1865,7 @@ static void make_slice(time_t timestamp)
         return;
     }
 
-    persist_to_redis(timestamp);
+    persist_to_redis(last_persist, last_dump);
 }
 
 static void dump_summary(time_t last_dump, time_t day_start)
@@ -1964,6 +1913,16 @@ static void on_dump_timer(nw_timer *timer, void *privdata)
     time_t last_day_start = day_start - 86400;
     if (last_dump != last_day_start) {
         dump_summary(last_dump, last_day_start);
+    }
+
+    if (now % 3600 > 180)
+        return;
+
+    time_t last_persist = 0;
+    get_persist_offset(&last_persist, NULL, NULL);
+    time_t now_hour = now / 3600 * 3600;
+    if (now_hour > last_persist) {
+        make_slice(last_persist, last_dump);
     }
 }
 
@@ -2022,25 +1981,6 @@ static void on_report_timer(nw_timer *timer, void *privdata)
 
 int init_message(void)
 {
-    int64_t offset = 0;
-    int64_t deals_offset = get_message_offset("deals");
-    if (deals_offset < 0) {
-        return -__LINE__;
-    }
-    offset = deals_offset == 0 ? RD_KAFKA_OFFSET_END : deals_offset + 1;
-    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, 0, offset, on_deals_message);
-    if (kafka_deals == NULL)
-        return -__LINE__;
-
-    int64_t orders_offset = get_message_offset("orders");
-    if (orders_offset < 0) {
-        return -__LINE__;
-    }
-    offset = orders_offset == 0 ? RD_KAFKA_OFFSET_END : orders_offset + 1;
-    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_ORDER, 0, offset, on_orders_message);
-    if (kafka_orders == NULL)
-        return -__LINE__;
-
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.hash_function    = str_dict_hash_function;
@@ -2051,6 +1991,22 @@ int init_message(void)
 
     dict_market_info = dict_create(&dt, 64);
     if (dict_market_info == NULL)
+        return -__LINE__;
+
+    int ret = load_from_redis();
+    if (ret < 0) {
+        log_error("load from redis fail: %d", ret);
+        return ret;
+    }
+
+    int64_t offset = kafka_deals_offset == 0 ? RD_KAFKA_OFFSET_END : kafka_deals_offset + 1;
+    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, 0, offset, on_deals_message);
+    if (kafka_deals == NULL)
+        return -__LINE__;
+
+    offset = kafka_orders_offset == 0 ? RD_KAFKA_OFFSET_END : kafka_orders_offset + 1;
+    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_ORDER, 0, offset, on_orders_message);
+    if (kafka_orders == NULL)
         return -__LINE__;
 
     nw_timer_set(&dump_timer, 60, true, on_dump_timer, NULL);
