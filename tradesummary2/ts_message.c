@@ -283,7 +283,7 @@ static int set_persist_offset(redisContext *context, time_t timestamp, int64_t o
     json_object_set_new(offset_obj, "deal_offset", json_integer(deal_offset));
     char *offset_str = json_dumps(offset_obj, 0);
 
-    redisReply *reply = redisCmd(context, "HSET s:persist:offset %ld, %s", timestamp, offset_str);
+    redisReply *reply = redisCmd(context, "HSET s:persist:offset %ld %s", timestamp, offset_str);
 
     free(offset_str);
     json_decref(offset_obj);
@@ -316,7 +316,7 @@ static int get_persist_offset(time_t *timestamp, int64_t *order_offset, int64_t 
         }
     }
 
-    if (order_offset != NULL && deal_offset != NULL) {
+    if (order_offset != NULL && deal_offset != NULL && index > 0) {
         json_t *offset_obj = json_loadb(reply->element[index]->str, strlen(reply->element[index]->str), 0, NULL);
         if (offset_obj == NULL || !json_is_object(offset_obj)) {
             freeReplyObject(reply);
@@ -1396,6 +1396,7 @@ static int dump_to_db(time_t timestamp)
 
 static int persist_market_summary(redisContext *context, const char *market_name, time_t timestamp, struct daily_trade_val *trade_info)
 {
+    log_info("persist market %s time: %ld", market_name, timestamp);
     json_t *object = json_object();
     json_object_set_new_mpd(object, "deal_amount", trade_info->deal_amount);
     json_object_set_new_mpd(object, "deal_volume", trade_info->deal_volume);
@@ -1425,6 +1426,7 @@ static int persist_market_summary(redisContext *context, const char *market_name
 
 static int load_market_summary(redisContext *context, const char *market_name, time_t timestamp, struct daily_trade_val *trade_info)
 {
+    log_info("load market %s time: %ld", market_name, timestamp);
     redisReply *reply = redisCmd(context, "HGET s:persist:market:%ld %s", timestamp, market_name);
     if (reply == NULL) {
         log_error("get market: %s info fail, timestamp: %ld", market_name, timestamp);
@@ -1436,7 +1438,7 @@ static int load_market_summary(redisContext *context, const char *market_name, t
         log_error("get market: %s info fail, timestamp: %ld", market_name, timestamp);
         return -__LINE__;
     }
-    
+
     json_t *trade_info_obj = json_loadb(reply->str, strlen(reply->str), 0, NULL);
     if (trade_info_obj == NULL) {
         log_error("get market: %s info fail, timestamp: %ld", market_name, timestamp);
@@ -1475,6 +1477,7 @@ static int load_market_summary(redisContext *context, const char *market_name, t
 
 static int persist_user_summary(redisContext *context, const char *market_name, time_t timestamp, dict_t *user_info)
 {
+    log_info("persist user market %s time: %ld", market_name, timestamp);
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(user_info);
     while ((entry = dict_next(iter)) != NULL) {
@@ -1514,6 +1517,8 @@ static int persist_user_summary(redisContext *context, const char *market_name, 
 
 static int load_user_summary(redisContext *context, const char *market_name, time_t timestamp, dict_t *users_info)
 {
+    log_info("load user market %s time: %ld", market_name, timestamp);
+
     redisReply *reply = redisCmd(context, "HGETALL s:persist:user:%s:%ld", market_name, timestamp);
     if (reply == NULL) {
         return 0;
@@ -1592,6 +1597,7 @@ static int load_user_summary(redisContext *context, const char *market_name, tim
 
 static int persist_fee_summary(redisContext *context, const char *market_name, time_t timestamp, dict_t *fees_detail)
 {
+    log_info("persist fee market %s time: %ld", market_name, timestamp);
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(fees_detail);
     while ((entry = dict_next(iter)) != NULL) {
@@ -1611,6 +1617,7 @@ static int persist_fee_summary(redisContext *context, const char *market_name, t
 
 static int load_fee_summary(redisContext *context, const char *market_name, time_t timestamp, dict_t *fees_detail)
 {
+    log_info("load fee market %s time: %ld", market_name, timestamp);
     redisReply *reply = redisCmd(context, "HGETALL s:persist:fee:%s:%ld", market_name, timestamp);
     if (reply == NULL) {
         return 0;
@@ -1640,6 +1647,7 @@ static int load_fee_summary(redisContext *context, const char *market_name, time
 
 static int persist_user_detail(redisContext *context, const char *market_name, dict_t *user_detail, time_t last_persist, time_t *new_persist)
 {
+    log_info("persist user detail market %s last_persist: %ld", market_name, last_persist);
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(user_detail);
     while ((entry = dict_next(iter)) != NULL) {
@@ -1676,6 +1684,7 @@ static int persist_user_detail(redisContext *context, const char *market_name, d
 
 static int load_user_detail(redisContext *context, const char *market_name, time_t last_persist, dict_t *users_detail)
 {
+    log_info("load user detail market %s last_persist: %ld", market_name, last_persist);
     time_t day = last_persist / 86400 * 86400;
     time_t timestamp = day - settings.keep_days * 86400;
     for (; timestamp <= last_persist; timestamp += 60) {
@@ -1811,24 +1820,24 @@ static int load_market(redisContext *context, json_t *markets, time_t last_persi
             ret = load_market_summary(context, key, timestamp, trade_info);
             if (ret < 0) {
                 log_error("load market summary: %s timestamp: %ld fail", key, timestamp);
-                return -__LINE__;
+                return ret;
             }
             ret = load_user_summary(context, key, timestamp, trade_info->users_trade);
             if (ret < 0) {
                 log_error("load user summary: %s timestamp: %ld fail", key, timestamp);
-                return -__LINE__;
+                return ret;
             }
             ret = load_fee_summary(context, key, timestamp, trade_info->fees_detail);
             if (ret < 0) {
                 log_error("load fee summary: %s timestamp: %ld fail", key, timestamp);
-                return -__LINE__;
+                return ret;
             }
         }
         
         ret = load_user_detail(context, key, last_persist, market_info->users_detail);
         if (ret < 0) {
             log_error("persist_fee_info: %s timestamp: %ld fail", key, last_persist);
-            return -__LINE__;
+            return ret;
         }
     }
     return ret;
@@ -1841,6 +1850,11 @@ static int load_from_redis()
     if (ret < 0) {
         log_error("get offset from redis fail: %d", ret);
         return ret;
+    }
+
+    if (last_persist == 0) {
+        log_info("no persisted data");
+        return 0;
     }
 
     time_t last_dump = get_last_dump_time();
@@ -1911,8 +1925,10 @@ static void dump_summary(time_t last_dump, time_t day_start)
 static void on_dump_timer(nw_timer *timer, void *privdata)
 {
     time_t now = time(NULL);
+    /*
     if (now % 600 >= 60)
         return;
+    */
     if (!is_kafka_synced())
         return;
 
@@ -1935,8 +1951,9 @@ static void on_dump_timer(nw_timer *timer, void *privdata)
 
     time_t last_persist = 0;
     get_persist_offset(&last_persist, NULL, NULL);
-    time_t now_hour = now / 3600 * 3600;
-    if (now_hour > last_persist) {
+    //time_t now_hour = now / 3600 * 3600;
+    time_t now_min = now / 60 * 60;
+    if (now_min > last_persist) {
         make_slice(last_persist, last_dump);
     }
 }
