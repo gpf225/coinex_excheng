@@ -736,6 +736,12 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
     uint64_t update_id = json_integer_value(json_array_get(params, 3));
 
+    sds cache_key = NULL;
+    if (check_cache(ses, pkg, &cache_key)) {
+        mpd_del(interval);
+        return 0;
+    }
+
     json_t *result = NULL;
     if (update_id > 0 && market->update_id == update_id) {
         result = json_object();
@@ -744,13 +750,8 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         int ret = rpc_reply_result(ses, pkg, result);
         json_decref(result);
         mpd_del(interval);
+        sdsfree(cache_key);
         return ret;
-    }
-
-    sds cache_key = NULL;
-    if (check_cache(ses, pkg, &cache_key)) {
-        mpd_del(interval);
-        return 0;
     }
 
     profile_inc("get_depth", 1);
