@@ -8,10 +8,28 @@
 # include <string.h>
 # include <jansson.h>
 # include "ut_dict.h"
+# include "ut_misc.h"
 
 
 int main(void)
 {
+    json_t **jsons = (json_t **)malloc(sizeof(json_t *) * 12000);
+    for (int j = 0; j < 12000; j++) {
+        jsons[j] = json_object();
+        for (int m = 0; m < 100; m++) {
+            char key[10] = {0};
+            sprintf(key, "key%d", m);
+            json_object_set_new(jsons[j], key, json_integer(m));
+        }
+    }
+
+    double start = current_timestamp();
+    for (int j = 0; j < 12000; j++) {
+        json_decref(jsons[j]);
+    }
+    double end = current_timestamp();
+    printf("cost: %lf\n", end - start);
+
     json_t *array1 = json_array();
     json_array_append_new(array1, json_string("test11"));
     json_array_append_new(array1, json_string("test12"));
