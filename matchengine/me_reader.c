@@ -27,11 +27,10 @@ struct cache_val {
     json_t      *result;
 };
 
-static bool check_cache(nw_ses *ses, rpc_pkg *pkg, sds *cache_key)
+static bool check_cache(nw_ses *ses, rpc_pkg *pkg, const char *market_name, size_t limit, const char *interval_str, sds *cache_key)
 {
     sds key = sdsempty();
-    key = sdscatprintf(key, "%u", pkg->command);
-    key = sdscatlen(key, pkg->body, pkg->body_size);
+    key = sdscatprintf(key, "%u%s%zu%s", pkg->command, market_name, limit, interval_str);
     dict_entry *entry = dict_find(dict_cache, key);
     if (entry == NULL) {
         *cache_key = key;
@@ -721,7 +720,8 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     // interval
     if (!json_is_string(json_array_get(params, 2)))
         return rpc_reply_error_invalid_argument(ses, pkg);
-    mpd_t *interval = decimal(json_string_value(json_array_get(params, 2)), market->money_prec);
+    const char *interval_str = json_string_value(json_array_get(params, 2));
+    mpd_t *interval = decimal(interval_str, market->money_prec);
     if (!interval)
         return rpc_reply_error_invalid_argument(ses, pkg);
     if (mpd_cmp(interval, mpd_zero, &mpd_ctx) < 0) {
@@ -730,9 +730,17 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     }
 
     //update_id
-    if (!json_is_integer(json_array_get(params, 3)))
+    if (!json_is_integer(json_array_get(params, 3))) {
+        mpd_del(interval);
         return rpc_reply_error_invalid_argument(ses, pkg);
+    }
     uint64_t update_id = json_integer_value(json_array_get(params, 3));
+
+    sds cache_key = NULL;
+    if (check_cache(ses, pkg, market_name, limit, interval_str, &cache_key)) {
+        mpd_del(interval);
+        return 0;
+    }
 
     json_t *result = NULL;
     if (update_id > 0 && market->update_id == update_id) {
@@ -741,12 +749,9 @@ static int on_cmd_order_depth(nw_ses *ses, rpc_pkg *pkg, json_t *params)
         json_object_set_new(result, "update_id", json_integer(market->update_id));
         int ret = rpc_reply_result(ses, pkg, result);
         json_decref(result);
+        mpd_del(interval);
+        sdsfree(cache_key);
         return ret;
-    }
-
-    sds cache_key = NULL;
-    if (check_cache(ses, pkg, &cache_key)) {
-        return 0;
     }
 
     profile_inc("get_depth", 1);
