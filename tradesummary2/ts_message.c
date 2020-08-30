@@ -2114,6 +2114,49 @@ static int update_trade_detail(dict_t *dict, time_t start_time, time_t end_time,
     return 0;
 }
 
+static int get_trade_users_detail(dict_t *dict, dict_t *user_set, const char *market_name, time_t start_time, time_t end_time)
+{
+    dict_entry *entry = dict_find(dict_market_info, market_name);
+    if (entry == NULL)
+        return 0;
+    struct market_info_val *market_info = entry->val;
+
+    for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60) {
+        void *tkey = (void *)(uintptr_t)timestamp;
+        entry = dict_find(market_info->users_detail, tkey);
+        if (entry == NULL)
+            continue;
+
+        dict_t *user_dict = entry->val;
+        dict_iterator *iter = dict_get_iterator(user_dict);
+        while ((entry = dict_next(iter)) != NULL) {
+            uint32_t user_id = (uintptr_t)entry->key;
+            if (!uint32_set_exist(user_set, user_id)) {
+                continue;
+            }
+
+            void *ukey = entry->key;
+            struct user_detail_val *user_detail = entry->val;
+
+            dict_entry *result = dict_find(dict, ukey);
+            if (result == NULL) {
+                struct user_detail_val *detail = malloc(sizeof(struct user_detail_val));
+                memset(detail, 0, sizeof(struct user_detail_val));
+                detail->buy_volume  = mpd_qncopy(mpd_zero);
+                detail->sell_volume = mpd_qncopy(mpd_zero);
+                result = dict_add(dict, ukey, detail);
+            }
+
+            struct user_detail_val *user_total = result->val;
+            mpd_add(user_total->buy_volume, user_total->buy_volume, user_detail->buy_volume, &mpd_ctx);
+            mpd_add(user_total->sell_volume, user_total->sell_volume, user_detail->sell_volume, &mpd_ctx);
+        }
+        dict_release_iterator(iter);
+    }
+
+    return 0;
+}
+
 json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_time)
 {
     dict_types dt;
@@ -2221,6 +2264,53 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
     mpd_del(total_net);
     mpd_del(total_amount);
 
+    return result;
+}
+
+json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t start_time, time_t end_time)
+{
+    dict_t *user_set = uint32_set_create();
+    for (size_t i = 0; i < json_array_size(user_list); i++) {
+        uint32_t user_id = json_integer_value(json_array_get(user_list, i));
+        uint32_set_add(user_set, user_id);
+    }
+
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function  = uint32_dict_hash_func; 
+    dt.key_compare    = uint32_dict_key_compare;
+    dt.val_destructor = dict_user_detail_val_free;
+
+    dict_t *dict = dict_create(&dt, 1024);
+    if (dict == NULL)
+        return NULL;
+
+    json_t *result = json_object();
+    dict_entry *entry;
+    dict_iterator *diter;
+    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+        const char *market_name = json_string_value(json_array_get(market_list, i));
+        get_trade_users_detail(dict, user_set, market_name, start_time, end_time);
+        diter = dict_get_iterator(dict);
+        json_t *market_info = json_object();
+        while ((entry = dict_next(diter)) != NULL) {
+            uint32_t user_id = (uintptr_t)entry->key;
+            struct user_detail_val *user_detail = entry->val;
+
+            json_t *item = json_array();
+            char user_id_str[20];
+            snprintf(user_id_str, sizeof(user_id_str), "%u", user_id);
+            json_array_append_new_mpd(item, user_detail->buy_volume);
+            json_array_append_new_mpd(item, user_detail->sell_volume);
+            json_object_set_new(market_info, user_id_str, item);
+        }
+        json_object_set_new(result, market_name, market_info);
+        dict_release_iterator(diter);
+        dict_clear(dict);
+    }
+    
+    uint32_set_release(user_set);
+    dict_release(dict);
     return result;
 }
 
