@@ -233,6 +233,8 @@ static void dict_user_detail_val_free(void *val)
     struct user_detail_val *obj = val;
     mpd_del(obj->buy_amount);
     mpd_del(obj->sell_amount);
+    mpd_del(obj->buy_volume);
+    mpd_del(obj->sell_volume);
     free(obj);
 }
 
@@ -559,7 +561,7 @@ static int update_user_volume(dict_t *users_trade, dict_t *users_detail, uint32_
         mpd_add(user_detail->buy_amount, user_detail->buy_amount, amount, &mpd_ctx);
         mpd_add(user_detail->buy_volume, user_detail->buy_volume, volume, &mpd_ctx);
     } else {
-        mpd_add(user_detail->buy_amount, user_detail->buy_amount, amount, &mpd_ctx);
+        mpd_add(user_detail->sell_amount, user_detail->sell_amount, amount, &mpd_ctx);
         mpd_add(user_detail->sell_volume, user_detail->sell_volume, volume, &mpd_ctx);
     }
 
@@ -1659,6 +1661,7 @@ static int persist_user_detail(redisContext *context, const char *market_name, d
     while ((entry = dict_next(iter)) != NULL) {
         time_t timestamp = (uintptr_t)entry->key;
         if (timestamp <= last_persist) {
+            *new_persist = timestamp;
             continue;
         }
 
@@ -2101,6 +2104,8 @@ static int update_trade_detail(dict_t *dict, time_t start_time, time_t end_time,
                 memset(detail, 0, sizeof(struct user_detail_val));
                 detail->buy_amount  = mpd_qncopy(mpd_zero);
                 detail->sell_amount = mpd_qncopy(mpd_zero);
+                detail->buy_volume  = mpd_qncopy(mpd_zero);
+                detail->sell_volume = mpd_qncopy(mpd_zero);
                 result = dict_add(dict, ukey, detail);
             }
 
@@ -2142,6 +2147,8 @@ static int get_trade_users_detail(dict_t *dict, dict_t *user_set, const char *ma
             if (result == NULL) {
                 struct user_detail_val *detail = malloc(sizeof(struct user_detail_val));
                 memset(detail, 0, sizeof(struct user_detail_val));
+                detail->buy_amount  = mpd_qncopy(mpd_zero);
+                detail->sell_amount = mpd_qncopy(mpd_zero);
                 detail->buy_volume  = mpd_qncopy(mpd_zero);
                 detail->sell_volume = mpd_qncopy(mpd_zero);
                 result = dict_add(dict, ukey, detail);

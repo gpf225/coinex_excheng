@@ -28,7 +28,7 @@
         "port": 6379
     },
     "brokers": "127.0.0.1:9092",
-    "keep_day": 7,
+    "keep_days": 7,
     "accesshttp": "http://127.0.0.1:8080",
     "client_ids": ["1234", "abcd"]
 }
