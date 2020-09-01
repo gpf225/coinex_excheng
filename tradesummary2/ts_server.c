@@ -7,6 +7,7 @@
 # include "ts_server.h"
 # include "ts_message.h"
 
+# define MAX_USER_LIST_LEN 500
 static rpc_svr *svr;
 
 static int on_cmd_trade_net_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
@@ -91,7 +92,7 @@ static int on_cmd_trade_users_volume(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 
     // user list
     json_t *user_list = json_array_get(params, 1);
-    if (!json_is_array(user_list))
+    if (!json_is_array(user_list) || json_array_size(user_list) > MAX_USER_LIST_LEN)
         return rpc_reply_error_invalid_argument(ses, pkg);
     for (size_t i = 0; i < json_array_size(user_list); ++i) {
         if (!json_is_integer(json_array_get(user_list, i)))

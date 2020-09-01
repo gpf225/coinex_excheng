@@ -1653,6 +1653,176 @@ static int load_fee_summary(redisContext *context, const char *market_name, time
     return 0;
 }
 
+static int persist_client_info(redisContext *context, const char *market_name, time_t timestamp, dict_t *client_trade)
+{
+    log_info("persist client info %s time: %ld", market_name, timestamp);
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(client_trade);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct client_user_trade_key *key = (struct client_user_trade_key *)entry->key;
+        struct users_trade_val *val = entry->val;
+
+        json_t *object = json_object();
+        json_object_set_new_mpd(object, "deal_amount", val->deal_amount);
+        json_object_set_new_mpd(object, "deal_volume", val->deal_volume);
+        json_object_set_new_mpd(object, "buy_amount", val->buy_amount);
+        json_object_set_new_mpd(object, "buy_volume", val->buy_volume);
+        json_object_set_new_mpd(object, "sell_amount", val->sell_amount);
+        json_object_set_new_mpd(object, "sell_volume", val->sell_volume);
+        json_object_set_new_mpd(object, "taker_volume", val->taker_volume);
+        json_object_set_new_mpd(object, "taker_amount", val->taker_amount);
+        json_object_set_new_mpd(object, "maker_amount", val->maker_amount);
+        json_object_set_new_mpd(object, "maker_volume", val->maker_volume);
+        json_object_set_new(object, "deal_count", json_integer(val->deal_count));
+        json_object_set_new(object, "taker_buy_count", json_integer(val->deal_buy_count));
+        json_object_set_new(object, "taker_sell_count", json_integer(val->deal_sell_count));
+        json_object_set_new(object, "limit_buy_order", json_integer(val->limit_buy_order));
+        json_object_set_new(object, "limit_sell_order", json_integer(val->limit_sell_order));
+        json_object_set_new(object, "market_buy_order", json_integer(val->market_buy_order));
+        json_object_set_new(object, "market_sell_order", json_integer(val->market_sell_order));
+
+        char *trade_info_str = json_dumps(object, 0);
+        redisReply *reply = redisCmd(context, "HSET s:persist:cuser:%s:%ld %d:%s %s", market_name, timestamp, key->user_id, key->client_id, trade_info_str);
+        free(trade_info_str);
+        json_decref(object);
+        if (reply == NULL) {
+            return -__LINE__;
+        }
+
+        freeReplyObject(reply);
+    }
+    dict_release_iterator(iter);
+    return 0;
+}
+
+static int load_client_info(redisContext *context, const char *market_name, time_t timestamp, dict_t *client_trade)
+{
+    log_info("load client info %s time: %ld", market_name, timestamp);
+    redisReply *reply = redisCmd(context, "HGETALL s:persist:cuser:%s:%ld", market_name, timestamp);
+    if (reply == NULL) {
+        return 0;
+    }
+
+    int count = 0;
+    for (size_t i = 0; i < reply->elements; i += 2) {
+        sds user_clientid = sdsnew(reply->element[i]->str);
+        sds *tokens = sdssplitlen(user_clientid, sdslen(user_clientid), ":", 1, &count);
+        if (count != 2) {
+            log_error("invalid user client_id: %s", user_clientid);
+            sdsfree(user_clientid);
+            sdsfreesplitres(tokens, count);
+            continue;
+        }
+        json_t *user_obj = json_loadb(reply->element[i + 1]->str, strlen(reply->element[i + 1]->str), 0, NULL);
+
+        uint32_t user_id  = atoi(tokens[0]);
+        struct users_trade_val *user_info = get_user_trade_info(client_trade, user_id, tokens[1]);
+        if (user_info == NULL) {
+            sdsfree(user_clientid);
+            sdsfreesplitres(tokens, count);
+            return -__LINE__;
+        }
+
+        mpd_t *deal_amount = decimal(json_string_value(json_object_get(user_obj, "deal_amount")), 0);
+        mpd_t *deal_volume = decimal(json_string_value(json_object_get(user_obj, "deal_volume")), 0);
+        mpd_t *buy_amount = decimal(json_string_value(json_object_get(user_obj, "buy_amount")), 0);
+        mpd_t *buy_volume = decimal(json_string_value(json_object_get(user_obj, "buy_volume")), 0);
+        mpd_t *sell_amount = decimal(json_string_value(json_object_get(user_obj, "sell_amount")), 0);
+        mpd_t *sell_volume = decimal(json_string_value(json_object_get(user_obj, "sell_volume")), 0);
+        mpd_t *taker_amount = decimal(json_string_value(json_object_get(user_obj, "taker_amount")), 0);
+        mpd_t *taker_volume = decimal(json_string_value(json_object_get(user_obj, "taker_volume")), 0);
+        mpd_t *maker_amount = decimal(json_string_value(json_object_get(user_obj, "maker_amount")), 0);
+        mpd_t *maker_volume = decimal(json_string_value(json_object_get(user_obj, "maker_volume")), 0);
+        if (!deal_amount || !deal_volume || !buy_amount || !buy_volume || !sell_amount || !sell_volume 
+            || !taker_amount || !taker_volume || !maker_amount || !maker_volume) {
+            json_decref(user_obj);
+            freeReplyObject(reply);
+            return -__LINE__;
+        }
+        mpd_copy(user_info->deal_amount, deal_amount, &mpd_ctx);
+        mpd_copy(user_info->deal_volume, deal_volume, &mpd_ctx);
+        mpd_copy(user_info->buy_amount, buy_amount, &mpd_ctx);
+        mpd_copy(user_info->buy_volume, buy_volume, &mpd_ctx);
+        mpd_copy(user_info->sell_amount, sell_amount, &mpd_ctx);
+        mpd_copy(user_info->sell_volume, sell_volume, &mpd_ctx);
+        mpd_copy(user_info->taker_amount, taker_amount, &mpd_ctx);
+        mpd_copy(user_info->taker_volume, taker_volume, &mpd_ctx);
+        mpd_copy(user_info->maker_amount, maker_amount, &mpd_ctx);
+        mpd_copy(user_info->maker_volume, maker_volume, &mpd_ctx);
+
+        user_info->deal_count = json_integer_value(json_object_get(user_obj, "deal_count"));
+        user_info->deal_buy_count = json_integer_value(json_object_get(user_obj, "deal_buy_count"));
+        user_info->deal_sell_count = json_integer_value(json_object_get(user_obj, "deal_sell_count"));
+        user_info->limit_buy_order = json_integer_value(json_object_get(user_obj, "limit_buy_order"));
+        user_info->limit_sell_order = json_integer_value(json_object_get(user_obj, "limit_sell_order"));
+        user_info->market_buy_order = json_integer_value(json_object_get(user_obj, "market_buy_order"));
+        user_info->market_sell_order = json_integer_value(json_object_get(user_obj, "market_sell_order"));
+
+        json_decref(user_obj);
+        mpd_del(deal_amount);
+        mpd_del(deal_volume);
+        mpd_del(buy_amount);
+        mpd_del(buy_volume);
+        mpd_del(sell_amount);
+        mpd_del(sell_volume);
+        mpd_del(taker_amount);
+        mpd_del(taker_volume);
+        mpd_del(maker_amount);
+        mpd_del(maker_volume);
+    }
+    return 0;
+}
+
+static int persist_client_fee_info(redisContext *context, const char *market_name, time_t timestamp, dict_t *fees_detail)
+{
+    log_info("persist client fee market %s time: %ld", market_name, timestamp);
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(fees_detail);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct client_fee_key *fkey = entry->key;
+        struct fee_val *fval = entry->val;
+        char *fee_str = mpd_format(fval->value, "f", &mpd_ctx);
+        redisReply *reply = redisCmd(context, "HSET s:persist:cfee:%s:%ld %d:%s:%s %s", market_name, timestamp, fkey->user_id, fkey->client_id, fkey->asset, fee_str);
+        free(fee_str);
+        if (reply == NULL) {
+            return -__LINE__;
+        }
+
+        freeReplyObject(reply);
+    }
+    return 0;
+}
+
+static int load_client_fee_info(redisContext *context, const char *market_name, time_t timestamp, dict_t *fees_detail)
+{
+    log_info("load client fee market %s time: %ld", market_name, timestamp);
+    redisReply *reply = redisCmd(context, "HGETALL s:persist:cfee:%s:%ld", market_name, timestamp);
+    if (reply == NULL) {
+        return 0;
+    }
+
+    int count = 0;
+    for (size_t i = 0; i < reply->elements; i += 2) {
+        sds user_clientid_asset = sdsnew(reply->element[i]->str);
+        sds *tokens = sdssplitlen(user_clientid_asset, sdslen(user_clientid_asset), ":", 1, &count);
+        if (count != 3) {
+            log_error("invalid user asset: %s", user_clientid_asset);
+            sdsfree(user_clientid_asset);
+            sdsfreesplitres(tokens, count);
+            continue;
+        }
+
+        mpd_t *fee = decimal(reply->element[i + 1]->str, 0);
+
+        uint32_t user_id  = atoi(tokens[0]);
+        update_client_fee(fees_detail, tokens[1], user_id, tokens[2], fee);
+        mpd_del(fee);
+        sdsfree(user_clientid_asset);
+        sdsfreesplitres(tokens, count);
+    }
+    return 0;
+}
+
 static int persist_user_detail(redisContext *context, const char *market_name, dict_t *user_detail, time_t last_persist, time_t *new_persist)
 {
     log_info("persist user detail market %s last_persist: %ld", market_name, last_persist);
@@ -1779,6 +1949,16 @@ static int persist_market(redisContext *context, json_t *markets, time_t last_pe
                 log_error("persist_fee_summary: %s timestamp: %ld fail", market_name, timestamp);
                 return -__LINE__;
             }
+            ret = persist_client_info(context, market_name, timestamp, trade_info->client_trade);
+            if (ret < 0) {
+                log_error("persist_client_info: %s timestamp: %ld fail", market_name, timestamp);
+                return -__LINE__;
+            }
+            ret = persist_client_fee_info(context, market_name, timestamp, trade_info->client_fees_detail);
+            if (ret < 0) {
+                log_error("persist_client_fee_info: %s timestamp: %ld fail", market_name, timestamp);
+                return -__LINE__;
+            }
         }
         
         ret = persist_user_detail(context, market_name, market_info->users_detail, last_persist, new_persist);
@@ -1850,6 +2030,14 @@ static int load_market(redisContext *context, json_t *markets, time_t last_persi
             ret = load_fee_summary(context, key, timestamp, trade_info->fees_detail);
             if (ret < 0) {
                 log_error("load fee summary: %s timestamp: %ld fail, %d", key, timestamp, ret);
+            }
+            ret = load_client_info(context, key, timestamp, trade_info->client_trade);
+            if (ret < 0) {
+                log_error("load client info market: %s, timestamp: %ld fail %d", key, timestamp, ret);
+            }
+            ret = load_client_fee_info(context, key, timestamp, trade_info->client_fees_detail);
+            if (ret < 0) {
+                log_error("load client fee info market: %s, timestamp: %ld fail %d", key, timestamp, ret);
             }
         }
         
