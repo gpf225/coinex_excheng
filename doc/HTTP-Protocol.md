@@ -1255,7 +1255,7 @@ response:
 }
 ```
 
-**TradeNetRank**
+**Users Volume**
 * method: `trade.users_volume`
 * params:
 1. market list: array

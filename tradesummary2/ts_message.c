@@ -1830,8 +1830,10 @@ static int persist_user_detail(redisContext *context, const char *market_name, d
     dict_iterator *iter = dict_get_iterator(user_detail);
     while ((entry = dict_next(iter)) != NULL) {
         time_t timestamp = (uintptr_t)entry->key;
-        if (timestamp <= last_persist) {
+        if (timestamp > *new_persist) {
             *new_persist = timestamp;
+        }
+        if (timestamp <= last_persist) {
             continue;
         }
 
@@ -1858,7 +1860,6 @@ static int persist_user_detail(redisContext *context, const char *market_name, d
 
             freeReplyObject(reply);
         }
-        *new_persist = timestamp;
     }
     return 0;
 }
@@ -2307,7 +2308,7 @@ static int update_trade_detail(dict_t *dict, time_t start_time, time_t end_time,
     return 0;
 }
 
-static int get_trade_users_detail(dict_t *dict, dict_t *user_set, const char *market_name, time_t start_time, time_t end_time)
+static int get_trade_users_detail(dict_t *dict, json_t *user_list, const char *market_name, time_t start_time, time_t end_time)
 {
     dict_entry *entry = dict_find(dict_market_info, market_name);
     if (entry == NULL)
@@ -2316,21 +2317,21 @@ static int get_trade_users_detail(dict_t *dict, dict_t *user_set, const char *ma
 
     for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60) {
         void *tkey = (void *)(uintptr_t)timestamp;
-        entry = dict_find(market_info->users_detail, tkey);
-        if (entry == NULL)
+        dict_entry *entry_users = dict_find(market_info->users_detail, tkey);
+        if (entry_users == NULL)
             continue;
-
-        dict_t *user_dict = entry->val;
-        dict_iterator *iter = dict_get_iterator(user_dict);
-        while ((entry = dict_next(iter)) != NULL) {
-            uint32_t user_id = (uintptr_t)entry->key;
-            if (!uint32_set_exist(user_set, user_id)) {
+        dict_t *user_dict = entry_users->val;
+        
+        for (size_t i = 0; i < json_array_size(user_list); i++) {
+            uint32_t user_id = json_integer_value(json_array_get(user_list, i));
+            void *key = (void *)(uintptr_t)user_id;
+            dict_entry *entry_user = dict_find(user_dict, key);
+            if (entry_user == NULL) {
                 continue;
             }
 
-            void *ukey = entry->key;
-            struct user_detail_val *user_detail = entry->val;
-
+            void *ukey = entry_user->key;
+            struct user_detail_val *user_detail = entry_user->val;
             dict_entry *result = dict_find(dict, ukey);
             if (result == NULL) {
                 struct user_detail_val *detail = malloc(sizeof(struct user_detail_val));
@@ -2346,7 +2347,6 @@ static int get_trade_users_detail(dict_t *dict, dict_t *user_set, const char *ma
             mpd_add(user_total->buy_volume, user_total->buy_volume, user_detail->buy_volume, &mpd_ctx);
             mpd_add(user_total->sell_volume, user_total->sell_volume, user_detail->sell_volume, &mpd_ctx);
         }
-        dict_release_iterator(iter);
     }
 
     return 0;
@@ -2464,12 +2464,6 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
 
 json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t start_time, time_t end_time)
 {
-    dict_t *user_set = uint32_set_create();
-    for (size_t i = 0; i < json_array_size(user_list); i++) {
-        uint32_t user_id = json_integer_value(json_array_get(user_list, i));
-        uint32_set_add(user_set, user_id);
-    }
-
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.hash_function  = uint32_dict_hash_func; 
@@ -2485,7 +2479,7 @@ json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t sta
     dict_iterator *diter;
     for (size_t i = 0; i < json_array_size(market_list); ++i) {
         const char *market_name = json_string_value(json_array_get(market_list, i));
-        get_trade_users_detail(dict, user_set, market_name, start_time, end_time);
+        get_trade_users_detail(dict, user_list, market_name, start_time, end_time);
         diter = dict_get_iterator(dict);
         json_t *market_info = json_object();
         while ((entry = dict_next(diter)) != NULL) {
@@ -2504,7 +2498,6 @@ json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t sta
         dict_clear(dict);
     }
     
-    uint32_set_release(user_set);
     dict_release(dict);
     return result;
 }
