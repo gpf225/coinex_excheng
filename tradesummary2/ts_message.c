@@ -2315,7 +2315,7 @@ static int get_trade_users_detail(dict_t *dict, json_t *user_list, const char *m
         return 0;
     struct market_info_val *market_info = entry->val;
 
-    for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60) {
+    for (time_t timestamp = start_time / 60 * 60; timestamp < end_time; timestamp += 60) {
         void *tkey = (void *)(uintptr_t)timestamp;
         dict_entry *entry_users = dict_find(market_info->users_detail, tkey);
         if (entry_users == NULL)
