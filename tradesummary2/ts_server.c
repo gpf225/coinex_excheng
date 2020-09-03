@@ -7,7 +7,7 @@
 # include "ts_server.h"
 # include "ts_message.h"
 
-# define MAX_USER_LIST_LEN 500
+# define MAX_USER_LIST_LEN 1000
 static rpc_svr *svr;
 
 static int on_cmd_trade_net_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
