@@ -1973,30 +1973,129 @@ static int persist_market(redisContext *context, json_t *markets, time_t last_pe
     return 0;
 }
 
-static int persist_to_redis(time_t last_persist, time_t last_dump)
+static int clear_key(redisContext *context, const char *key, time_t start_time)
 {
+    redisReply *reply = redisCmd(context, "keys %s", key);
+    if (reply == NULL)
+        return -__LINE__;
+
+    for (size_t i = 0; i < reply->elements; i++) {
+        char *key = reply->element[i]->str;
+        int count;
+        sds *tokens = sdssplitlen(key, sdslen(key), ":", 1, &count);
+        if (count == 0) {
+            log_error("invalid key: %s", key);
+            sdsfreesplitres(tokens, count);
+            continue;
+        }
+
+        time_t timestamp = atol(tokens[count - 1]);
+        sdsfreesplitres(tokens, count);
+        if (timestamp >=  start_time) {
+            continue;
+        }
+
+        redisReply *r = redisCmd(context, "DEL %s", key);
+        if (r == NULL) {
+            log_info("del key %s fail", key);
+            continue;
+        }
+        log_info("del key %s success", key);
+        freeReplyObject(r);
+    }
+    freeReplyObject(reply);
+
+    return 0;
+}
+
+static int clear_redis(redisContext *context, time_t last_persist)
+{
+    time_t start_time = last_persist / 86400 * 86400 - settings.keep_days * 86400;
+    //clear market
+    int ret = clear_key(context, "s:persist:market:*", start_time);
+    if (ret < 0) {
+        log_error("clear market fail: %d", ret);
+    }
+
+    //clear user
+    ret = clear_key(context, "s:persist:user:*", start_time);
+    if (ret < 0) {
+        log_error("clear user fail: %d", ret);
+    }
+
+    //clear fee
+    ret = clear_key(context, "s:persist:fee:*", start_time);
+    if (ret < 0) {
+        log_error("clear fee fail: %d", ret);
+    }
+
+    //clear client info
+    ret = clear_key(context, "s:persist:cuser:*", start_time);
+    if (ret < 0) {
+        log_error("clear client user fail: %d", ret);
+    }
+
+    //clear client fee
+    ret = clear_key(context, "s:persist:cfee:*", start_time);
+    if (ret < 0) {
+        log_error("clear client fee fail: %d", ret);
+    }
+
+    //clear user detail
+    ret = clear_key(context, "s:persist:userdetail:*", start_time);
+    if (ret < 0) {
+        log_error("clear user detail fail: %d", ret);
+    }
+    return 0;
+}
+
+static void persist_to_redis(time_t last_persist, time_t last_dump)
+{
+    log_info("last_persist: %zd, last_dump: %zd", last_persist, last_dump);
+    dlog_flush_all();
+    int pid = fork();
+    if (pid < 0) {
+        log_fatal("fork fail: %d", pid);
+        return;
+    } else if (pid > 0) {
+        return;
+    }
+
     log_info("start dump to redis");
     redisContext *context = redis_connect(&settings.redis);
-    if (context == NULL)
-        return -__LINE__;
+    if (context == NULL) {
+        log_info("connect to redis fail");
+        exit(0);
+    }
 
     json_t *markets = get_market_dict();
     if (markets == NULL) {
         log_error("get market list fail");
-        return -__LINE__;
+        exit(0);
     }
 
     time_t new_persist = 0;
     int ret = persist_market(context, markets, last_persist, last_dump, &new_persist);
     if (ret < 0) {
         redisFree(context);
-        log_error("dump_market_list_info fail: %d", ret);
-        return -__LINE__;
+        log_error("persist market fail: %d", ret);
+        exit(0);
+    }
+
+    if (new_persist == 0) {
+        redisFree(context);
+        log_info("persist no data");
+        exit(0);
     }
 
     set_persist_offset(context, new_persist, kafka_orders_offset, kafka_deals_offset);
+
+    ret = clear_redis(context, new_persist);
+    if (ret < 0) {
+        log_info("clear redis fail: %d", ret);
+    }
     redisFree(context);
-    return 0;
+    exit(0);
 }
 
 static int load_market(redisContext *context, json_t *markets, time_t last_persist, time_t last_dump)
@@ -2090,22 +2189,6 @@ static int load_from_redis()
     return ret;
 }
 
-static void make_slice(time_t last_persist, time_t last_dump)
-{
-    log_info("last_persist: %zd, last_dump: %zd", last_persist, last_dump);
-    dlog_flush_all();
-    int pid = fork();
-    if (pid < 0) {
-        log_fatal("fork fail: %d", pid);
-        return;
-    } else if (pid > 0) {
-        return;
-    }
-
-    persist_to_redis(last_persist, last_dump);
-    exit(0);
-}
-
 static void dump_summary(time_t last_dump, time_t day_start)
 {
     log_info("last_dump: %zd, day_start: %zd", last_dump, day_start);
@@ -2134,10 +2217,9 @@ static void dump_summary(time_t last_dump, time_t day_start)
 static void on_dump_timer(nw_timer *timer, void *privdata)
 {
     time_t now = time(NULL);
-    /*
+
     if (now % 600 >= 60)
         return;
-    */
     if (!is_kafka_synced()) {
         return;
     }
@@ -2158,19 +2240,14 @@ static void on_dump_timer(nw_timer *timer, void *privdata)
         dump_summary(last_dump, last_day_start);
     }
 
-    /*
-    if (now % 3600 > 180)
+    
+    if (now % 3600 > 60)
         return;
-    */
 
     time_t last_persist = 0;
     get_persist_offset(&last_persist, NULL, NULL);
-    //time_t now_hour = now / 3600 * 3600;
-    time_t now_min = now / 60 * 60;
-    log_trace("now_min: %ld, last_persist: %ld", now_min, last_persist);
-    if (now_min > last_persist) {
-        make_slice(last_persist, last_dump);
-    }
+    log_info("last_persist: %ld", last_persist);
+    persist_to_redis(last_persist, last_dump);
 }
 
 static void clear_market(struct market_info_val *market_info, time_t end)
