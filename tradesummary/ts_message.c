@@ -545,8 +545,10 @@ static int update_user_volume(dict_t *users_trade, dict_t *users_detail, uint32_
 
     if (side == MARKET_TRADE_SIDE_BUY) {
         mpd_add(user_detail->buy_amount, user_detail->buy_amount, amount, &mpd_ctx);
+        mpd_add(user_detail->buy_volume, user_detail->buy_volume, volume, &mpd_ctx);
     } else {
         mpd_add(user_detail->sell_amount, user_detail->sell_amount, amount, &mpd_ctx);
+        mpd_add(user_detail->sell_volume, user_detail->sell_volume, volume, &mpd_ctx);
     }
 
     return 0;
