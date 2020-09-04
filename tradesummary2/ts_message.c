@@ -2320,7 +2320,6 @@ int init_message(void)
     int ret = load_from_redis();
     if (ret < 0) {
         log_error("load from redis fail: %d", ret);
-        //return ret;
     }
 
     int64_t offset = kafka_deals_offset == 0 ? RD_KAFKA_OFFSET_END : kafka_deals_offset + 1;
