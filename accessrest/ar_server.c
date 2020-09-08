@@ -1,4 +1,4 @@
-vi m/*
+/*
  * Copyright (c) 2018, Haipo Yang <yang@haipo.me>
  * All rights reserved.
  */
