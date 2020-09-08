@@ -19,6 +19,7 @@ typedef struct market_t {
     int             money_prec;
     int             fee_prec;
     int             account;
+    uint64_t        update_id;
     bool            call_auction;
     double          last_calc_time;
     mpd_t           *min_amount;

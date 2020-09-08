@@ -33,7 +33,10 @@ static int push_operlog(const char *method, json_t *params)
 
     log_trace("operlog: %s", detail);
     for (int i = 0; i < settings.reader_num; ++i) {
-        queue_push(&queue_writers[i], detail, strlen(detail));
+        int ret = queue_push(&queue_writers[i], detail, strlen(detail));
+        if (ret < 0) {
+            log_fatal("queue push fail, queue: %d, detail: %s", i, detail);
+        }
     }
     append_operlog(detail);
     free(detail);
@@ -631,6 +634,13 @@ static int on_cmd_order_cancel_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return rpc_reply_success(ses, pkg);
 }
 
+static bool check_stop_option(uint32_t option)
+{
+    if ((option & (~OPTION_CHECK_MASK)) != 0 || (option & OPTION_MAKER_ONLY) || (option & OPTION_FILL_OR_KILL))
+        return false;
+    return true;
+}
+
 static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) < 13)
@@ -732,7 +742,7 @@ static int on_cmd_put_stop_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     uint32_t option = 0;
     if (json_is_integer(json_array_get(params, 12))) {
         option = json_integer_value(json_array_get(params, 12));
-        if ((option & (~OPTION_CHECK_MASK)) != 0)
+        if (!check_stop_option(option))
             goto invalid_argument;
     }
 
@@ -875,7 +885,7 @@ static int on_cmd_put_stop_market(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     uint32_t option = 0;
     if (json_is_integer(json_array_get(params, 10))) {
         option = json_integer_value(json_array_get(params, 10));
-        if ((option & (~OPTION_CHECK_MASK)) != 0)
+        if (!check_stop_option(option))
             goto invalid_argument;
     }
 
@@ -1198,7 +1208,7 @@ static bool is_queue_block()
     return false;
 }
 
-static bool is_service_availablce(void)
+static bool is_service_available(void)
 {
     bool queue_block = is_queue_block();
     bool operlog_block = is_operlog_block();
@@ -1222,7 +1232,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     int ret;
     switch (pkg->command) {
     case CMD_ASSET_UPDATE:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1233,7 +1243,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ASSET_LOCK:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1244,7 +1254,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ASSET_UNLOCK:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1255,7 +1265,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ASSET_BACKUP:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1266,7 +1276,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_PUT_LIMIT:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1277,7 +1287,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_PUT_MARKET:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1288,7 +1298,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_CANCEL:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1299,7 +1309,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_CANCEL_ALL:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1310,7 +1320,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_PUT_STOP_LIMIT:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1321,7 +1331,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_PUT_STOP_MARKET:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1332,7 +1342,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_CANCEL_STOP:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1343,7 +1353,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_ORDER_CANCEL_STOP_ALL:
-        if (!is_service_availablce()) {
+        if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
             goto cleanup;
         }
@@ -1368,6 +1378,10 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_MARKET_SELF_DEAL:
+        if (!is_service_available()) {
+            rpc_reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
         profile_inc("cmd_market_self_deal", 1);
         ret = on_cmd_self_market_deal(ses, pkg, params);
         if (ret < 0) {
@@ -1375,6 +1389,10 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_CALL_AUCTION_START:
+        if (!is_service_available()) {
+            rpc_reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
         profile_inc("cmd_call_auction_start", 1);
         ret = on_cmd_call_auction_start(ses, pkg, params);
         if (ret < 0) {
@@ -1382,6 +1400,10 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         }
         break;
     case CMD_CALL_AUCTION_EXECUTE:
+        if (!is_service_available()) {
+            rpc_reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
         profile_inc("cmd_call_auction_execute", 1);
         ret = on_cmd_call_auction_execute(ses, pkg, params);
         if (ret < 0) {

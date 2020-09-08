@@ -955,6 +955,26 @@ static int clear_dump_data(MYSQL *conn, time_t timestamp)
     }
 
     sdsclear(sql);
+    sql = sdscatprintf(sql, "DELETE from client_trade_summary_%s where trade_date = '%s'", date_mon, date_day);
+    log_trace("exec sql: %s", sql);
+    ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        ret = -__LINE__;
+        goto cleanup;
+    }
+
+    sdsclear(sql);
+    sql = sdscatprintf(sql, "DELETE from client_fee_summary_%s where trade_date = '%s'", date_mon, date_day);
+    log_trace("exec sql: %s", sql);
+    ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        ret = -__LINE__;
+        goto cleanup;
+    }
+
+    sdsclear(sql);
     sql = sdscatprintf(sql, "DELETE from coin_trade_summary where trade_date = '%s'", date_day);
     log_trace("exec sql: %s", sql);
     ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -1055,7 +1075,7 @@ static int dump_client_dict_info(MYSQL *conn, const char *market_name, const cha
         struct client_user_trade_key *key = (struct client_user_trade_key *)entry->key;
         struct users_trade_val *user_info = entry->val;
 
-        if (index == 0) {
+        if (index % insert_limit == 0) {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `client_id`, `user_id`, `market`, `stock_asset`, `money_asset`, `deal_amount`, `deal_volume`, "
                     "`buy_amount`, `buy_volume`, `sell_amount`, `sell_volume`, `taker_amount`, `taker_volume`, `maker_amount`, `maker_volume`, `deal_count`, "
                     "`deal_buy_count`, `deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order`) VALUES ", table);
@@ -1120,7 +1140,7 @@ static int dump_user_dict_info(MYSQL *conn, const char *market_name, const char 
         uint32_t user_id = (uintptr_t)entry->key;
         struct users_trade_val *user_info = entry->val;
 
-        if (index == 0) {
+        if (index % insert_limit == 0) {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `user_id`, `market`, `stock_asset`, `money_asset`, `deal_amount`, `deal_volume`, "
                     "`buy_amount`, `buy_volume`, `sell_amount`, `sell_volume`, `taker_amount`, `taker_volume`, `maker_amount`, `maker_volume`, `deal_count`, "
                     "`deal_buy_count`, `deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order`) VALUES ", table);
@@ -1185,7 +1205,7 @@ static int dump_client_fee_dict_info(MYSQL *conn, const char *market_name, time_
         struct client_fee_key *fkey = entry->key;
         struct fee_val *fval = entry->val;
 
-        if (index == 0) {
+        if (index % insert_limit == 0) {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `client_id`, `user_id`, `market`, `asset`, `fee`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
@@ -1237,7 +1257,7 @@ static int dump_fee_dict_info(MYSQL *conn, const char *market_name, time_t times
         struct fee_key *fkey = entry->key;
         struct fee_val *fval = entry->val;
 
-        if (index == 0) {
+        if (index % insert_limit == 0) {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `user_id`, `market`, `asset`, `fee`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
