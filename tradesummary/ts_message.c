@@ -1633,6 +1633,10 @@ static int get_trade_users_detail(dict_t *dict, json_t *user_list, const char *m
 
 json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t start_time, time_t end_time)
 {
+    if (!is_kafka_synced()) {
+        return NULL;
+    }
+    
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.hash_function  = uint32_dict_hash_func; 
