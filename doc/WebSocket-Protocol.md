@@ -501,6 +501,14 @@ response:
 * method: `asset.unsubscribe`
 * params: none
 
+**Asset subscription delay(delay time can be change, 1s default)**
+* method: `asset.subscribe_delay`
+* params: asset list, null for subscribe all
+
+**Cancel subscription delay**
+* method: `asset.unsubscribe_delay`
+* params: none
+
 **Sub-account asset subscription**
 * method: `asset.subscribe_sub`
 * params: user list, null for subscribe all
