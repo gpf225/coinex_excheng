@@ -81,6 +81,7 @@ struct settings {
     char                *accesshttp;
     double              backend_timeout;
     double              kline_interval;
+    double              asset_delay;
 
     depth_limit_cfg     depth_limit;
     depth_merge_cfg     depth_merge;
