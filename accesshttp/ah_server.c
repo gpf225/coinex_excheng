@@ -359,6 +359,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.put_limit", matchengine, CMD_ORDER_PUT_LIMIT));
     ERR_RET_LN(add_handler("order.put_market", matchengine, CMD_ORDER_PUT_MARKET));
     ERR_RET_LN(add_handler("order.cancel", matchengine, CMD_ORDER_CANCEL));
+    ERR_RET_LN(add_handler("order.cancel_batch", matchengine, CMD_ORDER_CANCEL_BATCH));
     ERR_RET_LN(add_handler("order.cancel_all", matchengine, CMD_ORDER_CANCEL_ALL));
     ERR_RET_LN(add_handler("order.book", matchengine, CMD_ORDER_BOOK));
     ERR_RET_LN(add_handler("order.depth", NULL, CMD_CACHE_DEPTH));

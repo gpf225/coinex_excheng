@@ -50,6 +50,7 @@
 # define CMD_ORDER_CANCEL_STOP_ALL      219
 # define CMD_CALL_AUCTION_START         220
 # define CMD_CALL_AUCTION_EXECUTE       221
+# define CMD_ORDER_CANCEL_BATCH         222
 
 // market
 # define CMD_MARKET_LIST                301
