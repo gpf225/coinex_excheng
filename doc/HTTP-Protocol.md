@@ -365,6 +365,32 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 10. order not found
 11. user not match
 
+**Cancel order batch**
+* method: `order.cancel_batch`
+* params:
+1. user_id: user ID
+2. market：market
+3. order_id list： array of order ID list 
+
+* result:
+
+```
+{
+    'id': 1, 
+    'result': [
+        {
+            "code": 10, //10:order not found; 11:user not match
+            "message": "order not found",
+            "order": {
+                //order detail
+            }
+        }
+    ],
+    'error': null
+}
+```
+
+
 
 **Cancel all order**
 * method: `order.cancel_all`

@@ -592,6 +592,83 @@ static int on_cmd_order_cancel(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+static json_t *cancel_order_batch(market_t *market, uint32_t user_id, json_t *order_id_list)
+{
+    json_t *result = json_array();
+    for (size_t i = 0; i < json_array_size(order_id_list); i++) {
+        uint64_t order_id = json_integer_value(json_array_get(order_id_list, i));
+        order_t *order = market_get_order(market, order_id);
+        json_t *item = json_object();
+        if (order == NULL) {
+            json_object_set_new(item, "code", json_integer(10));
+            json_object_set_new(item, "message", json_string("order not found"));
+            json_object_set_new(item, "order", json_null());
+        } else if (order->user_id != user_id) {
+            json_object_set_new(item, "code", json_integer(11));
+            json_object_set_new(item, "message", json_string("user not match"));
+            json_object_set_new(item, "order", json_null());
+        } else {
+            json_t *order_result = NULL;
+            int ret = market_cancel_order(true, &order_result, market, order);
+            if (ret == 0) {
+                json_object_set_new(item, "code", json_integer(0));
+                json_object_set_new(item, "message", json_string(""));
+                json_object_set_new(item, "order", order_result);
+
+                json_t *operlog_params = json_array();
+                json_array_append_new(operlog_params, json_integer(user_id));
+                json_array_append_new(operlog_params, json_string(market->name));
+                json_array_append_new(operlog_params, json_integer(order_id));
+                push_operlog("cancel_order", operlog_params);
+                json_decref(operlog_params);
+            } else {
+                log_fatal("cancel order: %"PRIu64" fail: %d", order->id, ret);
+                json_object_set_new(item, "code", json_integer(1));
+                json_object_set_new(item, "message", json_string("internal error"));
+                json_object_set_new(item, "order", json_null());
+                if (order_result) {
+                    json_decref(order_result);
+                }
+            }
+        }
+        json_array_append_new(result, item);
+    }
+    return result;
+}
+
+static int on_cmd_order_cancel_batch(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 3)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // market
+    if (!json_is_string(json_array_get(params, 1)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    const char *market_name = json_string_value(json_array_get(params, 1));
+    market_t *market = get_market(market_name);
+    if (market == NULL)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    // order_id
+    if (!json_is_array(json_array_get(params, 2)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    json_t *order_id_list = json_array_get(params, 2);
+    size_t order_len = json_array_size(order_id_list);
+    if (order_len == 0 || order_len > ORDER_LIST_MAX_LEN)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = cancel_order_batch(market, user_id, order_id_list);
+    int ret = rpc_reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
 static int on_cmd_order_cancel_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) < 3)
@@ -1306,6 +1383,17 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_order_cancel(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_order_cancel %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ORDER_CANCEL_BATCH:
+        if (!is_service_available()) {
+            rpc_reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
+        profile_inc("cmd_order_cancel_batch", 1);
+        ret = on_cmd_order_cancel_batch(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_order_cancel_batch %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ORDER_CANCEL_ALL:
