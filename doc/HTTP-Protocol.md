@@ -1281,6 +1281,38 @@ response:
 }
 ```
 
+**Users Volume**
+* method: `trade.users_volume`
+* params:
+1. market list: array
+2. user list: array
+2. start_time: start time  Integer
+3. end_time: start time  Integer
+
+* example: trade.users_volume [["BTCUSDT"], [476], 1598357836, 1598929182]
+* result:
+
+```
+{
+    "id": 1572834684,
+    "result": {
+        "BTCUSDT": {
+            "476":     //user_id
+            [
+                "3400.1020000000000000",  //buy volume
+                "3400.1020000000000000"   //sell volume
+            ],
+            "477":     //user_id
+            [
+                "3400.1020000000000000",  //buy volume
+                "3400.1020000000000000"   //sell volume
+            ]
+        }
+    },
+    "error": null
+}
+```
+
 ## Index API
 
 **market index list**
