@@ -92,9 +92,11 @@ static int on_header_value(http_parser* parser, const char* at, size_t length)
 static int on_body(http_parser* parser, const char* at, size_t length)
 {
     struct clt_info *info = parser->data;
-    if (info->request->body)
-        sdsfree(info->request->body);
-    info->request->body = sdsnewlen(at, length);
+    if (info->request->body) {
+        info->request->body = sdscatlen(info->request->body, at, length);
+    } else {
+        info->request->body = sdsnewlen(at, length);
+    }
 
     return 0;
 }
