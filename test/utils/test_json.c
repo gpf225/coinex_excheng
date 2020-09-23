@@ -13,6 +13,14 @@
 
 int main(void)
 {
+    json_t *object = json_object();
+    json_object_set_new(object, "key1", json_string("key1"));
+    json_object_set_new(object, "key2", json_string("key2"));
+    json_object_set_new(object, "key3", NULL);
+    char *object_str = json_dumps(object, 0);
+    printf("%s\n", object_str);
+
+
     json_t **jsons = (json_t **)malloc(sizeof(json_t *) * 12000);
     for (int j = 0; j < 12000; j++) {
         jsons[j] = json_object();

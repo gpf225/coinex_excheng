@@ -345,9 +345,6 @@ static void on_timer(nw_timer *timer, void *privdata)
         struct dict_depth_key *key = entry->key;
         struct dict_depth_sub_val *val = entry->val;
         if (dict_size(val->sessions) == 0 || !market_exist(key->market)) {
-            sds cache_key = get_cache_key(key->market, key->interval);
-            delete_cache(cache_key);
-            sdsfree(cache_key);
             dict_delete(dict_depth_sub, entry->key);
             continue;
         }
