@@ -208,9 +208,13 @@ static void on_backend_connect(nw_ses *ses, bool result)
 static void process_cache(struct state_data *state, sds filter_key, json_t *depth, uint64_t update_id)
 {
     struct dict_cache_val *cache = get_cache(filter_key);
-    if (cache && update_id == cache->update_id) {
-        json_t *last = json_object_get(depth, "last");
-        update_cache(cache, last);
+    if (cache) {
+        if (update_id == cache->update_id) {
+            json_t *last = json_object_get(depth, "last");
+            update_cache(cache, last);
+        } else if (update_id > cache->update_id) {
+            add_cache(filter_key, depth, update_id);
+        }
     } else {
         add_cache(filter_key, depth, update_id);
     }
