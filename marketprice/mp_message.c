@@ -74,6 +74,7 @@ static nw_timer flush_timer;
 static nw_timer clear_timer;
 static nw_timer redis_timer;
 static nw_timer market_timer;
+static int pipeline_count;
 
 static void dict_kline_val_free(void *val)
 {
@@ -886,6 +887,24 @@ cleanup:
     return;
 }
 
+static int pipe_excute(redisContext *context)
+{
+    int count = 0;
+    redisReply *reply = NULL;
+    while(redisGetReply(context,(void *)&reply) == REDIS_OK) {
+        freeReplyObject(reply);
+        count++;
+        if (count >= pipeline_count)
+            break;
+    }
+
+    if (count < pipeline_count) {
+        return -__LINE__;
+    }
+    pipeline_count = 0;
+    return 0;
+}
+
 static int flush_deals(redisContext *context, const char *market, sds key, list_t *list)
 {
     int argc = 2 + list->len;
@@ -908,21 +927,13 @@ static int flush_deals(redisContext *context, const char *market, sds key, list_
     }
     list_release_iterator(iter);
 
-    redisReply *reply = redisCommandArgv(context, argc, argv, argvlen);
-    if (reply == NULL) {
-        free(argv);
-        free(argvlen);
-        return -__LINE__;
-    }
-
+    redisAppendCommandArgv(context, argc, argv, argvlen);
+    pipeline_count++;
     free(argv);
     free(argvlen);
-    freeReplyObject(reply);
 
-    reply = redisCmd(context, "LTRIM %s 0 %d", key, MARKET_DEALS_MAX - 1);
-    if (reply) {
-        freeReplyObject(reply);
-    }
+    redisAppendCommand(context, "LTRIM %s 0 %d", key, MARKET_DEALS_MAX - 1);
+    pipeline_count++;
 
     list_clear(list);
     return 0;
@@ -956,15 +967,10 @@ static int flush_kline(redisContext *context, struct market_info *info, struct u
         return -__LINE__;
     }
 
-    redisReply *reply = redisCmd(context, "HSET %s %ld %s", key, ukey->timestamp, str);
-    if (reply == NULL) {
-        free(str);
-        sdsfree(key);
-        return -__LINE__;
-    }
+    redisAppendCommand(context, "HSET %s %ld %s", key, ukey->timestamp, str);
+    pipeline_count++;
     free(str);
     sdsfree(key);
-    freeReplyObject(reply);
 
     return 0;
 }
@@ -1027,13 +1033,10 @@ static int flush_last(redisContext *context, const char *market, mpd_t *last)
     char *last_str = mpd_format(last, "f", &mpd_ctx);
     if (last_str == NULL)
         return -__LINE__;
-    redisReply *reply = redisCmd(context, "SET k:%s:last %s", market, last_str);
-    if (reply == NULL) {
-        free(last_str);
-        return -__LINE__;
-    }
+
+    redisAppendCommand(context, "SET k:%s:last %s", market, last_str);
+    pipeline_count++;
     free(last_str);
-    freeReplyObject(reply);
 
     return 0;
 }
@@ -1062,6 +1065,7 @@ static int flush_market(void)
         return -__LINE__;
 
     int ret;
+    pipeline_count = 0;
     dict_iterator *iter = dict_get_iterator(dict_market);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
@@ -1107,8 +1111,23 @@ static int flush_market(void)
                 return ret;
             }
         }
+
+        if (pipeline_count > settings.pipeline_len_max) {
+            ret = pipe_excute(context);
+            if (ret < 0) {
+                redisFree(context);
+                dict_release_iterator(iter);
+                return ret;
+            }
+        }
     }
     dict_release_iterator(iter);
+
+    ret = pipe_excute(context);
+    if (ret < 0) {
+        redisFree(context);
+        return ret;
+    }
 
     ret = flush_deals_offset(context);
     if (ret < 0) {
@@ -1163,7 +1182,7 @@ static void on_flush_timer(nw_timer *timer, void *privdata)
     if (ret < 0) {
         log_fatal("flush_market fail: %d", ret);
     }
-    log_trace("flush market cost: %.6f", current_timestamp() - start);
+    log_info("flush market cost: %.6f", current_timestamp() - start);
 }
 
 static void on_clear_timer(nw_timer *timer, void *privdata)
