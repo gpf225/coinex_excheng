@@ -1233,7 +1233,9 @@ static int update_market_list(json_t *market_list)
     if (market_list == NULL)
         return -__LINE__;
 
-    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+    double start = current_timestamp();
+    size_t market_count = json_array_size(market_list);
+    for (size_t i = 0; i < market_count; ++i) {
         json_t *item = json_array_get(market_list, i);
         const char *name = json_string_value(json_object_get(item, "name"));
         const char *stock = json_string_value(json_object_get(item, "stock"));
@@ -1278,7 +1280,8 @@ static int update_market_list(json_t *market_list)
             }
         }
     }
-
+    double end = current_timestamp();
+    log_info("update_market_list cost: %f, market count: %zu", end - start, market_count);
     return 0;
 }
 
@@ -1289,7 +1292,10 @@ static int update_index_list(json_t *index_list)
 
     const char *key;
     json_t *val;
+    int index_count = 0;
+    double start = current_timestamp();
     json_object_foreach(index_list, key, val) {
+        index_count++;
         char *index_name = convert_index_name(key);
         if (get_market_id(index_name) != worker_id)
             continue;
@@ -1302,7 +1308,8 @@ static int update_index_list(json_t *index_list)
             log_info("add market: %s", index_name);
         }
     }
-
+    double end = current_timestamp();
+    log_info("update_index_list cost: %f, market count: %d", end - start, index_count);
     return 0;
 }
 
