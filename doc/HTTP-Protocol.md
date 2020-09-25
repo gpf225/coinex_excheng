@@ -1091,8 +1091,8 @@ response:
         "8000.0",   close
         "8100.00",  highest
         "6800.00",  lowest
-        "1000.00"   volume
-        "123456.78" amount
+        "1000.00"   amount
+        "123456.78" volume
         "BTCCNY"    market name
     ]
 ]
