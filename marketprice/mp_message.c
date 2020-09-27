@@ -115,7 +115,6 @@ static void list_deals_json_free(void *val)
 
 static redisContext *get_redis_connection()
 {
-    log_info("redis");
     return redis_connect(&settings.redis);
 }
 
