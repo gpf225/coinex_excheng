@@ -52,6 +52,7 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_int(root, "min_max", &settings.min_max, false, 60 * 24 * 30));
     ERR_RET_LN(read_cfg_int(root, "hour_max", &settings.hour_max, false, 24 * 365 * 3));
     ERR_RET_LN(read_cfg_int(root, "deal_summary_max", &settings.deal_summary_max, false, 1000));
+    ERR_RET_LN(read_cfg_int(root, "pipeline_len_max", &settings.pipeline_len_max, false, 1000));
     ERR_RET_LN(read_cfg_int(root, "kline_max", &settings.kline_max, false, 1000));
     ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 4));
     ERR_RET_LN(read_cfg_real(root, "cache_timeout", &settings.cache_timeout, false, 0.4));

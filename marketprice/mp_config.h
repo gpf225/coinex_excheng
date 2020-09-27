@@ -57,6 +57,7 @@ struct settings {
     int                 kline_max;
     int                 worker_num;
     int                 deal_summary_max;
+    int                 pipeline_len_max;
     double              cache_timeout;
     double              worker_timeout;
     char                *accesshttp;
