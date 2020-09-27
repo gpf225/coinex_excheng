@@ -14,6 +14,7 @@ struct state_info {
     nw_ses  *ses;
     uint64_t ses_id;
     uint32_t sequence;
+    uint32_t worker_id;
 };
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
@@ -36,6 +37,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     pkg->sequence = entry->id;
     int id = get_market_id(market);
+    state->worker_id = id;
     rpc_clt_send(worker_arr[id], pkg);
 
     json_decref(params);
@@ -67,6 +69,7 @@ static void on_state_timeout(nw_state_entry *entry)
 {
     log_error("state id: %u timeout", entry->id);
     struct state_info *info = entry->data;
+    log_info("worker_id: %d", info->worker_id);
     if (info->ses->id == info->ses_id) {
         log_error("request timeout");
     }

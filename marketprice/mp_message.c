@@ -115,6 +115,7 @@ static void list_deals_json_free(void *val)
 
 static redisContext *get_redis_connection()
 {
+    log_info("redis");
     return redis_connect(&settings.redis);
 }
 
@@ -887,8 +888,12 @@ cleanup:
     return;
 }
 
-static int pipe_excute(redisContext *context)
+static int pipeline_excute(redisContext *context)
 {
+    log_trace("pipeline_count: %d", pipeline_count);
+    if (pipeline_count == 0)
+        return 0;
+
     int count = 0;
     redisReply *reply = NULL;
     while(redisGetReply(context,(void *)&reply) == REDIS_OK) {
@@ -934,7 +939,6 @@ static int flush_deals(redisContext *context, const char *market, sds key, list_
 
     redisAppendCommand(context, "LTRIM %s 0 %d", key, MARKET_DEALS_MAX - 1);
     pipeline_count++;
-
     list_clear(list);
     return 0;
 }
@@ -966,12 +970,17 @@ static int flush_kline(redisContext *context, struct market_info *info, struct u
         sdsfree(key);
         return -__LINE__;
     }
-
     redisAppendCommand(context, "HSET %s %ld %s", key, ukey->timestamp, str);
-    pipeline_count++;
     free(str);
     sdsfree(key);
 
+    pipeline_count++;
+    if (pipeline_count >= settings.pipeline_len_max) {
+        int ret = pipeline_excute(context);
+        if (ret < 0) {
+            return ret;
+        }
+    }
     return 0;
 }
 
@@ -1112,8 +1121,8 @@ static int flush_market(void)
             }
         }
 
-        if (pipeline_count > settings.pipeline_len_max) {
-            ret = pipe_excute(context);
+        if (pipeline_count >= settings.pipeline_len_max) {
+            ret = pipeline_excute(context);
             if (ret < 0) {
                 redisFree(context);
                 dict_release_iterator(iter);
@@ -1123,7 +1132,7 @@ static int flush_market(void)
     }
     dict_release_iterator(iter);
 
-    ret = pipe_excute(context);
+    ret = pipeline_excute(context);
     if (ret < 0) {
         redisFree(context);
         return ret;

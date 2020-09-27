@@ -34,6 +34,7 @@ int main(void)
         redisAppendCommand(context, "HSET test2 %d %d", i, i);
     }
 
+    
     /*
     redisReply *reply = NULL;
     redisGetReply(context,(void *)&reply);
