@@ -14,7 +14,7 @@ struct state_info {
     nw_ses  *ses;
     uint64_t ses_id;
     uint32_t sequence;
-    uint32_t worker_id;
+    int      worker_id;
 };
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
@@ -67,9 +67,8 @@ static void svr_on_connection_close(nw_ses *ses)
 
 static void on_state_timeout(nw_state_entry *entry)
 {
-    log_error("state id: %u timeout", entry->id);
     struct state_info *info = entry->data;
-    log_info("worker_id: %d", info->worker_id);
+    log_error("worker id: %d, state id: %u, timeout", info->worker_id, entry->id);
     if (info->ses->id == info->ses_id) {
         log_error("request timeout");
     }
