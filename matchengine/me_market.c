@@ -1674,6 +1674,9 @@ int market_put_limit_order(bool real, json_t **result, market_t *m, uint32_t use
         }
         order_free(order);
     } else if (immediate_or_cancel) {
+        if (real && result) {
+            *result = get_order_info(order, false);
+        }
         if (is_reader) {
             record_fini_order(order);
         }
