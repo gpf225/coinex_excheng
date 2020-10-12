@@ -37,6 +37,8 @@ struct client_fee_key {
 
 struct fee_val {
     mpd_t *value;
+    mpd_t *taker_fee;
+    mpd_t *maker_fee;
 };
 
 struct daily_trade_val {
@@ -280,46 +282,60 @@ static int trade_amount_rank_val_compare(const void *val1, const void *val2)
     return 1;
 }
 
-static int set_message_offset(const char *topic, time_t when, int64_t offset)
+static int set_persist_offset(redisContext *context, time_t timestamp, int64_t order_offset, int64_t deal_offset)
 {
-    redisContext *context = redis_connect(&settings.redis);
-    if (context == NULL)
-        return -__LINE__;
+    json_t *offset_obj = json_object();
+    json_object_set_new(offset_obj, "order_offset", json_integer(order_offset));
+    json_object_set_new(offset_obj, "deal_offset", json_integer(deal_offset));
+    char *offset_str = json_dumps(offset_obj, 0);
 
-    redisReply *reply = redisCmd(context, "HSET s:offset:%s %ld %"PRIi64, topic, when, offset);
+    redisReply *reply = redisCmd(context, "HSET s:persist:offset %ld %s", timestamp, offset_str);
+
+    free(offset_str);
+    json_decref(offset_obj);
     if (reply == NULL) {
         return -__LINE__;
     }
 
     freeReplyObject(reply);
-    redisFree(context);
     return 0;
 }
 
-static int64_t get_message_offset(const char *topic)
+static int get_persist_offset(time_t *timestamp, int64_t *order_offset, int64_t *deal_offset)
 {
     redisContext *context = redis_connect(&settings.redis);
     if (context == NULL)
         return -__LINE__;
 
-    time_t now = time(NULL) / 3600 * 3600;
-    for (time_t start = now - settings.keep_days * 86400; start <= now; start += 3600) {
-        redisReply *reply = redisCmd(context, "HGET s:offset:%s %ld", topic, start);
-        if (reply == NULL) {
-            redisFree(context);
-            return -__LINE__;
-        }
-        if (reply->type == REDIS_REPLY_STRING) {
-            int64_t offset = strtoll(reply->str, NULL, 0);
-            freeReplyObject(reply);
-            redisFree(context);
-            return offset;
-        } else {
-            freeReplyObject(reply);
-            continue;
+    redisReply *reply = redisCmd(context, "HGETALL s:persist:offset");
+    if (reply == NULL) {
+        redisFree(context);
+        return -__LINE__;
+    }
+
+    int index = 0;
+    for (size_t i = 0; i < reply->elements; i += 2) {
+        time_t time = strtol(reply->element[i]->str, NULL, 0);
+        if (time > *timestamp) {
+            *timestamp = time;
+            index = i + 1;
         }
     }
 
+    if (order_offset != NULL && deal_offset != NULL && index > 0) {
+        json_t *offset_obj = json_loadb(reply->element[index]->str, strlen(reply->element[index]->str), 0, NULL);
+        if (offset_obj == NULL || !json_is_object(offset_obj)) {
+            freeReplyObject(reply);
+            redisFree(context);
+            return -__LINE__;
+        }
+
+        *order_offset = json_integer_value(json_object_get(offset_obj, "order_offset"));
+        *deal_offset = json_integer_value(json_object_get(offset_obj, "deal_offset"));
+
+        json_decref(offset_obj);
+    }
+    freeReplyObject(reply);
     redisFree(context);
     return 0;
 }
@@ -564,7 +580,7 @@ static int update_client_volume(dict_t *users_trade, const char *client_id, uint
     return 0;
 }
 
-static int update_fee(dict_t *fees_detail, uint32_t user_id, const char *asset, mpd_t *fee)
+static int update_fee(dict_t *fees_detail, uint32_t user_id, const char *asset, mpd_t *fee, bool is_taker)
 {
     struct fee_key key;
     memset(&key, 0, sizeof(key));
@@ -575,10 +591,22 @@ static int update_fee(dict_t *fees_detail, uint32_t user_id, const char *asset, 
     if (entry == NULL) {
         struct fee_val *val = malloc(sizeof(struct fee_val));
         val->value = mpd_qncopy(fee);
+        if (is_taker){
+            val->taker_fee = mpd_qncopy(fee);
+            val->maker_fee = mpd_qncopy(mpd_zero);
+        } else {
+            val->taker_fee = mpd_qncopy(mpd_zero);
+            val->maker_fee = mpd_qncopy(fee);
+        }
         entry = dict_add(fees_detail, &key, val);
     } else {
         struct fee_val *val = entry->val;
         mpd_add(val->value, val->value, fee, &mpd_ctx);
+        if (is_taker){
+            mpd_add(val->taker_fee, val->taker_fee, fee, &mpd_ctx);
+        } else {
+            mpd_add(val->maker_fee, val->maker_fee, fee, &mpd_ctx);
+        }
     }
 
     return 0;
@@ -676,8 +704,6 @@ static bool check_client_id(const char *client_id)
 
 static void on_deals_message(sds message, int64_t offset)
 {
-    static time_t  last_message_hour;
-
     log_trace("deals message: %s, offset: %"PRIi64, message, offset);
     json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
     if (obj == NULL) {
@@ -726,11 +752,6 @@ static void on_deals_message(sds message, int64_t offset)
         goto cleanup;
     }
 
-    time_t time_hour = ((int)timestamp) / 3600 * 3600;
-    if (last_message_hour != 0 && last_message_hour != time_hour)
-        set_message_offset("deals", time_hour, kafka_deals_offset);
-    last_message_hour = time_hour;
-
     struct market_info_val *market_info = get_market_info((char *)market);
     if (market_info == NULL) {
         log_error("get_market_info: %s fail", market);
@@ -769,14 +790,14 @@ static void on_deals_message(sds message, int64_t offset)
 
 
     if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
-        update_fee(trade_info->fees_detail, ask_user_id, ask_fee_asset, ask_fee);
+        update_fee(trade_info->fees_detail, ask_user_id, ask_fee_asset, ask_fee, ask_is_taker);
         if (is_ask_client) {
             update_client_fee(trade_info->client_fees_detail, ask_client_id, ask_user_id, ask_fee_asset, ask_fee);
         }
     }
 
     if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
-        update_fee(trade_info->fees_detail, bid_user_id, bid_fee_asset, bid_fee);
+        update_fee(trade_info->fees_detail, bid_user_id, bid_fee_asset, bid_fee, bid_is_taker);
         if (is_bid_client) {
             update_client_fee(trade_info->client_fees_detail, bid_client_id, bid_user_id, bid_fee_asset, bid_fee);
         }
@@ -797,8 +818,6 @@ cleanup:
 static void on_orders_message(sds message, int64_t offset)
 {
     static int64_t max_order_id;
-    static time_t  last_message_hour;
-
     log_trace("orders message: %s, offset: %"PRIi64, message, offset);
     json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
     if (obj == NULL) {
@@ -839,11 +858,6 @@ static void on_orders_message(sds message, int64_t offset)
         log_error("invalid message: %s, offset: %"PRIi64, message, offset);
         goto cleanup;
     }
-
-    time_t time_hour = ((int)timestamp) / 3600 * 3600;
-    if (last_message_hour != 0 && last_message_hour != time_hour)
-        set_message_offset("orders", time_hour, kafka_orders_offset);
-    last_message_hour = time_hour;
 
     struct market_info_val *market_info = get_market_info((char *)market);
     if (market_info == NULL) {
@@ -1266,13 +1280,15 @@ static int dump_fee_dict_info(MYSQL *conn, const char *market_name, time_t times
         struct fee_val *fval = entry->val;
 
         if (index % insert_limit == 0) {
-            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `user_id`, `market`, `asset`, `fee`) VALUES ", table);
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `user_id`, `market`, `asset`, `fee`, `taker_fee`, `maker_fee`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
 
         sql = sdscatprintf(sql, "(NULL, '%s', %u, '%s', '%s', ", get_utc_date_from_time(timestamp, "%Y-%m-%d"), fkey->user_id, market_name, fkey->asset);
-        sql = sql_append_mpd(sql, fval->value, false);
+        sql = sql_append_mpd(sql, fval->value, true);
+        sql = sql_append_mpd(sql, fval->taker_fee, true);
+        sql = sql_append_mpd(sql, fval->maker_fee, false);
         sql = sdscatprintf(sql, ")");
 
         index += 1;
@@ -1401,6 +1417,814 @@ static int dump_to_db(time_t timestamp)
     return 0;
 }
 
+
+static int persist_market_summary(redisContext *context, const char *market_name, time_t timestamp, struct daily_trade_val *trade_info)
+{
+    log_info("persist market %s time: %ld", market_name, timestamp);
+    json_t *object = json_object();
+    json_object_set_new_mpd(object, "deal_amount", trade_info->deal_amount);
+    json_object_set_new_mpd(object, "deal_volume", trade_info->deal_volume);
+    json_object_set_new_mpd(object, "taker_buy_amount", trade_info->taker_buy_amount);
+    json_object_set_new_mpd(object, "taker_sell_amount", trade_info->taker_sell_amount);
+    json_object_set_new(object, "deal_count", json_integer(trade_info->deal_count));
+    json_object_set_new(object, "taker_buy_count", json_integer(trade_info->deal_count));
+    json_object_set_new(object, "taker_sell_count", json_integer(trade_info->taker_sell_count));
+    json_object_set_new(object, "limit_buy_order", json_integer(trade_info->limit_buy_order));
+    json_object_set_new(object, "limit_sell_order", json_integer(trade_info->limit_sell_order));
+    json_object_set_new(object, "market_buy_order", json_integer(trade_info->market_buy_order));
+    json_object_set_new(object, "market_sell_order", json_integer(trade_info->market_sell_order));
+    char *trade_info_str = json_dumps(object, 0);
+
+    redisReply *reply = redisCmd(context, "HSET s:persist:market:%ld %s %s", timestamp, market_name, trade_info_str);
+
+    json_decref(object);
+    free(trade_info_str);
+    if (reply == NULL) {
+        return -__LINE__;
+    }
+
+    freeReplyObject(reply);
+
+    return 0;
+}
+
+static int load_market_summary(redisContext *context, const char *market_name, time_t timestamp, struct daily_trade_val *trade_info)
+{
+    log_info("load market %s time: %ld", market_name, timestamp);
+    redisReply *reply = redisCmd(context, "HGET s:persist:market:%ld %s", timestamp, market_name);
+    if (reply == NULL) {
+        log_error("get market: %s info fail, timestamp: %ld", market_name, timestamp);
+        return 0;
+    }
+
+    if (reply->type != REDIS_REPLY_STRING) {
+        freeReplyObject(reply);
+        log_error("get market: %s info fail, timestamp: %ld", market_name, timestamp);
+        return -__LINE__;
+    }
+
+    json_t *trade_info_obj = json_loadb(reply->str, strlen(reply->str), 0, NULL);
+    if (trade_info_obj == NULL) {
+        log_error("get market: %s info fail, timestamp: %ld", market_name, timestamp);
+        freeReplyObject(reply);
+        return -__LINE__;
+    }
+    
+    mpd_t *deal_amount = decimal(json_string_value(json_object_get(trade_info_obj, "deal_amount")), 0);
+    mpd_t *deal_volume = decimal(json_string_value(json_object_get(trade_info_obj, "deal_volume")), 0);
+    mpd_t *taker_buy_amount = decimal(json_string_value(json_object_get(trade_info_obj, "taker_buy_amount")), 0);
+    mpd_t *taker_sell_amount = decimal(json_string_value(json_object_get(trade_info_obj, "taker_sell_amount")), 0);
+    if (!deal_amount || !deal_volume || !taker_buy_amount || !taker_sell_amount) {
+        return -__LINE__;
+    }
+    mpd_copy(trade_info->deal_amount, deal_amount, &mpd_ctx);
+    mpd_copy(trade_info->deal_volume, deal_volume, &mpd_ctx);
+    mpd_copy(trade_info->taker_buy_amount, taker_buy_amount, &mpd_ctx);
+    mpd_copy(trade_info->taker_buy_amount, taker_buy_amount, &mpd_ctx);
+
+    trade_info->deal_count = json_integer_value(json_object_get(trade_info_obj, "deal_count"));
+    trade_info->taker_buy_count = json_integer_value(json_object_get(trade_info_obj, "taker_buy_count"));
+    trade_info->taker_sell_count = json_integer_value(json_object_get(trade_info_obj, "taker_sell_count"));
+    trade_info->limit_buy_order = json_integer_value(json_object_get(trade_info_obj, "limit_buy_order"));
+    trade_info->limit_sell_order = json_integer_value(json_object_get(trade_info_obj, "limit_sell_order"));
+    trade_info->market_buy_order = json_integer_value(json_object_get(trade_info_obj, "market_buy_order"));
+    trade_info->market_sell_order = json_integer_value(json_object_get(trade_info_obj, "market_sell_order"));
+    
+    json_decref(trade_info_obj);
+    freeReplyObject(reply);
+    mpd_del(deal_amount);
+    mpd_del(deal_volume);
+    mpd_del(taker_buy_amount);
+    mpd_del(taker_sell_amount);
+    return 0;
+}
+
+static int persist_user_summary(redisContext *context, const char *market_name, time_t timestamp, dict_t *user_info)
+{
+    log_info("persist user market %s time: %ld", market_name, timestamp);
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(user_info);
+    while ((entry = dict_next(iter)) != NULL) {
+        uint32_t user_id = (uintptr_t)entry->key;
+        struct users_trade_val *val = entry->val;
+        json_t *object = json_object();
+        json_object_set_new_mpd(object, "deal_amount", val->deal_amount);
+        json_object_set_new_mpd(object, "deal_volume", val->deal_volume);
+        json_object_set_new_mpd(object, "buy_amount", val->buy_amount);
+        json_object_set_new_mpd(object, "buy_volume", val->buy_volume);
+        json_object_set_new_mpd(object, "sell_amount", val->sell_amount);
+        json_object_set_new_mpd(object, "sell_volume", val->sell_volume);
+        json_object_set_new_mpd(object, "taker_volume", val->taker_volume);
+        json_object_set_new_mpd(object, "taker_amount", val->taker_amount);
+        json_object_set_new_mpd(object, "maker_amount", val->maker_amount);
+        json_object_set_new_mpd(object, "maker_volume", val->maker_volume);
+        json_object_set_new(object, "deal_count", json_integer(val->deal_count));
+        json_object_set_new(object, "taker_buy_count", json_integer(val->deal_buy_count));
+        json_object_set_new(object, "taker_sell_count", json_integer(val->deal_sell_count));
+        json_object_set_new(object, "limit_buy_order", json_integer(val->limit_buy_order));
+        json_object_set_new(object, "limit_sell_order", json_integer(val->limit_sell_order));
+        json_object_set_new(object, "market_buy_order", json_integer(val->market_buy_order));
+        json_object_set_new(object, "market_sell_order", json_integer(val->market_sell_order));
+
+        char *trade_info_str = json_dumps(object, 0);
+        redisReply *reply = redisCmd(context, "HSET s:persist:user:%s:%ld %d %s", market_name, timestamp, user_id, trade_info_str);
+        free(trade_info_str);
+        json_decref(object);
+        if (reply == NULL) {
+            return -__LINE__;
+        }
+
+        freeReplyObject(reply);
+    }
+    return 0;
+}
+
+static int load_user_summary(redisContext *context, const char *market_name, time_t timestamp, dict_t *users_info)
+{
+    log_info("load user market %s time: %ld", market_name, timestamp);
+
+    redisReply *reply = redisCmd(context, "HGETALL s:persist:user:%s:%ld", market_name, timestamp);
+    if (reply == NULL) {
+        return 0;
+    }
+
+    for (size_t i = 0; i < reply->elements; i += 2) {
+        uint32_t user_id = strtol(reply->element[i]->str, NULL, 0);
+        json_t *user_obj = json_loadb(reply->element[i + 1]->str, strlen(reply->element[i + 1]->str), 0, NULL);
+        if (user_obj == NULL) {
+            freeReplyObject(reply);
+            return -__LINE__; 
+        }
+
+        if (!json_is_object(user_obj)) {
+            json_decref(user_obj);
+            freeReplyObject(reply);
+            return -__LINE__; 
+        }
+
+        struct users_trade_val *user_info = get_user_trade_info(users_info, user_id, NULL);
+        if (user_info == NULL)
+            return -__LINE__;
+
+        mpd_t *deal_amount = decimal(json_string_value(json_object_get(user_obj, "deal_amount")), 0);
+        mpd_t *deal_volume = decimal(json_string_value(json_object_get(user_obj, "deal_volume")), 0);
+        mpd_t *buy_amount = decimal(json_string_value(json_object_get(user_obj, "buy_amount")), 0);
+        mpd_t *buy_volume = decimal(json_string_value(json_object_get(user_obj, "buy_volume")), 0);
+        mpd_t *sell_amount = decimal(json_string_value(json_object_get(user_obj, "sell_amount")), 0);
+        mpd_t *sell_volume = decimal(json_string_value(json_object_get(user_obj, "sell_volume")), 0);
+        mpd_t *taker_amount = decimal(json_string_value(json_object_get(user_obj, "taker_amount")), 0);
+        mpd_t *taker_volume = decimal(json_string_value(json_object_get(user_obj, "taker_volume")), 0);
+        mpd_t *maker_amount = decimal(json_string_value(json_object_get(user_obj, "maker_amount")), 0);
+        mpd_t *maker_volume = decimal(json_string_value(json_object_get(user_obj, "maker_volume")), 0);
+        if (!deal_amount || !deal_volume || !buy_amount || !buy_volume || !sell_amount || !sell_volume 
+            || !taker_amount || !taker_volume || !maker_amount || !maker_volume) {
+            json_decref(user_obj);
+            freeReplyObject(reply);
+            return -__LINE__;
+        }
+        mpd_copy(user_info->deal_amount, deal_amount, &mpd_ctx);
+        mpd_copy(user_info->deal_volume, deal_volume, &mpd_ctx);
+        mpd_copy(user_info->buy_amount, buy_amount, &mpd_ctx);
+        mpd_copy(user_info->buy_volume, buy_volume, &mpd_ctx);
+        mpd_copy(user_info->sell_amount, sell_amount, &mpd_ctx);
+        mpd_copy(user_info->sell_volume, sell_volume, &mpd_ctx);
+        mpd_copy(user_info->taker_amount, taker_amount, &mpd_ctx);
+        mpd_copy(user_info->taker_volume, taker_volume, &mpd_ctx);
+        mpd_copy(user_info->maker_amount, maker_amount, &mpd_ctx);
+        mpd_copy(user_info->maker_volume, maker_volume, &mpd_ctx);
+
+        user_info->deal_count = json_integer_value(json_object_get(user_obj, "deal_count"));
+        user_info->deal_buy_count = json_integer_value(json_object_get(user_obj, "deal_buy_count"));
+        user_info->deal_sell_count = json_integer_value(json_object_get(user_obj, "deal_sell_count"));
+        user_info->limit_buy_order = json_integer_value(json_object_get(user_obj, "limit_buy_order"));
+        user_info->limit_sell_order = json_integer_value(json_object_get(user_obj, "limit_sell_order"));
+        user_info->market_buy_order = json_integer_value(json_object_get(user_obj, "market_buy_order"));
+        user_info->market_sell_order = json_integer_value(json_object_get(user_obj, "market_sell_order"));
+
+        json_decref(user_obj);
+        mpd_del(deal_amount);
+        mpd_del(deal_volume);
+        mpd_del(buy_amount);
+        mpd_del(buy_volume);
+        mpd_del(sell_amount);
+        mpd_del(sell_volume);
+        mpd_del(taker_amount);
+        mpd_del(taker_volume);
+        mpd_del(maker_amount);
+        mpd_del(maker_volume);
+
+    }
+
+    
+    return 0;
+}
+
+static int persist_fee_summary(redisContext *context, const char *market_name, time_t timestamp, dict_t *fees_detail)
+{
+    log_info("persist fee market %s time: %ld", market_name, timestamp);
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(fees_detail);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct fee_val *fee = entry->val;
+        struct fee_key *key = entry->key;
+        json_t *object = json_object();
+        json_object_set_new_mpd(object, "fee", fee->value);
+        json_object_set_new_mpd(object, "taker_fee", fee->taker_fee);
+        json_object_set_new_mpd(object, "maker_fee", fee->maker_fee);
+        char *fee_str = json_dumps(object, 0);
+        redisReply *reply = redisCmd(context, "HSET s:persist:fee:%s:%ld %d:%s %s", market_name, timestamp, key->user_id, key->asset, fee_str);
+        free(fee_str);
+        json_decref(object);
+        if (reply == NULL) {
+            return -__LINE__;
+        }
+
+        freeReplyObject(reply);
+    }
+    return 0;
+}
+
+static int load_fee_summary(redisContext *context, const char *market_name, time_t timestamp, dict_t *fees_detail)
+{
+    log_info("load fee market %s time: %ld", market_name, timestamp);
+    redisReply *reply = redisCmd(context, "HGETALL s:persist:fee:%s:%ld", market_name, timestamp);
+    if (reply == NULL) {
+        return 0;
+    }
+
+    int count = 0;
+    for (size_t i = 0; i < reply->elements; i += 2) {
+        sds user_asset = sdsnew(reply->element[i]->str);
+        sds *tokens = sdssplitlen(user_asset, sdslen(user_asset), ":", 1, &count);
+        if (count != 2) {
+            log_error("invalid user asset: %s", user_asset);
+            sdsfree(user_asset);
+            sdsfreesplitres(tokens, count);
+            continue;
+        }
+
+        json_t *fee_obj = json_loadb(reply->element[i + 1]->str, strlen(reply->element[i + 1]->str), 0, NULL);
+        if (fee_obj == NULL || !json_is_object(fee_obj)) {
+            sdsfree(user_asset);
+            sdsfreesplitres(tokens, count);
+            freeReplyObject(reply);
+            return -__LINE__; 
+        }
+
+        struct fee_key key;
+        memset(&key, 0, sizeof(key));
+        key.user_id = atoi(tokens[0]);
+        sstrncpy(key.asset, tokens[1], sizeof(key.asset));
+
+        struct fee_val *val = malloc(sizeof(struct fee_val));
+        val->value = decimal(json_string_value(json_object_get(fee_obj, "fee")), 0);
+        val->taker_fee = decimal(json_string_value(json_object_get(fee_obj, "taker_fee")), 0);
+        val->maker_fee = decimal(json_string_value(json_object_get(fee_obj, "maker_fee")), 0);
+        dict_add(fees_detail, &key, val);
+
+        sdsfree(user_asset);
+        sdsfreesplitres(tokens, count);
+    }
+    freeReplyObject(reply);
+    return 0;
+}
+
+static int persist_client_info(redisContext *context, const char *market_name, time_t timestamp, dict_t *client_trade)
+{
+    log_info("persist client info %s time: %ld", market_name, timestamp);
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(client_trade);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct client_user_trade_key *key = (struct client_user_trade_key *)entry->key;
+        struct users_trade_val *val = entry->val;
+
+        json_t *object = json_object();
+        json_object_set_new_mpd(object, "deal_amount", val->deal_amount);
+        json_object_set_new_mpd(object, "deal_volume", val->deal_volume);
+        json_object_set_new_mpd(object, "buy_amount", val->buy_amount);
+        json_object_set_new_mpd(object, "buy_volume", val->buy_volume);
+        json_object_set_new_mpd(object, "sell_amount", val->sell_amount);
+        json_object_set_new_mpd(object, "sell_volume", val->sell_volume);
+        json_object_set_new_mpd(object, "taker_volume", val->taker_volume);
+        json_object_set_new_mpd(object, "taker_amount", val->taker_amount);
+        json_object_set_new_mpd(object, "maker_amount", val->maker_amount);
+        json_object_set_new_mpd(object, "maker_volume", val->maker_volume);
+        json_object_set_new(object, "deal_count", json_integer(val->deal_count));
+        json_object_set_new(object, "taker_buy_count", json_integer(val->deal_buy_count));
+        json_object_set_new(object, "taker_sell_count", json_integer(val->deal_sell_count));
+        json_object_set_new(object, "limit_buy_order", json_integer(val->limit_buy_order));
+        json_object_set_new(object, "limit_sell_order", json_integer(val->limit_sell_order));
+        json_object_set_new(object, "market_buy_order", json_integer(val->market_buy_order));
+        json_object_set_new(object, "market_sell_order", json_integer(val->market_sell_order));
+
+        char *trade_info_str = json_dumps(object, 0);
+        redisReply *reply = redisCmd(context, "HSET s:persist:cuser:%s:%ld %d:%s %s", market_name, timestamp, key->user_id, key->client_id, trade_info_str);
+        free(trade_info_str);
+        json_decref(object);
+        if (reply == NULL) {
+            return -__LINE__;
+        }
+
+        freeReplyObject(reply);
+    }
+    dict_release_iterator(iter);
+    return 0;
+}
+
+static int load_client_info(redisContext *context, const char *market_name, time_t timestamp, dict_t *client_trade)
+{
+    log_info("load client info %s time: %ld", market_name, timestamp);
+    redisReply *reply = redisCmd(context, "HGETALL s:persist:cuser:%s:%ld", market_name, timestamp);
+    if (reply == NULL) {
+        return 0;
+    }
+
+    int count = 0;
+    for (size_t i = 0; i < reply->elements; i += 2) {
+        sds user_clientid = sdsnew(reply->element[i]->str);
+        sds *tokens = sdssplitlen(user_clientid, sdslen(user_clientid), ":", 1, &count);
+        if (count != 2) {
+            log_error("invalid user client_id: %s", user_clientid);
+            sdsfree(user_clientid);
+            sdsfreesplitres(tokens, count);
+            continue;
+        }
+        json_t *user_obj = json_loadb(reply->element[i + 1]->str, strlen(reply->element[i + 1]->str), 0, NULL);
+
+        uint32_t user_id  = atoi(tokens[0]);
+        struct users_trade_val *user_info = get_user_trade_info(client_trade, user_id, tokens[1]);
+        if (user_info == NULL) {
+            sdsfree(user_clientid);
+            sdsfreesplitres(tokens, count);
+            return -__LINE__;
+        }
+
+        mpd_t *deal_amount = decimal(json_string_value(json_object_get(user_obj, "deal_amount")), 0);
+        mpd_t *deal_volume = decimal(json_string_value(json_object_get(user_obj, "deal_volume")), 0);
+        mpd_t *buy_amount = decimal(json_string_value(json_object_get(user_obj, "buy_amount")), 0);
+        mpd_t *buy_volume = decimal(json_string_value(json_object_get(user_obj, "buy_volume")), 0);
+        mpd_t *sell_amount = decimal(json_string_value(json_object_get(user_obj, "sell_amount")), 0);
+        mpd_t *sell_volume = decimal(json_string_value(json_object_get(user_obj, "sell_volume")), 0);
+        mpd_t *taker_amount = decimal(json_string_value(json_object_get(user_obj, "taker_amount")), 0);
+        mpd_t *taker_volume = decimal(json_string_value(json_object_get(user_obj, "taker_volume")), 0);
+        mpd_t *maker_amount = decimal(json_string_value(json_object_get(user_obj, "maker_amount")), 0);
+        mpd_t *maker_volume = decimal(json_string_value(json_object_get(user_obj, "maker_volume")), 0);
+        if (!deal_amount || !deal_volume || !buy_amount || !buy_volume || !sell_amount || !sell_volume 
+            || !taker_amount || !taker_volume || !maker_amount || !maker_volume) {
+            json_decref(user_obj);
+            freeReplyObject(reply);
+            return -__LINE__;
+        }
+        mpd_copy(user_info->deal_amount, deal_amount, &mpd_ctx);
+        mpd_copy(user_info->deal_volume, deal_volume, &mpd_ctx);
+        mpd_copy(user_info->buy_amount, buy_amount, &mpd_ctx);
+        mpd_copy(user_info->buy_volume, buy_volume, &mpd_ctx);
+        mpd_copy(user_info->sell_amount, sell_amount, &mpd_ctx);
+        mpd_copy(user_info->sell_volume, sell_volume, &mpd_ctx);
+        mpd_copy(user_info->taker_amount, taker_amount, &mpd_ctx);
+        mpd_copy(user_info->taker_volume, taker_volume, &mpd_ctx);
+        mpd_copy(user_info->maker_amount, maker_amount, &mpd_ctx);
+        mpd_copy(user_info->maker_volume, maker_volume, &mpd_ctx);
+
+        user_info->deal_count = json_integer_value(json_object_get(user_obj, "deal_count"));
+        user_info->deal_buy_count = json_integer_value(json_object_get(user_obj, "deal_buy_count"));
+        user_info->deal_sell_count = json_integer_value(json_object_get(user_obj, "deal_sell_count"));
+        user_info->limit_buy_order = json_integer_value(json_object_get(user_obj, "limit_buy_order"));
+        user_info->limit_sell_order = json_integer_value(json_object_get(user_obj, "limit_sell_order"));
+        user_info->market_buy_order = json_integer_value(json_object_get(user_obj, "market_buy_order"));
+        user_info->market_sell_order = json_integer_value(json_object_get(user_obj, "market_sell_order"));
+
+        json_decref(user_obj);
+        mpd_del(deal_amount);
+        mpd_del(deal_volume);
+        mpd_del(buy_amount);
+        mpd_del(buy_volume);
+        mpd_del(sell_amount);
+        mpd_del(sell_volume);
+        mpd_del(taker_amount);
+        mpd_del(taker_volume);
+        mpd_del(maker_amount);
+        mpd_del(maker_volume);
+    }
+    return 0;
+}
+
+static int persist_client_fee_info(redisContext *context, const char *market_name, time_t timestamp, dict_t *fees_detail)
+{
+    log_info("persist client fee market %s time: %ld", market_name, timestamp);
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(fees_detail);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct client_fee_key *fkey = entry->key;
+        struct fee_val *fval = entry->val;
+        char *fee_str = mpd_format(fval->value, "f", &mpd_ctx);
+        redisReply *reply = redisCmd(context, "HSET s:persist:cfee:%s:%ld %d:%s:%s %s", market_name, timestamp, fkey->user_id, fkey->client_id, fkey->asset, fee_str);
+        free(fee_str);
+        if (reply == NULL) {
+            return -__LINE__;
+        }
+
+        freeReplyObject(reply);
+    }
+    return 0;
+}
+
+static int load_client_fee_info(redisContext *context, const char *market_name, time_t timestamp, dict_t *fees_detail)
+{
+    log_info("load client fee market %s time: %ld", market_name, timestamp);
+    redisReply *reply = redisCmd(context, "HGETALL s:persist:cfee:%s:%ld", market_name, timestamp);
+    if (reply == NULL) {
+        return 0;
+    }
+
+    int count = 0;
+    for (size_t i = 0; i < reply->elements; i += 2) {
+        sds user_clientid_asset = sdsnew(reply->element[i]->str);
+        sds *tokens = sdssplitlen(user_clientid_asset, sdslen(user_clientid_asset), ":", 1, &count);
+        if (count != 3) {
+            log_error("invalid user asset: %s", user_clientid_asset);
+            sdsfree(user_clientid_asset);
+            sdsfreesplitres(tokens, count);
+            continue;
+        }
+
+        mpd_t *fee = decimal(reply->element[i + 1]->str, 0);
+
+        uint32_t user_id  = atoi(tokens[0]);
+        update_client_fee(fees_detail, tokens[1], user_id, tokens[2], fee);
+        mpd_del(fee);
+        sdsfree(user_clientid_asset);
+        sdsfreesplitres(tokens, count);
+    }
+    return 0;
+}
+
+static int persist_user_detail(redisContext *context, const char *market_name, dict_t *user_detail, time_t last_persist, time_t *new_persist)
+{
+    log_info("persist user detail market %s last_persist: %ld", market_name, last_persist);
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(user_detail);
+    while ((entry = dict_next(iter)) != NULL) {
+        time_t timestamp = (uintptr_t)entry->key;
+        if (timestamp > *new_persist) {
+            *new_persist = timestamp;
+        }
+        if (timestamp <= last_persist) {
+            continue;
+        }
+
+        dict_t *dict_user = entry->val;
+        dict_entry *entry_user;
+        dict_iterator *iter_user = dict_get_iterator(dict_user);
+        while ((entry_user = dict_next(iter_user)) != NULL) {
+            uint32_t user_id = (uintptr_t)entry_user->key;
+            struct user_detail_val *val = entry_user->val;
+
+            json_t *object = json_object();
+            json_object_set_new_mpd(object, "buy_amount", val->buy_amount);
+            json_object_set_new_mpd(object, "sell_amount", val->sell_amount);
+            json_object_set_new_mpd(object, "buy_volume", val->buy_volume);
+            json_object_set_new_mpd(object, "sell_volume", val->sell_volume);
+
+            char *user_str = json_dumps(object, 0);
+            redisReply *reply = redisCmd(context, "HSET s:persist:userdetail:%s:%ld %d %s", market_name, timestamp, user_id, user_str);
+            free(user_str);
+            json_decref(object);
+            if (reply == NULL) {
+                return -__LINE__;
+            }
+
+            freeReplyObject(reply);
+        }
+    }
+    return 0;
+}
+
+static int load_user_detail(redisContext *context, const char *market_name, time_t last_persist, dict_t *users_detail)
+{
+    log_info("load user detail market %s last_persist: %ld", market_name, last_persist);
+    time_t day = last_persist / 86400 * 86400;
+    time_t timestamp = day - settings.keep_days * 86400;
+    for (; timestamp <= last_persist; timestamp += 60) {
+        redisReply *reply = redisCmd(context, "HGETALL s:persist:userdetail:%s:%ld", market_name, timestamp);
+        if (reply == NULL) {
+            return -__LINE__;
+        }
+
+        for (size_t i = 0; i < reply->elements; i += 2) {
+            uint32_t user_id = strtol(reply->element[i]->str, NULL, 0);
+            json_t *user_obj = json_loadb(reply->element[i + 1]->str, strlen(reply->element[i + 1]->str), 0, NULL);
+            if (user_obj == NULL) {
+                freeReplyObject(reply);
+                return -__LINE__;
+            }
+
+            if (!json_is_object(user_obj)) {
+                json_decref(user_obj);
+                freeReplyObject(reply);
+                return -__LINE__;
+            }
+            
+            mpd_t *buy_amount = decimal(json_string_value(json_object_get(user_obj, "buy_amount")), 0);
+            mpd_t *sell_amount = decimal(json_string_value(json_object_get(user_obj, "sell_amount")), 0);
+            mpd_t *buy_volume = decimal(json_string_value(json_object_get(user_obj, "buy_volume")), 0);
+            mpd_t *sell_volume = decimal(json_string_value(json_object_get(user_obj, "sell_volume")), 0);
+            struct user_detail_val *user_detail = get_user_detail_info(users_detail, user_id, timestamp);
+            if (user_detail == NULL)
+                return -__LINE__;
+
+            mpd_copy(user_detail->buy_amount, buy_amount, &mpd_ctx);
+            mpd_copy(user_detail->sell_amount, sell_amount, &mpd_ctx);
+            mpd_copy(user_detail->buy_volume, buy_volume, &mpd_ctx);
+            mpd_copy(user_detail->sell_volume, sell_volume, &mpd_ctx);
+            mpd_del(buy_amount);
+            mpd_del(sell_amount);
+            mpd_del(buy_volume);
+            mpd_del(sell_volume);
+            json_decref(user_obj);
+        }
+        freeReplyObject(reply);
+    }
+    return 0;
+}
+
+static int persist_market(redisContext *context, json_t *markets, time_t last_persist, time_t last_dump, time_t *new_persist)
+{
+    int ret;
+    time_t last_persist_day = last_persist / 86400 * 86400;
+    time_t start_day = last_persist_day > 0 ? last_persist_day : last_dump;
+    time_t now = time(NULL);
+    time_t now_day = now / 86400 * 86400;
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market_info);
+    while ((entry = dict_next(iter)) != NULL) {
+        const char *market_name = entry->key;
+        json_t *attr = json_object_get(markets, market_name);
+        if (attr == NULL)
+            continue;
+
+        struct market_info_val *market_info = entry->val;
+        for (time_t timestamp = start_day; timestamp <= now_day; timestamp += 86400) {
+            void *tkey = (void *)(uintptr_t)timestamp;
+            dict_entry *result = dict_find(market_info->daily_trade, tkey);
+            if (result == NULL)
+                continue;
+
+            struct daily_trade_val *trade_info = result->val;
+            ret = persist_market_summary(context, market_name, timestamp, trade_info);
+            if (ret < 0) {
+                log_error("persist_market_info: %s timestamp: %ld fail", market_name, timestamp);
+                return -__LINE__;
+            }
+            ret = persist_user_summary(context, market_name, timestamp, trade_info->users_trade);
+            if (ret < 0) {
+                log_error("persist_users_summary: %s timestamp: %ld fail", market_name, timestamp);
+                return -__LINE__;
+            }
+            ret = persist_fee_summary(context, market_name, timestamp, trade_info->fees_detail);
+            if (ret < 0) {
+                log_error("persist_fee_summary: %s timestamp: %ld fail", market_name, timestamp);
+                return -__LINE__;
+            }
+            ret = persist_client_info(context, market_name, timestamp, trade_info->client_trade);
+            if (ret < 0) {
+                log_error("persist_client_info: %s timestamp: %ld fail", market_name, timestamp);
+                return -__LINE__;
+            }
+            ret = persist_client_fee_info(context, market_name, timestamp, trade_info->client_fees_detail);
+            if (ret < 0) {
+                log_error("persist_client_fee_info: %s timestamp: %ld fail", market_name, timestamp);
+                return -__LINE__;
+            }
+        }
+        
+        ret = persist_user_detail(context, market_name, market_info->users_detail, last_persist, new_persist);
+        if (ret < 0) {
+            log_error("persist_user_detail: %s last_persist: %ld fail", market_name, last_persist);
+            return -__LINE__;
+        }
+    }
+    dict_release_iterator(iter);
+
+    return 0;
+}
+
+static int clear_key(redisContext *context, const char *key, time_t start_time)
+{
+    redisReply *reply = redisCmd(context, "keys %s", key);
+    if (reply == NULL)
+        return -__LINE__;
+
+    for (size_t i = 0; i < reply->elements; i++) {
+        char *key = reply->element[i]->str;
+        int count;
+        sds *tokens = sdssplitlen(key, sdslen(key), ":", 1, &count);
+        if (count == 0) {
+            log_error("invalid key: %s", key);
+            sdsfreesplitres(tokens, count);
+            continue;
+        }
+
+        time_t timestamp = atol(tokens[count - 1]);
+        sdsfreesplitres(tokens, count);
+        if (timestamp >=  start_time) {
+            continue;
+        }
+
+        redisReply *r = redisCmd(context, "DEL %s", key);
+        if (r == NULL) {
+            log_info("del key %s fail", key);
+            continue;
+        }
+        log_info("del key %s success", key);
+        freeReplyObject(r);
+    }
+    freeReplyObject(reply);
+
+    return 0;
+}
+
+static int clear_redis(redisContext *context, time_t last_persist)
+{
+    time_t start_time = last_persist / 86400 * 86400 - settings.keep_days * 86400;
+    //clear market
+    int ret = clear_key(context, "s:persist:market:*", start_time);
+    if (ret < 0) {
+        log_error("clear market fail: %d", ret);
+    }
+
+    //clear user
+    ret = clear_key(context, "s:persist:user:*", start_time);
+    if (ret < 0) {
+        log_error("clear user fail: %d", ret);
+    }
+
+    //clear fee
+    ret = clear_key(context, "s:persist:fee:*", start_time);
+    if (ret < 0) {
+        log_error("clear fee fail: %d", ret);
+    }
+
+    //clear client info
+    ret = clear_key(context, "s:persist:cuser:*", start_time);
+    if (ret < 0) {
+        log_error("clear client user fail: %d", ret);
+    }
+
+    //clear client fee
+    ret = clear_key(context, "s:persist:cfee:*", start_time);
+    if (ret < 0) {
+        log_error("clear client fee fail: %d", ret);
+    }
+
+    //clear user detail
+    ret = clear_key(context, "s:persist:userdetail:*", start_time);
+    if (ret < 0) {
+        log_error("clear user detail fail: %d", ret);
+    }
+    return 0;
+}
+
+static void persist_to_redis(time_t last_persist, time_t last_dump)
+{
+    log_info("last_persist: %zd, last_dump: %zd", last_persist, last_dump);
+    dlog_flush_all();
+    int pid = fork();
+    if (pid < 0) {
+        log_fatal("fork fail: %d", pid);
+        return;
+    } else if (pid > 0) {
+        return;
+    }
+
+    log_info("start dump to redis");
+    redisContext *context = redis_connect(&settings.redis);
+    if (context == NULL) {
+        log_info("connect to redis fail");
+        exit(0);
+    }
+
+    json_t *markets = get_market_dict();
+    if (markets == NULL) {
+        log_error("get market list fail");
+        exit(0);
+    }
+
+    time_t new_persist = 0;
+    int ret = persist_market(context, markets, last_persist, last_dump, &new_persist);
+    if (ret < 0) {
+        redisFree(context);
+        log_error("persist market fail: %d", ret);
+        exit(0);
+    }
+
+    if (new_persist == 0) {
+        redisFree(context);
+        log_info("persist no data");
+        exit(0);
+    }
+
+    set_persist_offset(context, new_persist, kafka_orders_offset, kafka_deals_offset);
+
+    ret = clear_redis(context, new_persist);
+    if (ret < 0) {
+        log_info("clear redis fail: %d", ret);
+    }
+    redisFree(context);
+    exit(0);
+}
+
+static int load_market(redisContext *context, json_t *markets, time_t last_persist, time_t last_dump)
+{
+    int ret = 0;
+    time_t now = time(NULL);
+    time_t today = now / 86400 * 86400;
+    const char *key;
+    json_t *val;
+    json_object_foreach(markets, key, val) {
+        struct market_info_val *market_info = get_market_info((char *)key);
+        if (market_info == NULL) {
+            log_error("load market_info %s fail", key);
+            return -__LINE__;
+        }
+
+        for (time_t timestamp = last_dump + 86400; timestamp <= today; timestamp += 86400) {
+            struct daily_trade_val *trade_info = get_daily_trade_info(market_info->daily_trade, timestamp);
+            if (trade_info == NULL) {
+                log_error("get daily trade info %s:%ld fail", key, timestamp);
+                return -__LINE__;
+            }
+
+            ret = load_market_summary(context, key, timestamp, trade_info);
+            if (ret < 0) {
+                log_error("load market summary: %s timestamp: %ld fail, %d", key, timestamp, ret);
+            }
+            ret = load_user_summary(context, key, timestamp, trade_info->users_trade);
+            if (ret < 0) {
+                log_error("load user summary: %s timestamp: %ld fail, %d", key, timestamp, ret);
+            }
+            ret = load_fee_summary(context, key, timestamp, trade_info->fees_detail);
+            if (ret < 0) {
+                log_error("load fee summary: %s timestamp: %ld fail, %d", key, timestamp, ret);
+            }
+            ret = load_client_info(context, key, timestamp, trade_info->client_trade);
+            if (ret < 0) {
+                log_error("load client info market: %s, timestamp: %ld fail %d", key, timestamp, ret);
+            }
+            ret = load_client_fee_info(context, key, timestamp, trade_info->client_fees_detail);
+            if (ret < 0) {
+                log_error("load client fee info market: %s, timestamp: %ld fail %d", key, timestamp, ret);
+            }
+        }
+        
+        ret = load_user_detail(context, key, last_persist, market_info->users_detail);
+        if (ret < 0) {
+            log_error("persist_fee_info: %s timestamp: %ld fail, %d", key, last_persist, ret);
+        }
+    }
+    return 0;
+}
+
+static int load_from_redis()
+{
+    time_t last_persist = 0;
+    int ret = get_persist_offset(&last_persist, &kafka_orders_offset, &kafka_deals_offset);
+    if (ret < 0) {
+        log_error("get offset from redis fail: %d", ret);
+        return ret;
+    }
+
+    log_info("kafka_orders_offset: %"PRIi64", kafka_deals_offset: %"PRIi64, kafka_orders_offset, kafka_deals_offset);
+    if (last_persist == 0) {
+        log_info("no persisted data");
+        return 0;
+    }
+
+    time_t last_dump = get_last_dump_time();
+    if (last_dump < 0) {
+        log_error("get last_dump fail: %ld", last_dump);
+        return ret;
+    }
+
+    redisContext *context = redis_connect(&settings.redis);
+    if (context == NULL)
+        return -__LINE__;
+
+    json_t *markets = get_market_dict();
+    if (markets == NULL) {
+        log_error("get market list fail");
+        return -__LINE__;
+    }
+
+    ret = load_market(context, markets, last_persist, last_dump);
+    if (ret < 0) {
+        log_error("load market fail: %d", ret);
+    }
+
+    redisFree(context);
+    return ret;
+}
+
 static void dump_summary(time_t last_dump, time_t day_start)
 {
     log_info("last_dump: %zd, day_start: %zd", last_dump, day_start);
@@ -1429,15 +2253,19 @@ static void dump_summary(time_t last_dump, time_t day_start)
 static void on_dump_timer(nw_timer *timer, void *privdata)
 {
     time_t now = time(NULL);
+
     if (now % 600 >= 60)
         return;
-    if (!is_kafka_synced())
+    if (!is_kafka_synced()) {
         return;
+    }
 
     time_t day_start = get_utc_day_start(now);
     time_t last_dump = get_last_dump_time();
-    if (last_dump < 0)
+    if (last_dump < 0) {
+        log_error("get last_dump fail: %ld", last_dump);
         return;
+    }
 
     if (last_dump == 0) {
         last_dump = day_start - 86400 * 2;
@@ -1447,6 +2275,15 @@ static void on_dump_timer(nw_timer *timer, void *privdata)
     if (last_dump != last_day_start) {
         dump_summary(last_dump, last_day_start);
     }
+
+    
+    if (now % 3600 > 60)
+        return;
+
+    time_t last_persist = 0;
+    get_persist_offset(&last_persist, NULL, NULL);
+    log_info("last_persist: %ld", last_persist);
+    persist_to_redis(last_persist, last_dump);
 }
 
 static void clear_market(struct market_info_val *market_info, time_t end)
@@ -1504,25 +2341,6 @@ static void on_report_timer(nw_timer *timer, void *privdata)
 
 int init_message(void)
 {
-    int64_t offset = 0;
-    int64_t deals_offset = get_message_offset("deals");
-    if (deals_offset < 0) {
-        return -__LINE__;
-    }
-    offset = deals_offset == 0 ? RD_KAFKA_OFFSET_END : deals_offset + 1;
-    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, 0, offset, on_deals_message);
-    if (kafka_deals == NULL)
-        return -__LINE__;
-
-    int64_t orders_offset = get_message_offset("orders");
-    if (orders_offset < 0) {
-        return -__LINE__;
-    }
-    offset = orders_offset == 0 ? RD_KAFKA_OFFSET_END : orders_offset + 1;
-    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_ORDER, 0, offset, on_orders_message);
-    if (kafka_orders == NULL)
-        return -__LINE__;
-
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
     dt.hash_function    = str_dict_hash_function;
@@ -1533,6 +2351,21 @@ int init_message(void)
 
     dict_market_info = dict_create(&dt, 64);
     if (dict_market_info == NULL)
+        return -__LINE__;
+
+    int ret = load_from_redis();
+    if (ret < 0) {
+        log_error("load from redis fail: %d", ret);
+    }
+
+    int64_t offset = kafka_deals_offset == 0 ? RD_KAFKA_OFFSET_END : kafka_deals_offset + 1;
+    kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, 0, offset, on_deals_message);
+    if (kafka_deals == NULL)
+        return -__LINE__;
+
+    offset = kafka_orders_offset == 0 ? RD_KAFKA_OFFSET_END : kafka_orders_offset + 1;
+    kafka_orders = kafka_consumer_create(settings.brokers, TOPIC_ORDER, 0, offset, on_orders_message);
+    if (kafka_orders == NULL)
         return -__LINE__;
 
     nw_timer_set(&dump_timer, 60, true, on_dump_timer, NULL);
@@ -1629,50 +2462,6 @@ static int get_trade_users_detail(dict_t *dict, json_t *user_list, const char *m
     }
 
     return 0;
-}
-
-json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t start_time, time_t end_time)
-{
-    if (!is_kafka_synced()) {
-        return NULL;
-    }
-    
-    dict_types dt;
-    memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = uint32_dict_hash_func; 
-    dt.key_compare    = uint32_dict_key_compare;
-    dt.val_destructor = dict_user_detail_val_free;
-
-    dict_t *dict = dict_create(&dt, 1024);
-    if (dict == NULL)
-        return NULL;
-
-    json_t *result = json_object();
-    dict_entry *entry;
-    dict_iterator *diter;
-    for (size_t i = 0; i < json_array_size(market_list); ++i) {
-        const char *market_name = json_string_value(json_array_get(market_list, i));
-        get_trade_users_detail(dict, user_list, market_name, start_time, end_time);
-        diter = dict_get_iterator(dict);
-        json_t *market_info = json_object();
-        while ((entry = dict_next(diter)) != NULL) {
-            uint32_t user_id = (uintptr_t)entry->key;
-            struct user_detail_val *user_detail = entry->val;
-
-            json_t *item = json_array();
-            char user_id_str[20];
-            snprintf(user_id_str, sizeof(user_id_str), "%u", user_id);
-            json_array_append_new_mpd(item, user_detail->buy_volume);
-            json_array_append_new_mpd(item, user_detail->sell_volume);
-            json_object_set_new(market_info, user_id_str, item);
-        }
-        json_object_set_new(result, market_name, market_info);
-        dict_release_iterator(diter);
-        dict_clear(dict);
-    }
-    
-    dict_release(dict);
-    return result;
 }
 
 json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_time)
@@ -1782,6 +2571,46 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
     mpd_del(total_net);
     mpd_del(total_amount);
 
+    return result;
+}
+
+json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t start_time, time_t end_time)
+{
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function  = uint32_dict_hash_func; 
+    dt.key_compare    = uint32_dict_key_compare;
+    dt.val_destructor = dict_user_detail_val_free;
+
+    dict_t *dict = dict_create(&dt, 1024);
+    if (dict == NULL)
+        return NULL;
+
+    json_t *result = json_object();
+    dict_entry *entry;
+    dict_iterator *diter;
+    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+        const char *market_name = json_string_value(json_array_get(market_list, i));
+        get_trade_users_detail(dict, user_list, market_name, start_time, end_time);
+        diter = dict_get_iterator(dict);
+        json_t *market_info = json_object();
+        while ((entry = dict_next(diter)) != NULL) {
+            uint32_t user_id = (uintptr_t)entry->key;
+            struct user_detail_val *user_detail = entry->val;
+
+            json_t *item = json_array();
+            char user_id_str[20];
+            snprintf(user_id_str, sizeof(user_id_str), "%u", user_id);
+            json_array_append_new_mpd(item, user_detail->buy_volume);
+            json_array_append_new_mpd(item, user_detail->sell_volume);
+            json_object_set_new(market_info, user_id_str, item);
+        }
+        json_object_set_new(result, market_name, market_info);
+        dict_release_iterator(diter);
+        dict_clear(dict);
+    }
+    
+    dict_release(dict);
     return result;
 }
 
