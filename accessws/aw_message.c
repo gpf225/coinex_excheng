@@ -23,6 +23,8 @@ static kafka_consumer_t *kafka_notice;
 
 static int process_deals_message(json_t *msg)
 {
+    uint64_t ask_order_id = json_integer_value(json_object_get(msg, "ask_id"));
+    uint64_t bid_order_id = json_integer_value(json_object_get(msg, "bid_id"));
     uint32_t ask_user_id = json_integer_value(json_object_get(msg, "ask_user_id"));
     uint32_t bid_user_id = json_integer_value(json_object_get(msg, "bid_user_id"));
     const char *ask_client_id  = json_string_value(json_object_get(msg, "ask_client_id"));
@@ -33,8 +35,8 @@ static int process_deals_message(json_t *msg)
     const char *amount = json_string_value(json_object_get(msg, "amount"));
     const char *price  = json_string_value(json_object_get(msg, "price"));
 
-    deals_new(ask_user_id, id, timestamp, MARKET_TRADE_SIDE_SELL, ask_client_id, market, amount, price);
-    deals_new(bid_user_id, id, timestamp, MARKET_TRADE_SIDE_BUY,  bid_client_id, market, amount, price);
+    deals_new(ask_user_id, ask_order_id, id, timestamp, MARKET_TRADE_SIDE_SELL, ask_client_id, market, amount, price);
+    deals_new(bid_user_id, bid_order_id, id, timestamp, MARKET_TRADE_SIDE_BUY,  bid_client_id, market, amount, price);
 
     return 0;
 }
