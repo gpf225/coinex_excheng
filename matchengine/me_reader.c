@@ -20,8 +20,6 @@ static nw_timer cache_timer;
 static int reader_id;
 static queue_t queue_reader;
 
-#define MAX_QUERY_ASSET_USER_NUM 2000
-
 struct cache_val {
     double      time;
     json_t      *result;

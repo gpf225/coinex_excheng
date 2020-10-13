@@ -27,6 +27,10 @@
 # define CMD_ASSET_BACKUP               109
 # define CMD_ASSET_QUERY_ALL            110
 # define CMD_ASSET_QUERY_USERS      	111
+# define CMD_ASSET_QUERY_INTIME         112
+# define CMD_ASSET_QUERY_ALL_INTIME     113
+# define CMD_ASSET_QUERY_LOCK_INTIME    114
+# define CMD_ASSET_QUERY_USERS_INTIME   115
 
 // trade
 # define CMD_ORDER_PUT_LIMIT            201
@@ -51,6 +55,8 @@
 # define CMD_CALL_AUCTION_START         220
 # define CMD_CALL_AUCTION_EXECUTE       221
 # define CMD_ORDER_CANCEL_BATCH         222
+# define CMD_ORDER_PENDING_INTIME       223
+# define CMD_ORDER_PENDING_STOP_INTIME  224
 
 // market
 # define CMD_MARKET_LIST                301

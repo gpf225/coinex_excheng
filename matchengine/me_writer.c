@@ -262,6 +262,99 @@ static int on_cmd_asset_backup(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+static int on_cmd_asset_query(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) < 2)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_integer(json_array_get(params, 0)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    if (!json_is_integer(json_array_get(params, 1)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+    if (!account_exist(account))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = balance_query_list(user_id, account, params);
+    if (result == NULL)
+        return rpc_reply_error_internal_error(ses, pkg);
+
+    int ret = rpc_reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
+static int on_cmd_asset_query_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 1)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_integer(json_array_get(params, 0)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    json_t *result = balance_query_all(user_id);
+    if (result == NULL)
+        return rpc_reply_error_internal_error(ses, pkg);
+
+    int ret = rpc_reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
+static int on_cmd_asset_query_users(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 2)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_integer(json_array_get(params, 0)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t account = json_integer_value(json_array_get(params, 0));
+    if (account == 0 || !account_exist(account))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_array(json_array_get(params, 1)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    json_t *users = json_array_get(params, 1);
+
+    if (json_array_size(users) > MAX_QUERY_ASSET_USER_NUM)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = balance_query_users(account, users);
+    if (result == NULL)
+        return rpc_reply_error_internal_error(ses, pkg);
+
+    int ret = rpc_reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
+static int on_cmd_asset_query_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) < 2)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    if (!json_is_integer(json_array_get(params, 0)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    if (!json_is_integer(json_array_get(params, 1)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+    if (!account_exist(account))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = balance_query_lock_list(user_id, account, params);
+    if (result == NULL)
+        return rpc_reply_error_internal_error(ses, pkg);
+
+    int ret = rpc_reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
 static int on_cmd_order_put_limit(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) < 12)
@@ -711,6 +804,83 @@ static int on_cmd_order_cancel_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return rpc_reply_success(ses, pkg);
 }
 
+static int on_cmd_order_pending(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 6)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // account 
+    if (!json_is_integer(json_array_get(params, 1)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    int account = json_integer_value(json_array_get(params, 1));
+
+    // market
+    market_t *market = NULL;
+    if (json_is_string(json_array_get(params, 2))) {
+        const char *market_name = json_string_value(json_array_get(params, 2));
+        market = get_market(market_name);
+        if (market == NULL)
+            return rpc_reply_error_invalid_argument(ses, pkg);
+    }
+
+    // side
+    if (!json_is_integer(json_array_get(params, 3)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t side = json_integer_value(json_array_get(params, 3));
+    if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    // offset
+    if (!json_is_integer(json_array_get(params, 4)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    size_t offset = json_integer_value(json_array_get(params, 4));
+
+    // limit
+    if (!json_is_integer(json_array_get(params, 5)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    size_t limit = json_integer_value(json_array_get(params, 5));
+    if (limit > ORDER_LIST_MAX_LEN)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = json_object();
+    json_object_set_new(result, "limit", json_integer(limit));
+    json_object_set_new(result, "offset", json_integer(offset));
+
+    json_t *orders = json_array();
+    skiplist_t *order_list = get_user_order_list(market, user_id, account);
+    if (order_list == NULL) {
+        json_object_set_new(result, "total", json_integer(0));
+    } else {
+        size_t count = 0;
+        size_t total = 0;
+        skiplist_node *node;
+        skiplist_iter *iter = skiplist_get_iterator(order_list);
+        while((node = skiplist_next(iter)) != NULL) {
+            order_t *order = node->value;
+            if (side && order->side != side)
+                continue;
+
+            if (total >= offset && count < limit) {
+                count += 1;
+                json_array_append_new(orders, get_order_info(order, false));
+            }
+            total += 1;
+        }
+        skiplist_release_iterator(iter);
+        json_object_set_new(result, "total", json_integer(total));
+    }
+
+    json_object_set_new(result, "records", orders);
+    int ret = rpc_reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
 static bool check_stop_option(uint32_t option)
 {
     if ((option & (~OPTION_CHECK_MASK)) != 0 || (option & OPTION_MAKER_ONLY) || (option & OPTION_FILL_OR_KILL))
@@ -1100,6 +1270,83 @@ static int on_cmd_cancel_stop_all(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return rpc_reply_success(ses, pkg);
 }
 
+static int on_cmd_pending_stop(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 6)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // account 
+    if (!json_is_integer(json_array_get(params, 1)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    int account = json_integer_value(json_array_get(params, 1));
+
+    // market
+    market_t *market = NULL;
+    if (json_is_string(json_array_get(params, 2))) {
+        const char *market_name = json_string_value(json_array_get(params, 2));
+        market = get_market(market_name);
+        if (market == NULL)
+            return rpc_reply_error_invalid_argument(ses, pkg);
+    }
+
+    // side
+    if (!json_is_integer(json_array_get(params, 3)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    uint32_t side = json_integer_value(json_array_get(params, 3));
+    if (side != 0 && side != MARKET_ORDER_SIDE_ASK && side != MARKET_ORDER_SIDE_BID)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    // offset
+    if (!json_is_integer(json_array_get(params, 4)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    size_t offset = json_integer_value(json_array_get(params, 4));
+
+    // limit
+    if (!json_is_integer(json_array_get(params, 5)))
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    size_t limit = json_integer_value(json_array_get(params, 5));
+    if (limit > ORDER_LIST_MAX_LEN)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    json_t *result = json_object();
+    json_object_set_new(result, "limit", json_integer(limit));
+    json_object_set_new(result, "offset", json_integer(offset));
+
+    json_t *stops = json_array();
+    skiplist_t *stop_list = get_user_stop_list(market, user_id, account);
+    if (stop_list == NULL) {
+        json_object_set_new(result, "total", json_integer(0));
+    } else {
+        size_t count = 0;
+        size_t total = 0;
+        skiplist_node *node;
+        skiplist_iter *iter = skiplist_get_iterator(stop_list);
+        while((node = skiplist_next(iter)) != NULL) {
+            stop_t *stop = node->value;
+            if (side && stop->side != side)
+                continue;
+
+            if (total >= offset && count < limit) {
+                count += 1;
+                json_array_append_new(stops, get_stop_info(stop));
+            }
+            total += 1;
+        }
+        skiplist_release_iterator(iter);
+        json_object_set_new(result, "total", json_integer(total));
+    }
+
+    json_object_set_new(result, "records", stops);
+    int ret = rpc_reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
 static int on_asset_config_callback(json_t *reply, nw_ses *ses, rpc_pkg *pkg)
 {
     if (!reply) {
@@ -1352,6 +1599,34 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             log_error("on_cmd_asset_backup %s fail: %d", params_str, ret);
         }
         break;
+    case CMD_ASSET_QUERY_INTIME:
+        profile_inc("cmd_asset_query_intime", 1);
+        ret = on_cmd_asset_query(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_query_intime %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_QUERY_ALL_INTIME:
+        profile_inc("cmd_asset_query_all_intime", 1);
+        ret = on_cmd_asset_query_all(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_query_all_intime %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_QUERY_LOCK_INTIME:
+        profile_inc("cmd_asset_query_lock_intime", 1);
+        ret = on_cmd_asset_query_lock(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_query_lock_intime %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_QUERY_USERS_INTIME:
+        profile_inc("cmd_asset_query_users_intime", 1);
+        ret = on_cmd_asset_query_users(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_query_users_intime %s fail: %d", params_str, ret);
+        }
+        break;
     case CMD_ORDER_PUT_LIMIT:
         if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
@@ -1407,6 +1682,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
             log_error("on_cmd_order_cancel_all %s fail: %d", params_str, ret);
         }
         break;
+    case CMD_ORDER_PENDING_INTIME:
+        profile_inc("cmd_order_pending_intime", 1);
+        ret = on_cmd_order_pending(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_order_pending_intime %s fail: %d", params_str, ret);
+        }
+        break;
     case CMD_ORDER_PUT_STOP_LIMIT:
         if (!is_service_available()) {
             rpc_reply_error_service_unavailable(ses, pkg);
@@ -1449,6 +1731,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_cancel_stop_all(ses, pkg, params);
         if (ret < 0) {
             log_error("cmd_order_cancel_stop_all %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ORDER_PENDING_STOP_INTIME:
+        profile_inc("cmd_order_pending_stop_intime", 1);
+        ret = on_cmd_pending_stop(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_order_pending_stop_intime %s fail: %d", params_str, ret);
         }
         break;
     case CMD_CONFIG_UPDATE_ASSET:

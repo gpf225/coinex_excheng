@@ -346,8 +346,11 @@ static int init_methods_handler(void)
 {
     ERR_RET_LN(add_handler("asset.list", matchengine, CMD_ASSET_LIST));
     ERR_RET_LN(add_handler("asset.query", matchengine, CMD_ASSET_QUERY));
+    ERR_RET_LN(add_handler("asset.query_intime", matchengine, CMD_ASSET_QUERY_INTIME));
     ERR_RET_LN(add_handler("asset.query_users", matchengine, CMD_ASSET_QUERY_USERS));
+    ERR_RET_LN(add_handler("asset.query_users_intime", matchengine, CMD_ASSET_QUERY_USERS_INTIME));
     ERR_RET_LN(add_handler("asset.query_all", matchengine, CMD_ASSET_QUERY_ALL));
+    ERR_RET_LN(add_handler("asset.query_all_intime", matchengine, CMD_ASSET_QUERY_ALL_INTIME));
     ERR_RET_LN(add_handler("asset.update", matchengine, CMD_ASSET_UPDATE));
     ERR_RET_LN(add_handler("asset.summary", matchengine, CMD_ASSET_SUMMARY));
     ERR_RET_LN(add_handler("asset.history", readhistory, CMD_ASSET_HISTORY));
@@ -355,6 +358,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("asset.unlock", matchengine, CMD_ASSET_UNLOCK));
     ERR_RET_LN(add_handler("asset.query_lock", matchengine, CMD_ASSET_QUERY_LOCK));
     ERR_RET_LN(add_handler("asset.backup", matchengine, CMD_ASSET_BACKUP));
+
 
     ERR_RET_LN(add_handler("order.put_limit", matchengine, CMD_ORDER_PUT_LIMIT));
     ERR_RET_LN(add_handler("order.put_market", matchengine, CMD_ORDER_PUT_MARKET));
@@ -364,6 +368,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.book", matchengine, CMD_ORDER_BOOK));
     ERR_RET_LN(add_handler("order.depth", NULL, CMD_CACHE_DEPTH));
     ERR_RET_LN(add_handler("order.pending", matchengine, CMD_ORDER_PENDING));
+    ERR_RET_LN(add_handler("order.pending_intime", matchengine, CMD_ORDER_PENDING_INTIME));
     ERR_RET_LN(add_handler("order.pending_detail", matchengine, CMD_ORDER_PENDING_DETAIL));
     ERR_RET_LN(add_handler("order.deals", readhistory, CMD_ORDER_DEALS));
     ERR_RET_LN(add_handler("order.finished", readhistory, CMD_ORDER_FINISHED));
@@ -373,6 +378,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.cancel_stop", matchengine, CMD_ORDER_CANCEL_STOP));
     ERR_RET_LN(add_handler("order.cancel_stop_all", matchengine, CMD_ORDER_CANCEL_STOP_ALL));
     ERR_RET_LN(add_handler("order.pending_stop", matchengine, CMD_ORDER_PENDING_STOP));
+    ERR_RET_LN(add_handler("order.pending_stop_intime", matchengine, CMD_ORDER_PENDING_STOP_INTIME));
     ERR_RET_LN(add_handler("order.finished_stop", readhistory, CMD_ORDER_FINISHED_STOP));
     ERR_RET_LN(add_handler("order.stop_book", matchengine, CMD_ORDER_STOP_BOOK));
     ERR_RET_LN(add_handler("call.start", matchengine, CMD_CALL_AUCTION_START));

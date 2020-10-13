@@ -73,6 +73,41 @@ static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
     profile_inc(str, 1);
 }
 
+static void sendto_reader_by_market(nw_ses *ses, rpc_pkg *pkg, const char *market)
+{
+    int reader_id = -1;
+    uint32_t hash = dict_generic_hash_function(market, strlen(market));
+    reader_id = hash % (settings.reader_num - 1);
+    if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
+        rpc_reply_error_internal_error(ses, pkg);
+        log_fatal("lose connection to reader: %d", reader_id);
+        return;
+    }
+    sendto_clt_pkg(reader_clt_arr[reader_id], ses, pkg);
+
+    char str[100];
+    snprintf(str, sizeof(str), "access_to_reader_%d", reader_id);
+    profile_inc(str, 1);
+    return;
+}
+
+static void sendto_reader_by_user(nw_ses *ses, rpc_pkg *pkg, uint32_t user_id)
+{
+    int reader_id = -1;
+    reader_id = user_id % (settings.reader_num - 1);
+    if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
+        rpc_reply_error_internal_error(ses, pkg);
+        log_fatal("lose connection to reader: %d", reader_id);
+        return;
+    }
+    sendto_clt_pkg(reader_clt_arr[reader_id], ses, pkg);
+
+    char str[100];
+    snprintf(str, sizeof(str), "access_to_reader_%d", reader_id);
+    profile_inc(str, 1);
+    return;
+}
+
 static void sendto_reader_summary(nw_ses *ses, rpc_pkg *pkg)
 {
     int reader_id = settings.reader_num - 1;
@@ -122,7 +157,13 @@ static void svr_on_connection_close(nw_ses *ses)
 
 static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
+    json_t *params = json_loadb(pkg->body, pkg->body_size, 0, NULL);    
+    if (params == NULL || !json_is_array(params)) { 
+        goto decode_error;  
+    }
+
     if (!available) {
+        json_decref(params);
         rpc_reply_error_service_unavailable(ses, pkg);
         return;
     }
@@ -144,36 +185,67 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_CALL_AUCTION_START:
     case CMD_CALL_AUCTION_EXECUTE:
     case CMD_ORDER_CANCEL_BATCH:
+    case CMD_ASSET_QUERY_INTIME:
+    case CMD_ASSET_QUERY_ALL_INTIME:
+    case CMD_ASSET_QUERY_LOCK_INTIME:
+    case CMD_ASSET_QUERY_USERS_INTIME:
+    case CMD_ORDER_PENDING_INTIME:
+    case CMD_ORDER_PENDING_STOP_INTIME:
         sendto_writer(ses, pkg);
-        break;
-    case CMD_CONFIG_UPDATE_ASSET:
-    case CMD_CONFIG_UPDATE_MARKET:
-        sendto_all(ses, pkg);
         break;
     case CMD_ASSET_QUERY:
     case CMD_ASSET_QUERY_ALL:
     case CMD_ASSET_QUERY_LOCK:
     case CMD_ORDER_PENDING:
     case CMD_ORDER_PENDING_STOP:
+        if (!json_is_integer(json_array_get(params, 0))) {
+            rpc_reply_error_invalid_argument(ses, pkg);
+            break;  
+        }
+        uint32_t user_id = json_integer_value(json_array_get(params, 0));
+        sendto_reader_by_user(ses, pkg, user_id);
+        break;
     case CMD_ORDER_BOOK:
     case CMD_ORDER_STOP_BOOK:
     case CMD_ORDER_DEPTH:
+    case CMD_ORDER_PENDING_DETAIL:
+        if (!json_is_string(json_array_get(params, 0))) {
+            rpc_reply_error_invalid_argument(ses, pkg);
+            break;
+        }
+        const char *market_name = json_string_value(json_array_get(params, 0));
+        sendto_reader_by_market(ses, pkg, market_name);  
+        break;
     case CMD_MARKET_LIST:
     case CMD_MARKET_DETAIL:
     case CMD_ASSET_LIST:
-    case CMD_ASSET_QUERY_USERS:
-    case CMD_ORDER_PENDING_DETAIL:
         sendto_reader(ses, pkg);
         break;
+    case CMD_ASSET_QUERY_USERS:
     case CMD_ASSET_SUMMARY:
     case CMD_MARKET_SUMMARY:
         sendto_reader_summary(ses, pkg);
+        break;
+    case CMD_CONFIG_UPDATE_ASSET:
+    case CMD_CONFIG_UPDATE_MARKET:
+        sendto_all(ses, pkg);
         break;
     default:
         profile_inc("method_not_found", 1);
         log_error("from: %s unknown command: %u", nw_sock_human_addr(&ses->peer_addr), pkg->command);
         break;
     }
+
+decode_error:
+    if (params) {
+        json_decref(params); 
+    }
+
+    sds hex = hexdump(pkg->body, pkg->body_size);
+    log_error("connection: %s, cmd: %u decode params fail, params data: \n%s", \
+            nw_sock_human_addr(&ses->peer_addr), pkg->command, hex); 
+    sdsfree(hex);
+    rpc_svr_close_clt(svr, ses);
 
     return;
 }
