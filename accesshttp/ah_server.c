@@ -357,6 +357,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("asset.lock", matchengine, CMD_ASSET_LOCK));
     ERR_RET_LN(add_handler("asset.unlock", matchengine, CMD_ASSET_UNLOCK));
     ERR_RET_LN(add_handler("asset.query_lock", matchengine, CMD_ASSET_QUERY_LOCK));
+    ERR_RET_LN(add_handler("asset.query_lock_intime", matchengine, CMD_ASSET_QUERY_LOCK_INTIME));
     ERR_RET_LN(add_handler("asset.backup", matchengine, CMD_ASSET_BACKUP));
 
 
