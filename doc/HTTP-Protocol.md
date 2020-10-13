@@ -129,8 +129,63 @@ asset list(optional, if no asset special, return all asset)
 }
 ```
 
+**Asset query in time**
+* method: `asset.query_intime`
+* params:
+1. user_id
+2. account: account ID, Integer, 0 is compatible with the original
+asset list(optional, if no asset special, return all asset)
+* result:
+```
+{
+    "error": null,
+    "result": {
+        "BTC": {
+            "available": "250",
+            "frozen": "10"
+        }
+    },
+    "id": 1530261478813
+}
+```
+
 **Asset query users**
 * method: `asset.query_users`
+* params:
+1. account: account ID, Integer, greater than 0
+2. user list: array
+* result:
+```
+{
+    "error": null,
+    "result": {
+        "553": {
+            "BTC": {
+                "available": "1.106000000",
+                "frozen": "2.01000000"
+            },
+            "USDT": {
+                "available": "0.00000000",
+                "frozen": "0.00000000"
+            }
+        },
+        "554": {
+            "BTC": {
+                "available": "1.00000000",
+                "frozen": "0.01000000"
+            },
+            "USDT": {
+                "available": "0.00000000",
+                "frozen": "0.00000000"
+            }
+        }
+    },
+    "id": 11111
+}
+```
+
+**Asset query users in time**
+* method: `asset.query_users_intime`
 * params:
 1. account: account ID, Integer, greater than 0
 2. user list: array
@@ -224,8 +279,62 @@ asset list(optional, if no asset special, return all asset)
 }
 ```
 
+**Asset query all in time**
+* method: `asset.query_all_intime`
+* params:
+1. user_id
+* result:
+```
+{
+    'id': 1, 
+    'result': {
+        '1': {
+            'BCH': {
+                'available': '990554.89473682', 
+                'frozen': '9445.10526318'
+            }, 
+            'BTC': {
+                'available': '92.919825', 'frozen': '7.08000000'
+            }
+        }, 
+        '0': { 
+            'CET': {
+                'available': '999900473.1500094689', 
+                'frozen': '0'
+            }, 
+            'BCH': {
+                'available': '1002000200.00000000', 
+                'frozen': '0'
+            },
+            'BTC': {
+                'available': '100.00000000', 
+                'frozen': '0'
+            }
+        }
+    }, 
+    'error': null
+}
+```
+
 **Asset query lock**
 * method: `asset.query_lock`
+* params:
+1. user_id: user ID, Integer
+2. account: account ID, Integer, 0 is compatible with the original
+asset list(optional, if no asset special, return all asset)
+* result:
+```
+{
+    "error": null,
+    "result": {
+        "BTC": "250"
+    },
+    "id": 1530261478813
+}
+```
+
+**Asset query lock in time**
+* method: `asset.query_lock_intime`
 * params:
 1. user_id: user ID, Integer
 2. account: account ID, Integer, 0 is compatible with the original
@@ -681,6 +790,56 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 }
 ```
 
+**Inquire unexecuted orders in time**
+* method: `order.pending_intime`
+* params:
+1. user_id: user ID, Integer
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. market: market name, String, Null for all market
+4. side: 0 no limit, 1 sell, 2 buy
+5. offset: offset, Integer
+6. limit: limit, Integer
+* result:
+* example:
+
+```
+"params": [1, "BTCCNY", 0, 100]"
+"result": {
+    'id': 1, 
+    'result': {
+        'records': [
+            {
+                'asset_fee': '0',
+                'account': 1,
+                'deal_fee': '0',
+                'ctime': 1558680350.41878,
+                'maker_fee': '0.0001',
+                'price': '0.01900000',
+                'deal_stock': '0',
+                'fee_discount': '0.9000',
+                'side': 1, // 1：sell, 2：buy
+                'source': 'api',
+                'amount': '1.00000000',
+                'user': 553,
+                'mtime': 1558680350.41878,
+                'fee_asset': 'CET',
+                'deal_money': '0',
+                'left': '1.00000000',
+                'type': 1, // 1: limit order, 2：market order
+                'id': 303,
+                'market': 'BCHBTC',
+                'taker_fee': '0.0001',
+                'client_id': 'test_123'
+            }
+        ], 
+        'total': 1,
+        'limit': 100,
+        'offset': 0
+    },
+    'error': null
+}
+```
+
 **Inquire unexecuted stop orders**
 * method: `order.pending_stop`
 * params:
@@ -721,6 +880,49 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 		'offset': 0
 	},
 	'error': null
+}
+```
+
+**Inquire unexecuted stop orders in time**
+* method: `order.pending_stop_intime`
+* params:
+1. user_id: user ID, Integer
+2. account: account ID, Integer, 0 is compatible with the original, -1 for query all
+3. market: market name, String, Null for all market
+4. side: 0 no limit, 1 sell, 2 buy
+5. offset: offset, Integer
+6. limit: limit, Integer
+* result:
+```
+"result": {
+    'id': 1,
+    'result': {
+        'records': [
+            {
+                'account': 1,
+                'fee_discount': '0.9000',
+                'stop_price': '0.01800000',
+                'ctime': 1558684047.573049,
+                'maker_fee': '0',
+                'price': '0',
+                'side': 1,
+                'source': 'api',
+                'amount': '1.00000000',
+                'user': 553,
+                'mtime': 1558684047.573049,
+                'fee_asset': 'CET',
+                'type': 2,
+                'id': 305,
+                'market': 'BCHBTC',
+                'taker_fee': '0.0010',
+                'client_id': 'test_123'
+            }
+        ],
+        'total': 1,
+        'limit': 100,
+        'offset': 0
+    },
+    'error': null
 }
 ```
 
