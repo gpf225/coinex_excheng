@@ -236,6 +236,9 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         break;
     }
 
+    json_decref(params);    
+    return;
+
 decode_error:
     if (params) {
         json_decref(params); 
