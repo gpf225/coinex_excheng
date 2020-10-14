@@ -1903,7 +1903,7 @@ static int persist_user_detail(redisContext *context, const char *market_name, d
 static int load_user_detail(redisContext *context, const char *market_name, time_t last_persist, dict_t *users_detail)
 {
     log_info("load user detail market %s last_persist: %ld", market_name, last_persist);
-    time_t today = time() / 86400 * 86400;
+    time_t today = time(NULL) / 86400 * 86400;
     time_t timestamp = today - settings.keep_days * 86400;
     for (; timestamp <= last_persist; timestamp += 60) {
         redisReply *reply = redisCmd(context, "HGETALL s:persist:userdetail:%s:%ld", market_name, timestamp);
