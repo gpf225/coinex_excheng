@@ -57,12 +57,12 @@ def asset_query_users_intime(user_ids):
     r = rpc('asset.query_users_intime', [1, user_ids])
     return r
 
-def order_pending(user_id, market, side, offset, limit):
-    r = rpc('order.pending', [user_id, market, side, offset, limit])
+def order_pending(user_id, account, market, side, offset, limit):
+    r = rpc('order.pending', [user_id, account, market, side, offset, limit])
     return r
 
-def order_pending_intime(user_id, market, side, offset, limit):
-    r = rpc('order.pending_intime', [user_id, market, side, offset, limit])
+def order_pending_intime(user_id, account, market, side, offset, limit):
+    r = rpc('order.pending_intime', [user_id, account, market, side, offset, limit])
     return r
 
 def pending_stop(user_id, market, side, offset, limit):
@@ -153,4 +153,28 @@ if __name__ == '__main__':
     print "asset_query_lock intime:"
     r = asset_query_users_intime([476, 477])
     print r
+
+    #order_pending(user_id, market, side, offset, limit)
+    print "order pending:"
+    r = order_pending(476, 0, 'BTCUSDT', 1, 0, 10)
+    print r
+
+    print "order pending intime:"
+    r = order_pending_intime(476, 0, 'BTCUSDT', 1, 0, 10)
+    print r
+
+    print "pending_detail:"
+    r = pending_detail('BTCUSDT', 10254576)
+    print r
+
+    print "order book:"
+    r = order_book('BTCUSDT', 1, 0, 10)
+    print r
+
+    print "order stop book:"
+    r = order_stop_book('BTCUSDT', 2, 0, 10)
+    print r
     
+    print "market detail:"
+    r = market_detail('BTCUSDT')
+    print r
