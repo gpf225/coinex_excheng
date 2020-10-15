@@ -19,9 +19,9 @@ int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence, u
     pkg.command     = command;
     pkg.sequence    = sequence;
     pkg.req_id      = request_id;
-    pkg.unique_id   = unique_id;
     pkg.body        = json_dumps(params, 0);
     pkg.body_size   = strlen(pkg.body);
+    rcp_ext_unique_pack(&pkg, unique_id);
 
     int ret = rpc_clt_send(clt, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",

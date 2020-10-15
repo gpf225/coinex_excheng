@@ -47,20 +47,13 @@ static void sendto_writer(nw_ses *ses, rpc_pkg *pkg)
     profile_inc("access_to_write", 1);
 }
 
-static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
+static void sendto_reader_fixed(nw_ses *ses, rpc_pkg *pkg, uint32_t unique_id)
 {
-    int reader_id =  -1;
-    int offset = 0;
+    int reader_id = 0, offset = 0;
     bool connected = false;
-
     for (int i = 0; i < settings.reader_num - 1; ++i) {
-        if (pkg->unique_id > 0) {
-            reader_id = pkg->unique_id % (settings.reader_num - 1 - offset);
-            offset++;
-        } else {
-            reader_id = (reader_loop++) % (settings.reader_num - 1);
-        }
-
+        reader_id = unique_id % (settings.reader_num - 1 - offset);
+        offset++;
         if (rpc_clt_connected(reader_clt_arr[reader_id])) {
             connected = true;
             break;
@@ -78,6 +71,60 @@ static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
     char str[100];
     snprintf(str, sizeof(str), "access_to_reader_%d", reader_id);
     profile_inc(str, 1);
+}
+
+static void sendto_reader_loop(nw_ses *ses, rpc_pkg *pkg)
+{
+    int reader_id = 0;
+    bool connected = false;
+    for (int i = 0; i < settings.reader_num - 1; ++i) {
+        reader_id = (reader_loop++) % (settings.reader_num - 1);
+        if (rpc_clt_connected(reader_clt_arr[reader_id])) {
+            connected = true;
+            break;
+        }
+        log_fatal("lose connection to reader: %d", reader_id);
+    }
+
+    if (!connected) {
+        rpc_reply_error_internal_error(ses, pkg);
+        log_fatal("lose connection to all reader");
+        return;
+    }
+
+    sendto_clt_pkg(reader_clt_arr[reader_id], ses, pkg);
+    char str[100];
+    snprintf(str, sizeof(str), "access_to_reader_%d", reader_id);
+    profile_inc(str, 1);
+}
+
+static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
+{
+    uint16_t ext_type = 0;
+    int ret = rpc_ext_type(pkg, &ext_type);
+    if (ret < 0) {
+        rpc_reply_error_internal_error(ses, pkg);
+        log_fatal("can not get rpc ext type: %d", ret);
+    }
+
+    if (ext_type != RPC_PKG_EXT_TYPE_UNIQUE) {
+        rpc_reply_error_internal_error(ses, pkg);
+        log_fatal("invalid rpc ext type: %d", ext_type);
+    }
+
+    ext_unique_data data;
+    memset(&data, 0, sizeof(data));
+    ret = rcp_ext_unique_decode(pkg, &data);
+    if (ret < 0) {
+        rpc_reply_error_internal_error(ses, pkg);
+        log_fatal("decode ext data fail: %d", ret);
+    }
+
+    if (data.unique_id > 0) {
+        sendto_reader_fixed(ses, pkg, data.unique_id);
+    } else {
+        sendto_reader_loop(ses, pkg);
+    }
 }
 
 static void sendto_reader_summary(nw_ses *ses, rpc_pkg *pkg)
