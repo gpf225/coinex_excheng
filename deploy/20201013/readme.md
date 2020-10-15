@@ -3,7 +3,13 @@
 ## 更新的模块
 
 matchengine
+marketprice
+cachecenter
 accesshttp
+accessws
+accessrest
+marketindex
+readhistory
 
 ### accesshttp
 
@@ -17,6 +23,7 @@ accesshttp
 ## 升级操作
 
 * 暂停交易与充值提现
-* 数据切片(makeslice)
 * 更新程序
-* 重启 matchengine accesshttp
+* 对matchengine进行数据切片(makeslice)
+* 重启 matchengine
+* 重启其他模块
