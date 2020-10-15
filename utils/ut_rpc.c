@@ -34,6 +34,7 @@ int rpc_decode(nw_ses *ses, void *data, size_t max)
     pkg->result    = le32toh(pkg->result);
     pkg->sequence  = le32toh(pkg->sequence);
     pkg->req_id    = le64toh(pkg->req_id);
+    pkg->unique_id = le32toh(pkg->unique_id);
     pkg->body_size = le32toh(pkg->body_size);
     pkg->ext_size  = le16toh(pkg->ext_size);
 
@@ -66,6 +67,7 @@ int rpc_pack(rpc_pkg *pkg, void **data, uint32_t *size)
     pkg->result    = htole32(pkg->result);
     pkg->sequence  = htole32(pkg->sequence);
     pkg->req_id    = htole64(pkg->req_id);
+    pkg->unique_id = htole32(pkg->unique_id);
     pkg->body_size = htole32(pkg->body_size);
     pkg->ext_size  = htole16(pkg->ext_size);
 

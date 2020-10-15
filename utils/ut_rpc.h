@@ -24,6 +24,7 @@ typedef struct rpc_pkg {
     uint32_t crc32;
     uint32_t sequence;
     uint64_t req_id;
+    uint32_t unique_id;
     uint32_t body_size;
     uint16_t ext_size;
     void   * ext;

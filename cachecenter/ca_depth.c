@@ -333,7 +333,8 @@ int depth_request(nw_ses *ses, rpc_pkg *pkg, const char *market, const char *int
     json_array_append_new(params, json_string(interval));
     json_array_append_new(params, json_integer(update_id));
 
-    rpc_request_json(matchengine, CMD_ORDER_DEPTH, state_entry->id, 0, params);
+    uint32_t unique_id = dict_generic_hash_function(market, strlen(market));
+    rpc_request_json_unique(matchengine, CMD_ORDER_DEPTH, state_entry->id, 0, unique_id, params);
     json_decref(params);
     profile_inc("request_depth", 1);
 

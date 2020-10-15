@@ -11,7 +11,7 @@
 # include "ut_http_svr.h"
 # include "ut_json_rpc.h"
 
-int rpc_request_json(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, const json_t *params)
+int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, uint32_t unique_id, const json_t *params)
 {
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
@@ -19,6 +19,7 @@ int rpc_request_json(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t
     pkg.command     = command;
     pkg.sequence    = sequence;
     pkg.req_id      = request_id;
+    pkg.unique_id   = unique_id;
     pkg.body        = json_dumps(params, 0);
     pkg.body_size   = strlen(pkg.body);
 
@@ -27,6 +28,11 @@ int rpc_request_json(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t
             nw_sock_human_addr(rpc_clt_peer_addr(clt)), command, sequence, (char *)pkg.body);
     free(pkg.body);
     return ret;
+}
+
+int rpc_request_json(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, const json_t *params)
+{
+    return rpc_request_json_unique(clt, command, sequence, request_id, 0, params);
 }
 
 int rpc_push_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)

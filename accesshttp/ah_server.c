@@ -59,6 +59,33 @@ static rpc_clt *get_cache_clt(const char *market)
     return cachecenter_clt_arr[hash % settings.cachecenter_worker_num];
 }
 
+static int64_t get_unique_id(uint32_t cmd, json_t *params)
+{
+    switch (cmd) {
+    case CMD_ASSET_QUERY:
+    case CMD_ASSET_QUERY_ALL:
+    case CMD_ASSET_QUERY_LOCK:
+    case CMD_ORDER_PENDING:
+    case CMD_ORDER_PENDING_STOP:
+        if (!json_is_integer(json_array_get(params, 0))) {
+            return -1;
+        }
+        return json_integer_value(json_array_get(params, 0));
+    case CMD_ORDER_BOOK:
+    case CMD_ORDER_STOP_BOOK:
+    case CMD_ORDER_DEPTH:
+    case CMD_ORDER_PENDING_DETAIL:
+        if (!json_is_string(json_array_get(params, 0))) {
+            return -1;
+        }
+        const char *market = json_string_value(json_array_get(params, 0));
+        return dict_generic_hash_function(market, strlen(market));
+    default:
+        return 0;
+    }
+    return 0;
+}
+
 static int on_http_request(nw_ses *ses, http_request_t *request)
 {
     log_trace("new http request, url: %s, method: %u", request->url, request->method);
@@ -141,6 +168,13 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             return 0;
         }
 
+        int64_t unique_id = get_unique_id(req->cmd, params);
+        if (unique_id < 0) {
+            http_reply_error_invalid_argument(ses, json_integer_value(id));
+            json_decref(body);
+            return 0;
+        }
+
         if (!rpc_clt_connected(req->clt)) {
             http_reply_error_internal_error(ses, json_integer_value(id));
             json_decref(body);
@@ -159,7 +193,7 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             info->depth_limit = json_integer_value(json_array_get(params, 1));
         }
 
-        rpc_request_json(req->clt, req->cmd, entry->id, json_integer_value(id), params);
+        rpc_request_json_unique(req->clt, req->cmd, entry->id, json_integer_value(id), (uint32_t)unique_id, params);
     }
 
     json_decref(body);
