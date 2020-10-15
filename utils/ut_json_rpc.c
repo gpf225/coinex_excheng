@@ -5,6 +5,7 @@
 
 # include "ut_log.h"
 # include "ut_rpc.h"
+# include "ut_rpc_ext.h"
 # include "ut_profile.h"
 # include "ut_rpc_clt.h"
 # include "ut_ws.h"
@@ -21,7 +22,11 @@ int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence, u
     pkg.req_id      = request_id;
     pkg.body        = json_dumps(params, 0);
     pkg.body_size   = strlen(pkg.body);
-    rcp_ext_unique_pack(&pkg, unique_id);
+
+    ext_unique_data ext_data;
+    memset(&ext_data, 0, sizeof(ext_data));
+    ext_data.unique_id = unique_id;
+    rpc_ext_pack(&pkg, RPC_PKG_EXT_TYPE_UNIQUE, sizeof(ext_data), &ext_data);
 
     int ret = rpc_clt_send(clt, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",

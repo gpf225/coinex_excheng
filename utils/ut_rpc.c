@@ -78,43 +78,6 @@ int rpc_pack(rpc_pkg *pkg, void **data, uint32_t *size)
     return 0;
 }
 
-int rcp_ext_unique_pack(rpc_pkg *pkg, uint32_t unique_id)
-{
-    uint16_t ext_type = RPC_PKG_EXT_TYPE_UNIQUE;
-    ext_type  = htole16(ext_type);
-
-    ext_unique_data unique_data;
-    memset(&unique_data, 0, sizeof(unique_data));
-    unique_data.unique_id = htole32(unique_id);
-
-    pkg->ext_size = RPC_PKG_EXT_TYPE_SIZE + sizeof(unique_data);
-    pkg->ext      = malloc(pkg->ext_size);
-    memset(pkg->ext, 0, pkg->ext_size);
-    memcpy(pkg->ext, &ext_type, RPC_PKG_EXT_TYPE_SIZE);
-    memcpy(pkg->ext + RPC_PKG_EXT_TYPE_SIZE, &unique_data, sizeof(unique_data));
-    return 0;
-}
-
-int rpc_ext_type(rpc_pkg *pkg, uint16_t *ext_type)
-{
-    if (pkg->ext_size <= RPC_PKG_EXT_TYPE_SIZE) {
-        return -1;
-    }
-    memcpy(ext_type, pkg->ext, RPC_PKG_EXT_TYPE_SIZE);
-    *ext_type = le16toh(*ext_type);
-    return 0;
-}
-
-int rcp_ext_unique_decode(rpc_pkg *pkg, ext_unique_data *data)
-{
-    if (pkg->ext_size != RPC_PKG_EXT_TYPE_SIZE + sizeof(ext_unique_data)) {
-        return -1;
-    }
-    memcpy(data, pkg->ext + RPC_PKG_EXT_TYPE_SIZE, sizeof(ext_unique_data));
-    data->unique_id = htole32(data->unique_id);
-    return 0;
-}
-
 int rpc_send(nw_ses *ses, rpc_pkg *pkg)
 {
     void *data;

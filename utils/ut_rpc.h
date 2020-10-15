@@ -15,9 +15,6 @@
 # define RPC_PKG_TYPE_REPLY   1
 # define RPC_PKG_TYPE_PUSH    2
 
-# define RPC_PKG_EXT_TYPE_SIZE      2
-# define RPC_PKG_EXT_TYPE_UNIQUE    1
-
 # pragma pack(1)
 typedef struct rpc_pkg {
     uint32_t magic;
@@ -32,10 +29,6 @@ typedef struct rpc_pkg {
     void   * ext;
     void   * body;
 } rpc_pkg;
-
-typedef struct ext_unique_data {
-    uint32_t unique_id;
-} ext_unique_data;
 # pragma pack()
 
 # define RPC_PKG_HEAD_SIZE (sizeof(rpc_pkg) - sizeof(void *) * 2)
@@ -43,9 +36,6 @@ typedef struct ext_unique_data {
 int rpc_decode(nw_ses *ses, void *data, size_t max);
 int rpc_pack(rpc_pkg *pkg, void **data, uint32_t *size);
 int rpc_send(nw_ses *ses, rpc_pkg *pkg);
-int rcp_ext_unique_pack(rpc_pkg *pkg, uint32_t unique_id);
-int rpc_ext_type(rpc_pkg *pkg, uint16_t *ext_type);
-int rcp_ext_unique_decode(rpc_pkg *pkg, ext_unique_data *data);
 
 # define RPC_CMD_HEARTBEAT 0
 
