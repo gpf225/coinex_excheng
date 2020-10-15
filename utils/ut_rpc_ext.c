@@ -108,6 +108,8 @@ list_t *rpc_ext_decode(rpc_pkg *pkg, int *ext_item_count)
         curr += sizeof(item.length);
 
         item.data = pkg->ext + curr;
+        curr += item.length;
+        
         rpc_item_decode(&item);
         list_add_node_tail(list, &item);
     }
