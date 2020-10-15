@@ -97,23 +97,17 @@ list_t *rpc_ext_decode(rpc_pkg *pkg, int *ext_item_count)
     uint16_t curr = 0;
     while (curr < pkg->ext_size) {
         rpc_ext_item item;
-        memset(&item, 0, sizeof(item));
-
-        memcpy(&item.type, pkg->ext + curr, sizeof(item.type));
-        item.type = le16toh(item.type);
-        curr += sizeof(item.type);
-
-        memcpy(&item.length, pkg->ext + curr, sizeof(item.length));
-        item.length = le16toh(item.length);
-        curr += sizeof(item.length);
-
+        item.type = le16toh(*((uint16_t *)(pkg->ext + curr)));
+        curr += sizeof(uint16_t);
+        item.length = le16toh(*((uint16_t *)(pkg->ext + curr)));
+        curr += sizeof(uint16_t);
         item.data = pkg->ext + curr;
         curr += item.length;
         
         rpc_item_decode(&item);
         list_add_node_tail(list, &item);
     }
+
     return list;
 }
-
 

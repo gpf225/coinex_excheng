@@ -18,17 +18,17 @@
 # define RPC_PKG_EXT_MAX_SIZE       65536
 
 # pragma pack(1)
+typedef struct ext_unique_data {
+    uint32_t unique_id;
+} ext_unique_data;
+# pragma pack()
+
 typedef struct rpc_ext_item
 {
     uint16_t  type;
     uint16_t  length;
     void      *data;
 } rpc_ext_item;
-
-typedef struct ext_unique_data {
-    uint32_t unique_id;
-} ext_unique_data;
-# pragma pack()
 
 int rpc_ext_pack(rpc_pkg *pkg, uint16_t type, uint16_t length, void *data);
 list_t *rpc_ext_decode(rpc_pkg *pkg, int *ext_item_count);
