@@ -36,6 +36,8 @@ CREATE TABLE `user_fee_summary_example` (
     `market`                VARCHAR(30) NOT NULL,
     `asset`                 VARCHAR(30) NOT NULL,
     `fee`                   DECIMAL(40,20) NOT NULL,
+    `taker_fee`             DECIMAL(40,20) NOT NULL,
+    `maker_fee`             DECIMAL(40,20) NOT NULL,
     INDEX `idx_date` (`trade_date`),
     INDEX `idx_asset_date` (`asset`, `trade_date`),
     INDEX `idx_user_date` (`user_id`, `trade_date`)
