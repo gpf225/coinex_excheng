@@ -2276,8 +2276,8 @@ static void on_dump_timer(nw_timer *timer, void *privdata)
         dump_summary(last_dump, last_day_start);
     }
 
-    
-    if (now % 3600 > 60)
+    log_info("now: %ld, last_day_start: %ld, last_dump: %ld", now, last_day_start, last_dump);
+    if (now % 3600 > 100)
         return;
 
     time_t last_persist = 0;
