@@ -49,11 +49,10 @@ static void sendto_writer(nw_ses *ses, rpc_pkg *pkg)
 
 static void sendto_reader_fixed(nw_ses *ses, rpc_pkg *pkg, uint32_t unique_id)
 {
-    int reader_id = 0, offset = 0;
+    int reader_id = 0;
     bool connected = false;
     for (int i = 0; i < settings.reader_num - 1; ++i) {
-        reader_id = unique_id % (settings.reader_num - 1 - offset);
-        offset++;
+        reader_id = unique_id % (settings.reader_num - 1 - i);
         if (rpc_clt_connected(reader_clt_arr[reader_id])) {
             connected = true;
             break;
