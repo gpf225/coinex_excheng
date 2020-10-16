@@ -77,10 +77,9 @@ static void rpc_item_decode(rpc_ext_item *item)
     return;
 }
 
-list_t *rpc_ext_decode(rpc_pkg *pkg, int *ext_item_count)
+list_t *rpc_ext_decode(rpc_pkg *pkg)
 {
     if (pkg->ext_size <= RPC_PKG_EXT_HEADER_SIZE) {
-        *ext_item_count = 0;
         return NULL;
     }
 
@@ -89,21 +88,24 @@ list_t *rpc_ext_decode(rpc_pkg *pkg, int *ext_item_count)
     lt.dup = list_node_dup;
     lt.free = list_node_free;
 
-    *ext_item_count = 0;
     list_t *list = list_create(&lt);
     if (list == NULL)
         return NULL;
 
     uint16_t curr = 0;
-    while (curr < pkg->ext_size) {
+    while (curr + RPC_PKG_EXT_HEADER_SIZE < pkg->ext_size) {
         rpc_ext_item item;
         item.type = le16toh(*((uint16_t *)(pkg->ext + curr)));
         curr += sizeof(uint16_t);
         item.length = le16toh(*((uint16_t *)(pkg->ext + curr)));
         curr += sizeof(uint16_t);
+
+        if (curr + item.length > pkg->ext_size) {
+            break;
+        }
+
         item.data = pkg->ext + curr;
         curr += item.length;
-        
         rpc_item_decode(&item);
         list_add_node_tail(list, &item);
     }

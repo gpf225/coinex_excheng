@@ -100,28 +100,38 @@ static void sendto_reader_loop(nw_ses *ses, rpc_pkg *pkg)
 
 static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
 {
-    uint16_t ext_type = 0;
-    int ret = rpc_ext_type(pkg, &ext_type);
-    if (ret < 0) {
+
+    list_t *list = rpc_ext_decode(pkg);
+    if (!list) {
+        log_fatal("can not get ext data, cmd: %d", pkg->command);
         rpc_reply_error_internal_error(ses, pkg);
-        log_fatal("can not get rpc ext type: %d", ret);
+        return;
     }
 
-    if (ext_type != RPC_PKG_EXT_TYPE_UNIQUE) {
+    uint32_t unique_id = 0;
+    bool has_unique_id = false;
+    list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
+    list_node *node;
+    while ((node = list_next(iter)) != NULL) {
+        rpc_ext_item *item = node->value;
+        if (item->type == RPC_PKG_EXT_TYPE_UNIQUE) {
+            ext_unique_data *data = item->data;
+            unique_id = data->unique_id;
+            has_unique_id = true;
+            break;
+        }
+    }
+    list_release_iterator(iter);
+    list_release(list);
+
+    if (!has_unique_id) {
+        log_fatal("can not get unique_id, cmd: %d", pkg->command);
         rpc_reply_error_internal_error(ses, pkg);
-        log_fatal("invalid rpc ext type: %d", ext_type);
+        return;
     }
 
-    ext_unique_data data;
-    memset(&data, 0, sizeof(data));
-    ret = rcp_ext_unique_decode(pkg, &data);
-    if (ret < 0) {
-        rpc_reply_error_internal_error(ses, pkg);
-        log_fatal("decode ext data fail: %d", ret);
-    }
-
-    if (data.unique_id > 0) {
-        sendto_reader_fixed(ses, pkg, data.unique_id);
+    if (unique_id > 0) {
+        sendto_reader_fixed(ses, pkg, unique_id);
     } else {
         sendto_reader_loop(ses, pkg);
     }

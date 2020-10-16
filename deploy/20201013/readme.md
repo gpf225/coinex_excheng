@@ -3,13 +3,9 @@
 ## 更新的模块
 
 matchengine
-marketprice
 cachecenter
 accesshttp
 accessws
-accessrest
-marketindex
-readhistory
 
 ### accesshttp
 

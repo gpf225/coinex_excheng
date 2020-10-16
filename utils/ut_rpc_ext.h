@@ -11,11 +11,10 @@
 # include "ut_list.h"
 # include "nw_ses.h"
 
-# define RPC_PKG_EXT_TYPE_SIZE      2
-# define RPC_PKG_EXT_TYPE_UNIQUE    1
-
 # define RPC_PKG_EXT_HEADER_SIZE    4
 # define RPC_PKG_EXT_MAX_SIZE       65536
+
+# define RPC_PKG_EXT_TYPE_UNIQUE    1
 
 # pragma pack(1)
 typedef struct ext_unique_data {
@@ -31,7 +30,7 @@ typedef struct rpc_ext_item
 } rpc_ext_item;
 
 int rpc_ext_pack(rpc_pkg *pkg, uint16_t type, uint16_t length, void *data);
-list_t *rpc_ext_decode(rpc_pkg *pkg, int *ext_item_count);
+list_t *rpc_ext_decode(rpc_pkg *pkg);
 
 # endif
 
