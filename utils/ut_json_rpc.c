@@ -12,7 +12,7 @@
 # include "ut_http_svr.h"
 # include "ut_json_rpc.h"
 
-int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, uint32_t unique_id, const json_t *params)
+static int rpc_request_json_internal(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, uint32_t unique_id, const json_t *params)
 {
     rpc_pkg pkg;
     memset(&pkg, 0, sizeof(pkg));
@@ -23,10 +23,16 @@ int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence, u
     pkg.body        = json_dumps(params, 0);
     pkg.body_size   = strlen(pkg.body);
 
-    ext_unique_data ext_data;
-    memset(&ext_data, 0, sizeof(ext_data));
-    ext_data.unique_id = unique_id;
-    rpc_ext_pack(&pkg, RPC_PKG_EXT_TYPE_UNIQUE, sizeof(ext_data), &ext_data);
+    if (unique_id) {
+        char buf[100];
+        void *pos = buf;
+        size_t left = sizeof(buf);
+        pack_uint16_le(&pos, &left, RPC_EXT_TYPE_UNIQUE);
+        pack_uint16_le(&pos, &left, sizeof(unique_id));
+        pack_uint32_le(&pos, &left, unique_id);
+        pkg.ext = buf;
+        pkg.ext_size = sizeof(buf) - left;
+    }
 
     int ret = rpc_clt_send(clt, &pkg);
     log_trace("send request to %s, cmd: %u, sequence: %u, params: %s",
@@ -38,6 +44,11 @@ int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence, u
 int rpc_request_json(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, const json_t *params)
 {
     return rpc_request_json_unique(clt, command, sequence, request_id, 0, params);
+}
+
+int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, uint32_t unique_id, const json_t *params);
+{
+    return rpc_request_json_internal(clt, command, sequence, request_id, unique_id, params);
 }
 
 int rpc_push_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json)

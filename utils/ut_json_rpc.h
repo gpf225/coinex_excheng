@@ -11,10 +11,10 @@
 # include <stdbool.h>
 # include <jansson.h>
 
-int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence, 
-    uint64_t request_id, uint32_t unique_id, const json_t *params);
 int rpc_request_json(rpc_clt *clt, uint32_t command, uint32_t sequence, 
     uint64_t request_id, const json_t *params);
+int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence,
+    uint64_t request_id, uint32_t unique_id, const json_t *params);
 int rpc_push_json(nw_ses *ses, rpc_pkg *pkg, const json_t *json);
 int rpc_push_result(nw_ses *ses, uint32_t command, json_t *result);
 int rpc_push_date(nw_ses *ses, uint32_t command, char *data, size_t len);

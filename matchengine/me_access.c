@@ -97,36 +97,30 @@ static void sendto_reader_loop(nw_ses *ses, rpc_pkg *pkg)
     profile_inc(str, 1);
 }
 
-static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
+static int get_unique_from_ext(rpc_pkg *pkg, uint32_t *unique_id)
 {
-
-    list_t *list = rpc_ext_decode(pkg);
-    if (!list) {
-        log_fatal("can not get ext data, cmd: %d", pkg->command);
-        rpc_reply_error_internal_error(ses, pkg);
-        return;
-    }
-
-    uint32_t unique_id = 0;
-    bool has_unique_id = false;
-    list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
-    list_node *node;
-    while ((node = list_next(iter)) != NULL) {
-        rpc_ext_item *item = node->value;
-        if (item->type == RPC_PKG_EXT_TYPE_UNIQUE) {
-            ext_unique_data *data = item->data;
-            unique_id = data->unique_id;
-            has_unique_id = true;
-            break;
+    void *pos = pkg->ext;
+    size_t left = pkg->ext_size;
+    while (left > 0) {
+        uint16_t type, size;
+        ERR_RET(unpack_uint16_le(&pos, &left, &type));
+        ERR_RET(unpack_uint16_le(&pos, &left, &size));
+        if (type == RPC_EXT_TYPE_UNIQUE) {
+            ERR_RET(unpack_uint32_le(&pos, &left, unique_id));
+            return 0;
+        } else {
+            ERR_RET(unpack_pass(&pos, &left, size));
         }
     }
-    list_release_iterator(iter);
-    list_release(list);
 
-    if (!has_unique_id) {
-        log_fatal("can not get unique_id, cmd: %d", pkg->command);
-        rpc_reply_error_internal_error(ses, pkg);
-        return;
+    return 0;
+}
+
+static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
+{
+    uint32_t unique_id = 0;
+    if (pkg->ext_size > 0) {
+        get_unique_from_ext(pkg, &unique_id);
     }
 
     if (unique_id > 0) {
