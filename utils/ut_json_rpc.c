@@ -5,7 +5,7 @@
 
 # include "ut_log.h"
 # include "ut_rpc.h"
-# include "ut_rpc_ext.h"
+# include "ut_pack.h"
 # include "ut_profile.h"
 # include "ut_rpc_clt.h"
 # include "ut_ws.h"
@@ -43,10 +43,10 @@ static int rpc_request_json_internal(rpc_clt *clt, uint32_t command, uint32_t se
 
 int rpc_request_json(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, const json_t *params)
 {
-    return rpc_request_json_unique(clt, command, sequence, request_id, 0, params);
+    return rpc_request_json_internal(clt, command, sequence, request_id, 0, params);
 }
 
-int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, uint32_t unique_id, const json_t *params);
+int rpc_request_json_unique(rpc_clt *clt, uint32_t command, uint32_t sequence, uint64_t request_id, uint32_t unique_id, const json_t *params)
 {
     return rpc_request_json_internal(clt, command, sequence, request_id, unique_id, params);
 }
