@@ -34,6 +34,7 @@
 # include "ut_config.h"
 # include "ut_profile.h"
 # include "ut_decimal.h"
+# include "ut_pack.h"
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
@@ -45,9 +46,10 @@
 # define ORDER_BOOK_MAX_LEN     101
 # define ORDER_LIST_MAX_LEN     101
 
-# define MAX_PENDING_OPERLOG    1000
-# define MAX_PENDING_MESSAGE    10000
-# define MAX_PENDING_HISTORY    100000
+# define MAX_PENDING_OPERLOG      1000
+# define MAX_PENDING_MESSAGE      10000
+# define MAX_PENDING_HISTORY      100000
+# define MAX_QUERY_ASSET_USER_NUM 2000
 
 # define QUEUE_MEM_SIZE         5000000
 # define QUEUE_MEM_MIN          1000000

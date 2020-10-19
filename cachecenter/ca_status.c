@@ -278,7 +278,8 @@ static int query_market_depth(const char *market)
     sstrncpy(state->market, market, sizeof(state->market));
     state->cmd = CMD_ORDER_DEPTH;
 
-    rpc_request_json(matchengine, state->cmd, state_entry->id, 0, params);
+    uint32_t unique_id = dict_generic_hash_function(market, strlen(market));
+    rpc_request_json_unique(matchengine, state->cmd, state_entry->id, 0, unique_id, params);
     json_decref(params);
     profile_inc("request_depth", 1);
 

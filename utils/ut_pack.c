@@ -70,3 +70,12 @@ int unpack_uint64_le(void **src, size_t *left, uint64_t *num)
     return 8;
 }
 
+int unpack_pass(void **src, size_t *left, size_t size)
+{
+    if (*left < size)
+        return -1;
+    *src += size;
+    *left -= size;
+    return size;
+}
+

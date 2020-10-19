@@ -46,5 +46,7 @@ int rpc_send(nw_ses *ses, rpc_pkg *pkg);
 
 # define RPC_HEARTBEAT_TYPE_TIMEOUT     1
 
+# define RPC_EXT_TYPE_UNIQUE            1
+
 # endif
 

@@ -20,5 +20,7 @@ int unpack_uint32_le(void **src, size_t *left, uint32_t *num);
 int pack_uint64_le(void **dest, size_t *left, uint64_t num);
 int unpack_uint64_le(void **src, size_t *left, uint64_t *num);
 
+int unpack_pass(void **src, size_t *left, size_t size);
+
 # endif
 

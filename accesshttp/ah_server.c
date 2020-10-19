@@ -59,6 +59,33 @@ static rpc_clt *get_cache_clt(const char *market)
     return cachecenter_clt_arr[hash % settings.cachecenter_worker_num];
 }
 
+static int64_t get_unique_id(uint32_t cmd, json_t *params)
+{
+    switch (cmd) {
+    case CMD_ASSET_QUERY:
+    case CMD_ASSET_QUERY_ALL:
+    case CMD_ASSET_QUERY_LOCK:
+    case CMD_ORDER_PENDING:
+    case CMD_ORDER_PENDING_STOP:
+        if (!json_is_integer(json_array_get(params, 0))) {
+            return -1;
+        }
+        return json_integer_value(json_array_get(params, 0));
+    case CMD_ORDER_BOOK:
+    case CMD_ORDER_STOP_BOOK:
+    case CMD_ORDER_DEPTH:
+    case CMD_ORDER_PENDING_DETAIL:
+        if (!json_is_string(json_array_get(params, 0))) {
+            return -1;
+        }
+        const char *market = json_string_value(json_array_get(params, 0));
+        return dict_generic_hash_function(market, strlen(market));
+    default:
+        return 0;
+    }
+    return 0;
+}
+
 static int on_http_request(nw_ses *ses, http_request_t *request)
 {
     log_trace("new http request, url: %s, method: %u", request->url, request->method);
@@ -141,6 +168,13 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             return 0;
         }
 
+        int64_t unique_id = get_unique_id(req->cmd, params);
+        if (unique_id < 0) {
+            http_reply_error_invalid_argument(ses, json_integer_value(id));
+            json_decref(body);
+            return 0;
+        }
+
         if (!rpc_clt_connected(req->clt)) {
             http_reply_error_internal_error(ses, json_integer_value(id));
             json_decref(body);
@@ -159,7 +193,7 @@ static int on_http_request(nw_ses *ses, http_request_t *request)
             info->depth_limit = json_integer_value(json_array_get(params, 1));
         }
 
-        rpc_request_json(req->clt, req->cmd, entry->id, json_integer_value(id), params);
+        rpc_request_json_unique(req->clt, req->cmd, entry->id, json_integer_value(id), (uint32_t)unique_id, params);
     }
 
     json_decref(body);
@@ -346,15 +380,20 @@ static int init_methods_handler(void)
 {
     ERR_RET_LN(add_handler("asset.list", matchengine, CMD_ASSET_LIST));
     ERR_RET_LN(add_handler("asset.query", matchengine, CMD_ASSET_QUERY));
+    ERR_RET_LN(add_handler("asset.query_intime", matchengine, CMD_ASSET_QUERY_INTIME));
     ERR_RET_LN(add_handler("asset.query_users", matchengine, CMD_ASSET_QUERY_USERS));
+    ERR_RET_LN(add_handler("asset.query_users_intime", matchengine, CMD_ASSET_QUERY_USERS_INTIME));
     ERR_RET_LN(add_handler("asset.query_all", matchengine, CMD_ASSET_QUERY_ALL));
+    ERR_RET_LN(add_handler("asset.query_all_intime", matchengine, CMD_ASSET_QUERY_ALL_INTIME));
     ERR_RET_LN(add_handler("asset.update", matchengine, CMD_ASSET_UPDATE));
     ERR_RET_LN(add_handler("asset.summary", matchengine, CMD_ASSET_SUMMARY));
     ERR_RET_LN(add_handler("asset.history", readhistory, CMD_ASSET_HISTORY));
     ERR_RET_LN(add_handler("asset.lock", matchengine, CMD_ASSET_LOCK));
     ERR_RET_LN(add_handler("asset.unlock", matchengine, CMD_ASSET_UNLOCK));
     ERR_RET_LN(add_handler("asset.query_lock", matchengine, CMD_ASSET_QUERY_LOCK));
+    ERR_RET_LN(add_handler("asset.query_lock_intime", matchengine, CMD_ASSET_QUERY_LOCK_INTIME));
     ERR_RET_LN(add_handler("asset.backup", matchengine, CMD_ASSET_BACKUP));
+
 
     ERR_RET_LN(add_handler("order.put_limit", matchengine, CMD_ORDER_PUT_LIMIT));
     ERR_RET_LN(add_handler("order.put_market", matchengine, CMD_ORDER_PUT_MARKET));
@@ -364,6 +403,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.book", matchengine, CMD_ORDER_BOOK));
     ERR_RET_LN(add_handler("order.depth", NULL, CMD_CACHE_DEPTH));
     ERR_RET_LN(add_handler("order.pending", matchengine, CMD_ORDER_PENDING));
+    ERR_RET_LN(add_handler("order.pending_intime", matchengine, CMD_ORDER_PENDING_INTIME));
     ERR_RET_LN(add_handler("order.pending_detail", matchengine, CMD_ORDER_PENDING_DETAIL));
     ERR_RET_LN(add_handler("order.deals", readhistory, CMD_ORDER_DEALS));
     ERR_RET_LN(add_handler("order.finished", readhistory, CMD_ORDER_FINISHED));
@@ -373,6 +413,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("order.cancel_stop", matchengine, CMD_ORDER_CANCEL_STOP));
     ERR_RET_LN(add_handler("order.cancel_stop_all", matchengine, CMD_ORDER_CANCEL_STOP_ALL));
     ERR_RET_LN(add_handler("order.pending_stop", matchengine, CMD_ORDER_PENDING_STOP));
+    ERR_RET_LN(add_handler("order.pending_stop_intime", matchengine, CMD_ORDER_PENDING_STOP_INTIME));
     ERR_RET_LN(add_handler("order.finished_stop", readhistory, CMD_ORDER_FINISHED_STOP));
     ERR_RET_LN(add_handler("order.stop_book", matchengine, CMD_ORDER_STOP_BOOK));
     ERR_RET_LN(add_handler("call.start", matchengine, CMD_CALL_AUCTION_START));

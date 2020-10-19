@@ -47,18 +47,32 @@ static void sendto_writer(nw_ses *ses, rpc_pkg *pkg)
     profile_inc("access_to_write", 1);
 }
 
-static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
+static void sendto_reader_fixed(nw_ses *ses, rpc_pkg *pkg, uint32_t unique_id)
+{
+    int reader_id = unique_id % (settings.reader_num - 1);
+    if (!rpc_clt_connected(reader_clt_arr[reader_id])) {
+        rpc_reply_error_internal_error(ses, pkg);
+        log_fatal("lose connection to reader: %d", reader_id);
+        return;
+    }
+
+    sendto_clt_pkg(reader_clt_arr[reader_id], ses, pkg);
+    char str[100];
+    snprintf(str, sizeof(str), "access_to_reader_%d", reader_id);
+    profile_inc(str, 1);
+}
+
+static void sendto_reader_loop(nw_ses *ses, rpc_pkg *pkg)
 {
     int reader_id = 0;
     bool connected = false;
-
     for (int i = 0; i < settings.reader_num - 1; ++i) {
         reader_id = (reader_loop++) % (settings.reader_num - 1);
         if (rpc_clt_connected(reader_clt_arr[reader_id])) {
             connected = true;
             break;
         }
-        log_error("lose connection to reader: %d", reader_id);
+        log_fatal("lose connection to reader: %d", reader_id);
     }
 
     if (!connected) {
@@ -71,6 +85,39 @@ static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
     char str[100];
     snprintf(str, sizeof(str), "access_to_reader_%d", reader_id);
     profile_inc(str, 1);
+}
+
+static int get_unique_from_ext(rpc_pkg *pkg, uint32_t *unique_id)
+{
+    void *pos = pkg->ext;
+    size_t left = pkg->ext_size;
+    while (left > 0) {
+        uint16_t type, size;
+        ERR_RET(unpack_uint16_le(&pos, &left, &type));
+        ERR_RET(unpack_uint16_le(&pos, &left, &size));
+        if (type == RPC_EXT_TYPE_UNIQUE) {
+            ERR_RET(unpack_uint32_le(&pos, &left, unique_id));
+            return 0;
+        } else {
+            ERR_RET(unpack_pass(&pos, &left, size));
+        }
+    }
+
+    return 0;
+}
+
+static void sendto_reader(nw_ses *ses, rpc_pkg *pkg)
+{
+    uint32_t unique_id = 0;
+    if (pkg->ext_size > 0) {
+        get_unique_from_ext(pkg, &unique_id);
+    }
+
+    if (unique_id > 0) {
+        sendto_reader_fixed(ses, pkg, unique_id);
+    } else {
+        sendto_reader_loop(ses, pkg);
+    }
 }
 
 static void sendto_reader_summary(nw_ses *ses, rpc_pkg *pkg)
@@ -144,11 +191,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_CALL_AUCTION_START:
     case CMD_CALL_AUCTION_EXECUTE:
     case CMD_ORDER_CANCEL_BATCH:
+    case CMD_ASSET_QUERY_INTIME:
+    case CMD_ASSET_QUERY_ALL_INTIME:
+    case CMD_ASSET_QUERY_LOCK_INTIME:
+    case CMD_ASSET_QUERY_USERS_INTIME:
+    case CMD_ORDER_PENDING_INTIME:
+    case CMD_ORDER_PENDING_STOP_INTIME:
         sendto_writer(ses, pkg);
-        break;
-    case CMD_CONFIG_UPDATE_ASSET:
-    case CMD_CONFIG_UPDATE_MARKET:
-        sendto_all(ses, pkg);
         break;
     case CMD_ASSET_QUERY:
     case CMD_ASSET_QUERY_ALL:
@@ -158,16 +207,20 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
     case CMD_ORDER_BOOK:
     case CMD_ORDER_STOP_BOOK:
     case CMD_ORDER_DEPTH:
+    case CMD_ORDER_PENDING_DETAIL:
     case CMD_MARKET_LIST:
     case CMD_MARKET_DETAIL:
     case CMD_ASSET_LIST:
-    case CMD_ASSET_QUERY_USERS:
-    case CMD_ORDER_PENDING_DETAIL:
         sendto_reader(ses, pkg);
         break;
+    case CMD_ASSET_QUERY_USERS:
     case CMD_ASSET_SUMMARY:
     case CMD_MARKET_SUMMARY:
         sendto_reader_summary(ses, pkg);
+        break;
+    case CMD_CONFIG_UPDATE_ASSET:
+    case CMD_CONFIG_UPDATE_MARKET:
+        sendto_all(ses, pkg);
         break;
     default:
         profile_inc("method_not_found", 1);

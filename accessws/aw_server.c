@@ -575,7 +575,7 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json(matchengine, CMD_ORDER_PENDING, entry->id, id, query_params);
+    rpc_request_json_unique(matchengine, CMD_ORDER_PENDING, entry->id, id, info->user_id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -600,7 +600,7 @@ static int on_method_order_query_stop(nw_ses *ses, uint64_t id, struct clt_info 
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json(matchengine, CMD_ORDER_PENDING_STOP, entry->id, id, query_params);
+    rpc_request_json_unique(matchengine, CMD_ORDER_PENDING_STOP, entry->id, id, info->user_id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -624,7 +624,7 @@ static int on_method_order_account_query(nw_ses *ses, uint64_t id, struct clt_in
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json(matchengine, CMD_ORDER_PENDING, entry->id, id, query_params);
+    rpc_request_json_unique(matchengine, CMD_ORDER_PENDING, entry->id, id, info->user_id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -648,7 +648,7 @@ static int on_method_order_account_query_stop(nw_ses *ses, uint64_t id, struct c
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json(matchengine, CMD_ORDER_PENDING_STOP, entry->id, id, query_params);
+    rpc_request_json_unique(matchengine, CMD_ORDER_PENDING_STOP, entry->id, id, info->user_id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -700,7 +700,7 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json(matchengine, CMD_ASSET_QUERY, entry->id, id, query_params);
+    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY, entry->id, id, info->user_id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -740,7 +740,7 @@ static int on_method_asset_query_sub(nw_ses *ses, uint64_t id, struct clt_info *
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json(matchengine, CMD_ASSET_QUERY, entry->id, id, query_params);
+    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY, entry->id, id, sub_user_id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -764,7 +764,7 @@ static int on_method_asset_account_query(nw_ses *ses, uint64_t id, struct clt_in
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json(matchengine, CMD_ASSET_QUERY, entry->id, id, query_params);
+    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY, entry->id, id, info->user_id, query_params);
     json_decref(query_params);
 
     return 0;
@@ -787,7 +787,7 @@ static int on_method_asset_account_query_all(nw_ses *ses, uint64_t id, struct cl
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json(matchengine, CMD_ASSET_QUERY_ALL, entry->id, id, query_params);
+    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY_ALL, entry->id, id, info->user_id, query_params);
     json_decref(query_params);
 
     return 0;
