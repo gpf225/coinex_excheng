@@ -14,6 +14,7 @@ static nw_timer report_timer;
 static kafka_consumer_t *kafka_deals;
 static kafka_consumer_t *kafka_orders;
 
+static time_t  last_dump_date = 0;
 static int64_t kafka_deals_offset = 0;
 static int64_t kafka_orders_offset = 0;
 
@@ -953,69 +954,6 @@ static time_t get_last_dump_time(void)
     return timestamp;
 }
 
-static int clear_dump_data(MYSQL *conn, time_t timestamp)
-{
-    int ret = 0;
-    sds date_day = sdsnew(get_utc_date_from_time(timestamp, "%Y-%m-%d"));
-    sds date_mon = sdsnew(get_utc_date_from_time(timestamp, "%Y%m"));
-    sds sql = sdsempty();
-    sql = sdscatprintf(sql, "DELETE from user_trade_summary_%s where trade_date = '%s'", date_mon, date_day);
-    log_trace("exec sql: %s", sql);
-    ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
-        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
-        ret = -__LINE__;
-        goto cleanup;
-    }
-
-    sdsclear(sql);
-    sql = sdscatprintf(sql, "DELETE from user_fee_summary_%s where trade_date = '%s'", date_mon, date_day);
-    log_trace("exec sql: %s", sql);
-    ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
-        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
-        ret = -__LINE__;
-        goto cleanup;
-    }
-
-    sdsclear(sql);
-    sql = sdscatprintf(sql, "DELETE from client_trade_summary_%s where trade_date = '%s'", date_mon, date_day);
-    log_trace("exec sql: %s", sql);
-    ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
-        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
-        ret = -__LINE__;
-        goto cleanup;
-    }
-
-    sdsclear(sql);
-    sql = sdscatprintf(sql, "DELETE from client_fee_summary_%s where trade_date = '%s'", date_mon, date_day);
-    log_trace("exec sql: %s", sql);
-    ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
-        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
-        ret = -__LINE__;
-        goto cleanup;
-    }
-
-    sdsclear(sql);
-    sql = sdscatprintf(sql, "DELETE from coin_trade_summary where trade_date = '%s'", date_day);
-    log_trace("exec sql: %s", sql);
-    ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
-        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
-        ret = -__LINE__;
-        goto cleanup;
-    }
-
-cleanup:
-    sdsfree(sql);
-    sdsfree(date_mon);
-    sdsfree(date_day);
-
-    return ret;
-}
-
 static sds sql_append_mpd(sds sql, mpd_t *val, bool comma)
 {
     char *str = mpd_to_sci(val, 0);
@@ -1059,6 +997,18 @@ static int dump_market_info(MYSQL *conn, const char *market_name, const char *st
     sql = sql_append_mpd(sql, trade_info->taker_sell_amount, true);
     sql = sdscatprintf(sql, "%d, %d, %d, %d, %d, %d)", trade_info->taker_buy_count, trade_info->taker_sell_count, \
             trade_info->limit_buy_order, trade_info->limit_sell_order, trade_info->market_buy_order, trade_info->market_sell_order);
+    sql = sdscatprintf(sql, "on duplicate key update `deal_count`=%d, `deal_user_count`=%zu, `deal_user_list`='%s', `taker_buy_count`=%d, `taker_sell_count`=%d, "
+            "`limit_buy_order`=%d, `limit_sell_order`=%d, `market_buy_order`=%d, `market_sell_order`=%d", trade_info->deal_count, json_array_size(user_list), \
+            _user_list_string, trade_info->taker_buy_count, trade_info->taker_sell_count, trade_info->limit_buy_order, trade_info->limit_sell_order,  \
+            trade_info->market_buy_order, trade_info->market_sell_order);
+    sql = sdscatprintf(sql, "`deal_amount`=");
+    sql = sql_append_mpd(sql, trade_info->deal_amount, true);
+    sql = sdscatprintf(sql, "`deal_volume`=");
+    sql = sql_append_mpd(sql, trade_info->deal_volume, true);
+    sql = sdscatprintf(sql, "`taker_buy_amount`=");
+    sql = sql_append_mpd(sql, trade_info->taker_buy_amount, true);
+    sql = sdscatprintf(sql, "`taker_sell_amount`=");
+    sql = sql_append_mpd(sql, trade_info->taker_sell_amount, false);
 
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -1121,6 +1071,29 @@ static int dump_client_dict_info(MYSQL *conn, const char *market_name, const cha
 
         sql = sdscatprintf(sql, "%d, %d, %d, %d, %d, %d, %d)", user_info->deal_count, user_info->deal_buy_count, user_info->deal_sell_count,
                 user_info->limit_buy_order, user_info->limit_sell_order, user_info->market_buy_order, user_info->market_sell_order);
+        sql = sdscatprintf(sql, "on duplicate key update `deal_count`=%d, `deal_buy_count`=%d, `deal_sell_count`=%d, `limit_buy_order`=%d, "
+            "`limit_sell_order`=%d, `market_buy_order`=%d, `market_sell_order`=%d", user_info->deal_count, user_info->deal_buy_count, user_info->deal_sell_count,
+                user_info->limit_buy_order, user_info->limit_sell_order, user_info->market_buy_order, user_info->market_sell_order);
+        sql = sdscatprintf(sql, "`deal_amount`=");
+        sql = sql_append_mpd(sql, user_info->deal_amount, true);
+        sql = sdscatprintf(sql, "`deal_volume`=");
+        sql = sql_append_mpd(sql, user_info->deal_volume, true);
+        sql = sdscatprintf(sql, "`buy_amount`=");
+        sql = sql_append_mpd(sql, user_info->buy_amount, true);
+        sql = sdscatprintf(sql, "`buy_volume`=");
+        sql = sql_append_mpd(sql, user_info->buy_volume, true);
+        sql = sdscatprintf(sql, "`sell_amount`=");
+        sql = sql_append_mpd(sql, user_info->sell_amount, true);
+        sql = sdscatprintf(sql, "`sell_volume`=");
+        sql = sql_append_mpd(sql, user_info->sell_volume, true);
+        sql = sdscatprintf(sql, "`taker_amount`=");
+        sql = sql_append_mpd(sql, user_info->taker_amount, true);
+        sql = sdscatprintf(sql, "`taker_volume`=");
+        sql = sql_append_mpd(sql, user_info->taker_volume, true);
+        sql = sdscatprintf(sql, "`maker_amount`=");
+        sql = sql_append_mpd(sql, user_info->maker_amount, true);
+        sql = sdscatprintf(sql, "`maker_volume`=");
+        sql = sql_append_mpd(sql, user_info->maker_volume, false);
 
         index += 1;
         if (index % insert_limit == 0 || index == dict_size(client_trade)) {
@@ -1186,6 +1159,29 @@ static int dump_user_dict_info(MYSQL *conn, const char *market_name, const char 
 
         sql = sdscatprintf(sql, "%d, %d, %d, %d, %d, %d, %d)", user_info->deal_count, user_info->deal_buy_count, user_info->deal_sell_count,
                 user_info->limit_buy_order, user_info->limit_sell_order, user_info->market_buy_order, user_info->market_sell_order);
+        sql = sdscatprintf(sql, "on duplicate key update `deal_count`=%d, `deal_buy_count`=%d, `deal_sell_count`=%d, `limit_buy_order`=%d, "
+            "`limit_sell_order`=%d, `market_buy_order`=%d, `market_sell_order`=%d", user_info->deal_count, user_info->deal_buy_count, user_info->deal_sell_count,
+                user_info->limit_buy_order, user_info->limit_sell_order, user_info->market_buy_order, user_info->market_sell_order);
+        sql = sdscatprintf(sql, "`deal_amount`=");
+        sql = sql_append_mpd(sql, user_info->deal_amount, true);
+        sql = sdscatprintf(sql, "`deal_volume`=");
+        sql = sql_append_mpd(sql, user_info->deal_volume, true);
+        sql = sdscatprintf(sql, "`buy_amount`=");
+        sql = sql_append_mpd(sql, user_info->buy_amount, true);
+        sql = sdscatprintf(sql, "`buy_volume`=");
+        sql = sql_append_mpd(sql, user_info->buy_volume, true);
+        sql = sdscatprintf(sql, "`sell_amount`=");
+        sql = sql_append_mpd(sql, user_info->sell_amount, true);
+        sql = sdscatprintf(sql, "`sell_volume`=");
+        sql = sql_append_mpd(sql, user_info->sell_volume, true);
+        sql = sdscatprintf(sql, "`taker_amount`=");
+        sql = sql_append_mpd(sql, user_info->taker_amount, true);
+        sql = sdscatprintf(sql, "`taker_volume`=");
+        sql = sql_append_mpd(sql, user_info->taker_volume, true);
+        sql = sdscatprintf(sql, "`maker_amount`=");
+        sql = sql_append_mpd(sql, user_info->maker_amount, true);
+        sql = sdscatprintf(sql, "`maker_volume`=");
+        sql = sql_append_mpd(sql, user_info->maker_volume, false);
 
         index += 1;
         if (index % insert_limit == 0 || index == dict_size(users_trade)) {
@@ -1238,6 +1234,8 @@ static int dump_client_fee_dict_info(MYSQL *conn, const char *market_name, time_
         sql = sdscatprintf(sql, "(NULL, '%s', '%s', %u, '%s', '%s', ", get_utc_date_from_time(timestamp, "%Y-%m-%d"), fkey->client_id, fkey->user_id, market_name, fkey->asset);
         sql = sql_append_mpd(sql, fval->value, false);
         sql = sdscatprintf(sql, ")");
+        sql = sdscatprintf(sql, "on duplicate key update `fee`=");
+        sql = sql_append_mpd(sql, fval->value, false);
 
         index += 1;
         if (index % insert_limit == 0 || index == dict_size(fees_detail)) {
@@ -1292,6 +1290,12 @@ static int dump_fee_dict_info(MYSQL *conn, const char *market_name, time_t times
         sql = sql_append_mpd(sql, fval->taker_fee, true);
         sql = sql_append_mpd(sql, fval->maker_fee, false);
         sql = sdscatprintf(sql, ")");
+        sql = sdscatprintf(sql, "on duplicate key update `fee`=");
+        sql = sql_append_mpd(sql, fval->value, true);
+        sql = sdscatprintf(sql, "`taker_fee`=");
+        sql = sql_append_mpd(sql, fval->taker_fee, true);
+        sql = sdscatprintf(sql, "`maker_fee`=");
+        sql = sql_append_mpd(sql, fval->maker_fee, false);
 
         index += 1;
         if (index % insert_limit == 0 || index == dict_size(fees_detail)) {
@@ -1362,10 +1366,11 @@ static int dump_market(MYSQL *conn, json_t *markets, time_t timestamp)
     return 0;
 }
 
-static int update_dump_history(MYSQL *conn, time_t timestamp)
+static int update_dump_history(MYSQL *conn, time_t date, time_t timestamp)
 {
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "INSERT INTO `dump_history` (`id`, `time`, `trade_date`) VALUES (NULL, %ld, '%s')", time(NULL), get_utc_date_from_time(timestamp, "%Y-%m-%d"));
+    sql = sdscatprintf(sql, "INSERT INTO `dump_history` (`id`, `time`, `trade_date`, `deals_offset`, `orders_offset`)"
+          " VALUES (NULL, %ld, '%s', %"PRIi64", %"PRIi64")", timestamp, get_utc_date_from_time(date, "%Y-%m-%d"), kafka_deals_offset, kafka_orders_offset);
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
     if (ret != 0) {
@@ -1374,12 +1379,12 @@ static int update_dump_history(MYSQL *conn, time_t timestamp)
         return -__LINE__;
     }
     sdsfree(sql);
-    log_info("update dump history to: %s", get_utc_date_from_time(timestamp, "%Y-%m-%d"));
+    log_info("update dump history to: %s", get_utc_date_from_time(date, "%Y-%m-%d"));
 
     return 0;
 }
 
-static int dump_to_db(time_t timestamp)
+static int dump_to_db(time_t date, time_t timestamp)
 {
     log_info("start dump: %s", get_utc_date_from_time(timestamp, "%Y-%m-%d"));
     json_t *markets = get_market_dict();
@@ -1395,19 +1400,14 @@ static int dump_to_db(time_t timestamp)
     }
 
     int ret;
-    ret = clear_dump_data(conn, timestamp);
-    if (ret == 0) {
-        log_info("clear_dump_data, timestamp: %zd", timestamp);
-    }
-
-    ret = dump_market(conn, markets, timestamp);
+    ret = dump_market(conn, markets, date);
     if (ret < 0) {
         mysql_close(conn);
         log_error("dump_market_list_info fail: %d", ret);
         return -__LINE__;
     }
 
-    ret = update_dump_history(conn, timestamp);
+    ret = update_dump_history(conn, date, timestamp);
     if (ret < 0) {
         mysql_close(conn);
         log_error("update_dump_history fail: %d", ret);
@@ -1419,9 +1419,12 @@ static int dump_to_db(time_t timestamp)
     return 0;
 }
 
-static void dump_summary(time_t last_dump, time_t day_start)
+static void on_dump_timer(nw_timer *timer, void *privdata)
 {
-    log_info("last_dump: %zd, day_start: %zd", last_dump, day_start);
+    time_t now = time(NULL);
+    if (now % 3600 >= 60 || !is_kafka_synced())
+        return;
+
     dlog_flush_all();
     int pid = fork();
     if (pid < 0) {
@@ -1431,40 +1434,24 @@ static void dump_summary(time_t last_dump, time_t day_start)
         return;
     }
 
-    for (time_t timestamp = last_dump + 86400; timestamp <= day_start; timestamp += 86400) {
-        int ret = dump_to_db(timestamp);
+    time_t today_start = get_utc_day_start(now);
+    if (last_dump_date == 0) {
+        last_dump_date = today_start;
+    }
+
+    log_info("last_dump_date: %zd, today_start: %zd", last_dump_date, today_start);
+    for (time_t date = last_dump_date; date <= today_start; date += 86400) {
+        int ret = dump_to_db(date, now);
         if (ret < 0) {
-            log_error("dump_to_db %ld fail: %d", timestamp, ret);
+            log_error("dump_to_db %ld fail: %d", date, ret);
             exit(0);
         } else {
+            last_dump_date = date;
             profile_inc_real("dump_success", 1);
         }
     }
 
     exit(0);
-}
-
-static void on_dump_timer(nw_timer *timer, void *privdata)
-{
-    time_t now = time(NULL);
-    if (now % 600 >= 60)
-        return;
-    if (!is_kafka_synced())
-        return;
-
-    time_t day_start = get_utc_day_start(now);
-    time_t last_dump = get_last_dump_time();
-    if (last_dump < 0)
-        return;
-
-    if (last_dump == 0) {
-        last_dump = day_start - 86400 * 2;
-    }
-
-    time_t last_day_start = day_start - 86400;
-    if (last_dump != last_day_start) {
-        dump_summary(last_dump, last_day_start);
-    }
 }
 
 static void clear_market(struct market_info_val *market_info, time_t end)
