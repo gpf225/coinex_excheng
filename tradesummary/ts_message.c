@@ -14,9 +14,11 @@ static nw_timer report_timer;
 static kafka_consumer_t *kafka_deals;
 static kafka_consumer_t *kafka_orders;
 
-static time_t  last_dump_date = 0;
 static int64_t kafka_deals_offset = 0;
 static int64_t kafka_orders_offset = 0;
+
+static time_t  last_dump_date = 0;
+static time_t  last_dump_time = 0;
 
 static dict_t *dict_market_info;
 
@@ -107,6 +109,8 @@ struct trade_amount_rank_val {
     mpd_t    *amount;
     mpd_t    *amount_total;
 };
+
+static int dump_users_detail();
 
 // fee key
 static uint32_t dict_fee_key_hash_func(const void *key)
@@ -283,50 +287,6 @@ static int trade_amount_rank_val_compare(const void *val1, const void *val2)
     if (mpd_cmp(obj1->amount, obj2->amount, &mpd_ctx) > 0)
         return -1;
     return 1;
-}
-
-static int set_message_offset(const char *topic, time_t when, int64_t offset)
-{
-    redisContext *context = redis_connect(&settings.redis);
-    if (context == NULL)
-        return -__LINE__;
-
-    redisReply *reply = redisCmd(context, "HSET s:offset:%s %ld %"PRIi64, topic, when, offset);
-    if (reply == NULL) {
-        return -__LINE__;
-    }
-
-    freeReplyObject(reply);
-    redisFree(context);
-    return 0;
-}
-
-static int64_t get_message_offset(const char *topic)
-{
-    redisContext *context = redis_connect(&settings.redis);
-    if (context == NULL)
-        return -__LINE__;
-
-    time_t now = time(NULL) / 3600 * 3600;
-    for (time_t start = now - settings.keep_days * 86400; start <= now; start += 3600) {
-        redisReply *reply = redisCmd(context, "HGET s:offset:%s %ld", topic, start);
-        if (reply == NULL) {
-            redisFree(context);
-            return -__LINE__;
-        }
-        if (reply->type == REDIS_REPLY_STRING) {
-            int64_t offset = strtoll(reply->str, NULL, 0);
-            freeReplyObject(reply);
-            redisFree(context);
-            return offset;
-        } else {
-            freeReplyObject(reply);
-            continue;
-        }
-    }
-
-    redisFree(context);
-    return 0;
 }
 
 static struct market_info_val *get_market_info(char *market)
@@ -693,8 +653,6 @@ static bool check_client_id(const char *client_id)
 
 static void on_deals_message(sds message, int64_t offset)
 {
-    static time_t  last_message_hour;
-
     log_trace("deals message: %s, offset: %"PRIi64, message, offset);
     json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
     if (obj == NULL) {
@@ -734,6 +692,14 @@ static void on_deals_message(sds message, int64_t offset)
         goto cleanup;
     }
 
+    time_t time_minute = ((time_t)timestamp) / 60 * 60 - 60;
+    if (time_minute > last_dump_time) {
+        int ret = dump_users_detail();
+        if (ret < 0) {
+            log_error("dump_users_detail fail ret: %d", ret);
+        }
+    }
+
     amount = decimal(amount_str, 0);
     volume = decimal(volume_str, 0);
     ask_fee = decimal(ask_fee_str, 0);
@@ -742,11 +708,6 @@ static void on_deals_message(sds message, int64_t offset)
         log_error("invalid message: %s, offset: %"PRIi64, message, offset);
         goto cleanup;
     }
-
-    time_t time_hour = ((int)timestamp) / 3600 * 3600;
-    if (last_message_hour != 0 && last_message_hour != time_hour)
-        set_message_offset("deals", time_hour, kafka_deals_offset);
-    last_message_hour = time_hour;
 
     struct market_info_val *market_info = get_market_info((char *)market);
     if (market_info == NULL) {
@@ -814,7 +775,6 @@ cleanup:
 static void on_orders_message(sds message, int64_t offset)
 {
     static int64_t max_order_id;
-    static time_t  last_message_hour;
 
     log_trace("orders message: %s, offset: %"PRIi64, message, offset);
     json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
@@ -856,11 +816,6 @@ static void on_orders_message(sds message, int64_t offset)
         log_error("invalid message: %s, offset: %"PRIi64, message, offset);
         goto cleanup;
     }
-
-    time_t time_hour = ((int)timestamp) / 3600 * 3600;
-    if (last_message_hour != 0 && last_message_hour != time_hour)
-        set_message_offset("orders", time_hour, kafka_orders_offset);
-    last_message_hour = time_hour;
 
     struct market_info_val *market_info = get_market_info((char *)market);
     if (market_info == NULL) {
@@ -963,6 +918,98 @@ static sds sql_append_mpd(sds sql, mpd_t *val, bool comma)
     }
     free(str);
     return sql;
+}
+
+static int dump_users_market_detail(MYSQL *conn, const char *market_name, time_t timestamp, dict_t *user_dict)
+{
+    char table[512];
+    snprintf(table, sizeof(table), "user_detail_%s", get_utc_date_from_time(timestamp, "%Y%m"));
+
+    sds sql = sdsempty();
+    sql = sdscatprintf(sql, "CREATE TABLE IF NOT EXISTS `%s` LIKE `user_detail_example`", table);
+    log_trace("exec sql: %s", sql);
+    int ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        sdsfree(sql);
+        return -__LINE__;
+    }
+    sdsclear(sql);
+
+    size_t index = 0;
+    size_t insert_limit = 1000;
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(user_dict);
+    while ((entry = dict_next(iter)) != NULL) {
+        uint32_t user_id = (uintptr_t)entry->key;
+        struct user_detail_val *user_detail = entry->val;
+
+        if (index % insert_limit == 0) {
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `user_id`, `market`, `time`, `buy_amount`, `sell_amount`, `buy_volume`, `sell_volume`) VALUES ", table);
+        } else {
+            sql = sdscatprintf(sql, ", ");
+        }
+
+        sql = sdscatprintf(sql, "(NULL, %u, '%s', %ld, ", user_id, market_name, timestamp);
+        sql = sql_append_mpd(sql, user_detail->buy_amount, true);
+        sql = sql_append_mpd(sql, user_detail->sell_amount, true);
+        sql = sql_append_mpd(sql, user_detail->buy_volume, true);
+        sql = sql_append_mpd(sql, user_detail->sell_volume, false);
+        sql = sdscatprintf(sql, ")");
+
+        index += 1;
+        if (index % insert_limit == 0 || index == dict_size(user_dict)) {
+            log_trace("exec sql: %s", sql);
+            int ret = mysql_real_query(conn, sql, sdslen(sql));
+            if (ret != 0) {
+                log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+                dict_release_iterator(iter);
+                sdsfree(sql);
+                return -__LINE__;
+            }
+            sdsclear(sql);
+        }
+    }
+    dict_release_iterator(iter);
+    return 0;
+}
+
+static int dump_users_detail()
+{
+    MYSQL *conn = mysql_connect(&settings.db_summary);
+    if (conn == NULL) {
+        log_error("connect mysql fail");
+        return -__LINE__;
+    }
+
+    time_t max_timestamp = last_dump_time;
+    dict_entry *market_entry;
+    dict_iterator *market_iter = dict_get_iterator(dict_market_info);
+    while ((market_entry = dict_next(market_iter)) != NULL) {
+        const char *market_name = market_entry->key;
+        struct market_info_val *market_info = market_entry->val;
+
+        dict_entry *time_entry;
+        dict_iterator *time_iter = dict_get_iterator(market_info->users_detail);
+        while ((time_entry = dict_next(time_iter))) {
+            time_t timestamp = (uintptr_t)time_entry->key;
+            if (timestamp <= last_dump_time)
+                continue;
+
+            dict_t *user_dict = time_entry->val;
+            int ret = dump_users_market_detail(conn, market_name, timestamp, user_dict);
+            if (ret < 0)
+                return ret;
+
+            if (timestamp > max_timestamp)
+                max_timestamp = timestamp;
+        }
+        dict_release_iterator(time_iter);
+    }
+    dict_release_iterator(market_iter);
+    last_dump_time = max_timestamp;
+    mysql_close(conn);
+    return 0;
 }
 
 static int dump_market_info(MYSQL *conn, const char *market_name, const char *stock, const char *money, time_t timestamp, struct daily_trade_val *trade_info)
