@@ -1161,6 +1161,9 @@ static int load_market_info(MYSQL *conn, time_t timestamp)
             mpd_del(taker_sell_amount);
         }
         mysql_free_result(result);
+
+        if (num_rows < query_limit)
+            break;
     }
     sdsfree(date_day);
     return 0;
@@ -1334,6 +1337,9 @@ static int load_client_info(MYSQL *conn, time_t timestamp)
             mpd_del(maker_volume);
         }
         mysql_free_result(result);
+
+        if (num_rows < query_limit)
+            break;
     }
     sdsfree(date_day);
     return 0;
@@ -1505,6 +1511,9 @@ static int load_users_info(MYSQL *conn, time_t timestamp)
             mpd_del(maker_volume);
         }
         mysql_free_result(result);
+
+        if (num_rows < query_limit)
+            break;
     }
     sdsfree(date_day);
     return 0;
@@ -1617,6 +1626,9 @@ static int load_client_fee_info(MYSQL *conn, time_t timestamp)
             mpd_del(fee);
         }
         mysql_free_result(result);
+
+        if (num_rows < query_limit)
+            break;
     }
     sdsfree(date_day);
     return 0;
@@ -1741,6 +1753,9 @@ static int load_users_fee_info(MYSQL *conn, time_t timestamp)
             dict_add(trade_info->fees_detail, &key, val);
         }
         mysql_free_result(result);
+
+        if (num_rows < query_limit)
+            break;
     }
     sdsfree(date_day);
     return 0;
