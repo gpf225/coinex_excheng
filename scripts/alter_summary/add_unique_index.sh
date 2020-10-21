@@ -56,9 +56,14 @@ function alter_dump_history() {
     mysql -h${MYSQL_SUMMARY_HOST} -u${MYSQL_SUMMARY_USER} -p${MYSQL_SUMMARY_PASS} ${MYSQL_SUMMARY_DB} -e "alter table dump_history add orders_offset BIGINT NOT NULL default 0;"
 }
 
+function create_user_detail_example() {
+    mysql -h${MYSQL_SUMMARY_HOST} -u${MYSQL_SUMMARY_USER} -p${MYSQL_SUMMARY_PASS} ${MYSQL_SUMMARY_DB} -e "source user_detail_example.sql;"
+}
+
 alter_user_trade_summary
 alter_user_fee_summary
 alert_client_trade_summary
 alert_client_fee_summary
 alter_coin_trade_summary
 alter_dump_history
+create_user_detail_example
