@@ -1218,7 +1218,7 @@ static int dump_client_dict_info(MYSQL *conn, const char *market_name, const cha
                 "`deal_sell_count`=values(`deal_sell_count`), `limit_buy_order`=values(`limit_buy_order`), `limit_sell_order`=values(`limit_sell_order`), "
                 "`market_buy_order`=values(`market_buy_order`), `market_sell_order`=values(`market_sell_order`), `deal_amount`=values(`deal_amount`), "
                 "`deal_volume`=values(`deal_volume`), `buy_amount`=values(`buy_amount`), `buy_volume`=values(`buy_volume`), `sell_amount`=values(`sell_amount`), "
-                "`sell_volume`=values(`sell_volume`), `taker_amount`=values(`taker_amount`), `taker_volume`=values(`taker_volumes`), "
+                "`sell_volume`=values(`sell_volume`), `taker_amount`=values(`taker_amount`), `taker_volume`=values(`taker_volume`), "
                 "`maker_amount`=values(`maker_amount`), `maker_volume`=values(`maker_volume`)");
 
             log_trace("exec sql: %s", sql);
@@ -1391,7 +1391,7 @@ static int dump_user_dict_info(MYSQL *conn, const char *market_name, const char 
                 "`deal_sell_count`=values(`deal_sell_count`), `limit_buy_order`=values(`limit_buy_order`), `limit_sell_order`=values(`limit_sell_order`), "
                 "`market_buy_order`=values(`market_buy_order`), `market_sell_order`=values(`market_sell_order`), `deal_amount`=values(`deal_amount`), "
                 "`deal_volume`=values(`deal_volume`), `buy_amount`=values(`buy_amount`), `buy_volume`=values(`buy_volume`), `sell_amount`=values(`sell_amount`), "
-                "`sell_volume`=values(`sell_volume`), `taker_amount`=values(`taker_amount`), `taker_volume`=values(`taker_volumes`), "
+                "`sell_volume`=values(`sell_volume`), `taker_amount`=values(`taker_amount`), `taker_volume`=values(`taker_volume`), "
                 "`maker_amount`=values(`maker_amount`), `maker_volume`=values(`maker_volume`)");
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -1907,7 +1907,7 @@ static int dump_to_db()
 static int get_last_dump(MYSQL *conn, int64_t *orders_offset, int64_t *deals_offset)
 {    
     sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `trade_date`, `orders_offset`, `deals_offset` from dump_history order by id desc limit 1");
+    sql = sdscatprintf(sql, "SELECT `trade_date`, `orders_offset`, `deals_offset` from dump_history order by `id` desc limit 1");
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
     if (ret != 0) {
