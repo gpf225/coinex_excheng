@@ -972,7 +972,7 @@ static int load_detail(MYSQL *conn, time_t timestamp)
     while (true) {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `market`, `user_id`, `buy_amount`, `sell_amount`, `buy_volume`, `sell_volume`"
-                "FROM `%s` WHERE `timestamp`=%ld  and `id` > %"PRIu64" ORDER BY `id` ASC LIMIT %zu", table, timestamp, last_id, query_limit);
+                "FROM `%s` WHERE `time`=%ld  and `id` > %"PRIu64" ORDER BY `id` ASC LIMIT %zu", table, timestamp, last_id, query_limit);
         log_trace("exec sql: %s", sql);
 
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -1250,7 +1250,7 @@ static int load_client_info(MYSQL *conn, time_t timestamp)
     sds date_day = sdsnew(get_utc_date_from_time(timestamp, "%Y-%m-%d"));
     while (true) {
         sds sql = sdsempty();
-        sql = sdscatprintf(sql, "SELECT `id`, `market`, `client_id`， `user_id`, `deal_amount`, `deal_volume`, `buy_amount`, `buy_volume`, "
+        sql = sdscatprintf(sql, "SELECT `id`, `market`, `client_id`, `user_id`, `deal_amount`, `deal_volume`, `buy_amount`, `buy_volume`, "
                 "`sell_amount`, `sell_volume`, `maker_volume`, `maker_amount`, `taker_volume`, `taker_amount`, `deal_count`, `deal_buy_count`, "
                 "`deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order` "
                 "FROM `%s` WHERE `trade_date`= '%s' and `id` > %"PRIu64" ORDER BY `id` ASC LIMIT %zu", table, date_day, last_id, query_limit);
@@ -2092,7 +2092,7 @@ int init_message(void)
     if (kafka_orders == NULL)
         return -__LINE__;
 
-    nw_timer_set(&dump_timer, 1, true, on_dump_timer, NULL);
+    nw_timer_set(&dump_timer, 60, true, on_dump_timer, NULL);
     nw_timer_start(&dump_timer);
 
     nw_timer_set(&clear_timer, 3600, true, on_clear_timer, NULL);
