@@ -1897,6 +1897,7 @@ static int dump_to_db()
             log_error("dump_market fail: %d", ret);
             return -__LINE__;
         }
+        last_dump_date = date;
     }
     json_decref(markets);
 
@@ -1907,14 +1908,13 @@ static int dump_to_db()
         return -__LINE__;
     }
 
-    ret = update_dump_history(conn, date, now);
+    ret = update_dump_history(conn, last_dump_date, now);
     if (ret < 0) {
         mysql_close(conn);
         log_error("update_dump_history fail: %d", ret);
         return -__LINE__;
     }
 
-    last_dump_date = date;
     mysql_close(conn);
     return 0;
 }
