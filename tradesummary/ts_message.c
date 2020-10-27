@@ -2081,6 +2081,7 @@ int init_message(void)
         log_stderr("load_from_db fail: %d", ret);
         return -__LINE__;
     }
+    log_info("orders_offset: %"PRIi64", deals_offset: %"PRIi64, orders_offset, deals_offset);
 
     offset = deals_offset == 0 ? RD_KAFKA_OFFSET_END : deals_offset + 1;
     kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, 0, offset, on_deals_message);
