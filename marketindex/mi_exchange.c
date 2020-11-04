@@ -136,7 +136,7 @@ int parse_gateio_response(json_t *response, mpd_t **price, double *timestamp)
     json_t *data = json_object_get(response, "data");
     if (data == NULL || !json_is_array(data))
         return -__LINE__;
-    json_t *item = json_array_get(data, 0);
+    json_t *item = json_array_get(data, json_array_size(data) - 1);
     if (item == NULL || !json_is_object(item) || !json_object_get(item, "timestamp") || !json_object_get(item, "rate"))
         return -__LINE__;
 
