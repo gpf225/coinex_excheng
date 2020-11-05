@@ -17,7 +17,6 @@ MYSQL_USER = "root"
 MYSQL_PASS = "shit"
 
 MYSQL_COINEX = "kline_coinex"
-MYSQL_COINEX2 = "kline_coinex2"
 MYSQL_BINANCE = "kline_binance"
 MYSQL_HUOBI = "kline_huobi"
 
@@ -164,10 +163,13 @@ def laod_table(db_conn, redis_conn, table_name, market_list_coinex, market_list_
             price_format = "%.{}f".format(int(market_list_coinex[item[0]]['money']['prec']))
             volume_format = "%.{}f".format(int(market_list_coinex[item[0]]['stock']['prec']))
             volume = decimal.Decimal(item[7])
+            deal = decimal.Decimal(item[8])
             if market_name in proportion_avg:
                 volume = volume / proportion_avg[market_name]
+                deal = deal / proportion_avg[market_name]
             else:
                 volume = volume / proportion_avg_all
+                deal = deal / proportion_avg[market_name]
 
             kline.append(price_format % decimal.Decimal(item[3]))
             kline.append(price_format % item[4])
@@ -175,7 +177,7 @@ def laod_table(db_conn, redis_conn, table_name, market_list_coinex, market_list_
             kline.append(price_format % item[6])
             #kline.append(volume_format % item[7])
             kline.append(volume_format % volume)
-            kline.append(price_format % item[8])
+            kline.append(price_format % deal)
 
             key = get_redis_key(item[0], int(item[2]))
             flush_kline(redis_conn, key, int(item[1]), int(item[2]), kline)
@@ -260,11 +262,12 @@ def main():
     print(proportion_avg_all)
 
     redis_conn = StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
-    db_conn = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_COINEX2)
+    db_conn = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_HUOBI)
 
     table_list = []
     table_list.append("kline_history_{}".format(get_month(date, 0)))
     table_list.append("kline_history_{}".format(get_month(date, 1)))
+    table_list.append("kline_history_{}".format(get_month(date, 2)))
     kline_load(db_conn, redis_conn, market_list_coinex, market_list_common, proportion_avg, proportion_avg_all, table_list)
 
     db_conn.close()

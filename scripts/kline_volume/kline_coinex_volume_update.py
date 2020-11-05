@@ -37,20 +37,20 @@ def get_month(date, n):
             month -= 1
     return datetime.date(year, month, 1).strftime('%Y%m')
 
-def laod_table(db_coinex2, db_huobi, table):
+def laod_table(db_coinex, db_huobi, table):
     limit = 100000
     offset = 0
 
-    cursor_coinex2 = db_coinex2.cursor()
+    cursor_coinex = db_coinex.cursor()
     cursor_huobi = db_huobi.cursor()
     while True:
-        query_sql_str = "select `market`, `timestamp`, `t`, `volume` from {} order by id asc limit {}, {}".format(table, offset, limit)
+        query_sql_str = "select `market`, `timestamp`, `t`, `open`, `close`, `high`, `low`, `volume`, `deal` from {} where `t`!=1 order by id asc limit {}, {}".format(table, offset, limit)
         print(query_sql_str)
 
         res = {}
         try:
-            cursor_huobi.execute(query_sql_str)     
-            res = cursor_huobi.fetchall()
+            cursor_coinex.execute(query_sql_str)     
+            res = cursor_coinex.fetchall()
         except Exception:
             print("exception: ",Exception)
         
@@ -60,20 +60,18 @@ def laod_table(db_coinex2, db_huobi, table):
                 market = item[0]
                 timestamp = int(item[1])
                 t = int(item[2])
-                volume = item[3]
 
-
-                update_sql_str = "update {} set `volume`='{}' where `market`='{}' and `t`={} and `timestamp`={}".format(table, volume, market, t, timestamp)
+                update_sql_str = "update {} set `open`='{}', `close`='{}', `high`='{}', `low`='{}' where `market`='{}' and `t`={} and `timestamp`={}".format(table, item[3], item[4], item[5], item[6], market, t, timestamp)
                 #print(update_sql_str)
-                cursor_coinex2.execute(update_sql_str)
-        db_coinex2.commit()
+                cursor_huobi.execute(update_sql_str)
+        db_huobi.commit()
 
         if len(res) < limit:
             break
         else:
             offset = offset + limit
 
-    cursor_coinex2.close()
+    cursor_coinex.close()
     cursor_huobi.close()
 
 
@@ -92,7 +90,7 @@ def kline_update_volume(table_list, process_id):
 def main():
     date = datetime.datetime.today()
     table_list = []
-    for i in range(2, 35):
+    for i in range(3, 36):
         table_list.append("kline_history_{}".format(get_month(date, i)))
 
     print(table_list)
