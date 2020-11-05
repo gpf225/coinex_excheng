@@ -1938,7 +1938,7 @@ static int get_last_dump(MYSQL *conn, int64_t *orders_offset, int64_t *deals_off
         MYSQL_ROW row = mysql_fetch_row(result);
         last_dump_date = get_utc_time_from_date(row[0]);
         *orders_offset = strtoull(row[1], NULL, 0);
-        *deals_offset = strtoull(row[1], NULL, 0);
+        *deals_offset = strtoull(row[2], NULL, 0);
     }
     mysql_free_result(result);
     return 0;
