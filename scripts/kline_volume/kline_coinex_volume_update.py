@@ -16,7 +16,7 @@ MYSQL_PORT = 3306
 MYSQL_USER = "root"
 MYSQL_PASS = "shit"
 
-MYSQL_COINEX = "kline_coinex2"
+MYSQL_COINEX = "kline_coinex"
 MYSQL_HUOBI = "kline_huobi"
 
 process_count = 20
@@ -81,12 +81,12 @@ def kline_update_volume(table_list, process_id):
     print("process_id: {}, table_list: {}".format(process_id, table_list))
     
 
-    db_coinex2 = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_COINEX)
+    db_coinex = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_COINEX)
     db_huobi = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_HUOBI)
 
     now = int(time.time())
     for table in table_list:
-        laod_table(db_coinex2, db_huobi, table)
+        laod_table(db_coinex, db_huobi, table)
 
 
 def main():
