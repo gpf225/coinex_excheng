@@ -835,9 +835,9 @@ static bool is_kafka_synced(void)
         return false;
     if (kafka_query_offset(kafka_orders, NULL, &orders_high_offset) < 0)
         return false;
-    if (deals_high_offset - kafka_deals_offset > 100)
+    if (deals_high_offset - kafka_deals_offset > 200)
         return false;
-    if (orders_high_offset - kafka_orders_offset > 100)
+    if (orders_high_offset - kafka_orders_offset > 200)
         return false;
     return true;
 }
@@ -1986,8 +1986,15 @@ static int load_from_db(int64_t *orders_offset, int64_t *deals_offset)
 static void on_dump_timer(nw_timer *timer, void *privdata)
 {
     time_t now = time(NULL);
-    if (now % 3600 > 60 || !is_kafka_synced())
+    log_info("try to dump");
+    if (now % 3600 > 60)
         return;
+
+    log_info("reach dump time");
+    if (!is_kafka_synced()) {
+        log_info("kafka is not synced");
+        return;
+    }
 
     dlog_flush_all();
     int pid = fork();
@@ -2003,6 +2010,7 @@ static void on_dump_timer(nw_timer *timer, void *privdata)
         log_fatal("dump_to_db fail, ret: %d", ret);
         exit(0);
     }
+    log_info("dump success");
     profile_inc_real("dump_success", 1);
     exit(0);
 }
