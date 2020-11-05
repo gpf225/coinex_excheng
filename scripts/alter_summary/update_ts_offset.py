@@ -2,8 +2,7 @@
 # -*- coding: UTF-8 -*-
 
 """
-在redis新增key: k:<marekta>:real_deals, 存放真实的交易数据，
-第一次启动，需要从key: k:<market>:deals过滤真实交易存到k:<marekta>:real_deals中
+在mysql dump_history表中新增的deals_offset orders_offset 设置起始值
 """
 import os
 import sys
