@@ -1032,7 +1032,7 @@ static int load_detail(MYSQL *conn, time_t timestamp)
 static int load_users_detail(MYSQL *conn)
 {
     time_t now = time(NULL) / 60 * 60;
-    for (time_t timestamp = now - settings.keep_days * 8600; timestamp <= now; timestamp += 60) {
+    for (time_t timestamp = now - settings.keep_days * 86400; timestamp <= now; timestamp += 60) {
         int ret = load_detail(conn, timestamp);
         if (ret < 0) {
             log_error("load detail fail, timestamp: %ld, ret: %d", timestamp, ret);
