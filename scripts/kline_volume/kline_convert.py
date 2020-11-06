@@ -11,20 +11,20 @@ import requests
 import math
 from redis import StrictRedis
 
-MYSQL_HOST = "192.168.0.95"
+MYSQL_HOST = "coinexlog.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com"
 MYSQL_PORT = 3306
-MYSQL_USER = "root"
-MYSQL_PASS = "shit"
+MYSQL_USER = "coinex"
+MYSQL_PASS = "hp1sXMJftZWPO5bQ2snu"
 
-MYSQL_COINEX = "kline_coinex"
+MYSQL_COINEX = "trade_log"
 MYSQL_BINANCE = "kline_binance"
 MYSQL_HUOBI = "kline_huobi"
 
-REDIS_HOST = "127.0.0.1"
+REDIS_HOST = "server.jb1xx2.ng.0001.apne1.cache.amazonaws.com"
 REDIS_PORT = 6379
-REDIS_DB = 6
+REDIS_DB = 0
 
-api_coinex_markets = "http://127.0.0.1:8000/internal/exchange/market/list"
+api_coinex_markets = "http://internal-web-internal-872360093.ap-northeast-1.elb.amazonaws.com/internal/exchange/market/list"
 api_huobi_markets = "https://api.huobi.pro/v1/common/symbols"
 api_binance_markets = "https://api.binance.com/api/v3/exchangeInfo"
 
@@ -134,7 +134,7 @@ def get_redis_key(market, kline_class):
     elif kline_class == 3:
         return "k:{}:1d".format(market)
 
-def laod_table(db_conn, redis_conn, table_name, market_list_coinex, market_list_common, now, proportion_avg, proportion_avg_all):
+def laod_table(db_conn, redis_conn, table_name, market_list_coinex, market_list_common, market_time, now, proportion_avg):
     limit = 100000
     offset = 0
     minute_start = now - 30 * 86400
@@ -157,19 +157,18 @@ def laod_table(db_conn, redis_conn, table_name, market_list_coinex, market_list_
             if market_name not in market_list_common:
                 continue
 
-            if int(item[2]) == 1 and (now - 30 * 86400) > int(item[2]):
-                continue
-
             price_format = "%.{}f".format(int(market_list_coinex[item[0]]['money']['prec']))
             volume_format = "%.{}f".format(int(market_list_coinex[item[0]]['stock']['prec']))
             volume = decimal.Decimal(item[7])
             deal = decimal.Decimal(item[8])
-            if market_name in proportion_avg:
-                volume = volume / proportion_avg[market_name]
-                deal = deal / proportion_avg[market_name]
-            else:
-                volume = volume / proportion_avg_all
-                deal = deal / proportion_avg[market_name]
+            if market_name not in proportion_avg:
+                continue
+
+            if int(item[1]) < market_time[market_name]:
+                continue
+            
+            volume = volume / proportion_avg[market_name]
+            deal = deal / proportion_avg[market_name]
 
             kline.append(price_format % decimal.Decimal(item[3]))
             kline.append(price_format % item[4])
@@ -192,7 +191,7 @@ def laod_table(db_conn, redis_conn, table_name, market_list_coinex, market_list_
         if offset == 0:
             break
 
-def kline_load(db_conn, redis_conn, market_list_coinex, market_list_common, proportion_avg, proportion_avg_all, table_list):
+def kline_load(db_conn, redis_conn, market_list_coinex, market_list_common, market_time, proportion_avg, table_list):
     query_table_str = "show tables like 'kline_history_2%'"
     cursor = db_conn.cursor()
     cursor.execute(query_table_str)
@@ -205,7 +204,7 @@ def kline_load(db_conn, redis_conn, market_list_coinex, market_list_common, prop
             continue
 
         print(table)
-        laod_table(db_conn, redis_conn, table, market_list_coinex, market_list_common, now, proportion_avg, proportion_avg_all)
+        laod_table(db_conn, redis_conn, table, market_list_coinex, market_list_common, market_time, now, proportion_avg)
 
     cursor.close()
 
@@ -216,11 +215,38 @@ def kline_load(db_conn, redis_conn, market_list_coinex, market_list_common, prop
             print(key)
             insert_data[key] = {}
 
+def get_market_start(market_list_common):
+    db_conn = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_COINEX)
+    query_table_str = "show tables like 'kline_history_2%'"
+    cursor = db_conn.cursor()
+    cursor.execute(query_table_str)
+    res = cursor.fetchall()
+
+    market_time = {}
+    now = int(time.time())
+    for item in res:
+        table = item[0]
+        for market in market_list_common:
+            if market in market_time:
+                continue
+
+            query_sql_str = "select `timestamp` from {} where `market`='{}' order by timestamp asc limit 1".format(table, market)
+            cursor.execute(query_sql_str)
+            klines = cursor.fetchall()
+            if len(klines) >= 1:
+                market_time[market] = int(klines[0][0])
+                print("market: {}, start time: {}".format(market, market_time[market]))
+
+    cursor.close()
+    db_conn.close()
+    return market_time
+
 def main():
     market_list_coinex = get_coinex_markets()
     market_list_huobi = get_huobi_markets()
 
     market_list_common = get_market_common(market_list_coinex.keys(), market_list_huobi.keys())
+    market_time = get_market_start(market_list_common)
 
     date = datetime.datetime.today()
     table_list = []
@@ -255,11 +281,6 @@ def main():
 
     print(proportion_avg)
 
-    proportion_avg_all = 0
-    for market, prop in proportion_avg.items():
-        proportion_avg_all += prop
-    proportion_avg_all = proportion_avg_all / len(proportion_avg)
-    print(proportion_avg_all)
 
     redis_conn = StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
     db_conn = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_HUOBI)
@@ -268,7 +289,7 @@ def main():
     table_list.append("kline_history_{}".format(get_month(date, 0)))
     table_list.append("kline_history_{}".format(get_month(date, 1)))
     table_list.append("kline_history_{}".format(get_month(date, 2)))
-    kline_load(db_conn, redis_conn, market_list_coinex, market_list_common, proportion_avg, proportion_avg_all, table_list)
+    kline_load(db_conn, redis_conn, market_list_coinex, market_list_common, market_time, proportion_avg, table_list)
 
     db_conn.close()
 
