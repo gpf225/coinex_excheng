@@ -1298,10 +1298,10 @@ static int load_client_info(MYSQL *conn, time_t timestamp)
             mpd_t *buy_volume  = decimal(row[7], 0);
             mpd_t *sell_amount = decimal(row[8], 0);
             mpd_t *sell_volume = decimal(row[9], 0);
-            mpd_t *taker_amount = decimal(row[10], 0);
-            mpd_t *taker_volume = decimal(row[11], 0);
-            mpd_t *maker_amount = decimal(row[12], 0);
-            mpd_t *maker_volume = decimal(row[13], 0);
+            mpd_t *maker_volume = decimal(row[10], 0);
+            mpd_t *maker_amount = decimal(row[11], 0);
+            mpd_t *taker_volume = decimal(row[12], 0);
+            mpd_t *taker_amount = decimal(row[13], 0);
             if (!deal_amount || !deal_volume || !buy_amount || !buy_volume || !sell_amount 
                 || !sell_volume || !taker_amount || !taker_volume || !maker_amount || !maker_volume) {
                 log_error("user_info: %s fail", market);
@@ -1472,10 +1472,10 @@ static int load_users_info(MYSQL *conn, time_t timestamp)
             mpd_t *buy_volume  = decimal(row[6], 0);
             mpd_t *sell_amount = decimal(row[7], 0);
             mpd_t *sell_volume = decimal(row[8], 0);
-            mpd_t *taker_amount = decimal(row[9], 0);
-            mpd_t *taker_volume = decimal(row[10], 0);
-            mpd_t *maker_amount = decimal(row[11], 0);
-            mpd_t *maker_volume = decimal(row[12], 0);
+            mpd_t *maker_volume = decimal(row[9], 0);
+            mpd_t *maker_amount = decimal(row[10], 0);
+            mpd_t *taker_volume = decimal(row[11], 0);
+            mpd_t *taker_amount = decimal(row[12], 0);
             if (!deal_amount || !deal_volume || !buy_amount || !buy_volume || !sell_amount 
                 || !sell_volume || !taker_amount || !taker_volume || !maker_amount || !maker_volume) {
                 log_error("user_info: %s fail", market);
