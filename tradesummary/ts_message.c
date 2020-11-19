@@ -1865,6 +1865,34 @@ static int update_dump_history(MYSQL *conn, time_t date, time_t timestamp)
     return 0;
 }
 
+static int get_last_dump(MYSQL *conn, int64_t *orders_offset, int64_t *deals_offset)
+{    
+    sds sql = sdsempty();
+    sql = sdscatprintf(sql, "SELECT `trade_date`, `time`, `orders_offset`, `deals_offset` from dump_history order by `id` desc limit 1");
+    log_trace("exec sql: %s", sql);
+    int ret = mysql_real_query(conn, sql, sdslen(sql));
+    if (ret != 0) {
+        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
+        sdsfree(sql);
+        return -__LINE__;
+    }
+    sdsfree(sql);
+
+    MYSQL_RES *result = mysql_store_result(conn);
+    size_t num_rows = mysql_num_rows(result);
+    if (num_rows == 1) {
+        MYSQL_ROW row = mysql_fetch_row(result);
+        last_dump_date = get_utc_time_from_date(row[0]);
+        last_dump_time = strtoull(row[1], NULL, 0) - 600;
+        if (orders_offset)
+            *orders_offset = strtoull(row[2], NULL, 0);
+        if (deals_offset)
+            *deals_offset = strtoull(row[3], NULL, 0);
+    }
+    mysql_free_result(result);
+    return 0;
+}
+
 static int dump_to_db()
 {
     json_t *markets = get_market_dict();
@@ -1880,6 +1908,12 @@ static int dump_to_db()
         return -__LINE__;
     }
 
+    int ret = get_last_dump(conn, NULL, NULL);
+    if (ret < 0) {
+        log_error("get_last_dump fail: %d", ret);
+        return -__LINE__;
+    }
+
     time_t now = time(NULL);
     time_t today_start = get_utc_day_start(now);
     if (last_dump_date == 0) {
@@ -1887,7 +1921,6 @@ static int dump_to_db()
     }
     log_info("last_dump_date: %zd, today_start: %zd", last_dump_date, today_start);
 
-    int ret;
     time_t date;
     for (date = last_dump_date; date <= today_start; date += 86400) {
         ret = dump_market(conn, markets, date);
@@ -1916,31 +1949,6 @@ static int dump_to_db()
     }
 
     mysql_close(conn);
-    return 0;
-}
-
-static int get_last_dump(MYSQL *conn, int64_t *orders_offset, int64_t *deals_offset)
-{    
-    sds sql = sdsempty();
-    sql = sdscatprintf(sql, "SELECT `trade_date`, `orders_offset`, `deals_offset` from dump_history order by `id` desc limit 1");
-    log_trace("exec sql: %s", sql);
-    int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
-        log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
-        sdsfree(sql);
-        return -__LINE__;
-    }
-    sdsfree(sql);
-
-    MYSQL_RES *result = mysql_store_result(conn);
-    size_t num_rows = mysql_num_rows(result);
-    if (num_rows == 1) {
-        MYSQL_ROW row = mysql_fetch_row(result);
-        last_dump_date = get_utc_time_from_date(row[0]);
-        *orders_offset = strtoull(row[1], NULL, 0);
-        *deals_offset = strtoull(row[2], NULL, 0);
-    }
-    mysql_free_result(result);
     return 0;
 }
 
@@ -2089,7 +2097,7 @@ int init_message(void)
         log_stderr("load_from_db fail: %d", ret);
         return -__LINE__;
     }
-    log_info("orders_offset: %"PRIi64", deals_offset: %"PRIi64, orders_offset, deals_offset);
+    log_info("orders_offset: %"PRIi64", deals_offset: %"PRIi64", last_dump_time: %ld, last_dump_date: %ld", orders_offset, deals_offset, last_dump_time, last_dump_date);
 
     offset = deals_offset == 0 ? RD_KAFKA_OFFSET_END : deals_offset + 1;
     kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, 0, offset, on_deals_message);
