@@ -1996,21 +1996,23 @@ static int load_from_db(int64_t *orders_offset, int64_t *deals_offset)
 
 static void on_dump_timer(nw_timer *timer, void *privdata)
 {
-    static bool last_dump_success = true;
+    static time_t last_dump_hour;
     time_t now = time(NULL);
-    log_info("try to dump");
-    if (last_dump_success && now % 3600 > 60)
+    time_t curr_hour = now / 3600;
+    if (now % 3600 < 60) // wait a more minute
+        return;
+    if (last_dump_hour == curr_hour) // already dump
         return;
 
-    log_info("reach dump time");
     if (!is_kafka_synced()) {
         log_info("kafka is not synced");
-        last_dump_success = false;
         return;
     }
     
-    last_dump_success = true;
+    last_dump_hour = curr_hour;
+    log_info("try to dump");
     dlog_flush_all();
+
     int pid = fork();
     if (pid < 0) {
         log_fatal("fork fail: %d", pid);
