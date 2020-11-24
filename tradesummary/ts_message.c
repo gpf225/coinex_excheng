@@ -7,6 +7,9 @@
 # include "ts_market.h"
 # include "ts_message.h"
 
+# define KAFKA_ORDERS_DELAY 200
+# define KAFKA_DEALS_DELAY  200
+
 static nw_timer dump_timer;
 static nw_timer clear_timer;
 static nw_timer report_timer;
@@ -835,9 +838,9 @@ static bool is_kafka_synced(void)
         return false;
     if (kafka_query_offset(kafka_orders, NULL, &orders_high_offset) < 0)
         return false;
-    if (deals_high_offset - kafka_deals_offset > 200)
+    if (deals_high_offset - kafka_deals_offset > KAFKA_DEALS_DELAY)
         return false;
-    if (orders_high_offset - kafka_orders_offset > 200)
+    if (orders_high_offset - kafka_orders_offset > KAFKA_ORDERS_DELAY)
         return false;
     return true;
 }
@@ -1993,18 +1996,23 @@ static int load_from_db(int64_t *orders_offset, int64_t *deals_offset)
 
 static void on_dump_timer(nw_timer *timer, void *privdata)
 {
+    static time_t last_dump_hour;
     time_t now = time(NULL);
-    log_info("try to dump");
-    if (now % 3600 > 60)
+    time_t curr_hour = now / 3600;
+    if (now % 3600 < 60) // wait a more minute
+        return;
+    if (last_dump_hour == curr_hour) // already dump
         return;
 
-    log_info("reach dump time");
     if (!is_kafka_synced()) {
         log_info("kafka is not synced");
         return;
     }
-
+    
+    last_dump_hour = curr_hour;
+    log_info("try to dump");
     dlog_flush_all();
+
     int pid = fork();
     if (pid < 0) {
         log_fatal("fork fail: %d", pid);
