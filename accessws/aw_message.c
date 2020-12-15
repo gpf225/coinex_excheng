@@ -21,6 +21,14 @@ static kafka_consumer_t *kafka_indexs;
 static kafka_consumer_t *kafka_balances;
 static kafka_consumer_t *kafka_notice;
 
+static int64_t kafka_deals_offset = 0;
+static int64_t kafka_stops_offset = 0;
+static int64_t kafka_orders_offset = 0;
+static int64_t kafka_indexs_offset = 0;
+static int64_t kafka_balances_offset = 0;
+static int64_t kafka_notice_offset = 0;
+static nw_timer report_timer;
+
 static int process_deals_message(json_t *msg)
 {
     uint64_t ask_order_id = json_integer_value(json_object_get(msg, "ask_id"));
@@ -43,6 +51,7 @@ static int process_deals_message(json_t *msg)
 
 static void on_deals_message(sds message, int64_t offset)
 {
+    kafka_deals_offset = offset;
     log_trace("deal message: %s", message);
     profile_inc("message_deal", 1);
     json_t *msg = json_loads(message, 0, NULL);
@@ -78,6 +87,7 @@ static int process_stops_message(json_t *msg)
 
 static void on_stops_message(sds message, int64_t offset)
 {
+    kafka_stops_offset = offset;
     log_trace("stop message: %s", message);
     profile_inc("message_stop", 1);
     json_t *msg = json_loads(message, 0, NULL);
@@ -149,6 +159,7 @@ static int process_orders_message(json_t *msg)
 
 static void on_orders_message(sds message, int64_t offset)
 {
+    kafka_orders_offset = offset;
     log_trace("order message: %s", message);
     profile_inc("message_order", 1);
     json_t *msg = json_loads(message, 0, NULL);
@@ -175,6 +186,7 @@ static int process_indexs_message(json_t *msg)
 
 static void on_indexs_message(sds message, int64_t offset)
 {
+    kafka_indexs_offset = offset;
     log_trace("index message: %s", message);
     profile_inc("message_index", 1);
 
@@ -214,6 +226,7 @@ static int process_balances_message(json_t *msg)
 
 static void on_balances_message(sds message, int64_t offset)
 {
+    kafka_balances_offset = offset;
     log_trace("balance message: %s", message);
     profile_inc("message_balance", 1);
     json_t *msg = json_loads(message, 0, NULL);
@@ -238,6 +251,7 @@ static int process_notice_message(json_t *msg)
 
 static void on_notice_message(sds message, int64_t offset)
 {
+    kafka_notice_offset = offset;
     log_trace("notice message: %s", message);
     profile_inc("message_notice", 1);
     json_t *msg = json_loads(message, 0, NULL);
@@ -252,6 +266,27 @@ static void on_notice_message(sds message, int64_t offset)
     }
 
     json_decref(msg);
+}
+
+static void report_kafka_offset(kafka_consumer_t *consumer, int64_t current_offset)
+{
+    int64_t high = 0;
+    if (kafka_query_offset(consumer, NULL, &high) < 0) {
+        log_error("kafka_query_offset %s fail", consumer->topic);
+    } else {
+        log_info("topic: %s hightest offset: %"PRIi64", currently: %"PRIi64", gap: %"PRIi64, \
+                consumer->topic, high, current_offset, high - current_offset);
+    }
+}
+
+static void on_report_timer(nw_timer *timer, void *privdata)
+{
+    report_kafka_offset(kafka_deals, kafka_deals_offset);
+    report_kafka_offset(kafka_stops, kafka_stops_offset);
+    report_kafka_offset(kafka_orders, kafka_orders_offset);
+    report_kafka_offset(kafka_indexs, kafka_indexs_offset);
+    report_kafka_offset(kafka_balances, kafka_balances_offset);
+    report_kafka_offset(kafka_notice, kafka_notice_offset);
 }
 
 int init_message(void)
@@ -285,6 +320,9 @@ int init_message(void)
     if (kafka_notice == NULL) {
         return -__LINE__;
     }
+
+    nw_timer_set(&report_timer, 10, true, on_report_timer, NULL);
+    nw_timer_start(&report_timer);
 
     return 0;
 }
