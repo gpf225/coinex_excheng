@@ -40,7 +40,7 @@ static void *thread_routine(void *data)
             continue;
         }
         if (consumer->list->len >= consumer->limit) {
-            usleep(100 * 1000);
+            usleep(10 * 1000);
             continue;
         }
 
