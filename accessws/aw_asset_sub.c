@@ -165,7 +165,7 @@ int asset_unsubscribe_sub(nw_ses *ses)
     return count;
 }
 
-int asset_on_update_sub(uint32_t user_id, const char *asset, const char *available, const char *frozen)
+int asset_on_update_sub(uint32_t user_id, const char *asset, const char *available, const char *frozen, double timestamp)
 {
     void *key = (void *)(uintptr_t)user_id;
     dict_entry *entry = dict_find(dict_sub, key);
@@ -179,6 +179,7 @@ int asset_on_update_sub(uint32_t user_id, const char *asset, const char *availab
 
     json_object_set_new(unit, "available", json_string(available));
     json_object_set_new(unit, "frozen", json_string(frozen));
+    json_object_set_new(unit, "timestamp", json_real(timestamp));
     json_object_set_new(result, asset, unit);
 
     json_array_append_new(params, json_integer(user_id));

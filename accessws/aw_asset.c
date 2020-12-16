@@ -226,7 +226,7 @@ static int delay_update(nw_ses *ses, uint32_t account, const char *asset, json_t
     return 0;
 }
 
-int asset_on_update(uint32_t user_id, uint32_t account, const char *asset, const char *available, const char *frozen)
+int asset_on_update(uint32_t user_id, uint32_t account, const char *asset, const char *available, const char *frozen, double timestamp)
 {
     void *key = (void *)(uintptr_t)user_id;
     dict_entry *entry = dict_find(dict_sub, key);
@@ -239,6 +239,7 @@ int asset_on_update(uint32_t user_id, uint32_t account, const char *asset, const
 
     json_object_set_new(unit, "available", json_string(available));
     json_object_set_new(unit, "frozen", json_string(frozen));
+    json_object_set_new(unit, "timestamp", json_real(timestamp));
     json_object_set_new(result, asset, unit);
 
     json_array_append_new(params, result);
