@@ -117,6 +117,7 @@ static int process_orders_message(json_t *msg)
 
     uint32_t user_id = json_integer_value(json_object_get(order, "user"));
     uint32_t account = json_integer_value(json_object_get(order, "account"));
+    double timestamp = json_real_value(json_object_get(order, "mtime"));
 
     const char *stock = json_string_value(json_object_get(msg, "stock"));
     const char *money = json_string_value(json_object_get(msg, "money"));
@@ -131,12 +132,12 @@ static int process_orders_message(json_t *msg)
         return -__LINE__;
 
     order_on_update(user_id, event, order);
-    asset_on_update(user_id, account, stock, stock_available, stock_frozen);
-    asset_on_update(user_id, account, money, money_available, money_frozen);
+    asset_on_update(user_id, account, stock, stock_available, stock_frozen, timestamp);
+    asset_on_update(user_id, account, money, money_available, money_frozen, timestamp);
 
     if (account == 0) {
-        asset_on_update_sub(user_id, stock, stock_available, stock_frozen);
-        asset_on_update_sub(user_id, money, money_available, money_frozen);
+        asset_on_update_sub(user_id, stock, stock_available, stock_frozen, timestamp);
+        asset_on_update_sub(user_id, money, money_available, money_frozen, timestamp);
     }
 
     json_t *fee = json_object_get(balance, "fee");
@@ -148,9 +149,9 @@ static int process_orders_message(json_t *msg)
         if (fee_asset == NULL || fee_available == NULL || fee_frozen == NULL)
             return -__LINE__;
 
-        asset_on_update(user_id, fee_account, fee_asset, fee_available, fee_frozen);
+        asset_on_update(user_id, fee_account, fee_asset, fee_available, fee_frozen, timestamp);
         if (fee_account == 0) {
-            asset_on_update_sub(user_id, fee_asset, fee_available, fee_frozen);
+            asset_on_update_sub(user_id, fee_asset, fee_available, fee_frozen, timestamp);
         }
     }
 
@@ -211,14 +212,15 @@ static int process_balances_message(json_t *msg)
     const char *asset = json_string_value(json_object_get(msg, "asset"));
     const char *available = json_string_value(json_object_get(msg, "available"));
     const char *frozen = json_string_value(json_object_get(msg, "frozen"));
+    double timestamp = json_real_value(json_object_get(msg, "timestamp"));
 
     if (user_id == 0 || asset == NULL || available == NULL || frozen == NULL) {
         return -__LINE__;
     }
 
-    asset_on_update(user_id, account, asset, available, frozen);
+    asset_on_update(user_id, account, asset, available, frozen, timestamp);
     if (account == 0) {
-        asset_on_update_sub(user_id, asset, available, frozen);
+        asset_on_update_sub(user_id, asset, available, frozen, timestamp);
     }
 
     return 0;

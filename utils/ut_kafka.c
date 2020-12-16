@@ -122,7 +122,7 @@ kafka_consumer_t *kafka_consumer_create(const char *brokers, const char *topic, 
         kafka_consumer_release(consumer);
         return NULL;
     }
-    consumer->limit = 100;
+    consumer->limit = 1000;
 
     char errstr[1024];
     consumer->topic = strdup(topic);
