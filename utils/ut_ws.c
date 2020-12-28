@@ -1,11 +1,14 @@
 # include <stdio.h>
+# include "ut_log.h"
 # include <openssl/sha.h> 
 # include "ut_ws.h"
 # include "ut_http.h"
 # include "ut_misc.h"
 # include "ut_base64.h"
 # include "ut_ws_svr.h"
+# include "zlib.h"
 
+/*
 int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len, int masked)
 {
     if (payload == NULL)
@@ -78,6 +81,103 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     if (ses->svr) {
         ws_ses_update_activity(ses);
     }
+    return nw_ses_send(ses, buf, pkg_len);
+}
+*/
+
+int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len, int masked)
+{
+    unsigned long dst_len = compressBound(payload_len);
+    log_trace("payload: %s, payload_len: %zu, dst_len: %ld", (char *)payload, payload_len, dst_len);
+    unsigned char *dst_buf = calloc(1, dst_len);
+    int ret = compress(dst_buf, &dst_len, (Bytef *)payload, payload_len);
+    if (ret != Z_OK) {
+        log_trace("compress fail: %d", ret);
+    }
+
+    sds dst_buf_hex = bin2hex(dst_buf, dst_len);
+    log_trace("compress dst_len: %ld, hex: %s", dst_len, dst_buf_hex);
+    sdsfree(dst_buf_hex);
+
+    if (payload == NULL)
+        payload_len = 0;
+
+    static void *buf;
+    static size_t buf_size = 1024;
+    if (buf == NULL) {
+        buf = malloc(1024);
+        if (buf == NULL)
+            return -1;
+    }
+
+    masked = WS_FRAME_MASKED;
+    size_t require_len = 10 + dst_len - 2;
+    if (masked == WS_FRAME_MASKED) {
+        require_len += 4;
+    }
+
+    if (buf_size < require_len) {
+        void *new = realloc(buf, require_len);
+        if (new == NULL)
+            return -1;
+        buf = new;
+        buf_size = require_len;
+    }
+
+    size_t pkg_len = 0;
+    uint8_t *p = buf;
+    p[0] = 0;
+    p[0] |= 0x1 << 7;
+    p[0] |= 0x1 << 6;
+    p[0] |= opcode;
+    //p[0] |= WS_BINARY_OPCODE;
+    p[1] = 0;
+    dst_len -= 2;
+    if (dst_len < 126) {
+        uint8_t len = dst_len|masked;
+        p[1] |= len;
+        pkg_len = 2;
+    } else if (dst_len <= 0xffff) {
+        p[1] |= 126|masked;
+        uint16_t len = htobe16((uint16_t)dst_len);
+        memcpy(p + 2, &len, sizeof(len));
+        pkg_len = 2 + sizeof(len);
+    } else {
+        p[1] |= 127|masked;
+        uint64_t len = htobe64(dst_len);
+        memcpy(p + 2, &len, sizeof(len));
+        pkg_len = 2 + sizeof(len);
+    }
+
+    uint8_t masked_key[4] = {0};
+    if (masked == WS_FRAME_MASKED) {
+        if (ws_get_nonce_key(masked_key, 4) < 0) {
+            return -1;
+        }
+        memcpy(p + pkg_len, masked_key, 4);
+        pkg_len += 4;
+    }
+
+    if (dst_buf) {
+        if (masked == WS_FRAME_MASKED) {
+            uint8_t *data = dst_buf + 2;
+            for (int i = 0; i < dst_len; i++) {
+                p[pkg_len + i] = data[i] ^ masked_key[i % 4];
+            }
+        } else {
+            memcpy(p + pkg_len, dst_buf + 2, dst_len);
+        }
+        pkg_len += dst_len;
+    }
+
+    if (ses->svr) {
+        ws_ses_update_activity(ses);
+    }
+
+    sds buf_hex = bin2hex(buf, pkg_len);
+    log_trace("send buf_hex: %s, hex: %zu", buf_hex, pkg_len);
+    sdsfree(buf_hex);
+
     return nw_ses_send(ses, buf, pkg_len);
 }
 
@@ -228,6 +328,8 @@ http_response_t* ws_handshake_response_new(char *protocol, uint32_t status)
     if (protocol) {
         http_response_set_header(response, "Sec-WebSocket-Protocol", protocol);
     }
+    //http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate;client_max_window_bits=15");
+    //http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate");
     response->status = status;
 
     return response;
@@ -239,6 +341,7 @@ sds ws_handshake_response(http_response_t *response, const char *key)
     sds s_key = sdsnew(key);
     ws_generate_sec_key(s_key, &b4message);
     http_response_set_header(response, "Sec-WebSocket-Accept", b4message);
+    http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate;client_max_window_bits=15");
     sds message = http_response_encode(response);
 
     sdsfree(b4message);

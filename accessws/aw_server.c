@@ -20,6 +20,7 @@
 # include "aw_sub_user.h"
 # include "aw_asset_sub.h"
 # include "ut_ws.h"
+# include "zlib.h"
 
 static ws_svr *svr;
 static dict_t *method_map;
@@ -970,9 +971,26 @@ static int on_method_notice_unsubscribe(nw_ses *ses, uint64_t id, struct clt_inf
 
 static int on_message(nw_ses *ses, const char *remote, const char *url, void *message, size_t size)
 {
+    char *message_new = calloc(1, size + 2);
+    message_new[0] = 0x78;
+    message_new[1] = 0x9c;
+    memcpy(message_new + 2, message, size);
+
+    sds message_hex = bin2hex(message_new, size + 2);
+    log_trace("message_hex: %s", message_hex);
+    sdsfree(message_hex);
+
+    unsigned long ubuf_len = (size + 2) * 10;
+    char *ubuf = (char*)calloc(1, ubuf_len);
+    int ret = uncompress((Bytef *)ubuf, &ubuf_len, (Bytef *)message_new, size + 2);
+
+    sds body = sdsnewlen(ubuf, ubuf_len);
+    log_trace("uncompress ret : %d, request body: %s, body len: %ld", ret, body, ubuf_len);
+    sdsfree(body);
+
     struct clt_info *info = ws_ses_privdata(ses);
-    log_trace("new websocket message from: %"PRIu64":%s, url: %s, size: %zu", ses->id, remote, url, size);
-    json_t *msg = json_loadb(message, size, 0, NULL);
+    log_trace("new websocket message from: %"PRIu64":%s, url: %s, size: %zu", ses->id, remote, url, ubuf_len);
+    json_t *msg = json_loadb(ubuf, ubuf_len, 0, NULL);
     if (msg == NULL) {
         goto decode_error;
     }
@@ -990,7 +1008,7 @@ static int on_message(nw_ses *ses, const char *remote, const char *url, void *me
         goto decode_error;
     }
 
-    sds _msg = sdsnewlen(message, size);
+    sds _msg = sdsnewlen(ubuf, ubuf_len);
     log_trace("remote: %"PRIu64":%s message: %s", ses->id, remote, _msg);
 
     uint64_t _id = json_integer_value(id);

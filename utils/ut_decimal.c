@@ -4,6 +4,7 @@
  */
 
 # include "ut_decimal.h"
+# include "string.h"
 
 mpd_context_t mpd_ctx;
 
