@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
 {
     //char *src_buf = "{\"id\":2,\"method\":\"state.subscribe\",\"params\":[]}";
     //char *src_buf = "{\"id\":1,\"method\":\"server.ping\",\"params\":[]}";
-    char *src_buf = "hello world from xyang";
+    char *src_buf = "hello";
     unsigned long src_len = strlen(src_buf);
 
     unsigned long dst_len = compressBound(src_len);
@@ -33,10 +33,11 @@ int main(int argc, char* argv[])
     if (ret != Z_OK) {
         printf("uncompress fail: %d\n", ret);
     }
-    printf("src_buf_origin: %s\n", src_buf_origin);
-
-                      //789cab 56ca4c51b232d451ca4d2dc9c80732958a538bca528bf40a32f3d29574940a128b12738b95aca2636b012f210e3d
-    char *decode_buf = "789caa56ca4c51b232d451ca4d2dc9c80732958a538bca528bf40a32f3d29574940a128b12738b95aca2636b01";
+    printf("src_buf_origin: %s\n", src_buf_origin);                                                               //aa062b3542565a925892aa575c9a549c5c9499948aaa1c00
+                      //789cab 56ca4c51b232d451ca4d2dc9c80732958a538bca528bf40a32f3d29574940a128b12738b95aca2636b abc14a8d9095962496a4ea1597261527176526a5a22a07003cef1e18     
+                      //789cab 56ca4c51b232d451ca4d2dc9c80732958a538bca528bf40a32f3d29574940a128b12738b95aca2636b 01 2f 210e3d
+    char *decode_buf = "789caa 56ca4c51b232d451ca4d2dc9c80732958a538bca528bf40a32f3d29574940a128b12738b95aca2636b01 00";
+    //char *decode_buf = "789cab062b3542565a925892aa575c9a549c5c9499948aaa1c2f210e3d";
     sds decode_buf_bin = hex2bin(decode_buf);
 
     unsigned long ubuf_len = sdslen(decode_buf_bin) + 1000;
