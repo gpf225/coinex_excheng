@@ -23,6 +23,9 @@ sds hexdump(const void *mem, size_t len);
 sds bin2hex(const void *mem, size_t len);
 sds hex2bin(const char *hex);
 
+sds zlib_inflate(const void *mem, size_t len);
+sds zlib_deflate(const void *mem, size_t len);
+
 double current_timestamp(void);
 uint64_t current_millisecond(void);
 char *strftimestamp(time_t t);

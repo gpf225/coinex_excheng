@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
     printf("src_buf_origin: %s\n", src_buf_origin);                                                               //aa062b3542565a925892aa575c9a549c5c9499948aaa1c00
                       //789cab 56ca4c51b232d451ca4d2dc9c80732958a538bca528bf40a32f3d29574940a128b12738b95aca2636b abc14a8d9095962496a4ea1597261527176526a5a22a07003cef1e18     
                       //789cab 56ca4c51b232d451ca4d2dc9c80732958a538bca528bf40a32f3d29574940a128b12738b95aca2636b 01 2f 210e3d
-    char *decode_buf = "789caa 56ca4c51b232d451ca4d2dc9c80732958a538bca528bf40a32f3d29574940a128b12738b95aca2636b01 00";
+    char *decode_buf = "789caa56ca4c51b232d451ca4d2dc9c80732958a538bca528bf40a32f3d29574940a128b12738b95aca2636b0100";
     //char *decode_buf = "789cab062b3542565a925892aa575c9a549c5c9499948aaa1c2f210e3d";
     sds decode_buf_bin = hex2bin(decode_buf);
 
@@ -51,6 +51,22 @@ int main(int argc, char* argv[])
 
     sds ubuf_hex = bin2hex(ubuf, ubuf_len);
     printf("uncompress hex: %s\n", ubuf_hex);
+
+    int count = 0;
+    char *extensions = "";
+    sds *tokens = sdssplitlen(extensions, strlen(extensions), ";", 1, &count);
+    if (tokens == NULL) {
+        printf("token is null, count is : %d\n", count);
+    }
+    for (int i = 0; i < count; i++) {
+            sds token = tokens[i];
+            sdstrim(token, " ");
+            if (strcasecmp(token, "permessage-deflate") == 0) {
+                printf("found deflate\n");
+                break;
+            }
+    }
+    sdsfreesplitres(tokens, count);
     return 0;
 }
 

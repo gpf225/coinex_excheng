@@ -22,6 +22,7 @@ struct clt_info {
     sds         value;
     bool        value_set;
     bool        upgrade;
+    bool        deflate;
     sds         remote;
     sds         url;
     sds         message;
@@ -57,11 +58,11 @@ static int send_empty_reply(nw_ses *ses)
     return 0;
 }
 
-static int send_hand_shake_reply(nw_ses *ses, char *protocol, const char *key)
+static int send_hand_shake_reply(nw_ses *ses, char *protocol, const char *key, bool deflate)
 {
     http_response_t *response = ws_handshake_response_new(protocol, 101);
     if (response){
-        sds message = ws_handshake_response(response, key);
+        sds message = ws_handshake_response(response, key, deflate);
         nw_ses_send(ses, message, sdslen(message));
         sdsfree(message);
         http_response_release(response);
@@ -133,6 +134,24 @@ static int on_http_message_complete(http_parser* parser)
             goto error;
     }
 
+    info->deflate = false;
+    const char *extensions = http_request_get_header(info->request, "Sec-WebSocket-Extensions");
+    if (extensions != NULL) {
+        int count;
+        sds *tokens = sdssplitlen(extensions, strlen(extensions), ";", 1, &count);
+        if (tokens != NULL) {
+            for (int i = 0; i < count; i++) {
+                sds token = tokens[i];
+                sdstrim(token, " ");
+                if (strcasecmp(token, "permessage-deflate") == 0) {
+                    info->deflate = true;
+                    break;
+                }
+            }
+            sdsfreesplitres(tokens, count);
+        }
+    }
+
     if (svr->type.on_privdata_alloc) {
         info->privdata = svr->type.on_privdata_alloc(svr);
         if (info->privdata == NULL)
@@ -145,9 +164,9 @@ static int on_http_message_complete(http_parser* parser)
         svr->type.on_upgrade(info->ses, info->remote);
     }
     if (protocol_list) {
-        send_hand_shake_reply(info->ses, svr->protocol, ws_key);
+        send_hand_shake_reply(info->ses, svr->protocol, ws_key, info->deflate);
     } else {
-        send_hand_shake_reply(info->ses, NULL, ws_key);
+        send_hand_shake_reply(info->ses, NULL, ws_key, info->deflate);
     }
 
     return 0;
@@ -229,7 +248,7 @@ static int decode_pkg(nw_ses *ses, void *data, size_t max)
     if (!is_good_opcode(info->frame.opcode)){
         return -1;
     }
-    
+    info->frame.rsv1 = p[0] & 0x40;
     uint8_t mask = p[1] & WS_FRAME_MASKED;
     if (mask == 0) {
         return -1;
@@ -371,7 +390,13 @@ static void on_recv_pkg(nw_ses *ses, void *data, size_t size)
 
     if (info->message == NULL)
         info->message = sdsempty();
-    info->message = sdscatlen(info->message, info->frame.payload, info->frame.payload_len);
+    if (info->frame.rsv1) {
+        sds payload_decompressed = zlib_inflate(info->frame.payload, info->frame.payload_len);
+        info->message = sdscatsds(info->message, payload_decompressed);
+        sdsfree(payload_decompressed);
+    } else {
+        info->message = sdscatlen(info->message, info->frame.payload, info->frame.payload_len);
+    }
     if (info->frame.fin) {
         int ret = svr->type.on_message(ses, info->remote, info->url, info->message, sdslen(info->message));
         if (ses->id != 0) {
@@ -487,6 +512,12 @@ int ws_svr_stop(ws_svr *svr)
 ws_svr *ws_svr_from_ses(nw_ses *ses)
 {
     return ((nw_svr *)ses->svr)->privdata;
+}
+
+bool ws_svr_deflate(nw_ses *ses)
+{
+    struct clt_info *info = ses->privdata;
+    return info->deflate;
 }
 
 void *ws_ses_privdata(nw_ses *ses)

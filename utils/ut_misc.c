@@ -26,6 +26,7 @@
 # include <sys/time.h>
 # include <sys/file.h>
 # include <sys/resource.h>
+# include <zlib.h>
 
 # include "ut_misc.h"
 # include "ut_signal.h"
@@ -233,6 +234,77 @@ sds hex2bin(const char *hex)
         result = sdscatlen(result, &c, 1);
     }
 
+    return result;
+}
+
+sds zlib_inflate(const void *mem, size_t len)
+{
+    z_stream infstream;
+    infstream.zalloc = Z_NULL;
+    infstream.zfree = Z_NULL;
+    infstream.opaque = Z_NULL;
+    infstream.avail_in = (uInt)(len);
+    infstream.next_in = (Bytef *)mem;
+    inflateInit2(&infstream, -MAX_WBITS);
+    sds result = sdsempty();
+    int ret = 0;
+    do {
+        char buf[100] = {0};
+        infstream.avail_out = (uInt)sizeof(buf);
+        infstream.next_out = (Bytef *)buf;
+        ret = inflate(&infstream, Z_NO_FLUSH);
+        switch (ret) {
+        case Z_NEED_DICT:
+        case Z_DATA_ERROR:
+        case Z_MEM_ERROR:
+            break;
+        }
+        int have = sizeof(buf) - infstream.avail_out;
+        if (have > 0) result = sdscatlen(result, buf, have);
+    } while (infstream.avail_out == 0);
+    inflateEnd(&infstream);
+    if (ret != Z_OK) {
+        log_error("uncompress fail: %d", ret);
+        sdsfree(result);
+        return NULL;
+    }
+    return result;
+}
+
+sds zlib_deflate(const void *mem, size_t len)
+{
+    z_stream defstream;
+    defstream.zalloc = Z_NULL;
+    defstream.zfree = Z_NULL;
+    defstream.opaque = Z_NULL;
+    defstream.avail_in = (uInt)len;
+    defstream.next_in = (Bytef *)mem;  
+
+    sds result = sdsempty();
+    deflateInit2(&defstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -MAX_WBITS, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY);
+    int ret = 0;
+    do {
+        char buf[100] = {0};
+        defstream.avail_out = (uInt)sizeof(buf);
+        defstream.next_out = (Bytef *)buf;
+        ret = deflate(&defstream, Z_SYNC_FLUSH);
+        int have = sizeof(buf) - defstream.avail_out;
+        if (have > 0) result = sdscatlen(result, buf, have);
+    } while (defstream.avail_out == 0);
+    deflateEnd(&defstream);
+
+    if (ret != Z_OK && ret != Z_STREAM_END) {
+        log_error("compress fail: %d", ret);
+        sdsfree(result);
+        return NULL;
+    }
+
+    if (sdslen(result) <= 4) {
+        log_error("compress data error");
+        sdsfree(result);
+        return NULL;
+    }
+    sdsrange(result, 0, -5);
     return result;
 }
 

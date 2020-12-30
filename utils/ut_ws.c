@@ -6,13 +6,31 @@
 # include "ut_misc.h"
 # include "ut_base64.h"
 # include "ut_ws_svr.h"
-# include "zlib.h"
 
-/*
 int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len, int masked)
 {
     if (payload == NULL)
         payload_len = 0;
+    
+    bool deflate = false;
+    if (ses->svr) {
+        deflate = ws_svr_deflate(ses);
+    }
+
+    sds message = NULL;
+    if (deflate) {
+        message = zlib_deflate(payload, payload_len);
+    } else {
+        message = sdsnewlen(payload, payload_len);
+    }
+    if (message == NULL || sdslen(message) <= 0) {
+        return -1;
+    }
+    size_t message_len = sdslen(message);
+
+    sds message_hex = bin2hex(message, message_len);
+    log_trace("message_hex: %s", message_hex);
+    sdsfree(message_hex);
 
     static void *buf;
     static size_t buf_size = 1024;
@@ -22,7 +40,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
             return -1;
     }
 
-    size_t require_len = 10 + payload_len;
+    size_t require_len = 10 + message_len;
     if (masked == WS_FRAME_MASKED) {
         require_len += 4;
     }
@@ -39,20 +57,21 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     uint8_t *p = buf;
     p[0] = 0;
     p[0] |= 0x1 << 7;
+    if (deflate) p[0] |= 0x1 << 6;
     p[0] |= opcode;
     p[1] = 0;
-    if (payload_len < 126) {
-        uint8_t len = payload_len|masked;
+    if (message_len < 126) {
+        uint8_t len = message_len|masked;
         p[1] |= len;
         pkg_len = 2;
-    } else if (payload_len <= 0xffff) {
+    } else if (message_len <= 0xffff) {
         p[1] |= 126|masked;
-        uint16_t len = htobe16((uint16_t)payload_len);
+        uint16_t len = htobe16((uint16_t)message_len);
         memcpy(p + 2, &len, sizeof(len));
         pkg_len = 2 + sizeof(len);
     } else {
         p[1] |= 127|masked;
-        uint64_t len = htobe64(payload_len);
+        uint64_t len = htobe64(message_len);
         memcpy(p + 2, &len, sizeof(len));
         pkg_len = 2 + sizeof(len);
     }
@@ -66,146 +85,27 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
         pkg_len += 4;
     }
 
-    if (payload) {
+    if (message_len > 0) {
         if (masked == WS_FRAME_MASKED) {
-            uint8_t *data = payload;
-            for (int i = 0; i < payload_len; i++) {
+            uint8_t *data = (uint8_t *)message;
+            for (int i = 0; i < message_len; i++) {
                 p[pkg_len + i] = data[i] ^ masked_key[i % 4];
             }
         } else {
-            memcpy(p + pkg_len, payload, payload_len);
+            memcpy(p + pkg_len, message, message_len);
         }
-        pkg_len += payload_len;
+        pkg_len += message_len;
     }
 
     if (ses->svr) {
         ws_ses_update_activity(ses);
     }
-    return nw_ses_send(ses, buf, pkg_len);
-}
-*/
-
-static sds compress_test(void *payload, size_t payload_len)
-{
-    z_stream defstream;
-    defstream.zalloc = Z_NULL;
-    defstream.zfree = Z_NULL;
-    defstream.opaque = Z_NULL;
-    // setup "a" as the input and "b" as the compressed output
-    defstream.avail_in = (uInt)payload_len; // size of input, string + terminator
-    defstream.next_in = (Bytef *)payload; // input char array    
-
-    sds out = sdsempty();
-    deflateInit2(&defstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, -MAX_WBITS, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY);
-
-    int ret = 0;
-    do {
-        char b[100] = {0};
-        defstream.avail_out = (uInt)sizeof(b); // size of output
-        defstream.next_out = (Bytef *)b; // output char array
-        ret = deflate(&defstream, Z_FINISH);    /* no bad return value */
-        int have = sizeof(b) - defstream.avail_out;
-        out = sdscatlen(out, b, have);
-        log_error("deflate ret: %d, have:%d\n", ret, have);
-    } while (defstream.avail_out == 0);
-    deflateEnd(&defstream);
-
-    if (ret != Z_OK && ret != Z_STREAM_END) {
-        log_trace("compress fail: %d", ret);
-    }
-    return out;
-}
-
-int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len, int masked)
-{
-    if (payload == NULL)
-        payload_len = 0;
-
-    sds payload_compressed = compress_test(payload, payload_len);
-    if (sdslen(payload_compressed) == 0) {
-        log_error("payload: %s compress fail", (char *)payload);
-        return -__LINE__;
-    }
-    int payload_compressed_len = sdslen(payload_compressed);
-    sds payload_compressed_hex = bin2hex(payload_compressed, payload_compressed_len);
-    log_trace("payload_compressed_hex: %s", payload_compressed_hex);
-    sdsfree(payload_compressed_hex);
-
-    static void *buf;
-    static size_t buf_size = 1024;
-    if (buf == NULL) {
-        buf = malloc(1024);
-        if (buf == NULL)
-            return -1;
-    }
-
-    //masked = WS_FRAME_MASKED;
-    size_t require_len = 10 + payload_compressed_len;
-    if (masked == WS_FRAME_MASKED) {
-        require_len += 4;
-    }
-
-    if (buf_size < require_len) {
-        void *new = realloc(buf, require_len);
-        if (new == NULL)
-            return -1;
-        buf = new;
-        buf_size = require_len;
-    }
-
-    size_t pkg_len = 0;
-    uint8_t *p = buf;
-    p[0] = 0;
-    p[0] |= 0x1 << 7;
-    p[0] |= 0x1 << 6;
-    p[0] |= opcode;
-    //p[0] |= WS_BINARY_OPCODE;
-    p[1] = 0;
-    if (payload_compressed_len < 126) {
-        uint8_t len = payload_compressed_len|masked;
-        p[1] |= len;
-        pkg_len = 2;
-    } else if (payload_compressed_len <= 0xffff) {
-        p[1] |= 126|masked;
-        uint16_t len = htobe16((uint16_t)payload_compressed_len);
-        memcpy(p + 2, &len, sizeof(len));
-        pkg_len = 2 + sizeof(len);
-    } else {
-        p[1] |= 127|masked;
-        uint64_t len = htobe64(payload_compressed_len);
-        memcpy(p + 2, &len, sizeof(len));
-        pkg_len = 2 + sizeof(len);
-    }
-
-    uint8_t masked_key[4] = {0};
-    if (masked == WS_FRAME_MASKED) {
-        if (ws_get_nonce_key(masked_key, 4) < 0) {
-            return -1;
-        }
-        memcpy(p + pkg_len, masked_key, 4);
-        pkg_len += 4;
-    }
-
-    if (payload_compressed_len > 0) {
-        if (masked == WS_FRAME_MASKED) {
-            uint8_t *data = payload_compressed;
-            for (int i = 0; i < payload_compressed_len; i++) {
-                p[pkg_len + i] = data[i] ^ masked_key[i % 4];
-            }
-        } else {
-            memcpy(p + pkg_len, payload_compressed, payload_compressed_len);
-        }
-        pkg_len += payload_compressed_len;
-    }
-
-    if (ses->svr) {
-        ws_ses_update_activity(ses);
-    }
+    sdsfree(message);
 
     sds buf_hex = bin2hex(buf, pkg_len);
     log_trace("send buf_hex: %s, hex: %zu", buf_hex, pkg_len);
     sdsfree(buf_hex);
-
+    
     return nw_ses_send(ses, buf, pkg_len);
 }
 
@@ -356,21 +256,18 @@ http_response_t* ws_handshake_response_new(char *protocol, uint32_t status)
     if (protocol) {
         http_response_set_header(response, "Sec-WebSocket-Protocol", protocol);
     }
-    //http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate;client_max_window_bits=15");
-    //http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate");
     response->status = status;
 
     return response;
 }
 
-sds ws_handshake_response(http_response_t *response, const char *key)
+sds ws_handshake_response(http_response_t *response, const char *key, bool deflate)
 {
     sds b4message;
     sds s_key = sdsnew(key);
     ws_generate_sec_key(s_key, &b4message);
     http_response_set_header(response, "Sec-WebSocket-Accept", b4message);
-    //http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate;client_max_window_bits=15");
-    http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate; server_no_context_takeover; client_no_context_takeover");
+    if (deflate) http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate; server_no_context_takeover; client_no_context_takeover");
     sds message = http_response_encode(response);
 
     sdsfree(b4message);

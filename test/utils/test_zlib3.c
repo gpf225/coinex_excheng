@@ -11,7 +11,7 @@ int main(int argc, char* argv[])
     //char *input = "789caa56ca4c51b232d451ca4d2dc9c80732958a538bca528bf40a32f3d29574940a128b12738b95aca2636b0100";
     //char *input = "789caa062b3542565a925892aa575c9a549c5c9499948aaa1c00";
                  //ab56ca4c51b2323634d151ca4d2dc9c80772948a4b124b52f58a4b938a938b3293529574940a128b12738b95aca2636b01
-    char *input = "aa56ca4c51b2323634d151ca4d2dc9c80772948a4b124b52f58a4b938a938b3293529574940a128b12738b95aca2636b0100";
+    char *input = "aa56ca4c51b232d451ca4d2dc9c84f51b2522a4e2d2a4b2dd22bc8cc4b57d2512a482c4acc2d56b28a8ead05000000ffff";
     sds input_bin = hex2bin(input);
     char c[10] = {0};
     // STEP 2.

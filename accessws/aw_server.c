@@ -969,52 +969,13 @@ static int on_method_notice_unsubscribe(nw_ses *ses, uint64_t id, struct clt_inf
     return ws_send_success(ses, id);
 }
 
-static sds decompress(char *message, size_t size)
-{
-    z_stream infstream;
-    infstream.zalloc = Z_NULL;
-    infstream.zfree = Z_NULL;
-    infstream.opaque = Z_NULL;
-    infstream.avail_in = (uInt)(size); // size of input
-    infstream.next_in = (Bytef *)message; // input char array
-    inflateInit2(&infstream, -MAX_WBITS);
-
-    sds out = sdsempty();
-    int ret = 0;
-    do {
-        char c[10] = {0};
-        infstream.avail_out = (uInt)sizeof(c); // size of output
-        infstream.next_out = (Bytef *)c; // output char array
-        ret = inflate(&infstream, Z_NO_FLUSH);
-        switch (ret) {
-        case Z_NEED_DICT:
-        case Z_DATA_ERROR:
-        case Z_MEM_ERROR:
-            break;
-        }
-        int have = sizeof(c) - infstream.avail_out;
-        if (have)
-            out = sdscatlen(out, c, have);
-    } while (infstream.avail_out == 0);
-    inflateEnd(&infstream);
-    if (ret != Z_OK) {
-        log_error("decompress fail: %d", ret);
-    }
-    return out;
-}
-
 static int on_message(nw_ses *ses, const char *remote, const char *url, void *message, size_t size)
 {
-    sds message_decompressed = decompress(message, size);
-    if (sdslen(message_decompressed) == 0) {
-        sdsfree(message_decompressed);
-        log_error("decompress fail");
-        return -__LINE__;
-    }
-
+    sds msg_sds = sdsnewlen(message, size);
     struct clt_info *info = ws_ses_privdata(ses);
-    log_trace("new websocket message from: %"PRIu64":%s, url: %s, message: %s", ses->id, remote, url, message_decompressed);
-    json_t *msg = json_loadb(message_decompressed, sdslen(message_decompressed), 0, NULL);
+    log_trace("new websocket message from: %"PRIu64":%s, url: %s, size: %zu, message: %s", ses->id, remote, url, size, msg_sds);
+    sdsfree(msg_sds);
+    json_t *msg = json_loadb(message, size, 0, NULL);
     if (msg == NULL) {
         goto decode_error;
     }
@@ -1032,6 +993,9 @@ static int on_message(nw_ses *ses, const char *remote, const char *url, void *me
         goto decode_error;
     }
 
+    sds _msg = sdsnewlen(message, size);
+    log_trace("remote: %"PRIu64":%s message: %s", ses->id, remote, _msg);
+
     uint64_t _id = json_integer_value(id);
     const char *_method = json_string_value(method);
     dict_entry *entry = dict_find(method_map, _method);
@@ -1039,16 +1003,16 @@ static int on_message(nw_ses *ses, const char *remote, const char *url, void *me
         on_request_method handler = entry->val;
         int ret = handler(ses, _id, info, params);
         if (ret < 0) {
-            log_error("remote: %"PRIu64":%s, request fail: %d, request: %s", ses->id, remote, ret, message_decompressed);
+            log_error("remote: %"PRIu64":%s, request fail: %d, request: %s", ses->id, remote, ret, _msg);
         } else {
             profile_inc(json_string_value(method), 1);
         }
     } else {
-        log_error("remote: %"PRIu64":%s, unknown method, request: %s", ses->id, remote, message_decompressed);
+        log_error("remote: %"PRIu64":%s, unknown method, request: %s", ses->id, remote, _msg);
         ws_send_error_unknown_method(ses, json_integer_value(id));
     }
 
-    sdsfree(message_decompressed);
+    sdsfree(_msg);
     json_decref(msg);
 
     return 0;
@@ -1059,7 +1023,6 @@ decode_error:
     sds hex = hexdump(message, size);
     log_error("remote: %"PRIu64":%s, decode request fail, request body: \n%s", ses->id, remote, hex);
     sdsfree(hex);
-    sdsfree(message_decompressed);
     return -__LINE__;
 }
 
