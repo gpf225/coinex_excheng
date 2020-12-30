@@ -39,7 +39,7 @@ http_request_t* ws_handshake_request_new(uint32_t method, char *host, char *path
 http_response_t* ws_handshake_response_new(char *protocol, uint32_t status);
 
 sds ws_handshake_request(http_request_t *request, char* key);
-sds ws_handshake_response(http_response_t *response, const char *key, bool deflate);
+sds ws_handshake_response(http_response_t *response, const char *key, bool compress);
 
 int ws_send_text(nw_ses *ses, char *message);
 int ws_send_binary(nw_ses *ses, void *payload, size_t payload_len);

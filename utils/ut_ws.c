@@ -12,13 +12,13 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     if (payload == NULL)
         payload_len = 0;
     
-    bool deflate = false;
+    bool compress = false;
     if (ses->svr) {
-        deflate = ws_svr_deflate(ses);
+        compress = ws_svr_compress(ses);
     }
 
     sds message = NULL;
-    if (deflate) {
+    if (compress) {
         message = zlib_deflate(payload, payload_len);
     } else {
         message = sdsnewlen(payload, payload_len);
@@ -57,7 +57,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     uint8_t *p = buf;
     p[0] = 0;
     p[0] |= 0x1 << 7;
-    if (deflate) p[0] |= 0x1 << 6;
+    if (compress) p[0] |= 0x1 << 6;
     p[0] |= opcode;
     p[1] = 0;
     if (message_len < 126) {
@@ -261,13 +261,13 @@ http_response_t* ws_handshake_response_new(char *protocol, uint32_t status)
     return response;
 }
 
-sds ws_handshake_response(http_response_t *response, const char *key, bool deflate)
+sds ws_handshake_response(http_response_t *response, const char *key, bool compress)
 {
     sds b4message;
     sds s_key = sdsnew(key);
     ws_generate_sec_key(s_key, &b4message);
     http_response_set_header(response, "Sec-WebSocket-Accept", b4message);
-    if (deflate) http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate; server_no_context_takeover; client_no_context_takeover");
+    if (compress) http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate; server_no_context_takeover; client_no_context_takeover");
     sds message = http_response_encode(response);
 
     sdsfree(b4message);
@@ -280,6 +280,13 @@ int ws_send_text(nw_ses *ses, char *message)
 {
     return ws_send_message(ses, WS_TEXT_OPCODE, message, strlen(message), 0);
 }
+
+/*
+int ws_send_raw(nw_ses *ses, char *raw_data, raw)
+{
+    return ws_send_message(ses, WS_TEXT_OPCODE, message, strlen(message), 0);
+}
+*/
 
 int ws_send_binary(nw_ses *ses, void *payload, size_t payload_len)
 {

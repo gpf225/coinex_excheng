@@ -22,7 +22,7 @@ struct clt_info {
     sds         value;
     bool        value_set;
     bool        upgrade;
-    bool        deflate;
+    bool        compress;
     sds         remote;
     sds         url;
     sds         message;
@@ -58,11 +58,11 @@ static int send_empty_reply(nw_ses *ses)
     return 0;
 }
 
-static int send_hand_shake_reply(nw_ses *ses, char *protocol, const char *key, bool deflate)
+static int send_hand_shake_reply(nw_ses *ses, char *protocol, const char *key, bool compress)
 {
     http_response_t *response = ws_handshake_response_new(protocol, 101);
     if (response){
-        sds message = ws_handshake_response(response, key, deflate);
+        sds message = ws_handshake_response(response, key, compress);
         nw_ses_send(ses, message, sdslen(message));
         sdsfree(message);
         http_response_release(response);
@@ -134,7 +134,7 @@ static int on_http_message_complete(http_parser* parser)
             goto error;
     }
 
-    info->deflate = false;
+    info->compress = false;
     const char *extensions = http_request_get_header(info->request, "Sec-WebSocket-Extensions");
     if (extensions != NULL) {
         int count;
@@ -144,7 +144,7 @@ static int on_http_message_complete(http_parser* parser)
                 sds token = tokens[i];
                 sdstrim(token, " ");
                 if (strcasecmp(token, "permessage-deflate") == 0) {
-                    info->deflate = true;
+                    info->compress = true;
                     break;
                 }
             }
@@ -164,9 +164,9 @@ static int on_http_message_complete(http_parser* parser)
         svr->type.on_upgrade(info->ses, info->remote);
     }
     if (protocol_list) {
-        send_hand_shake_reply(info->ses, svr->protocol, ws_key, info->deflate);
+        send_hand_shake_reply(info->ses, svr->protocol, ws_key, info->compress);
     } else {
-        send_hand_shake_reply(info->ses, NULL, ws_key, info->deflate);
+        send_hand_shake_reply(info->ses, NULL, ws_key, info->compress);
     }
 
     return 0;
@@ -514,10 +514,10 @@ ws_svr *ws_svr_from_ses(nw_ses *ses)
     return ((nw_svr *)ses->svr)->privdata;
 }
 
-bool ws_svr_deflate(nw_ses *ses)
+bool ws_svr_compress(nw_ses *ses)
 {
     struct clt_info *info = ses->privdata;
-    return info->deflate;
+    return info->compress;
 }
 
 void *ws_ses_privdata(nw_ses *ses)
