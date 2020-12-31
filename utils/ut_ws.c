@@ -7,31 +7,8 @@
 # include "ut_base64.h"
 # include "ut_ws_svr.h"
 
-int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len, int masked)
+static int send_message(nw_ses *ses, uint8_t opcode, uint8_t rsv1, void *payload, size_t payload_len, int masked)
 {
-    if (payload == NULL)
-        payload_len = 0;
-    
-    bool compress = false;
-    if (ses->svr) {
-        compress = ws_svr_compress(ses);
-    }
-
-    sds message = NULL;
-    if (compress) {
-        message = zlib_deflate(payload, payload_len);
-    } else {
-        message = sdsnewlen(payload, payload_len);
-    }
-    if (message == NULL || sdslen(message) <= 0) {
-        return -1;
-    }
-    size_t message_len = sdslen(message);
-
-    sds message_hex = bin2hex(message, message_len);
-    log_trace("message_hex: %s", message_hex);
-    sdsfree(message_hex);
-
     static void *buf;
     static size_t buf_size = 1024;
     if (buf == NULL) {
@@ -40,7 +17,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
             return -1;
     }
 
-    size_t require_len = 10 + message_len;
+    size_t require_len = 10 + payload_len;
     if (masked == WS_FRAME_MASKED) {
         require_len += 4;
     }
@@ -57,21 +34,21 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     uint8_t *p = buf;
     p[0] = 0;
     p[0] |= 0x1 << 7;
-    if (compress) p[0] |= 0x1 << 6;
+    p[0] |= rsv1;
     p[0] |= opcode;
     p[1] = 0;
-    if (message_len < 126) {
-        uint8_t len = message_len|masked;
+    if (payload_len < 126) {
+        uint8_t len = payload_len|masked;
         p[1] |= len;
         pkg_len = 2;
-    } else if (message_len <= 0xffff) {
+    } else if (payload_len <= 0xffff) {
         p[1] |= 126|masked;
-        uint16_t len = htobe16((uint16_t)message_len);
+        uint16_t len = htobe16((uint16_t)payload_len);
         memcpy(p + 2, &len, sizeof(len));
         pkg_len = 2 + sizeof(len);
     } else {
         p[1] |= 127|masked;
-        uint64_t len = htobe64(message_len);
+        uint64_t len = htobe64(payload_len);
         memcpy(p + 2, &len, sizeof(len));
         pkg_len = 2 + sizeof(len);
     }
@@ -85,28 +62,64 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
         pkg_len += 4;
     }
 
-    if (message_len > 0) {
+    if (payload_len > 0) {
         if (masked == WS_FRAME_MASKED) {
-            uint8_t *data = (uint8_t *)message;
-            for (int i = 0; i < message_len; i++) {
+            uint8_t *data = payload;
+            for (int i = 0; i < payload_len; i++) {
                 p[pkg_len + i] = data[i] ^ masked_key[i % 4];
             }
         } else {
-            memcpy(p + pkg_len, message, message_len);
+            memcpy(p + pkg_len, payload, payload_len);
         }
-        pkg_len += message_len;
+        pkg_len += payload_len;
     }
 
     if (ses->svr) {
         ws_ses_update_activity(ses);
     }
-    sdsfree(message);
 
     sds buf_hex = bin2hex(buf, pkg_len);
     log_trace("send buf_hex: %s, hex: %zu", buf_hex, pkg_len);
     sdsfree(buf_hex);
     
     return nw_ses_send(ses, buf, pkg_len);
+}
+
+int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len, int masked)
+{
+    int ret = 0;
+    if (payload == NULL) {
+        payload_len = 0;
+        ret = send_message(ses, opcode, 0, payload, payload_len, masked);
+    } else {
+        bool compress = false;
+        if (ses->svr) {
+            compress = ws_svr_compress(ses);
+        }
+
+        sds message = NULL;
+        if (compress) {
+            message = zlib_deflate(payload, payload_len);
+        } else {
+            message = sdsnewlen(payload, payload_len);
+        }
+        if (message == NULL || sdslen(message) <= 0) {
+            return -1;
+        }
+
+        sds message_hex = bin2hex(message, sdslen(message));
+        log_trace("message_hex: %s", message_hex);
+        sdsfree(message_hex);
+
+        ret = send_message(ses, opcode, compress ? WS_RSV1 : 0, message, sdslen(message), masked);
+        sdsfree(message);
+    }
+    return ret;
+}
+
+int ws_send_raw_message(nw_ses *ses, uint8_t opcode, bool compress, void *payload, size_t payload_len, int masked)
+{
+    return send_message(ses, opcode, compress ? WS_RSV1 : 0, payload, payload_len, masked);
 }
 
 int ws_get_nonce_key(uint8_t *nonce_key, int len)
@@ -281,12 +294,10 @@ int ws_send_text(nw_ses *ses, char *message)
     return ws_send_message(ses, WS_TEXT_OPCODE, message, strlen(message), 0);
 }
 
-/*
-int ws_send_raw(nw_ses *ses, char *raw_data, raw)
+int ws_send_raw(nw_ses *ses, void *raw_data, size_t size, bool compress)
 {
-    return ws_send_message(ses, WS_TEXT_OPCODE, message, strlen(message), 0);
+    return ws_send_raw_message(ses, WS_TEXT_OPCODE, compress, raw_data, size, 0);
 }
-*/
 
 int ws_send_binary(nw_ses *ses, void *payload, size_t payload_len)
 {

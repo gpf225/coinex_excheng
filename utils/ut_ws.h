@@ -12,6 +12,7 @@
 # define WS_CLOSE_OPCODE         0x08
 # define WS_PING_OPCODE          0x09
 # define WS_PONG_OPCODE          0x0A
+# define WS_RSV1                 0x40
 
 # define WS_FRAME_MASKED 0x80
 
@@ -28,6 +29,7 @@ bool is_good_origin(const char *origin, const char *require);
 bool is_good_opcode(uint8_t opcode);
 
 int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len, int masked);
+int ws_send_raw_message(nw_ses *ses, uint8_t opcode, bool compress, void *payload, size_t payload_len, int masked);
 int ws_get_nonce_key(uint8_t *nonce_key, int len);
 int ws_generate_sec_key(sds base64_nonce_key, sds *base64_sec_key);
 bool ws_check_sec_key(sds base64_nonce_key, sds accept_key);
@@ -42,6 +44,7 @@ sds ws_handshake_request(http_request_t *request, char* key);
 sds ws_handshake_response(http_response_t *response, const char *key, bool compress);
 
 int ws_send_text(nw_ses *ses, char *message);
+int ws_send_raw(nw_ses *ses, void *raw_data, size_t size, bool compress);
 int ws_send_binary(nw_ses *ses, void *payload, size_t payload_len);
 
 int ws_send_clt_text(nw_ses *ses, char *message);
