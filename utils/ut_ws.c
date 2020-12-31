@@ -94,12 +94,12 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     } else {
         bool compress = false;
         if (ses->svr) {
-            compress = ws_svr_compress(ses);
+            compress = ws_ses_compress(ses);
         }
 
         sds message = NULL;
         if (compress) {
-            message = zlib_deflate(payload, payload_len);
+            message = zlib_compress(payload, payload_len);
         } else {
             message = sdsnewlen(payload, payload_len);
         }

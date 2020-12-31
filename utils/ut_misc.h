@@ -9,6 +9,7 @@
 # include <endian.h>
 # include <byteswap.h>
 # include <stdbool.h>
+# include <jansson.h>
 
 # include "ut_sds.h"
 # include "ut_log.h"
@@ -23,8 +24,9 @@ sds hexdump(const void *mem, size_t len);
 sds bin2hex(const void *mem, size_t len);
 sds hex2bin(const char *hex);
 
-sds zlib_inflate(const void *mem, size_t len);
-sds zlib_deflate(const void *mem, size_t len);
+sds zlib_uncompress(const void *mem, size_t len);
+sds zlib_compress(const void *mem, size_t len);
+sds zlib_compress_json(json_t *message);
 
 double current_timestamp(void);
 uint64_t current_millisecond(void);

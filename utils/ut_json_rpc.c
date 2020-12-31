@@ -308,6 +308,15 @@ int ws_send_notify(nw_ses *ses, const char *method, json_t *params)
     return ret;
 }
 
+json_t *ws_get_notify(const char *method, json_t *params)
+{
+    json_t *notify = json_object();
+    json_object_set_new(notify, "method", json_string(method));
+    json_object_set    (notify, "params", params);
+    json_object_set_new(notify, "id", json_null());
+    return notify;
+}
+
 int http_reply_json(nw_ses *ses, json_t *json, uint32_t status)
 {
     char *message_str = json_dumps(json, 0);

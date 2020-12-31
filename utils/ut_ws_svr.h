@@ -47,7 +47,7 @@ ws_svr *ws_svr_create(ws_svr_cfg *cfg, ws_svr_type *type);
 int ws_svr_start(ws_svr *svr);
 int ws_svr_stop(ws_svr *svr);
 ws_svr *ws_svr_from_ses(nw_ses *ses);
-bool ws_svr_compress(nw_ses *ses);
+bool ws_ses_compress(nw_ses *ses);
 void ws_ses_update_activity(nw_ses *ses);
 void *ws_ses_privdata(nw_ses *ses);
 int ws_svr_broadcast_text(ws_svr *svr, char *message);

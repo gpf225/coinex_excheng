@@ -391,7 +391,7 @@ static void on_recv_pkg(nw_ses *ses, void *data, size_t size)
     if (info->message == NULL)
         info->message = sdsempty();
     if (info->frame.rsv1) {
-        sds payload_decompressed = zlib_inflate(info->frame.payload, info->frame.payload_len);
+        sds payload_decompressed = zlib_uncompress(info->frame.payload, info->frame.payload_len);
         info->message = sdscatsds(info->message, payload_decompressed);
         sdsfree(payload_decompressed);
     } else {
@@ -514,7 +514,7 @@ ws_svr *ws_svr_from_ses(nw_ses *ses)
     return ((nw_svr *)ses->svr)->privdata;
 }
 
-bool ws_svr_compress(nw_ses *ses)
+bool ws_ses_compress(nw_ses *ses)
 {
     struct clt_info *info = ses->privdata;
     return info->compress;

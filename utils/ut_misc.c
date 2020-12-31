@@ -237,7 +237,7 @@ sds hex2bin(const char *hex)
     return result;
 }
 
-sds zlib_inflate(const void *mem, size_t len)
+sds zlib_uncompress(const void *mem, size_t len)
 {
     z_stream infstream;
     infstream.zalloc = Z_NULL;
@@ -271,7 +271,7 @@ sds zlib_inflate(const void *mem, size_t len)
     return result;
 }
 
-sds zlib_deflate(const void *mem, size_t len)
+sds zlib_compress(const void *mem, size_t len)
 {
     z_stream defstream;
     defstream.zalloc = Z_NULL;
@@ -305,6 +305,14 @@ sds zlib_deflate(const void *mem, size_t len)
         return NULL;
     }
     sdsrange(result, 0, -5);
+    return result;
+}
+
+sds zlib_compress_json(json_t *message)
+{
+    char *result_str = json_dumps(message, 0);
+    sds result = zlib_compress(result_str, strlen(result_str));
+    free(result_str);
     return result;
 }
 

@@ -37,6 +37,7 @@
 # include "ut_rpc_clt.h"
 # include "ut_rpc_svr.h"
 # include "ut_rpc_cmd.h"
+# include "ut_ws.h"
 # include "ut_ws_svr.h"
 # include "ut_comm_dict.h"
 # include "ut_json_rpc.h"

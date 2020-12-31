@@ -282,6 +282,24 @@ static int send_depth_request(int command, struct depth_key *key)
 
 static int broadcast_update(const char *market, dict_t *sessions, bool clean, json_t *full, json_t *diff)
 {
+    json_t *params_full = json_array();
+    json_array_append_new(params, json_boolean(true));
+    json_array_append(params, full);
+    json_array_append_new(params, json_string(market));
+
+    json_t *notify_obj = ws_get_notify("depth.update", params);
+    sds full_compressed = zlib_compress_json(notify_obj);
+    json_decref(notify_obj);
+
+    json_t *params_diff = json_array();
+    json_array_append_new(params, json_boolean(false));
+    json_array_append(params, diff);
+    json_array_append_new(params, json_string(market));
+
+    notify_obj = ws_get_notify("depth.update", params);
+    sds diff_compressed = zlib_compress_json(notify_obj);
+    json_decref(notify_obj);
+
     dict_iterator *iter = dict_get_iterator(sessions);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
@@ -298,6 +316,9 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
         ws_send_notify(entry->key, "depth.update", params);
         json_decref(params);
     }
+
+    json_decref(params_full);
+    json_decref(params_diff);
     dict_release_iterator(iter);
     profile_inc("depth.update", dict_size(sessions));
 
