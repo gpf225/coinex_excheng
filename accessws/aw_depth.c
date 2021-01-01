@@ -283,20 +283,20 @@ static int send_depth_request(int command, struct depth_key *key)
 static int broadcast_update(const char *market, dict_t *sessions, bool clean, json_t *full, json_t *diff)
 {
     json_t *params_full = json_array();
-    json_array_append_new(params, json_boolean(true));
-    json_array_append(params, full);
-    json_array_append_new(params, json_string(market));
+    json_array_append_new(params_full, json_boolean(true));
+    json_array_append(params_full, full);
+    json_array_append_new(params_full, json_string(market));
 
-    json_t *notify_obj = ws_get_notify("depth.update", params);
+    json_t *notify_obj = ws_get_notify("depth.update", params_full);
     sds full_compressed = zlib_compress_json(notify_obj);
     json_decref(notify_obj);
 
     json_t *params_diff = json_array();
-    json_array_append_new(params, json_boolean(false));
-    json_array_append(params, diff);
-    json_array_append_new(params, json_string(market));
+    json_array_append_new(params_diff, json_boolean(false));
+    json_array_append(params_diff, diff);
+    json_array_append_new(params_diff, json_string(market));
 
-    notify_obj = ws_get_notify("depth.update", params);
+    notify_obj = ws_get_notify("depth.update", params_diff);
     sds diff_compressed = zlib_compress_json(notify_obj);
     json_decref(notify_obj);
 
@@ -306,19 +306,26 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
         json_t *params = json_array();
         struct depth_session_val *ses_val = entry->val;
         if (clean || ses_val->is_full) {
-            json_array_append_new(params, json_boolean(true));
-            json_array_append(params, full);
+            if (ws_ses_compress(entry->key)) {
+                ws_send_raw(entry->key, full_compressed, sdslen(full_compressed), true);
+            } else {
+                ws_send_notify(entry->key, "depth.update", params_full);
+            }
         } else {
-            json_array_append_new(params, json_boolean(false));
-            json_array_append(params, diff);
+            if (ws_ses_compress(entry->key)) {
+                ws_send_raw(entry->key, diff_compressed, sdslen(diff_compressed), true);
+            } else {
+                ws_send_notify(entry->key, "depth.update", params_diff);
+            }
         }
-        json_array_append_new(params, json_string(market));
         ws_send_notify(entry->key, "depth.update", params);
-        json_decref(params);
     }
 
     json_decref(params_full);
+    sdsfree(full_compressed);
+
     json_decref(params_diff);
+    sdsfree(diff_compressed);
     dict_release_iterator(iter);
     profile_inc("depth.update", dict_size(sessions));
 

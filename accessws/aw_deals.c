@@ -209,14 +209,14 @@ int deals_new(uint32_t user_id, uint64_t order_id, uint64_t id, double timestamp
     json_array_append_new(params, json_true());
 
     json_t *notify_obj = ws_get_notify("deals.update", params);
-    sds compressed = zlib_compress_json(notify_objs);
+    sds compressed = zlib_compress_json(notify_obj);
     json_decref(notify_obj);
 
     size_t count = 0;
     struct user_val *obj = entry->val;
     dict_iterator *iter = dict_get_iterator(obj->sessions);
     while ((entry = dict_next(iter)) != NULL) {
-        if (ws_ses_compress(ses)) {
+        if (ws_ses_compress(entry->key)) {
             ws_send_raw(entry->key, compressed, sdslen(compressed), true);
         } else {
             ws_send_notify(entry->key, "deals.update", params);
@@ -276,13 +276,13 @@ static int deals_sub_update(const char *market, json_t *result)
     json_array_append(params, result);
 
     json_t *notify_obj = ws_get_notify("deals.update", params);
-    sds compressed = zlib_compress_json(notify_objs);
+    sds compressed = zlib_compress_json(notify_obj);
     json_decref(notify_obj);
 
     struct sub_deals_val *obj = entry->val;
     dict_iterator *iter = dict_get_iterator(obj->sessions);
     while ((entry = dict_next(iter)) != NULL) {
-        if (ws_ses_compress(ses)) {
+        if (ws_ses_compress(entry->key)) {
             ws_send_raw(entry->key, compressed, sdslen(compressed), true);
         } else {
             ws_send_notify(entry->key, "deals.update", params);

@@ -123,6 +123,10 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
     json_array_append_new(params, json_integer(event));
     json_array_append(params, order);
 
+    json_t * notify_obj = ws_get_notify("order.update", params);
+    sds compressed = zlib_compress_json(notify_obj);
+    json_decref(notify_obj);
+
     int count = 0;
     list_t *list = entry->val;
     list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
@@ -130,12 +134,19 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
     while ((node = list_next(iter)) != NULL) {
         struct sub_unit *unit = node->value;
         if (strcmp(unit->market, market) == 0) {
-            ws_send_notify(unit->ses, "order.update", params);
+            if (ws_ses_compress(unit->ses)) {
+                ws_send_raw(unit->ses, compressed, sdslen(compressed), compressed);
+            } else {
+                ws_send_notify(unit->ses, "order.update", params); 
+            }
+            
             count += 1;
         }
     }
     list_release_iterator(iter);
     json_decref(params);
+    sdsfree(compressed);
+
     profile_inc("order.update", count);
 
     return 0;

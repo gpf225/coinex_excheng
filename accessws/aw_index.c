@@ -39,15 +39,24 @@ int index_on_update(const char *market, const char *price)
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, json_string(price));
+    
+    json_t * notify_obj = ws_get_notify("index.update", params);
+    sds compressed = zlib_compress_json(notify_obj);
+    json_decref(notify_obj);
 
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_session);
     while ((entry = dict_next(iter)) != NULL) {
-        ws_send_notify(entry->key, "index.update", params);
+        if (ws_ses_compress(entry->key)) {
+            ws_send_raw(entry->key, compressed, sdslen(compressed), true);
+        } else {
+            ws_send_notify(entry->key, "index.update", params);
+        }
     }
     dict_release_iterator(iter);
 
     json_decref(params);
+    sdsfree(compressed);
     return 0;
 }
 

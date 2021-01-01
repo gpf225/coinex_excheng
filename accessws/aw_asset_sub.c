@@ -185,8 +185,8 @@ int asset_on_update_sub(uint32_t user_id, const char *asset, const char *availab
     json_array_append_new(params, json_integer(user_id));
     json_array_append_new(params, result);
 
-    json_t * notify_obj = ws_get_notify("asset.update_sub", params)
-    sds compressed = zlib_compress_json(notify_objs);
+    json_t * notify_obj = ws_get_notify("asset.update_sub", params);
+    sds compressed = zlib_compress_json(notify_obj);
     json_decref(notify_obj);
 
     int count = 0;

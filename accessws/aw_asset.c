@@ -97,15 +97,7 @@ static void on_timer(nw_timer *timer, void *privdata)
         json_t *params = json_array();
         json_array_append(params, val->result);
         json_array_append_new(params, json_integer(key->account));
-        if (ws_ses_compress(ses)) {
-            json_t * notify_obj = ws_get_notify("asset.update", params)
-            sds compressed = zlib_compress_json(notify_objs);
-            json_decref(notify_obj);
-            ws_send_raw(ses, compressed, sdslen(compressed), true);
-            sdsfree(compressed);
-        } else {
-            ws_send_notify(key->ses, "asset.update", params);
-        }
+        ws_send_notify(key->ses, "asset.update", params);
         dict_delete(dict_delay, key);
         json_decref(params);
         count++;
@@ -254,7 +246,7 @@ int asset_on_update(uint32_t user_id, uint32_t account, const char *asset, const
     json_array_append_new(params, json_integer(account));
 
     json_t *notify_obj = ws_get_notify("asset.update", params);
-    sds compressed = zlib_compress_json(notify_objs);
+    sds compressed = zlib_compress_json(notify_obj);
     json_decref(notify_obj);
 
     size_t count = 0;
@@ -266,8 +258,8 @@ int asset_on_update(uint32_t user_id, uint32_t account, const char *asset, const
         if (strlen(unit->asset) == 0 || strcmp(unit->asset, asset) == 0) {
             if (unit->delay) {
                 delay_update(unit->ses, account, asset, result);
-            } else if (ws_ses_compress(ses)) {
-                ws_send_raw(ses, compressed, sdslen(compressed), true);
+            } else if (ws_ses_compress(unit->ses)) {
+                ws_send_raw(unit->ses, compressed, sdslen(compressed), true);
             } else {
                 ws_send_notify(unit->ses, "asset.update", params);
                 count += 1;
