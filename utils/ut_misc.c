@@ -308,14 +308,6 @@ sds zlib_compress(const void *mem, size_t len)
     return result;
 }
 
-sds zlib_compress_json(json_t *message)
-{
-    char *result_str = json_dumps(message, 0);
-    sds result = zlib_compress(result_str, strlen(result_str));
-    free(result_str);
-    return result;
-}
-
 double current_timestamp(void)
 {
     struct timeval tv;

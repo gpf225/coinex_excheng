@@ -185,9 +185,8 @@ int asset_on_update_sub(uint32_t user_id, const char *asset, const char *availab
     json_array_append_new(params, json_integer(user_id));
     json_array_append_new(params, result);
 
-    json_t * notify_obj = ws_get_notify("asset.update_sub", params);
-    sds compressed = zlib_compress_json(notify_obj);
-    json_decref(notify_obj);
+    char *notify = ws_get_notify("asset.update_sub", params);
+    sds compressed = zlib_compress(notify, strlen(notify));
 
     int count = 0;
     dict_t *clients = entry->val;
@@ -197,16 +196,16 @@ int asset_on_update_sub(uint32_t user_id, const char *asset, const char *availab
         if (ws_ses_compress(ses)) {
             ws_send_raw(ses, compressed, sdslen(compressed), true);
         } else {
-            ws_send_notify(ses, "asset.update_sub", params);
+            ws_send_raw(ses, notify, strlen(notify), false);
         }
         ++count;
     }
     dict_release_iterator(iter);
-    sdsfree(compressed);
 
+    free(notify);
+    sdsfree(compressed);
     json_decref(params);
     profile_inc("asset.update_sub", count);
-
     return 0;
 }
 

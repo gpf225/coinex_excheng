@@ -287,45 +287,43 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
     json_array_append(params_full, full);
     json_array_append_new(params_full, json_string(market));
 
-    json_t *notify_obj = ws_get_notify("depth.update", params_full);
-    sds full_compressed = zlib_compress_json(notify_obj);
-    json_decref(notify_obj);
+    char *notify_full = ws_get_notify("depth.update", params_full);
+    sds compressed_full = zlib_compress(notify_full, strlen(notify_full));
 
     json_t *params_diff = json_array();
     json_array_append_new(params_diff, json_boolean(false));
     json_array_append(params_diff, diff);
     json_array_append_new(params_diff, json_string(market));
 
-    notify_obj = ws_get_notify("depth.update", params_diff);
-    sds diff_compressed = zlib_compress_json(notify_obj);
-    json_decref(notify_obj);
+    char *notify_diff = ws_get_notify("depth.update", params_diff);
+    sds compressed_diff = zlib_compress(notify_diff, strlen(notify_diff));
 
     dict_iterator *iter = dict_get_iterator(sessions);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
-        json_t *params = json_array();
         struct depth_session_val *ses_val = entry->val;
         if (clean || ses_val->is_full) {
             if (ws_ses_compress(entry->key)) {
-                ws_send_raw(entry->key, full_compressed, sdslen(full_compressed), true);
+                ws_send_raw(entry->key, compressed_full, sdslen(compressed_full), true);
             } else {
-                ws_send_notify(entry->key, "depth.update", params_full);
+                ws_send_raw(entry->key, notify_full, strlen(notify_full), false);
             }
         } else {
             if (ws_ses_compress(entry->key)) {
-                ws_send_raw(entry->key, diff_compressed, sdslen(diff_compressed), true);
+                ws_send_raw(entry->key, compressed_diff, sdslen(compressed_diff), true);
             } else {
-                ws_send_notify(entry->key, "depth.update", params_diff);
+                ws_send_raw(entry->key, notify_diff, strlen(notify_diff), false);
             }
         }
-        ws_send_notify(entry->key, "depth.update", params);
     }
 
     json_decref(params_full);
-    sdsfree(full_compressed);
+    free(notify_full);
+    sdsfree(compressed_full);
 
     json_decref(params_diff);
-    sdsfree(diff_compressed);
+    free(notify_diff);
+    sdsfree(compressed_diff);
     dict_release_iterator(iter);
     profile_inc("depth.update", dict_size(sessions));
 

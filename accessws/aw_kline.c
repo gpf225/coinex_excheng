@@ -76,9 +76,8 @@ static void on_backend_connect(nw_ses *ses, bool result)
 
 static int broadcast_update(dict_t *sessions, json_t *result)
 {
-    json_t * notify_obj = ws_get_notify("kline.update", result);
-    sds compressed = zlib_compress_json(notify_obj);
-    json_decref(notify_obj);
+    char *notify = ws_get_notify("kline.update", result);
+    sds compressed = zlib_compress(notify, strlen(notify));
 
     dict_iterator *iter = dict_get_iterator(sessions);
     dict_entry *entry;
@@ -86,11 +85,12 @@ static int broadcast_update(dict_t *sessions, json_t *result)
         if (ws_ses_compress(entry->key)) {
             ws_send_raw(entry->key, compressed, sdslen(compressed), true);
         } else {
-            ws_send_notify(entry->key, "kline.update", result);
+            ws_send_raw(entry->key, notify, strlen(notify), false);
         }
     }
     dict_release_iterator(iter);
     sdsfree(compressed);
+    free(notify);
 
     profile_inc("kline.update", dict_size(sessions));
     return 0;
