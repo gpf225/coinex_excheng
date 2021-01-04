@@ -77,10 +77,8 @@ static int send_message(nw_ses *ses, uint8_t opcode, uint8_t rsv1, void *payload
     if (ses->svr) {
         ws_ses_update_activity(ses);
     }
-
-    sds buf_hex = bin2hex(buf, pkg_len);
-    log_trace("send buf_hex: %s, hex: %zu", buf_hex, pkg_len);
-    sdsfree(buf_hex);
+    
+    log_trace_dump("send buf", buf, pkg_len);
     
     return nw_ses_send(ses, buf, pkg_len);
 }
@@ -107,9 +105,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
             return -1;
         }
 
-        sds message_hex = bin2hex(message, sdslen(message));
-        log_trace("message_hex: %s", message_hex);
-        sdsfree(message_hex);
+        log_trace_dump("send message", message, sdslen(message));
 
         ret = send_message(ses, opcode, compress ? WS_RSV1 : 0, message, sdslen(message), masked);
         sdsfree(message);

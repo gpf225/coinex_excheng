@@ -236,9 +236,7 @@ static int decode_pkg(nw_ses *ses, void *data, size_t max)
     if (max < 2)
         return 0;
 
-    sds dst_buf_hex = bin2hex(data, max);
-    log_trace("recv buf: %zu, hex: %s", max, dst_buf_hex);
-    sdsfree(dst_buf_hex);
+    log_trace_dump("receive buf", data, max);
 
     uint8_t *p = data;
     size_t pkg_size = 0;
@@ -283,9 +281,7 @@ static int decode_pkg(nw_ses *ses, void *data, size_t max)
         p[i] = p[i] ^ masks[i & 3];
     }
 
-    sds payload_hex = bin2hex(info->frame.payload, info->frame.payload_len);
-    log_trace("recv payload len: %ld, payload_hex: %s", info->frame.payload_len, payload_hex);
-    sdsfree(payload_hex);
+    log_trace_dump("receive payload", info->frame.payload, info->frame.payload_len);
     return pkg_size;
 }
 
