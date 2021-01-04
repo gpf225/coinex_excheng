@@ -971,10 +971,9 @@ static int on_method_notice_unsubscribe(nw_ses *ses, uint64_t id, struct clt_inf
 
 static int on_message(nw_ses *ses, const char *remote, const char *url, void *message, size_t size)
 {
-    sds msg_sds = sdsnewlen(message, size);
     struct clt_info *info = ws_ses_privdata(ses);
-    log_trace("new websocket message from: %"PRIu64":%s, url: %s, size: %zu, message: %s", ses->id, remote, url, size, msg_sds);
-    sdsfree(msg_sds);
+    log_trace("new websocket message from: %"PRIu64":%s, url: %s, size: %zu", ses->id, remote, url, size);
+
     json_t *msg = json_loadb(message, size, 0, NULL);
     if (msg == NULL) {
         goto decode_error;
