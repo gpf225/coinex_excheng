@@ -523,6 +523,9 @@ paket-files/
 # wireshark
 *.cap
 
+#vscode
+.vscode/
+
 # subline
 .DS_Store
 .tags
