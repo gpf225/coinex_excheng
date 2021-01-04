@@ -49,10 +49,18 @@ time_t get_utc_day_start(time_t timestamp);
 time_t get_utc_month_start(time_t timestamp);
 time_t get_utc_yearstart(time_t timestamp);
 
-# define log_trace_dump(title, msg, msg_len) do { \
+# define log_trace_hex(title, msg, msg_len) do { \
     if (default_dlog_flag & DLOG_TRACE) { \
         sds hex = bin2hex(msg, msg_len); \
         loga("[trace]%s:%i(%s): %s: %s", __FILE__, __LINE__, __func__, title, hex); \
+        sdsfree(hex); \
+    } \
+} while (0)
+
+# define log_trace_hexdump(title, msg, msg_len) do { \
+    if (default_dlog_flag & DLOG_TRACE) { \
+        sds hex = hexdump(msg, msg_len); \
+        loga("[trace]%s:%i(%s): %s\n: %s", __FILE__, __LINE__, __func__, title, hex); \
         sdsfree(hex); \
     } \
 } while (0)

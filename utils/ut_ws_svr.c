@@ -136,7 +136,7 @@ static int on_http_message_complete(http_parser* parser)
 
     info->compress = false;
     const char *extensions = http_request_get_header(info->request, "Sec-WebSocket-Extensions");
-    if (extensions != NULL) {
+    if (svr->compress && extensions != NULL) {
         int count;
         sds *tokens = sdssplitlen(extensions, strlen(extensions), ";", 1, &count);
         if (tokens != NULL) {
@@ -236,7 +236,7 @@ static int decode_pkg(nw_ses *ses, void *data, size_t max)
     if (max < 2)
         return 0;
 
-    log_trace_dump("receive buf", data, max);
+    log_trace_hex("receive buf", data, max);
 
     uint8_t *p = data;
     size_t pkg_size = 0;
@@ -281,7 +281,7 @@ static int decode_pkg(nw_ses *ses, void *data, size_t max)
         p[i] = p[i] ^ masks[i & 3];
     }
 
-    log_trace_dump("receive payload", info->frame.payload, info->frame.payload_len);
+    log_trace_hex("receive payload", info->frame.payload, info->frame.payload_len);
     return pkg_size;
 }
 
@@ -473,6 +473,7 @@ ws_svr *ws_svr_create(ws_svr_cfg *cfg, ws_svr_type *type)
     svr->settings.on_body = on_http_body;
     svr->settings.on_message_complete = on_http_message_complete;
 
+    svr->compress = cfg->compress;
     svr->keep_alive = cfg->keep_alive;
     svr->protocol = strdup(cfg->protocol);
     svr->origin   = strdup(cfg->origin);

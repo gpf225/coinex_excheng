@@ -78,7 +78,7 @@ static int send_message(nw_ses *ses, uint8_t opcode, uint8_t rsv1, void *payload
         ws_ses_update_activity(ses);
     }
     
-    log_trace_dump("send buf", buf, pkg_len);
+    log_trace_hex("send buf", buf, pkg_len);
     
     return nw_ses_send(ses, buf, pkg_len);
 }
@@ -105,7 +105,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
             return -1;
         }
 
-        log_trace_dump("send message", message, sdslen(message));
+        log_trace_hex("send message", message, sdslen(message));
 
         ret = send_message(ses, opcode, compress ? WS_RSV1 : 0, message, sdslen(message), masked);
         sdsfree(message);
@@ -276,7 +276,7 @@ sds ws_handshake_response(http_response_t *response, const char *key, bool compr
     sds s_key = sdsnew(key);
     ws_generate_sec_key(s_key, &b4message);
     http_response_set_header(response, "Sec-WebSocket-Accept", b4message);
-    if (compress) http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate; server_no_context_takeover; client_no_context_takeover");
+    if (compress) http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate; server_no_context_takeover; client_no_context_takeover; server_max_window_bits=15");
     sds message = http_response_encode(response);
 
     sdsfree(b4message);

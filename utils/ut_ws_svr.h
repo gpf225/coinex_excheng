@@ -22,6 +22,7 @@ typedef struct ws_svr_cfg {
     int keep_alive;
     char *protocol;
     char *origin;
+    bool compress;
 } ws_svr_cfg;
 
 typedef struct ws_svr_type {
@@ -39,6 +40,7 @@ typedef struct ws_svr {
     int keep_alive;
     char *protocol;
     char *origin;
+    bool compress;
     http_parser_settings settings;
     ws_svr_type type;
 } ws_svr;

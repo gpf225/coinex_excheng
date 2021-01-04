@@ -18,6 +18,7 @@
             "stream@/tmp/accessws.sock"
         ],
         "max_pkg_size": 102400,
+        "compress": true,
         "protocol": "chat"
     },
     "worker_num": 2,
