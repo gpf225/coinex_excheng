@@ -1,9 +1,9 @@
 /*
  * Description: 
- *     History: yang@haipo.me, 2017/04/21, create
+ *     History: yangxiaoqiang, 2021/01/04, create
  */
 
-# include "aw_config.h"
+# include "iw_config.h"
 
 struct settings settings;
 
@@ -146,9 +146,6 @@ static int read_config_from_json(json_t *root)
 
     ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));
     ERR_RET_LN(read_cfg_int(root, "depth_limit_default",  &settings.depth_limit_default,  false, 20));
-    ERR_RET_LN(read_cfg_str(root, "auth_url", &settings.auth_url, NULL));
-    ERR_RET_LN(read_cfg_str(root, "auth_sub_url", &settings.auth_sub_url, NULL));
-    ERR_RET_LN(read_cfg_str(root, "sign_url", &settings.sign_url, NULL));
     ERR_RET_LN(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
     ERR_RET_LN(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
     ERR_RET_LN(read_cfg_real(root, "kline_interval", &settings.kline_interval, false, 0.5));

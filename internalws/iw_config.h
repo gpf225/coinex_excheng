@@ -1,10 +1,10 @@
 /*
  * Description: 
- *     History: yang@haipo.me, 2017/04/21, create
+ *     History: yangxiaoqiang, 2021/01/04, create
  */
 
-# ifndef _AW_CONFIG_H_
-# define _AW_CONFIG_H_
+# ifndef _IW_CONFIG_H_
+# define _IW_CONFIG_H_
 
 # include <math.h>
 # include <stdio.h>
@@ -75,9 +75,6 @@ struct settings {
 
     int                 worker_num;
     int                 depth_limit_default;
-    char                *auth_url;
-    char                *auth_sub_url;
-    char                *sign_url;
     char                *accesshttp;
     double              backend_timeout;
     double              kline_interval;

@@ -3,22 +3,15 @@
  *     History: yangxiaoqiang, 2021/01/04, create
  */
 
-# include "aw_config.h"
-# include "aw_server.h"
-# include "aw_auth.h"
-# include "aw_auth_sub.h"
-# include "aw_sign.h"
-# include "aw_kline.h"
-# include "aw_depth.h"
-# include "aw_state.h"
-# include "aw_deals.h"
-# include "aw_order.h"
-# include "aw_asset.h"
-# include "aw_state.h"
-# include "aw_index.h"
-# include "aw_notice.h"
-# include "aw_sub_user.h"
-# include "aw_asset_sub.h"
+# include "iw_config.h"
+# include "iw_server.h"
+# include "iw_depth.h"
+# include "iw_state.h"
+# include "iw_deals.h"
+# include "iw_order.h"
+# include "iw_asset.h"
+# include "iw_state.h"
+# include "iw_index.h"
 # include "ut_ws.h"
 
 static ws_svr *svr;

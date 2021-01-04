@@ -1,5 +1,10 @@
-# ifndef _AW_DEALS_H_
-# define _AW_DEALS_H_
+/*
+ * Description: 
+ *     History: yangxiaoqiang, 2021/01/04, create
+ */
+
+# ifndef _IW_DEALS_H_
+# define _IW_DEALS_H_
 
 int init_deals(void);
 int deals_subscribe(nw_ses *ses, const char *market, uint32_t user_id);

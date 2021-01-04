@@ -6,7 +6,7 @@
 # ifndef _IW_SERVER_H_
 # define _IW_SERVER_H_
 
-# include "aw_config.h"
+# include "iw_config.h"
 
 struct clt_info {
     bool        auth;

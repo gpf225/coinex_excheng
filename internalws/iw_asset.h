@@ -1,10 +1,10 @@
 /*
  * Description: 
- *     History: yang@haipo.me, 2017/04/27, create
+ *     History: yangxiaoqiang, 2021/01/04, create
  */
 
-# ifndef _AW_ASSET_H_
-# define _AW_ASSET_H_
+# ifndef _IW_ASSET_H_
+# define _IW_ASSET_H_
 
 int init_asset(void);
 
