@@ -1,5 +1,5 @@
-# ifndef _AW_STATE_H_
-# define _AW_STATE_H_
+# ifndef _IW_STATE_H_
+# define _IW_STATE_H_
 
 int init_state(void);
 bool judege_state_period_is_day(json_t *params);

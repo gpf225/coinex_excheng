@@ -1,10 +1,10 @@
 /*
  * Description: 
- *     History: yang@haipo.me, 2017/11/02, create
+ *     History: yangxiaoqiang, 2021/01/04, create
  */
 
-# ifndef _AW_SIGN_H_
-# define _AW_SIGN_H_
+# ifndef _IW_SIGN_H_
+# define _IW_SIGN_H_
 
 int init_sign(void);
 

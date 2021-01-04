@@ -5,17 +5,17 @@
         "core_limit": 1000000000
     },
     "log": {
-        "path": "/var/log/trade/accessws",
+        "path": "/var/log/trade/internalws",
         "flag": "fatal,error,warn,info,debug,trace",
         "num": 10
     },
     "alert": {
-        "host": "accessws",
+        "host": "internalws",
         "addr": "127.0.0.1:4444"
     },
     "svr": {
         "bind": [
-            "stream@/tmp/accessws.sock"
+            "stream@/tmp/internalws.sock"
         ],
         "max_pkg_size": 102400,
         "protocol": "chat"
@@ -72,9 +72,6 @@
     "cachecenter_worker_num": 4,
     "backend_timeout": 1.0,
     "asset_delay": 1.0,
-    "auth_url": "http://192.168.0.6:8000/internal/exchange/user/auth",
-    "auth_sub_url": "http://192.168.0.6:8000/internal/exchange/sub_account/auth",
-    "sign_url": "http://192.168.0.6:8000/internal/exchange/user/api/auth",
     "accesshttp": "http://127.0.0.1:8080",
     "depth_limit": [1, 5, 10, 20, 30, 50],
     "depth_merge": ["0", "0.0000000001", "0.000000001", "0.00000001", "0.0000001", "0.000001", "0.00001", "0.0001", "0.001", "0.01", "0.1", "1", "10", "100"],

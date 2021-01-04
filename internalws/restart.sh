@@ -1,5 +1,5 @@
 #!/bin/bash
 
-killall -s SIGQUIT accessws.exe
+killall -s SIGQUIT internalws.exe
 sleep 1
-./accessws.exe config.json
+./internalws.exe config.json
