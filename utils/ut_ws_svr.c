@@ -388,6 +388,11 @@ static void on_recv_pkg(nw_ses *ses, void *data, size_t size)
         info->message = sdsempty();
     if (info->frame.rsv1) {
         sds payload_decompressed = zlib_uncompress(info->frame.payload, info->frame.payload_len);
+        if (payload_decompressed == NULL) {
+            log_error("peer %s uncompress fail", nw_sock_human_addr(&ses->peer_addr));
+            nw_svr_close_clt(svr->raw_svr, ses);
+            return;
+        }
         info->message = sdscatsds(info->message, payload_decompressed);
         sdsfree(payload_decompressed);
     } else {
