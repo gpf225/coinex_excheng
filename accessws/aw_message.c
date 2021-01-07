@@ -12,7 +12,6 @@
 # include "aw_server.h"
 # include "aw_auth.h"
 # include "aw_notice.h"
-# include "aw_asset_sub.h"
 
 static kafka_consumer_t *kafka_deals;
 static kafka_consumer_t *kafka_stops;
@@ -135,11 +134,6 @@ static int process_orders_message(json_t *msg)
     asset_on_update(user_id, account, stock, stock_available, stock_frozen, timestamp);
     asset_on_update(user_id, account, money, money_available, money_frozen, timestamp);
 
-    if (account == 0) {
-        asset_on_update_sub(user_id, stock, stock_available, stock_frozen, timestamp);
-        asset_on_update_sub(user_id, money, money_available, money_frozen, timestamp);
-    }
-
     json_t *fee = json_object_get(balance, "fee");
     if (fee != NULL) {
         uint32_t fee_account = json_integer_value(json_object_get(fee, "account"));
@@ -150,9 +144,6 @@ static int process_orders_message(json_t *msg)
             return -__LINE__;
 
         asset_on_update(user_id, fee_account, fee_asset, fee_available, fee_frozen, timestamp);
-        if (fee_account == 0) {
-            asset_on_update_sub(user_id, fee_asset, fee_available, fee_frozen, timestamp);
-        }
     }
 
     return 0;
@@ -219,10 +210,6 @@ static int process_balances_message(json_t *msg)
     }
 
     asset_on_update(user_id, account, asset, available, frozen, timestamp);
-    if (account == 0) {
-        asset_on_update_sub(user_id, asset, available, frozen, timestamp);
-    }
-
     return 0;
 }
 

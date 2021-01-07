@@ -8,7 +8,6 @@
 # include "aw_config.h"
 # include "aw_server.h"
 # include "aw_asset.h"
-# include "aw_asset_sub.h"
 # include "aw_order.h"
 # include "aw_auth.h"
 # include "aw_notice.h"
@@ -96,7 +95,6 @@ static void on_result(struct state_data *state, sds token, json_t *result)
 
     if (info->auth && info->user_id != user_id) {
         asset_unsubscribe(info->user_id, state->ses);
-        asset_unsubscribe_sub(state->ses);
         order_unsubscribe(info->user_id, state->ses);
         notice_unsubscribe(info->user_id, state->ses);
     }
