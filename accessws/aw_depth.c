@@ -288,7 +288,7 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
     json_array_append_new(params_full, json_string(market));
 
     char *notify_full = ws_get_notify("depth.update", params_full);
-    sds compressed_full = zlib_compress(notify_full, strlen(notify_full));
+    sds compressed_full = NULL;
 
     json_t *params_diff = json_array();
     json_array_append_new(params_diff, json_boolean(false));
@@ -296,7 +296,7 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
     json_array_append_new(params_diff, json_string(market));
 
     char *notify_diff = ws_get_notify("depth.update", params_diff);
-    sds compressed_diff = zlib_compress(notify_diff, strlen(notify_diff));
+    sds compressed_diff = NULL;
 
     dict_iterator *iter = dict_get_iterator(sessions);
     dict_entry *entry;
@@ -304,12 +304,16 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
         struct depth_session_val *ses_val = entry->val;
         if (clean || ses_val->is_full) {
             if (ws_ses_compress(entry->key)) {
+                if (compressed_full == NULL)
+                    compressed_full = zlib_compress(notify_full, strlen(notify_full));
                 ws_send_raw(entry->key, compressed_full, sdslen(compressed_full), true);
             } else {
                 ws_send_raw(entry->key, notify_full, strlen(notify_full), false);
             }
         } else {
             if (ws_ses_compress(entry->key)) {
+                if (compressed_diff == NULL)
+                    compressed_diff = zlib_compress(notify_diff, strlen(notify_diff));
                 ws_send_raw(entry->key, compressed_diff, sdslen(compressed_diff), true);
             } else {
                 ws_send_raw(entry->key, notify_diff, strlen(notify_diff), false);
@@ -319,11 +323,13 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
 
     json_decref(params_full);
     free(notify_full);
-    sdsfree(compressed_full);
+    if (compressed_full != NULL)
+        sdsfree(compressed_full);
 
     json_decref(params_diff);
     free(notify_diff);
-    sdsfree(compressed_diff);
+    if (compressed_diff != NULL)
+        sdsfree(compressed_diff);
     dict_release_iterator(iter);
     profile_inc("depth.update", dict_size(sessions));
 
