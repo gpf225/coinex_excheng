@@ -6,7 +6,6 @@
 # include "aw_config.h"
 # include "aw_server.h"
 # include "aw_auth.h"
-# include "aw_auth_sub.h"
 # include "aw_sign.h"
 # include "aw_kline.h"
 # include "aw_depth.h"
@@ -17,8 +16,6 @@
 # include "aw_state.h"
 # include "aw_index.h"
 # include "aw_notice.h"
-# include "aw_sub_user.h"
-# include "aw_asset_sub.h"
 # include "ut_ws.h"
 
 static ws_svr *svr;
@@ -122,12 +119,6 @@ static bool is_good_market(const char *market)
     return true;
 }
 
-int ws_send_error_unknown_sub_user(nw_ses *ses, uint64_t id)
-{
-    profile_inc("error_unknown_sub_user", 1);
-    return ws_send_error(ses, id, 1, "unknown sub user");
-}
-
 int ws_send_error_direct_result_null(nw_ses *ses, int64_t id)
 {
     profile_inc("error_direct_result_null", 1);
@@ -153,11 +144,6 @@ static int on_method_server_time(nw_ses *ses, uint64_t id, struct clt_info *info
 static int on_method_server_auth(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     return send_auth_request(ses, id, info, params);
-}
-
-static int on_method_server_auth_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    return send_auth_sub_request(ses, id, info, params);
 }
 
 static int on_method_server_sign(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
@@ -706,46 +692,6 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
     return 0;
 }
 
-static int on_method_asset_query_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth) {
-        return ws_send_error_require_auth(ses, id);
-    }
-
-    if (!rpc_clt_connected(matchengine)) {
-        return ws_send_error_internal_error(ses, id);
-    }
-
-    if (json_array_size(params) != 2) {
-        return ws_send_error_invalid_argument(ses, id);
-    }
-
-    uint32_t sub_user_id = json_integer_value(json_array_get(params, 0));
-    if (!sub_user_has(info->user_id, ses, sub_user_id)) {
-        return ws_send_error_unknown_sub_user(ses, id);
-    }
-    json_t *asset_list = json_array_get(params, 1);
-    if (!json_is_null(asset_list) && !json_is_array(asset_list)) {
-        return ws_send_error_invalid_argument(ses, id);
-    }
-
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_integer(sub_user_id));
-    json_array_append_new(query_params, json_integer(0)); // default account
-    json_array_extend(query_params, asset_list);
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY, entry->id, id, sub_user_id, query_params);
-    json_decref(query_params);
-
-    return 0;
-}
-
 static int on_method_asset_account_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
@@ -859,42 +805,6 @@ static int on_method_asset_unsubscribe_delay(nw_ses *ses, uint64_t id, struct cl
     return ws_send_success(ses, id);    
 }
 
-static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth) {
-        return ws_send_error_require_auth(ses, id);
-    }
-
-    if (json_array_size(params) != 0) {
-        if (!sub_user_auth(info->user_id, ses, params)) {
-            return ws_send_error_unknown_sub_user(ses, id);
-        }
-
-        asset_unsubscribe_sub(ses);
-        asset_subscribe_sub(ses, params);
-        return ws_send_success(ses, id);
-    }
-
-    json_t *sub_users = sub_user_get_sub_uses(info->user_id, ses);
-    if (sub_users == NULL) {
-        return ws_send_error_unknown_sub_user(ses, id);
-    }
-
-    asset_unsubscribe_sub(ses);
-    asset_subscribe_sub(ses, sub_users);
-    json_decref(sub_users);
-    return ws_send_success(ses, id);
-}
-
-static int on_method_asset_unsubscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    asset_unsubscribe_sub(ses);
-    return ws_send_success(ses, id);
-}
-
 static int on_method_index_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (json_array_size(params) != 1) {
@@ -972,6 +882,7 @@ static int on_message(nw_ses *ses, const char *remote, const char *url, void *me
 {
     struct clt_info *info = ws_ses_privdata(ses);
     log_trace("new websocket message from: %"PRIu64":%s, url: %s, size: %zu", ses->id, remote, url, size);
+
     json_t *msg = json_loadb(message, size, 0, NULL);
     if (msg == NULL) {
         goto decode_error;
@@ -1047,8 +958,6 @@ static void on_close(nw_ses *ses, const char *remote)
         order_unsubscribe(info->user_id, ses);
         asset_unsubscribe(info->user_id, ses);
         notice_unsubscribe(info->user_id, ses);
-        asset_unsubscribe_sub(ses);
-        sub_user_remove(info->user_id, ses);
     }
     profile_inc("connection_close", 1);
 }
@@ -1152,7 +1061,6 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("server.ping",               on_method_server_ping));
     ERR_RET_LN(add_handler("server.time",               on_method_server_time));
     ERR_RET_LN(add_handler("server.auth",               on_method_server_auth));
-    ERR_RET_LN(add_handler("server.auth_sub",           on_method_server_auth_sub));
     ERR_RET_LN(add_handler("server.sign",               on_method_server_sign));
 
     ERR_RET_LN(add_handler("kline.query",               on_method_kline_query));
@@ -1184,15 +1092,12 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("order.unsubscribe",         on_method_order_unsubscribe));
 
     ERR_RET_LN(add_handler("asset.query",               on_method_asset_query));
-    ERR_RET_LN(add_handler("asset.query_sub",           on_method_asset_query_sub));
     ERR_RET_LN(add_handler("asset.account_query",       on_method_asset_account_query));
     ERR_RET_LN(add_handler("asset.account_query_all",   on_method_asset_account_query_all));
     ERR_RET_LN(add_handler("asset.subscribe",           on_method_asset_subscribe));
     ERR_RET_LN(add_handler("asset.unsubscribe",         on_method_asset_unsubscribe));
     ERR_RET_LN(add_handler("asset.subscribe_delay",     on_method_asset_subscribe_delay));
     ERR_RET_LN(add_handler("asset.unsubscribe_delay",   on_method_asset_unsubscribe_delay));
-    ERR_RET_LN(add_handler("asset.subscribe_sub",       on_method_asset_subscribe_sub));
-    ERR_RET_LN(add_handler("asset.unsubscribe_sub",     on_method_asset_unsubscribe_sub));
 
     ERR_RET_LN(add_handler("index.query",               on_method_index_query));
     ERR_RET_LN(add_handler("index.query_list",          on_method_index_query_list));

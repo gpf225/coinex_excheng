@@ -41,6 +41,7 @@ int ws_send_error_require_auth(nw_ses *ses, uint64_t id);
 int ws_send_result(nw_ses *ses, uint64_t id, json_t *result);
 int ws_send_success(nw_ses *ses, uint64_t id);
 int ws_send_notify(nw_ses *ses, const char *method, json_t *params);
+char *ws_get_notify(const char *method, json_t *params);
 
 int http_reply_json(nw_ses *ses, json_t *json, uint32_t status);
 int http_reply_error(nw_ses *ses, int64_t id, int code, const char *message, uint32_t status);

@@ -22,6 +22,7 @@ struct clt_info {
     sds         value;
     bool        value_set;
     bool        upgrade;
+    bool        compress;
     sds         remote;
     sds         url;
     sds         message;
@@ -57,11 +58,11 @@ static int send_empty_reply(nw_ses *ses)
     return 0;
 }
 
-static int send_hand_shake_reply(nw_ses *ses, char *protocol, const char *key)
+static int send_hand_shake_reply(nw_ses *ses, char *protocol, const char *key, bool compress)
 {
     http_response_t *response = ws_handshake_response_new(protocol, 101);
     if (response){
-        sds message = ws_handshake_response(response, key);
+        sds message = ws_handshake_response(response, key, compress);
         nw_ses_send(ses, message, sdslen(message));
         sdsfree(message);
         http_response_release(response);
@@ -133,6 +134,24 @@ static int on_http_message_complete(http_parser* parser)
             goto error;
     }
 
+    info->compress = false;
+    const char *extensions = http_request_get_header(info->request, "Sec-WebSocket-Extensions");
+    if (svr->compress && extensions != NULL) {
+        int count;
+        sds *tokens = sdssplitlen(extensions, strlen(extensions), ";", 1, &count);
+        if (tokens != NULL) {
+            for (int i = 0; i < count; i++) {
+                sds token = tokens[i];
+                sdstrim(token, " ");
+                if (strcasecmp(token, "permessage-deflate") == 0) {
+                    info->compress = true;
+                    break;
+                }
+            }
+            sdsfreesplitres(tokens, count);
+        }
+    }
+
     if (svr->type.on_privdata_alloc) {
         info->privdata = svr->type.on_privdata_alloc(svr);
         if (info->privdata == NULL)
@@ -145,9 +164,9 @@ static int on_http_message_complete(http_parser* parser)
         svr->type.on_upgrade(info->ses, info->remote);
     }
     if (protocol_list) {
-        send_hand_shake_reply(info->ses, svr->protocol, ws_key);
+        send_hand_shake_reply(info->ses, svr->protocol, ws_key, info->compress);
     } else {
-        send_hand_shake_reply(info->ses, NULL, ws_key);
+        send_hand_shake_reply(info->ses, NULL, ws_key, info->compress);
     }
 
     return 0;
@@ -217,6 +236,8 @@ static int decode_pkg(nw_ses *ses, void *data, size_t max)
     if (max < 2)
         return 0;
 
+    log_trace_hex("receive buf", data, max);
+
     uint8_t *p = data;
     size_t pkg_size = 0;
     memset(&info->frame, 0, sizeof(info->frame));
@@ -225,7 +246,7 @@ static int decode_pkg(nw_ses *ses, void *data, size_t max)
     if (!is_good_opcode(info->frame.opcode)){
         return -1;
     }
-
+    info->frame.rsv1 = p[0] & 0x40;
     uint8_t mask = p[1] & WS_FRAME_MASKED;
     if (mask == 0) {
         return -1;
@@ -260,6 +281,7 @@ static int decode_pkg(nw_ses *ses, void *data, size_t max)
         p[i] = p[i] ^ masks[i & 3];
     }
 
+    log_trace_hex("receive payload", info->frame.payload, info->frame.payload_len);
     return pkg_size;
 }
 
@@ -364,7 +386,18 @@ static void on_recv_pkg(nw_ses *ses, void *data, size_t size)
 
     if (info->message == NULL)
         info->message = sdsempty();
-    info->message = sdscatlen(info->message, info->frame.payload, info->frame.payload_len);
+    if (info->frame.rsv1) {
+        sds payload_decompressed = zlib_uncompress(info->frame.payload, info->frame.payload_len);
+        if (payload_decompressed == NULL) {
+            log_error("peer %s uncompress fail", nw_sock_human_addr(&ses->peer_addr));
+            nw_svr_close_clt(svr->raw_svr, ses);
+            return;
+        }
+        info->message = sdscatsds(info->message, payload_decompressed);
+        sdsfree(payload_decompressed);
+    } else {
+        info->message = sdscatlen(info->message, info->frame.payload, info->frame.payload_len);
+    }
     if (info->frame.fin) {
         int ret = svr->type.on_message(ses, info->remote, info->url, info->message, sdslen(info->message));
         if (ses->id != 0) {
@@ -445,6 +478,7 @@ ws_svr *ws_svr_create(ws_svr_cfg *cfg, ws_svr_type *type)
     svr->settings.on_body = on_http_body;
     svr->settings.on_message_complete = on_http_message_complete;
 
+    svr->compress = cfg->compress;
     svr->keep_alive = cfg->keep_alive;
     svr->protocol = strdup(cfg->protocol);
     svr->origin   = strdup(cfg->origin);
@@ -480,6 +514,12 @@ int ws_svr_stop(ws_svr *svr)
 ws_svr *ws_svr_from_ses(nw_ses *ses)
 {
     return ((nw_svr *)ses->svr)->privdata;
+}
+
+bool ws_ses_compress(nw_ses *ses)
+{
+    struct clt_info *info = ses->privdata;
+    return info->compress;
 }
 
 void *ws_ses_privdata(nw_ses *ses)
