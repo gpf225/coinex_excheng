@@ -246,7 +246,7 @@ int asset_on_update(uint32_t user_id, uint32_t account, const char *asset, const
     json_array_append_new(params, json_integer(account));
 
     char *notify = ws_get_notify("asset.update", params);
-    sds compressed = zlib_compress(notify, strlen(notify));
+    sds compressed = NULL;
 
     size_t count = 0;
     list_t *list = entry->val;
@@ -258,6 +258,8 @@ int asset_on_update(uint32_t user_id, uint32_t account, const char *asset, const
             if (unit->delay) {
                 delay_update(unit->ses, account, asset, result);
             } else if (ws_ses_compress(unit->ses)) {
+                if (compressed == NULL)
+                    compressed = zlib_compress(notify, strlen(notify));
                 ws_send_raw(unit->ses, compressed, sdslen(compressed), true);
             } else {
                 ws_send_raw(unit->ses, notify, strlen(notify), false);
@@ -268,7 +270,8 @@ int asset_on_update(uint32_t user_id, uint32_t account, const char *asset, const
     list_release_iterator(iter);
 
     free(notify);
-    sdsfree(compressed);
+    if (compressed)
+        sdsfree(compressed);
     json_decref(params);
     profile_inc("asset.update", count);
 

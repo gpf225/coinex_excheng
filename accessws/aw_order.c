@@ -124,7 +124,7 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
     json_array_append(params, order);
 
     char *notify = ws_get_notify("order.update", params);
-    sds compressed = zlib_compress(notify, strlen(notify));
+    sds compressed = NULL;
 
     int count = 0;
     list_t *list = entry->val;
@@ -134,6 +134,8 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
         struct sub_unit *unit = node->value;
         if (strcmp(unit->market, market) == 0) {
             if (ws_ses_compress(unit->ses)) {
+                if (compressed == NULL)
+                    compressed = zlib_compress(notify, strlen(notify));
                 ws_send_raw(unit->ses, compressed, sdslen(compressed), true);
             } else {
                 ws_send_raw(unit->ses, notify, strlen(notify), false); 
@@ -143,7 +145,8 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
     }
     list_release_iterator(iter);
     json_decref(params);
-    sdsfree(compressed);
+    if (compressed != NULL)
+        sdsfree(compressed);
     free(notify);
 
     profile_inc("order.update", count);
@@ -167,7 +170,7 @@ int order_on_update_stop(uint32_t user_id, int event, json_t *order)
     json_array_append(params, order);
 
     char *notify = ws_get_notify("order.update_stop", params);
-    sds compressed = zlib_compress(notify, strlen(notify));
+    sds compressed = NULL;
 
     int count = 0;
     list_t *list = entry->val;
@@ -177,17 +180,19 @@ int order_on_update_stop(uint32_t user_id, int event, json_t *order)
         struct sub_unit *unit = node->value;
         if (strcmp(unit->market, market) == 0) {
             if (ws_ses_compress(unit->ses)) {
+                if (compressed == NULL)
+                    compressed = zlib_compress(notify, strlen(notify));
                 ws_send_raw(unit->ses, compressed, sdslen(compressed), true);
             } else {
                 ws_send_raw(unit->ses, notify, strlen(notify), false);
             }
             count++;
-            
         }
     }
     list_release_iterator(iter);
     json_decref(params);
-    sdsfree(compressed);
+    if (compressed != NULL)
+        sdsfree(compressed);
     free(notify);
 
     profile_inc("order.update_stop", count);
