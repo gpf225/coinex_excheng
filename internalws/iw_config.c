@@ -133,11 +133,6 @@ static int read_config_from_json(json_t *root)
         printf("load cache_state clt config fail: %d\n", ret);
         return -__LINE__;
     }
-    ret = load_cfg_rpc_clt(root, "marketindex", &settings.marketindex);
-    if (ret < 0) {
-        printf("load marketindex clt config fail: %d\n", ret);
-        return -__LINE__;
-    }
 
     ERR_RET_LN(read_cfg_str(root, "brokers", &settings.brokers, NULL));
     ERR_RET_LN(read_cfg_str(root, "cachecenter_host", &settings.cachecenter_host, NULL));

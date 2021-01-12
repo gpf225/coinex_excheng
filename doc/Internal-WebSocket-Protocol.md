@@ -177,9 +177,7 @@ if there is no bids, the checksum string will be ask1_price:ask1_amount:ask2_pri
 **Depth subscription**
 * method: `depth.subscribe`
 * params:
-1. market list
-2. limit
-3. interval
+    [[market, limit, interval],...]
 
 **Depth notification**
 * method: `depth.update`

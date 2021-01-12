@@ -59,13 +59,6 @@
         "max_pkg_size": 2000000,
         "heartbeat_timeout": 30
     },
-    "marketindex": {
-        "name": "marketindex",
-        "addr": [
-            "tcp@127.0.0.1:7901"
-        ],
-        "max_pkg_size": 2000000
-    },
     "brokers": "127.0.0.1:9092",
     "cachecenter_host": "127.0.0.1",
     "cachecenter_port": 7810,

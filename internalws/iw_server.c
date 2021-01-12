@@ -11,6 +11,7 @@
 # include "iw_order.h"
 # include "iw_asset.h"
 # include "iw_state.h"
+# include "iw_kline.h"
 # include "ut_ws.h"
 
 static ws_svr *svr;
@@ -24,7 +25,6 @@ static nw_timer timer;
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
 static rpc_clt *readhistory;
-static rpc_clt *marketindex;
 static rpc_clt **cachecenter_clt_arr;
 
 struct state_data {
@@ -229,17 +229,26 @@ static int on_method_kline_query(nw_ses *ses, uint64_t id, struct clt_info *info
 
 static int on_method_kline_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (json_array_size(params) != 2)
+    const size_t sub_size = json_array_size(params);
+    if (sub_size == 0) {
         return ws_send_error_invalid_argument(ses, id);
-
-    const char *market = json_string_value(json_array_get(params, 0));
-    int interval = json_integer_value(json_array_get(params, 1));
-    if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN || interval <= 0)
-        return ws_send_error_invalid_argument(ses, id);
+    }
 
     kline_unsubscribe(ses);
-    if (kline_subscribe(ses, market, interval) < 0)
-        return ws_send_error_internal_error(ses, id);
+    for (size_t i = 0; i < sub_size; ++i) {
+        json_t *item = json_array_get(params, i);
+        const char *market = json_string_value(json_array_get(item, 0));
+        int interval = json_integer_value(json_array_get(item, 1));
+        if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN || interval <= 0) {
+            kline_unsubscribe(ses);
+            return ws_send_error_invalid_argument(ses, id);
+        }
+
+        if (kline_subscribe(ses, market, interval) < 0) {
+            kline_unsubscribe(ses);
+            return ws_send_error_internal_error(ses, id);
+        }
+    }
 
     return ws_send_success(ses, id);
 }
@@ -310,30 +319,45 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
 
 static int on_method_depth_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (json_array_size(params) != 3)
-        return ws_send_error_invalid_argument(ses, id);
-
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (market == NULL || !market_exists(market)) {
-        return ws_send_error_invalid_argument(ses, id);
-    }
-
-    int limit = json_integer_value(json_array_get(params, 1));
-    const char *interval = json_string_value(json_array_get(params, 2));
-    if (!is_good_market(market) || !is_good_interval(interval) || !is_good_limit(limit)) {
+    const size_t sub_size = json_array_size(params);
+    if (sub_size == 0) {
         return ws_send_error_invalid_argument(ses, id);
     }
 
     depth_unsubscribe(ses);
-    int ret = depth_subscribe(ses, market, limit, interval, false);
-    if (ret == -1) {
-        return ws_send_error_invalid_argument(ses, id);
-    } else if (ret < 0) {
-        return ws_send_error_internal_error(ses, id);
+    for (size_t i = 0; i < sub_size; ++i) {
+        json_t *item = json_array_get(params, i);
+        const char *market = json_string_value(json_array_get(item, 0));
+        if (market == NULL || !market_exists(market)) {
+            depth_unsubscribe(ses);
+            return ws_send_error_invalid_argument(ses, id);
+        }
+
+        int limit = json_integer_value(json_array_get(item, 1));
+        const char *interval = json_string_value(json_array_get(item, 2));
+        if (!is_good_market(market) || !is_good_interval(interval) || !is_good_limit(limit)) {
+            depth_unsubscribe(ses);
+            return ws_send_error_invalid_argument(ses, id);
+        }
+
+        int ret = depth_subscribe(ses, market, limit, interval, false);
+        if (ret == -1) {
+            depth_unsubscribe(ses);
+            return ws_send_error_invalid_argument(ses, id);
+        } else if (ret < 0) {
+            depth_unsubscribe(ses);
+            return ws_send_error_internal_error(ses, id);
+        }
     }
 
     ws_send_success(ses, id);
-    depth_send_clean(ses, market, limit, interval);
+    for (size_t i = 0; i < sub_size; ++i) {
+        json_t *item = json_array_get(params, i);
+        const char *market = json_string_value(json_array_get(item, 0));
+        int limit = json_integer_value(json_array_get(item, 1));
+        const char *interval = json_string_value(json_array_get(item, 2));
+        depth_send_clean(ses, market, limit, interval);
+    }
     return 0;
 }
 
@@ -583,54 +607,6 @@ static int on_method_order_query_stop(nw_ses *ses, uint64_t id, struct clt_info 
     return 0;
 }
 
-static int on_method_order_account_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!rpc_clt_connected(matchengine))
-        return ws_send_error_internal_error(ses, id);
-
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_integer(info->user_id));
-    json_array_extend(query_params, params);
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_request_json_unique(matchengine, CMD_ORDER_PENDING, entry->id, id, info->user_id, query_params);
-    json_decref(query_params);
-
-    return 0;
-}
-
-static int on_method_order_account_query_stop(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!rpc_clt_connected(matchengine))
-        return ws_send_error_internal_error(ses, id);
-
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_integer(info->user_id));
-    json_array_extend(query_params, params);
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_request_json_unique(matchengine, CMD_ORDER_PENDING_STOP, entry->id, id, info->user_id, query_params);
-    json_decref(query_params);
-
-    return 0;
-}
-
 static int on_method_order_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
@@ -713,148 +689,6 @@ static int on_method_asset_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
         return ws_send_error_require_auth(ses, id);
 
     asset_unsubscribe(info->user_id, ses);
-    return ws_send_success(ses, id);
-}
-
-static int on_method_asset_subscribe_delay(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    asset_unsubscribe(info->user_id, ses);
-    size_t params_size = json_array_size(params);
-    if (params_size == 0) {
-        // subscribe all 
-        if (asset_subscribe(info->user_id, ses, "", true) < 0)
-            return ws_send_error_internal_error(ses, id);
-    } else {
-        for (size_t i = 0; i < params_size; ++i) {
-            const char *asset = json_string_value(json_array_get(params, i));
-            if (asset == NULL || strlen(asset) > ASSET_NAME_MAX_LEN)
-                return ws_send_error_invalid_argument(ses, id);
-            if (asset_subscribe(info->user_id, ses, asset, true) < 0) 
-                return ws_send_error_internal_error(ses, id);
-        }
-    }
-
-    return ws_send_success(ses, id);
-}
-
-static int on_method_asset_unsubscribe_delay(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)   
-{   
-    if (!info->auth)    
-        return ws_send_error_require_auth(ses, id); 
-
-    asset_unsubscribe(info->user_id, ses);  
-    return ws_send_success(ses, id);    
-}
-
-static int on_method_asset_subscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth) {
-        return ws_send_error_require_auth(ses, id);
-    }
-
-    if (json_array_size(params) != 0) {
-        if (!sub_user_auth(info->user_id, ses, params)) {
-            return ws_send_error_unknown_sub_user(ses, id);
-        }
-
-        asset_unsubscribe_sub(ses);
-        asset_subscribe_sub(ses, params);
-        return ws_send_success(ses, id);
-    }
-
-    json_t *sub_users = sub_user_get_sub_uses(info->user_id, ses);
-    if (sub_users == NULL) {
-        return ws_send_error_unknown_sub_user(ses, id);
-    }
-
-    asset_unsubscribe_sub(ses);
-    asset_subscribe_sub(ses, sub_users);
-    json_decref(sub_users);
-    return ws_send_success(ses, id);
-}
-
-static int on_method_asset_unsubscribe_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    asset_unsubscribe_sub(ses);
-    return ws_send_success(ses, id);
-}
-
-static int on_method_index_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (json_array_size(params) != 1) {
-        return ws_send_error_invalid_argument(ses, id);
-    }
-
-    const char *market = json_string_value(json_array_get(params, 0));
-    if (market == NULL || !market_exists(market)) {
-        return ws_send_error_invalid_argument(ses, id);
-    }
-
-    if (!rpc_clt_connected(marketindex))
-        return ws_send_error_internal_error(ses, id);
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_request_json(marketindex, CMD_INDEX_QUERY, entry->id, id, params);
-    return 0;
-}
-
-static int on_method_index_query_list(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!rpc_clt_connected(marketindex))
-        return ws_send_error_internal_error(ses, id);
-
-    json_t *query_params = json_array();
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_request_json(marketindex, CMD_INDEX_LIST, entry->id, id, query_params);
-    json_decref(query_params);
-
-    return 0;
-}
-
-static int on_method_index_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    return index_subscribe(ses);
-}
-
-static int on_method_index_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    return index_unsubscribe(ses);
-}
-
-static int on_method_notice_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth) {
-        return ws_send_error_require_auth(ses, id);
-    }
-
-    notice_unsubscribe(info->user_id, ses);
-    notice_subscribe(info->user_id, ses);
-    return ws_send_success(ses, id);
-}
-
-static int on_method_notice_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth) {
-        return ws_send_error_require_auth(ses, id);
-    }
-
-    notice_unsubscribe(info->user_id, ses);
     return ws_send_success(ses, id);
 }
 
@@ -1067,20 +901,8 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("order.unsubscribe",         on_method_order_unsubscribe));
 
     ERR_RET_LN(add_handler("asset.query",               on_method_asset_query));
-    ERR_RET_LN(add_handler("asset.account_query",       on_method_asset_account_query));
-    ERR_RET_LN(add_handler("asset.account_query_all",   on_method_asset_account_query_all));
     ERR_RET_LN(add_handler("asset.subscribe",           on_method_asset_subscribe));
     ERR_RET_LN(add_handler("asset.unsubscribe",         on_method_asset_unsubscribe));
-    ERR_RET_LN(add_handler("asset.subscribe_sub",       on_method_asset_subscribe_sub));
-    ERR_RET_LN(add_handler("asset.unsubscribe_sub",     on_method_asset_unsubscribe_sub));
-
-    ERR_RET_LN(add_handler("index.query",               on_method_index_query));
-    ERR_RET_LN(add_handler("index.query_list",          on_method_index_query_list));
-    ERR_RET_LN(add_handler("index.subscribe",           on_method_index_subscribe));
-    ERR_RET_LN(add_handler("index.unsubscribe",         on_method_index_unsubscribe));
-
-    ERR_RET_LN(add_handler("notice.subscribe",          on_method_notice_subscribe));
-    ERR_RET_LN(add_handler("notice.unsubscribe",        on_method_notice_unsubscribe));
 
     return 0;
 }
@@ -1306,12 +1128,6 @@ static int init_backend(void)
     if (readhistory == NULL)
         return -__LINE__;
     if (rpc_clt_start(readhistory) < 0)
-        return -__LINE__;
-
-    marketindex = rpc_clt_create(&settings.marketindex, &ct);
-    if (marketindex == NULL)
-        return -__LINE__;
-    if (rpc_clt_start(marketindex) < 0)
         return -__LINE__;
 
     if (init_cache_backend(&ct) < 0)
