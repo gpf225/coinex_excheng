@@ -1,4 +1,5 @@
 # include <stdio.h>
+# include "ut_log.h"
 # include <openssl/sha.h> 
 # include "ut_ws.h"
 # include "ut_http.h"
@@ -6,11 +7,8 @@
 # include "ut_base64.h"
 # include "ut_ws_svr.h"
 
-int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len, int masked)
+static int send_message(nw_ses *ses, uint8_t opcode, uint8_t rsv1, void *payload, size_t payload_len, int masked)
 {
-    if (payload == NULL)
-        payload_len = 0;
-
     static void *buf;
     static size_t buf_size = 1024;
     if (buf == NULL) {
@@ -36,6 +34,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     uint8_t *p = buf;
     p[0] = 0;
     p[0] |= 0x1 << 7;
+    p[0] |= rsv1;
     p[0] |= opcode;
     p[1] = 0;
     if (payload_len < 126) {
@@ -63,7 +62,7 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
         pkg_len += 4;
     }
 
-    if (payload) {
+    if (payload_len > 0) {
         if (masked == WS_FRAME_MASKED) {
             uint8_t *data = payload;
             for (int i = 0; i < payload_len; i++) {
@@ -78,7 +77,45 @@ int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_l
     if (ses->svr) {
         ws_ses_update_activity(ses);
     }
+    
+    log_trace_hex("send buf", buf, pkg_len);
+    
     return nw_ses_send(ses, buf, pkg_len);
+}
+
+int ws_send_message(nw_ses *ses, uint8_t opcode, void *payload, size_t payload_len, int masked)
+{
+    int ret = 0;
+    if (payload == NULL) {
+        payload_len = 0;
+        ret = send_message(ses, opcode, 0, payload, payload_len, masked);
+    } else {
+        bool compress = false;
+        if (ses->svr) {
+            compress = ws_ses_compress(ses);
+        }
+
+        sds message = NULL;
+        if (compress) {
+            message = zlib_compress(payload, payload_len);
+        } else {
+            message = sdsnewlen(payload, payload_len);
+        }
+        if (message == NULL || sdslen(message) <= 0) {
+            return -1;
+        }
+
+        log_trace_hex("send message", message, sdslen(message));
+
+        ret = send_message(ses, opcode, compress ? WS_RSV1 : 0, message, sdslen(message), masked);
+        sdsfree(message);
+    }
+    return ret;
+}
+
+int ws_send_raw_message(nw_ses *ses, uint8_t opcode, bool compress, void *payload, size_t payload_len, int masked)
+{
+    return send_message(ses, opcode, compress ? WS_RSV1 : 0, payload, payload_len, masked);
 }
 
 int ws_get_nonce_key(uint8_t *nonce_key, int len)
@@ -233,12 +270,13 @@ http_response_t* ws_handshake_response_new(char *protocol, uint32_t status)
     return response;
 }
 
-sds ws_handshake_response(http_response_t *response, const char *key)
+sds ws_handshake_response(http_response_t *response, const char *key, bool compress)
 {
     sds b4message;
     sds s_key = sdsnew(key);
     ws_generate_sec_key(s_key, &b4message);
     http_response_set_header(response, "Sec-WebSocket-Accept", b4message);
+    if (compress) http_response_set_header(response, "Sec-WebSocket-Extensions", "permessage-deflate; server_no_context_takeover; client_no_context_takeover; server_max_window_bits=15");
     sds message = http_response_encode(response);
 
     sdsfree(b4message);
@@ -250,6 +288,11 @@ sds ws_handshake_response(http_response_t *response, const char *key)
 int ws_send_text(nw_ses *ses, char *message)
 {
     return ws_send_message(ses, WS_TEXT_OPCODE, message, strlen(message), 0);
+}
+
+int ws_send_raw(nw_ses *ses, void *raw_data, size_t size, bool compress)
+{
+    return ws_send_raw_message(ses, WS_TEXT_OPCODE, compress, raw_data, size, 0);
 }
 
 int ws_send_binary(nw_ses *ses, void *payload, size_t payload_len)

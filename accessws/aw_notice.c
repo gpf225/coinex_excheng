@@ -95,14 +95,27 @@ int notice_message(json_t *msg)
     if (entry == NULL)
         return 0;
 
+    char *notify = ws_get_notify("notice.update", msg);
+    sds compressed = NULL;
+
     size_t count = 0;
     struct sub_notice_val *obj = entry->val;
     dict_iterator *iter = dict_get_iterator(obj->sessions);
     while ((entry = dict_next(iter)) != NULL) {
-        ws_send_notify(entry->key, "notice.update", msg);
+        if (ws_ses_compress(entry->key)) {
+            if (compressed == NULL)
+                compressed = zlib_compress(notify, strlen(notify));
+            ws_send_raw(entry->key, compressed, sdslen(compressed), true);
+        } else {
+            ws_send_raw(entry->key, notify, strlen(notify), false);
+        }
         count += 1;
     }
     dict_release_iterator(iter);
+    if (compressed != NULL)
+        sdsfree(compressed);
+    free(notify);
+
     profile_inc("notice.update", count);
     return 0;
 }

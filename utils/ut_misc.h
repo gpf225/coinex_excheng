@@ -9,6 +9,7 @@
 # include <endian.h>
 # include <byteswap.h>
 # include <stdbool.h>
+# include <jansson.h>
 
 # include "ut_sds.h"
 # include "ut_log.h"
@@ -22,6 +23,9 @@ int set_file_limit(size_t limit);
 sds hexdump(const void *mem, size_t len);
 sds bin2hex(const void *mem, size_t len);
 sds hex2bin(const char *hex);
+
+sds zlib_uncompress(const void *mem, size_t len);
+sds zlib_compress(const void *mem, size_t len);
 
 double current_timestamp(void);
 uint64_t current_millisecond(void);
@@ -44,6 +48,22 @@ time_t get_year_start(time_t timestamp);
 time_t get_utc_day_start(time_t timestamp);
 time_t get_utc_month_start(time_t timestamp);
 time_t get_utc_yearstart(time_t timestamp);
+
+# define log_trace_hex(title, msg, msg_len) do { \
+    if (default_dlog_flag & DLOG_TRACE) { \
+        sds hex = bin2hex(msg, msg_len); \
+        loga("[trace]%s:%i(%s): %s: %s", __FILE__, __LINE__, __func__, title, hex); \
+        sdsfree(hex); \
+    } \
+} while (0)
+
+# define log_trace_hexdump(title, msg, msg_len) do { \
+    if (default_dlog_flag & DLOG_TRACE) { \
+        sds hex = hexdump(msg, msg_len); \
+        loga("[trace]%s:%i(%s): %s\n: %s", __FILE__, __LINE__, __func__, title, hex); \
+        sdsfree(hex); \
+    } \
+} while (0)
 
 # undef ERR_RET
 # define ERR_RET(x) do { \
