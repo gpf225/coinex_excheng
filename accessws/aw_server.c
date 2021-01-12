@@ -1516,4 +1516,3 @@ int init_server(void)
 
     return 0;
 }
-

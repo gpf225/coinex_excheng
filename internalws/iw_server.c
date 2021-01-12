@@ -11,7 +11,6 @@
 # include "iw_order.h"
 # include "iw_asset.h"
 # include "iw_state.h"
-# include "iw_index.h"
 # include "ut_ws.h"
 
 static ws_svr *svr;
@@ -141,21 +140,6 @@ static int on_method_server_time(nw_ses *ses, uint64_t id, struct clt_info *info
     int ret = ws_send_result(ses, id, result);
     json_decref(result);
     return ret;
-}
-
-static int on_method_server_auth(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    return send_auth_request(ses, id, info, params);
-}
-
-static int on_method_server_auth_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    return send_auth_sub_request(ses, id, info, params);
-}
-
-static int on_method_server_sign(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    return send_sign_request(ses, id, info, params);
 }
 
 static int check_cache(nw_ses *ses, uint64_t id, sds key)
@@ -699,93 +683,6 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
     return 0;
 }
 
-static int on_method_asset_query_sub(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth) {
-        return ws_send_error_require_auth(ses, id);
-    }
-
-    if (!rpc_clt_connected(matchengine)) {
-        return ws_send_error_internal_error(ses, id);
-    }
-
-    if (json_array_size(params) != 2) {
-        return ws_send_error_invalid_argument(ses, id);
-    }
-
-    uint32_t sub_user_id = json_integer_value(json_array_get(params, 0));
-    if (!sub_user_has(info->user_id, ses, sub_user_id)) {
-        return ws_send_error_unknown_sub_user(ses, id);
-    }
-    json_t *asset_list = json_array_get(params, 1);
-    if (!json_is_null(asset_list) && !json_is_array(asset_list)) {
-        return ws_send_error_invalid_argument(ses, id);
-    }
-
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_integer(sub_user_id));
-    json_array_append_new(query_params, json_integer(0)); // default account
-    json_array_extend(query_params, asset_list);
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY, entry->id, id, sub_user_id, query_params);
-    json_decref(query_params);
-
-    return 0;
-}
-
-static int on_method_asset_account_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    if (!rpc_clt_connected(matchengine))
-        return ws_send_error_internal_error(ses, id);
-
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_integer(info->user_id));
-    json_array_extend(query_params, params);
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY, entry->id, id, info->user_id, query_params);
-    json_decref(query_params);
-
-    return 0;
-}
-
-static int on_method_asset_account_query_all(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    if (!rpc_clt_connected(matchengine))
-        return ws_send_error_internal_error(ses, id);
-
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_integer(info->user_id));
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY_ALL, entry->id, id, info->user_id, query_params);
-    json_decref(query_params);
-
-    return 0;
-}
-
 static int on_method_asset_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     if (!info->auth)
@@ -1144,9 +1041,6 @@ static int init_svr(void)
 
     ERR_RET_LN(add_handler("server.ping",               on_method_server_ping));
     ERR_RET_LN(add_handler("server.time",               on_method_server_time));
-    ERR_RET_LN(add_handler("server.auth",               on_method_server_auth));
-    ERR_RET_LN(add_handler("server.auth_sub",           on_method_server_auth_sub));
-    ERR_RET_LN(add_handler("server.sign",               on_method_server_sign));
 
     ERR_RET_LN(add_handler("kline.query",               on_method_kline_query));
     ERR_RET_LN(add_handler("kline.subscribe",           on_method_kline_subscribe));
@@ -1173,13 +1067,10 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("order.unsubscribe",         on_method_order_unsubscribe));
 
     ERR_RET_LN(add_handler("asset.query",               on_method_asset_query));
-    ERR_RET_LN(add_handler("asset.query_sub",           on_method_asset_query_sub));
     ERR_RET_LN(add_handler("asset.account_query",       on_method_asset_account_query));
     ERR_RET_LN(add_handler("asset.account_query_all",   on_method_asset_account_query_all));
     ERR_RET_LN(add_handler("asset.subscribe",           on_method_asset_subscribe));
     ERR_RET_LN(add_handler("asset.unsubscribe",         on_method_asset_unsubscribe));
-    ERR_RET_LN(add_handler("asset.subscribe_delay",     on_method_asset_subscribe_delay));
-    ERR_RET_LN(add_handler("asset.unsubscribe_delay",   on_method_asset_unsubscribe_delay));
     ERR_RET_LN(add_handler("asset.subscribe_sub",       on_method_asset_subscribe_sub));
     ERR_RET_LN(add_handler("asset.unsubscribe_sub",     on_method_asset_unsubscribe_sub));
 
@@ -1354,15 +1245,12 @@ static void on_timer(nw_timer *timer, void *privdata)
 
     profile_inc("onlineusers", get_online_user_count());
     profile_set("connections", svr->raw_svr->clt_count);
-    profile_set("pending_auth", pending_auth_request());
-    profile_set("pending_sign", pending_sign_request());
     profile_set("subscribe_kline", kline_subscribe_number());
     profile_set("subscribe_depth", depth_subscribe_number());
     profile_set("subscribe_state", state_subscribe_number());
     profile_set("subscribe_deals", deals_subscribe_number());
     profile_set("subscribe_order", order_subscribe_number());
     profile_set("subscribe_asset", asset_subscribe_number());
-    profile_set("subscribe_notice", notice_subscribe_number());
     profile_set("subscribe_depth_market_interval", depth_subscribe_market_interval());
     profile_set("subscribe_depth_market_interval_limit", depth_subscribe_market_interval_limit());
 }
