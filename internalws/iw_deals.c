@@ -81,7 +81,35 @@ static void list_free(void *value)
     json_decref(value);
 }
 
-static int subscribe_user(nw_ses *ses, uint32_t user_id)
+int deals_subscribe(nw_ses *ses, const char *market)
+{
+    dict_entry *entry = dict_find(dict_sub_deals, market);
+    if (entry == NULL) {
+        struct sub_deals_val val;
+        memset(&val, 0, sizeof(val));
+
+        dict_types dt;
+        memset(&dt, 0, sizeof(dt));
+        dt.hash_function = ptr_dict_hash_func;
+        dt.key_compare = ptr_dict_key_compare;
+        val.sessions = dict_create(&dt, 1024);
+        if (val.sessions == NULL)
+            return -__LINE__;
+
+        entry = dict_add(dict_sub_deals, (char *)market, &val);
+        if (entry == NULL) {
+            dict_release(val.sessions);
+            return -__LINE__;
+        }
+    }
+
+    struct sub_deals_val *obj = entry->val;
+    dict_add(obj->sessions, ses, NULL);
+
+    return 0;
+}
+
+int deals_subscribe_user(nw_ses *ses, const char *market, uint32_t user_id)
 {
     void *key = (void *)(uintptr_t)user_id;
     dict_entry *entry = dict_find(dict_user, key);
@@ -110,41 +138,19 @@ static int subscribe_user(nw_ses *ses, uint32_t user_id)
     return 0;
 }
 
-int deals_subscribe(nw_ses *ses, const char *market, uint32_t user_id)
+int deals_unsubscribe(nw_ses *ses)
 {
-    dict_entry *entry = dict_find(dict_sub_deals, market);
-    if (entry == NULL) {
-        struct sub_deals_val val;
-        memset(&val, 0, sizeof(val));
-
-        dict_types dt;
-        memset(&dt, 0, sizeof(dt));
-        dt.hash_function = ptr_dict_hash_func;
-        dt.key_compare = ptr_dict_key_compare;
-        val.sessions = dict_create(&dt, 1024);
-        if (val.sessions == NULL)
-            return -__LINE__;
-
-        entry = dict_add(dict_sub_deals, (char *)market, &val);
-        if (entry == NULL) {
-            dict_release(val.sessions);
-            return -__LINE__;
-        }
+    dict_iterator *iter = dict_get_iterator(dict_sub_deals);
+    dict_entry *entry;
+    while ((entry = dict_next(iter)) != NULL) {
+        struct sub_deals_val *obj = entry->val;
+        dict_delete(obj->sessions, ses);
     }
-
-    struct sub_deals_val *obj = entry->val;
-    dict_add(obj->sessions, ses, NULL);
-
-    if (user_id) {
-        int ret = subscribe_user(ses, user_id);
-        if (ret < 0)
-            return ret;
-    }
-
+    dict_release_iterator(iter);
     return 0;
 }
 
-static int unsubscribe_user(nw_ses *ses, uint32_t user_id)
+int deals_unsubscribe_user(nw_ses *ses)
 {
     void *key = (void *)(uintptr_t)user_id;
     dict_entry *entry = dict_find(dict_user, key);
@@ -155,23 +161,6 @@ static int unsubscribe_user(nw_ses *ses, uint32_t user_id)
         if (dict_size(obj->sessions) == 0) {
             dict_delete(dict_user, key);
         }
-    }
-
-    return 0;
-}
-
-int deals_unsubscribe(nw_ses *ses, uint32_t user_id)
-{
-    dict_iterator *iter = dict_get_iterator(dict_sub_deals);
-    dict_entry *entry;
-    while ((entry = dict_next(iter)) != NULL) {
-        struct sub_deals_val *obj = entry->val;
-        dict_delete(obj->sessions, ses);
-    }
-    dict_release_iterator(iter);
-
-    if (user_id) {
-        unsubscribe_user(ses, user_id);
     }
 
     return 0;

@@ -6,11 +6,9 @@
 # include "iw_config.h"
 # include "iw_server.h"
 # include "iw_depth.h"
-# include "iw_state.h"
 # include "iw_deals.h"
 # include "iw_order.h"
 # include "iw_asset.h"
-# include "iw_state.h"
 # include "iw_kline.h"
 # include "ut_ws.h"
 
@@ -417,90 +415,20 @@ static int on_method_depth_unsubscribe_full(nw_ses *ses, uint64_t id, struct clt
     return ws_send_success(ses, id);
 }
 
-static int on_method_state_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (judege_state_period_is_day(params)) {
-        direct_state_reply(ses, params, id);
-        return 0;
-    }
-
-    if (!rpc_clt_connected(marketprice))
-        return ws_send_error_internal_error(ses, id);
-
-    sds key = sdsempty();
-    char *params_str = json_dumps(params, 0);
-    key = sdscatprintf(key, "%u-%s", CMD_MARKET_STATUS, params_str);
-    int ret = check_cache(ses, id, key);
-    if (ret > 0) {
-        sdsfree(key);
-        free(params_str);
-        return 0;
-    }
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-    state->cache_key = key;
-
-    rpc_request_json(marketprice, CMD_MARKET_STATUS, entry->id, id, params);
-    free(params_str);
-
-    return 0;
-}
-
-static int on_method_state_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (state_subscribe(ses, params) < 0)
-        return ws_send_error_internal_error(ses, id);
-    ws_send_success(ses, id);
-    state_send_last(ses);
-
-    return 0;
-}
-
-static int on_method_state_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    state_unsubscribe(ses);
-    return ws_send_success(ses, id);
-}
-
 static int on_method_deals_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
     direct_deals_reply(ses, params, id);
     return 0;
 }
 
-static int on_method_deals_query_user(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
-{
-    if (!rpc_clt_connected(readhistory))
-        return ws_send_error_internal_error(ses, id);
-
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_integer(info->user_id));
-    json_array_extend(query_params, params);
-
-    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
-    struct state_data *state = entry->data;
-    state->ses = ses;
-    state->ses_id = ses->id;
-    state->request_id = id;
-
-    rpc_request_json(readhistory, CMD_MARKET_USER_DEALS, entry->id, id, query_params);
-    json_decref(query_params);
-
-    return 0;
-}
-
 static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    deals_unsubscribe(ses, info->user_id);
-    size_t params_size = json_array_size(params);
-    for (size_t i = 0; i < params_size; ++i) {
+    size_t sub_size = json_array_size(params);
+    if (sub_size == 0)
+        return ws_send_error_invalid_argument(ses, id);
+
+    deals_unsubscribe(ses);
+    for (size_t i = 0; i < sub_size; ++i) {
         const char *market = json_string_value(json_array_get(params, i));
         if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN)
             return ws_send_error_invalid_argument(ses, id);
@@ -509,7 +437,7 @@ static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
     }
 
     ws_send_success(ses, id);
-    for (size_t i = 0; i < params_size; ++i) {
+    for (size_t i = 0; i < sub_size; ++i) {
         deals_sub_send_full(ses, json_string_value(json_array_get(params, i)));
     }
 
@@ -518,7 +446,67 @@ static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
 
 static int on_method_deals_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    deals_unsubscribe(ses, info->user_id);
+    deals_unsubscribe(ses);
+    return ws_send_success(ses, id);
+}
+
+static int on_method_deals_query_user(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!rpc_clt_connected(readhistory))
+        return ws_send_error_internal_error(ses, id);
+
+    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
+    struct state_data *state = entry->data;
+    state->ses = ses;
+    state->ses_id = ses->id;
+    state->request_id = id;
+
+    rpc_request_json(readhistory, CMD_MARKET_USER_DEALS, entry->id, id, params);
+
+    return 0;
+}
+
+static int on_method_deals_subscribe_user(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    deals_unsubscribe_user(ses);
+    size_t sub_size = json_array_size(params);
+    if (sub_size == 0)
+        return ws_send_error_invalid_argument(ses, id);
+
+    deals_unsubscribe_user(ses);
+    for (size_t i = 0; i < sub_size; ++i) {
+        json_t *item = json_array_get(params, i);
+        size_t item_size = json_array_size(item);
+        if (item_size <= 1) {
+            deals_unsubscribe_user(ses);
+            return ws_send_error_invalid_argument(ses, id);
+        }
+
+        uint32_t user_id = json_integer_value(json_array_get(item, 0));
+        if (user_id <= 0) {
+            deals_unsubscribe_user(ses);
+            return ws_send_error_invalid_argument(ses, id);
+        }
+
+        for (size_t i = 1; i < item_size; ++i) {
+            const char *market = json_string_value(json_array_get(params, i));
+            if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN) {
+                deals_unsubscribe_user(ses);
+                return ws_send_error_invalid_argument(ses, id);
+            }
+
+            if (deals_subscribe_user(user_id, ses, market) < 0) {
+                deals_unsubscribe_user(ses);
+                return ws_send_error_internal_error(ses, id);
+            }  
+        }
+    }
+    return ws_send_success(ses, id);
+}
+
+static int on_method_deals_unsubscribe_user(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    deals_unsubscribe_user(ses);
     return ws_send_success(ses, id);
 }
 
@@ -527,13 +515,12 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
     if (!rpc_clt_connected(matchengine))
         return ws_send_error_internal_error(ses, id);
 
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
+    if (json_array_size(params) != 1)
+        return ws_send_error_invalid_argument(ses, id);
 
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_integer(info->user_id));
-    json_array_append_new(query_params, json_integer(0)); // default account
-    json_array_extend(query_params, params);
+    uint32_t user_id = json_integer_value(json_arrary_get(params, 0));
+    if (user_id <= 0)
+        return ws_send_error_invalid_argument(ses, id);
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;
@@ -541,8 +528,7 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json_unique(matchengine, CMD_ORDER_PENDING, entry->id, id, info->user_id, query_params);
-    json_decref(query_params);
+    rpc_request_json_unique(matchengine, CMD_ORDER_PENDING, entry->id, id, user_id, params);
 
     return 0;
 }
@@ -552,13 +538,12 @@ static int on_method_order_query_stop(nw_ses *ses, uint64_t id, struct clt_info 
     if (!rpc_clt_connected(matchengine))
         return ws_send_error_internal_error(ses, id);
 
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
+    if (json_array_size(params) != 1)
+        return ws_send_error_invalid_argument(ses, id);
 
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_integer(info->user_id));
-    json_array_append_new(query_params, json_integer(0)); // default account
-    json_array_extend(query_params, params);
+    uint32_t user_id = json_integer_value(json_arrary_get(params, 0));
+    if (user_id <= 0)
+        return ws_send_error_invalid_argument(ses, id);
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;
@@ -566,51 +551,64 @@ static int on_method_order_query_stop(nw_ses *ses, uint64_t id, struct clt_info 
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json_unique(matchengine, CMD_ORDER_PENDING_STOP, entry->id, id, info->user_id, query_params);
-    json_decref(query_params);
-
+    rpc_request_json_unique(matchengine, CMD_ORDER_PENDING_STOP, entry->id, id, user_id, params);
     return 0;
 }
 
 static int on_method_order_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
+    if (json_array_size(params) == 0)
+        return ws_send_error_invalid_argument(ses, id);
 
-    order_unsubscribe(info->user_id, ses);
+    order_unsubscribe(ses);
     size_t params_size = json_array_size(params);
     for (size_t i = 0; i < params_size; ++i) {
-        const char *market = json_string_value(json_array_get(params, i));
-        if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN)
+        json_t *item = json_array_get(params, i);
+        size_t item_size = json_array_size(item);
+        if (item_size <= 1) {
+            order_unsubscribe(ses);
             return ws_send_error_invalid_argument(ses, id);
-        if (order_subscribe(info->user_id, ses, market) < 0)
-            return ws_send_error_internal_error(ses, id);
-    }
+        }
 
+        uint32_t user_id = json_integer_value(json_array_get(item, 0));
+        if (user_id <= 0) {
+            order_unsubscribe(ses);
+            return ws_send_error_invalid_argument(ses, id);
+        }
+
+        for (size_t i = 1; i < item_size; ++i) {
+            const char *market = json_string_value(json_array_get(params, i));
+            if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN) {
+                order_unsubscribe(ses);
+                return ws_send_error_invalid_argument(ses, id);
+            }
+
+            if (order_subscribe(user_id, ses, market) < 0) {
+                order_unsubscribe(ses);
+                return ws_send_error_internal_error(ses, id);
+            }  
+        }
+    }
     return ws_send_success(ses, id);
 }
 
 static int on_method_order_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    order_unsubscribe(info->user_id, ses);
+    order_unsubscribe(ses);
     return ws_send_success(ses, id);
 }
 
 static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
     if (!rpc_clt_connected(matchengine))
         return ws_send_error_internal_error(ses, id);
 
-    json_t *query_params = json_array();
-    json_array_append_new(query_params, json_integer(info->user_id));
-    json_array_append_new(query_params, json_integer(0)); // default account
-    json_array_extend(query_params, params);
+    if (json_array_size(params) < 1)
+        return ws_send_error_invalid_argument(ses, id);
+
+    uint32_t user_id = json_integer_value(json_arrary_get(params, 0));
+    if (user_id <= 0)
+        return ws_send_error_invalid_argument(ses, id);
 
     nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
     struct state_data *state = entry->data;
@@ -618,42 +616,79 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
     state->ses_id = ses->id;
     state->request_id = id;
 
-    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY, entry->id, id, info->user_id, query_params);
-    json_decref(query_params);
+    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY, entry->id, id, user_id, params);
+    return 0;
+}
 
+static int on_method_asset_query_all(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
+{
+    if (!rpc_clt_connected(matchengine))
+        return ws_send_error_internal_error(ses, id);
+
+     if (json_array_size(params) < 1)
+        return ws_send_error_invalid_argument(ses, id);
+
+    uint32_t user_id = json_integer_value(json_arrary_get(params, 0));
+    if (user_id <= 0)
+        return ws_send_error_invalid_argument(ses, id);
+
+    nw_state_entry *entry = nw_state_add(state_context, settings.backend_timeout, 0);
+    struct state_data *state = entry->data;
+    state->ses = ses;
+    state->ses_id = ses->id;
+    state->request_id = id;
+
+    rpc_request_json_unique(matchengine, CMD_ASSET_QUERY_ALL, entry->id, id, user_id, params);
     return 0;
 }
 
 static int on_method_asset_subscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    asset_unsubscribe(info->user_id, ses);
     size_t params_size = json_array_size(params);
-    if (params_size == 0) {
-        // subscribe all
-        if (asset_subscribe(info->user_id, ses, "", false) < 0)
-            return ws_send_error_internal_error(ses, id);
-    } else {
-        for (size_t i = 0; i < params_size; ++i) {
-            const char *asset = json_string_value(json_array_get(params, i));
-            if (asset == NULL || strlen(asset) > ASSET_NAME_MAX_LEN)
-                return ws_send_error_invalid_argument(ses, id);
-            if (asset_subscribe(info->user_id, ses, asset, false) < 0)
+    if (params_size == 0)
+        return ws_send_error_invalid_argument(ses, id);
+
+    asset_unsubscribe(ses);
+    for (size_t i = 0; i < params_size; ++i) {
+        json_t *item = json_array_get(params, i);
+        size_t item_size = json_array_size(item);
+        if (item_size <= 0) {
+            asset_unsubscribe(ses);
+            return ws_send_error_invalid_argument(ses, id);
+        }
+
+        uint32_t user_id = json_integer_value(json_array_get(item, 0));
+        if (user_id <= 0) {
+            asset_unsubscribe(ses);
+            return ws_send_error_invalid_argument(ses, id);
+        }
+
+        if (item_size == 1) {
+            if (asset_subscribe(user_id, ses, "") < 0) {
+                asset_unsubscribe(ses);
                 return ws_send_error_internal_error(ses, id);
+            }
+        } else {
+            for (size_t i = 1; i < item_size; ++i) {
+                const char *asset = json_string_value(json_array_get(params, i));
+                if (asset == NULL || strlen(asset) > ASSET_NAME_MAX_LEN) {
+                    asset_unsubscribe(ses);
+                    return ws_send_error_internal_error(ses, id);
+                }
+
+                if (asset_subscribe(user_id, ses, asset) < 0) {
+                    asset_unsubscribe(ses);
+                    return ws_send_error_internal_error(ses, id);
+                }   
+            }
         }
     }
-
     return ws_send_success(ses, id);
 }
 
 static int on_method_asset_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params)
 {
-    if (!info->auth)
-        return ws_send_error_require_auth(ses, id);
-
-    asset_unsubscribe(info->user_id, ses);
+    asset_unsubscribe(ses);
     return ws_send_success(ses, id);
 }
 
@@ -728,17 +763,9 @@ static void on_close(nw_ses *ses, const char *remote)
 
     kline_unsubscribe(ses);
     depth_unsubscribe(ses);
-    state_unsubscribe(ses);
-    index_unsubscribe(ses);
-    deals_unsubscribe(ses, info->user_id);
-
-    if (info->auth) {
-        order_unsubscribe(info->user_id, ses);
-        asset_unsubscribe(info->user_id, ses);
-        notice_unsubscribe(info->user_id, ses);
-        asset_unsubscribe_sub(ses);
-        sub_user_remove(info->user_id, ses);
-    }
+    deals_unsubscribe(ses);
+    order_unsubscribe(ses);
+    asset_unsubscribe(ses);
     profile_inc("connection_close", 1);
 }
 
@@ -856,9 +883,12 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("state.unsubscribe",         on_method_state_unsubscribe));
 
     ERR_RET_LN(add_handler("deals.query",               on_method_deals_query));
-    ERR_RET_LN(add_handler("deals.query_user",          on_method_deals_query_user));
     ERR_RET_LN(add_handler("deals.subscribe",           on_method_deals_subscribe));
     ERR_RET_LN(add_handler("deals.unsubscribe",         on_method_deals_unsubscribe));
+    
+    ERR_RET_LN(add_handler("deals.query_user",          on_method_deals_query_user));
+    ERR_RET_LN(add_handler("deals.subscribe_user",      on_method_deals_query_user));
+    ERR_RET_LN(add_handler("deals.unsubscribe_user",    on_method_deals_query_user));
 
     ERR_RET_LN(add_handler("order.query",               on_method_order_query));
     ERR_RET_LN(add_handler("order.query_stop",          on_method_order_query_stop));
@@ -1033,8 +1063,7 @@ static void on_timer(nw_timer *timer, void *privdata)
     profile_inc("onlineusers", get_online_user_count());
     profile_set("connections", svr->raw_svr->clt_count);
     profile_set("subscribe_kline", kline_subscribe_number());
-    profile_set("subscribe_depth", depth_subscribe_number());
-    profile_set("subscribe_state", state_subscribe_number());
+    profile_set("subscribe_depth", depth_subscribe_number());=
     profile_set("subscribe_deals", deals_subscribe_number());
     profile_set("subscribe_order", order_subscribe_number());
     profile_set("subscribe_asset", asset_subscribe_number());

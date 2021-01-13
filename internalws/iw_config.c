@@ -144,7 +144,6 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
     ERR_RET_LN(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
     ERR_RET_LN(read_cfg_real(root, "kline_interval", &settings.kline_interval, false, 0.5));
-    ERR_RET_LN(read_cfg_real(root, "asset_delay", &settings.asset_delay, false, 1.0));
     ERR_RET_LN(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
     
     ERR_RET_LN(read_depth_limit_cfg(root, "depth_limit"));

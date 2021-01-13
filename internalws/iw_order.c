@@ -83,24 +83,24 @@ int order_subscribe(uint32_t user_id, nw_ses *ses, const char *market)
     return 0;
 }
 
-int order_unsubscribe(uint32_t user_id, nw_ses *ses)
+int order_unsubscribe(nw_ses *ses)
 {
-    void *key = (void *)(uintptr_t)user_id;
-    dict_entry *entry = dict_find(dict_sub, key);
-    if (entry == NULL)
-        return 0;
-
-    list_t *list = entry->val;
-    list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
-    list_node *node;
-    while ((node = list_next(iter)) != NULL) {
-        struct sub_unit *unit = node->value;
-        if (unit->ses == ses) {
-            list_del(list, node);
+    dict_entry *entry;
+    dict_iterator *iter_d = dict_get_iterator(dict_sub);
+    while ((entry = dict_next(iter_d)) != NULL) {
+        list_t *list = entry->val;
+        list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
+        list_node *node;
+        while ((node = list_next(iter)) != NULL) {
+            struct sub_unit *unit = node->value;
+            if (unit->ses == ses) {
+                list_del(list, node);
+            }
         }
+        list_release_iterator(iter);
     }
-    list_release_iterator(iter);
-
+    dict_release_iterator(iter_d);
+    
     if (list->len == 0) {
         dict_delete(dict_sub, key);
     }

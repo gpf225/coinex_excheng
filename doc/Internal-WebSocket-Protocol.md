@@ -250,20 +250,22 @@ amount == 0 for delete
 * method: `order.query`
 * params:
 1. user_id:integer
-2. market: market name，String
-3. side: 0 no limit, 1 sell, 2 buy
-4. offset: offset，Integer
-5. limit: limit，Integer
+2. accoun_id
+3. market: market name，String
+4. side: 0 no limit, 1 sell, 2 buy
+5. offset: offset，Integer
+6. limit: limit，Integer
 * result: see HTTP protocol
 
 **Unexecuted stop order inquiry**
 * method: `order.query_stop`
 * params:
 1. user_id: integer
-2. market: market name，String
-3. side: 0 no limit, 1 sell, 2 buy
-4. offset: offset，Integer
-5. limit: limit，Integer
+2. account_id
+3. market: market name，String
+4. side: 0 no limit, 1 sell, 2 buy
+5. offset: offset，Integer
+6. limit: limit，Integer
 * result: see HTTP protocol
 
 

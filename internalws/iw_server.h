@@ -9,8 +9,6 @@
 # include "iw_config.h"
 
 struct clt_info {
-    bool        auth;
-    uint32_t    user_id;
     char        *source;
     char        *remote;
 };
