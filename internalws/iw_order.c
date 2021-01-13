@@ -98,12 +98,11 @@ int order_unsubscribe(nw_ses *ses)
             }
         }
         list_release_iterator(iter);
+        if (list->len == 0) {
+            dict_delete(dict_sub, entry->key);
+        }
     }
     dict_release_iterator(iter_d);
-    
-    if (list->len == 0) {
-        dict_delete(dict_sub, key);
-    }
 
     return 0;
 }

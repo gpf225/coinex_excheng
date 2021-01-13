@@ -43,42 +43,6 @@ static int read_depth_merge_cfg(json_t *root, const char *key)
     return 0;
 }
 
-static int read_full_depth_limit_cfg(json_t *root, const char *key)
-{
-    json_t *obj = json_object_get(root, key);
-    if (obj == NULL || !json_is_array(obj))
-        return -__LINE__;
-
-    settings.full_depth_limit.count = json_array_size(obj);
-    settings.full_depth_limit.limit = malloc(sizeof(int) * settings.full_depth_limit.count);
-
-    for (int i = 0; i < settings.full_depth_limit.count; ++i) {
-        settings.full_depth_limit.limit[i] = json_integer_value(json_array_get(obj, i));
-        if (settings.full_depth_limit.limit[i] == 0)
-            return -__LINE__;
-    }
-
-    return 0;
-}
-
-static int read_full_depth_merge_cfg(json_t *root, const char *key)
-{
-    json_t *obj = json_object_get(root, key);
-    if (obj == NULL || !json_is_array(obj))
-        return -__LINE__;
-
-    settings.full_depth_merge.count = json_array_size(obj);
-    settings.full_depth_merge.limit = malloc(sizeof(mpd_t *) * settings.full_depth_merge.count);
-
-    for (int i = 0; i < settings.full_depth_merge.count; ++i) {
-        settings.full_depth_merge.limit[i] = decimal(json_string_value(json_array_get(obj, i)), 0);
-        if (settings.full_depth_merge.limit[i] == NULL)
-            return -__LINE__;
-    }
-
-    return 0;
-}
-
 static int read_config_from_json(json_t *root)
 {
     int ret;
@@ -141,16 +105,12 @@ static int read_config_from_json(json_t *root)
 
     ERR_RET_LN(read_cfg_int(root, "worker_num", &settings.worker_num, false, 1));
     ERR_RET_LN(read_cfg_int(root, "depth_limit_default",  &settings.depth_limit_default,  false, 20));
-    ERR_RET_LN(read_cfg_str(root, "accesshttp", &settings.accesshttp, NULL));
     ERR_RET_LN(read_cfg_real(root, "backend_timeout", &settings.backend_timeout, false, 1.0));
     ERR_RET_LN(read_cfg_real(root, "kline_interval", &settings.kline_interval, false, 0.5));
     ERR_RET_LN(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
     
     ERR_RET_LN(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET_LN(read_depth_merge_cfg(root, "depth_merge"));
-
-    ERR_RET_LN(read_full_depth_limit_cfg(root, "full_depth_limit"));
-    ERR_RET_LN(read_full_depth_merge_cfg(root, "full_depth_merge"));
 
     return 0;
 }

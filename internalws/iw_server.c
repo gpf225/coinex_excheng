@@ -72,37 +72,6 @@ static bool is_good_interval(const char *interval)
     return false;
 }
 
-static bool is_good_full_depth_limit(int limit)
-{
-    for (int i = 0; i < settings.full_depth_limit.count; ++i) {
-        if (settings.full_depth_limit.limit[i] == limit) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static bool is_good_full_depth_interval(const char *interval)
-{
-    if (interval == NULL || strlen(interval) > INTERVAL_MAX_LEN) {
-        return false;
-    }
-
-    mpd_t *merge = decimal(interval, 0);
-    if (merge == NULL)
-        return false;
-
-    for (int i = 0; i < settings.full_depth_merge.count; ++i) {
-        if (mpd_cmp(settings.full_depth_merge.limit[i], merge, &mpd_ctx) == 0) {
-            mpd_del(merge);
-            return true;
-        }
-    }
-
-    mpd_del(merge);
-    return false;
-}
-
 static bool is_good_market(const char *market)
 {
     if (market == NULL || strlen(market) == 0 || strlen(market) > MARKET_NAME_MAX_LEN) {
@@ -270,7 +239,7 @@ static int on_method_depth_query(nw_ses *ses, uint64_t id, struct clt_info *info
     }
 
     const char *market = json_string_value(json_array_get(params, 0));
-    if (market == NULL || !market_exists(market)) {
+    if (market == NULL) {
         return ws_send_error_invalid_argument(ses, id);
     }
 
@@ -326,7 +295,7 @@ static int on_method_depth_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
     for (size_t i = 0; i < sub_size; ++i) {
         json_t *item = json_array_get(params, i);
         const char *market = json_string_value(json_array_get(item, 0));
-        if (market == NULL || !market_exists(market)) {
+        if (market == NULL) {
             depth_unsubscribe(ses);
             return ws_send_error_invalid_argument(ses, id);
         }
@@ -376,7 +345,7 @@ static int on_method_depth_subscribe_full(nw_ses *ses, uint64_t id, struct clt_i
     for (size_t i = 0; i < sub_size; ++i) {
         json_t *item = json_array_get(params, i);
         const char *market = json_string_value(json_array_get(item, 0));
-        if (market == NULL || !market_exists(market)) {
+        if (market == NULL) {
             depth_unsubscribe(ses);
             return ws_send_error_invalid_argument(ses, id);
         }
@@ -432,7 +401,7 @@ static int on_method_deals_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
         const char *market = json_string_value(json_array_get(params, i));
         if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN)
             return ws_send_error_invalid_argument(ses, id);
-        if (deals_subscribe(ses, market, info->user_id) < 0)
+        if (deals_subscribe(ses, market) < 0)
             return ws_send_error_internal_error(ses, id);
     }
 
@@ -495,7 +464,7 @@ static int on_method_deals_subscribe_user(nw_ses *ses, uint64_t id, struct clt_i
                 return ws_send_error_invalid_argument(ses, id);
             }
 
-            if (deals_subscribe_user(user_id, ses, market) < 0) {
+            if (deals_subscribe_user(ses, market, user_id) < 0) {
                 deals_unsubscribe_user(ses);
                 return ws_send_error_internal_error(ses, id);
             }  
@@ -518,7 +487,7 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
     if (json_array_size(params) != 1)
         return ws_send_error_invalid_argument(ses, id);
 
-    uint32_t user_id = json_integer_value(json_arrary_get(params, 0));
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id <= 0)
         return ws_send_error_invalid_argument(ses, id);
 
@@ -541,7 +510,7 @@ static int on_method_order_query_stop(nw_ses *ses, uint64_t id, struct clt_info 
     if (json_array_size(params) != 1)
         return ws_send_error_invalid_argument(ses, id);
 
-    uint32_t user_id = json_integer_value(json_arrary_get(params, 0));
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id <= 0)
         return ws_send_error_invalid_argument(ses, id);
 
@@ -606,7 +575,7 @@ static int on_method_asset_query(nw_ses *ses, uint64_t id, struct clt_info *info
     if (json_array_size(params) < 1)
         return ws_send_error_invalid_argument(ses, id);
 
-    uint32_t user_id = json_integer_value(json_arrary_get(params, 0));
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id <= 0)
         return ws_send_error_invalid_argument(ses, id);
 
@@ -628,7 +597,7 @@ static int on_method_asset_query_all(nw_ses *ses, uint64_t id, struct clt_info *
      if (json_array_size(params) < 1)
         return ws_send_error_invalid_argument(ses, id);
 
-    uint32_t user_id = json_integer_value(json_arrary_get(params, 0));
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id <= 0)
         return ws_send_error_invalid_argument(ses, id);
 
@@ -758,9 +727,7 @@ static void on_upgrade(nw_ses *ses, const char *remote)
 
 static void on_close(nw_ses *ses, const char *remote)
 {
-    struct clt_info *info = ws_ses_privdata(ses);
     log_trace("remote: %"PRIu64":%s websocket connection close", ses->id, remote);
-
     kline_unsubscribe(ses);
     depth_unsubscribe(ses);
     deals_unsubscribe(ses);
@@ -878,17 +845,13 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("depth.subscribe_full",      on_method_depth_subscribe_full));
     ERR_RET_LN(add_handler("depth.unsubscribe_full",    on_method_depth_unsubscribe_full));
 
-    ERR_RET_LN(add_handler("state.query",               on_method_state_query));
-    ERR_RET_LN(add_handler("state.subscribe",           on_method_state_subscribe));
-    ERR_RET_LN(add_handler("state.unsubscribe",         on_method_state_unsubscribe));
-
     ERR_RET_LN(add_handler("deals.query",               on_method_deals_query));
     ERR_RET_LN(add_handler("deals.subscribe",           on_method_deals_subscribe));
     ERR_RET_LN(add_handler("deals.unsubscribe",         on_method_deals_unsubscribe));
     
     ERR_RET_LN(add_handler("deals.query_user",          on_method_deals_query_user));
-    ERR_RET_LN(add_handler("deals.subscribe_user",      on_method_deals_query_user));
-    ERR_RET_LN(add_handler("deals.unsubscribe_user",    on_method_deals_query_user));
+    ERR_RET_LN(add_handler("deals.subscribe_user",      on_method_deals_subscribe_user));
+    ERR_RET_LN(add_handler("deals.unsubscribe_user",    on_method_deals_unsubscribe_user));
 
     ERR_RET_LN(add_handler("order.query",               on_method_order_query));
     ERR_RET_LN(add_handler("order.query_stop",          on_method_order_query_stop));
@@ -896,6 +859,7 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("order.unsubscribe",         on_method_order_unsubscribe));
 
     ERR_RET_LN(add_handler("asset.query",               on_method_asset_query));
+    ERR_RET_LN(add_handler("asset.query_all",           on_method_asset_query_all));
     ERR_RET_LN(add_handler("asset.subscribe",           on_method_asset_subscribe));
     ERR_RET_LN(add_handler("asset.unsubscribe",         on_method_asset_unsubscribe));
 
@@ -1030,23 +994,6 @@ static void cache_dict_val_free(void *val)
     free(val);
 }
 
-static size_t get_online_user_count(void)
-{
-    dict_t *user_set = uint32_set_create();
-    nw_ses *curr = svr->raw_svr->clt_list_head;
-    while (curr) {
-        struct clt_info *info = ws_ses_privdata(curr);
-        if (info && info->user_id) {
-            uint32_set_add(user_set, info->user_id);
-        }
-        curr = curr->next;
-    }
-
-    size_t count = uint32_set_num(user_set);
-    uint32_set_release(user_set);
-    return count;
-}
-
 static void on_timer(nw_timer *timer, void *privdata)
 {
     double now = current_millisecond();
@@ -1060,10 +1007,9 @@ static void on_timer(nw_timer *timer, void *privdata)
     }
     dict_release_iterator(iter);
 
-    profile_inc("onlineusers", get_online_user_count());
     profile_set("connections", svr->raw_svr->clt_count);
     profile_set("subscribe_kline", kline_subscribe_number());
-    profile_set("subscribe_depth", depth_subscribe_number());=
+    profile_set("subscribe_depth", depth_subscribe_number());
     profile_set("subscribe_deals", deals_subscribe_number());
     profile_set("subscribe_order", order_subscribe_number());
     profile_set("subscribe_asset", asset_subscribe_number());

@@ -16,10 +16,6 @@ static dict_t *dict_deals;
 
 static rpc_clt *cache_deals;
 
-struct user_val {
-    dict_t *sessions;
-};
-
 struct deals_val {
     list_t   *deals;
     uint64_t last_id;
@@ -29,6 +25,33 @@ struct deals_val {
 struct sub_deals_val {
     dict_t *sessions;
 };
+
+struct user_val {
+    void *ses;
+    char market[MARKET_NAME_MAX_LEN + 1];
+};
+
+static void dict_user_val_free(void *val)
+{
+    list_release(val);
+}
+
+static int list_node_compare(const void *value1, const void *value2)
+{
+    return memcmp(value1, value2, sizeof(struct user_val));
+}
+
+static void *list_node_dup(void *value)
+{
+    struct user_val *obj = malloc(sizeof(struct user_val));
+    memcpy(obj, value, sizeof(struct user_val));
+    return obj;
+}
+
+static void list_node_free(void *value)
+{
+    free(value);
+}
 
 static void *dict_market_val_dup(const void *val)
 {
@@ -42,21 +65,6 @@ static void dict_market_val_free(void *val)
     struct sub_deals_val *obj = val;
     if (obj->sessions)
         dict_release(obj->sessions);
-    free(obj);
-}
-
-// dict user
-static void *dict_user_val_dup(const void *key)
-{
-    struct user_val *obj = malloc(sizeof(struct user_val));
-    memcpy(obj, key, sizeof(struct user_val));
-    return obj;
-}
-
-static void dict_user_val_free(void *val)
-{
-    struct user_val *obj = val;
-    dict_release(obj->sessions);
     free(obj);
 }
 
@@ -109,35 +117,6 @@ int deals_subscribe(nw_ses *ses, const char *market)
     return 0;
 }
 
-int deals_subscribe_user(nw_ses *ses, const char *market, uint32_t user_id)
-{
-    void *key = (void *)(uintptr_t)user_id;
-    dict_entry *entry = dict_find(dict_user, key);
-    if (entry == NULL) {
-        struct user_val val;
-        memset(&val, 0, sizeof(val));
-
-        dict_types dt;
-        memset(&dt, 0, sizeof(dt));
-        dt.hash_function = ptr_dict_hash_func;
-        dt.key_compare = ptr_dict_key_compare;
-        val.sessions = dict_create(&dt, 2);
-        if (val.sessions == NULL)
-            return -__LINE__;
-
-        entry = dict_add(dict_user, key, &val);
-        if (entry == NULL) {
-            dict_release(val.sessions);
-            return -__LINE__;
-        }
-    }
-
-    struct user_val *obj = entry->val;
-    dict_add(obj->sessions, ses, NULL);
-
-    return 0;
-}
-
 int deals_unsubscribe(nw_ses *ses)
 {
     dict_iterator *iter = dict_get_iterator(dict_sub_deals);
@@ -150,19 +129,61 @@ int deals_unsubscribe(nw_ses *ses)
     return 0;
 }
 
-int deals_unsubscribe_user(nw_ses *ses)
+int deals_subscribe_user(nw_ses *ses, const char *market, uint32_t user_id)
 {
     void *key = (void *)(uintptr_t)user_id;
     dict_entry *entry = dict_find(dict_user, key);
-    if (entry) {
-        struct user_val *obj = entry->val;
-        dict_delete(obj->sessions, ses);
+    if (entry == NULL) {
+        list_type lt;
+        memset(&lt, 0, sizeof(lt));
+        lt.dup = list_node_dup;
+        lt.free = list_node_free;
+        lt.compare = list_node_compare;
+        list_t *list = list_create(&lt);
+        if (list == NULL)
+            return -__LINE__;
 
-        if (dict_size(obj->sessions) == 0) {
-            dict_delete(dict_user, key);
-        }
+        entry = dict_add(dict_user, key, list);
+        if (entry == NULL)
+            return -__LINE__;
     }
 
+    list_t *list = entry->val;
+    struct user_val unit;
+    memset(&unit, 0, sizeof(unit));
+    unit.ses = ses;
+    sstrncpy(unit.market, market, sizeof(unit.market));
+
+    if (list_find(list, &unit) != NULL)
+        return 0;
+    if (list_add_node_tail(list, &unit) == NULL)
+        return -__LINE__;
+
+    return 0;
+}
+
+int deals_unsubscribe_user(nw_ses *ses)
+{
+    dict_entry *entry;
+    dict_iterator *iter_d = dict_get_iterator(dict_user);
+    while ((entry = dict_next(iter_d)) != NULL) {
+        list_t *list = entry->val;
+        list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
+        list_node *node;
+        while ((node = list_next(iter)) != NULL) {
+            struct user_val *unit = node->value;
+            if (unit->ses == ses) {
+                list_del(list, node);
+            }
+        }
+        list_release_iterator(iter);
+
+        if (list->len == 0) {
+            dict_delete(dict_user, entry->key);
+        }
+    }
+    
+    dict_release_iterator(iter_d);
     return 0;
 }
 
@@ -199,16 +220,19 @@ int deals_new(uint32_t user_id, uint64_t order_id, uint64_t id, double timestamp
     json_array_append_new(params, json_true());
 
     size_t count = 0;
-    struct user_val *obj = entry->val;
-    dict_iterator *iter = dict_get_iterator(obj->sessions);
-    while ((entry = dict_next(iter)) != NULL) {
-        ws_send_notify(entry->key, "deals.update", params);
-        count += 1;
+    list_t *list = entry->val;
+    list_iter *iter = list_get_iterator(list, LIST_START_HEAD);
+    list_node *node;
+    while ((node = list_next(iter)) != NULL) {
+        struct user_val *unit = node->value;
+        if (strcmp(unit->market, market) == 0) {
+            ws_send_notify(unit->ses, "deals.update", params);
+            count += 1;
+        }
     }
-    dict_release_iterator(iter);
+    list_release_iterator(iter);
     json_decref(params);
     profile_inc("deals.update", count);
-
     return 0;
 }
 
@@ -472,7 +496,6 @@ int init_deals(void)
     memset(&dt, 0, sizeof(dt));
     dt.hash_function  = uint32_dict_hash_func;
     dt.key_compare    = uint32_dict_key_compare;
-    dt.val_dup        = dict_user_val_dup;
     dt.val_destructor = dict_user_val_free;
     dict_user = dict_create(&dt, 64);
     if (dict_user == NULL)

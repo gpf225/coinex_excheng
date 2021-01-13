@@ -100,7 +100,7 @@ int asset_unsubscribe(nw_ses *ses)
         list_release_iterator(iter);
 
         if (list->len == 0) {
-            dict_delete(dict_sub, key);
+            dict_delete(dict_sub, entry->key);
         }
     }
     

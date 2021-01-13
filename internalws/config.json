@@ -5,8 +5,8 @@
         "core_limit": 1000000000
     },
     "log": {
-        "path": "/var/log/trade/internalws",
-        "flag": "fatal,error,warn,info,debug,trace",
+        "path": "/data/log/trade/internalws",
+        "flag": "fatal,error,warn,info,trace",
         "num": 10
     },
     "alert": {
@@ -18,9 +18,10 @@
             "stream@/tmp/internalws.sock"
         ],
         "max_pkg_size": 102400,
-        "protocol": "chat"
+        "protocol": "chat",
+        "compress": true
     },
-    "worker_num": 2,
+    "worker_num": 1,
     "timeout": 1.0,
     "matchengine": {
         "name": "matchengine",
@@ -51,22 +52,12 @@
         "max_pkg_size": 2000000,
         "heartbeat_timeout": 30
     },
-    "cache_state": {
-        "name": "cache_state",
-        "addr": [
-            "tcp@127.0.0.1:7803"
-        ],
-        "max_pkg_size": 2000000,
-        "heartbeat_timeout": 30
-    },
-    "brokers": "127.0.0.1:9092",
+    "brokers": "192.168.0.95:9092",
     "cachecenter_host": "127.0.0.1",
     "cachecenter_port": 7810,
     "cachecenter_worker_num": 4,
     "backend_timeout": 1.0,
-    "accesshttp": "http://127.0.0.1:8080",
-    "depth_limit": [1, 5, 10, 20, 30, 50],
-    "depth_merge": ["0", "0.0000000001", "0.000000001", "0.00000001", "0.0000001", "0.000001", "0.00001", "0.0001", "0.001", "0.01", "0.1", "1", "10", "100"],
-    "full_depth_limit": [1, 5, 10, 20],
-    "full_depth_merge": ["0", "0.0000000001", "0.000000001", "0.00000001", "0.0000001", "0.000001", "0.00001", "0.0001", "0.001", "0.01", "0.1", "1", "10", "100"]
+    "cache_timeout": 10.0,
+    "depth_limit": [1, 5, 10, 20, 30, 50, 100],
+    "depth_merge": ["0", "0.0000000001", "0.000000001", "0.00000001", "0.0000001", "0.000001", "0.00001", "0.0001", "0.001", "0.01", "0.1", "1", "10", "100"]
 }

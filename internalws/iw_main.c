@@ -6,10 +6,8 @@
 # include "ut_title.h"
 # include "iw_config.h"
 # include "iw_server.h"
-# include "iw_http.h"
 # include "iw_kline.h"
 # include "iw_depth.h"
-# include "iw_state.h"
 # include "iw_deals.h"
 # include "iw_order.h"
 # include "iw_asset.h"
@@ -129,12 +127,7 @@ int main(int argc, char *argv[])
 server:
     daemon(1, 1);
     process_keepalive(settings.debug);
-
-    ret = init_http();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init http fail: %d", ret);
-    }
-
+    
     ret = init_kline();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init kline fail: %d", ret);
@@ -142,10 +135,6 @@ server:
     ret = init_depth();
     if (ret < 0) {
         error(EXIT_FAILURE, errno, "init depth fail: %d", ret);
-    }
-    ret = init_state();
-    if (ret < 0) {
-        error(EXIT_FAILURE, errno, "init state fail: %d", ret);
     }
     ret = init_deals();
     if (ret < 0) {
