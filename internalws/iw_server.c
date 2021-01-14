@@ -457,8 +457,8 @@ static int on_method_deals_subscribe_user(nw_ses *ses, uint64_t id, struct clt_i
             return ws_send_error_invalid_argument(ses, id);
         }
 
-        for (size_t i = 1; i < item_size; ++i) {
-            const char *market = json_string_value(json_array_get(params, i));
+        for (size_t j = 1; j < item_size; ++j) {
+            const char *market = json_string_value(json_array_get(item, j));
             if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN) {
                 deals_unsubscribe_user(ses);
                 return ws_send_error_invalid_argument(ses, id);
@@ -484,8 +484,9 @@ static int on_method_order_query(nw_ses *ses, uint64_t id, struct clt_info *info
     if (!rpc_clt_connected(matchengine))
         return ws_send_error_internal_error(ses, id);
 
-    if (json_array_size(params) != 1)
+    if (json_array_size(params) <= 0) {
         return ws_send_error_invalid_argument(ses, id);
+    }
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id <= 0)
@@ -507,8 +508,9 @@ static int on_method_order_query_stop(nw_ses *ses, uint64_t id, struct clt_info 
     if (!rpc_clt_connected(matchengine))
         return ws_send_error_internal_error(ses, id);
 
-    if (json_array_size(params) != 1)
+    if (json_array_size(params) <= 0) {
         return ws_send_error_invalid_argument(ses, id);
+    }
 
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
     if (user_id <= 0)
@@ -545,8 +547,8 @@ static int on_method_order_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
             return ws_send_error_invalid_argument(ses, id);
         }
 
-        for (size_t i = 1; i < item_size; ++i) {
-            const char *market = json_string_value(json_array_get(params, i));
+        for (size_t j = 1; j < item_size; ++j) {
+            const char *market = json_string_value(json_array_get(item, j));
             if (market == NULL || strlen(market) > MARKET_NAME_MAX_LEN) {
                 order_unsubscribe(ses);
                 return ws_send_error_invalid_argument(ses, id);
@@ -638,8 +640,8 @@ static int on_method_asset_subscribe(nw_ses *ses, uint64_t id, struct clt_info *
                 return ws_send_error_internal_error(ses, id);
             }
         } else {
-            for (size_t i = 1; i < item_size; ++i) {
-                const char *asset = json_string_value(json_array_get(params, i));
+            for (size_t j = 1; j < item_size; ++j) {
+                const char *asset = json_string_value(json_array_get(item, j));
                 if (asset == NULL || strlen(asset) > ASSET_NAME_MAX_LEN) {
                     asset_unsubscribe(ses);
                     return ws_send_error_internal_error(ses, id);

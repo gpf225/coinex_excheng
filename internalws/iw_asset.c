@@ -124,8 +124,9 @@ int asset_on_update(uint32_t user_id, uint32_t account, const char *asset, const
     json_object_set_new(unit, "timestamp", json_real(timestamp));
     json_object_set_new(result, asset, unit);
 
-    json_array_append_new(params, result);
+    json_array_append_new(params, json_integer(user_id));
     json_array_append_new(params, json_integer(account));
+    json_array_append_new(params, result);
 
     size_t count = 0;
     list_t *list = entry->val;

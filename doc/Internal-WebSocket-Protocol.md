@@ -114,7 +114,7 @@ General error code:
 * method: `deals.update`
 * params: 
 1. market name
-2. order list
+2. deal list
 3. user's deal, boolean, optional
 
 **Cancel subscription**

@@ -196,6 +196,7 @@ int deals_new(uint32_t user_id, uint64_t order_id, uint64_t id, double timestamp
 
     json_t *message = json_object();
     json_object_set_new(message, "id", json_integer(id));
+    json_object_set_new(message, "user_id", json_integer(user_id));
     json_object_set_new(message, "order_id", json_integer(order_id));
     if (client_id == NULL) {
         json_object_set_new(message, "client_id", json_string(""));
