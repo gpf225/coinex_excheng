@@ -218,7 +218,6 @@ int deals_new(uint32_t user_id, uint64_t order_id, uint64_t id, double timestamp
     json_t *params = json_array();
     json_array_append_new(params, json_string(market));
     json_array_append_new(params, deals);
-    json_array_append_new(params, json_true());
 
     size_t count = 0;
     list_t *list = entry->val;
@@ -227,7 +226,7 @@ int deals_new(uint32_t user_id, uint64_t order_id, uint64_t id, double timestamp
     while ((node = list_next(iter)) != NULL) {
         struct user_val *unit = node->value;
         if (strcmp(unit->market, market) == 0) {
-            ws_send_notify(unit->ses, "deals.update", params);
+            ws_send_notify(unit->ses, "deals.update_user", params);
             count += 1;
         }
     }

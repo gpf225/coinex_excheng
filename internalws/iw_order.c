@@ -119,6 +119,7 @@ int order_on_update(uint32_t user_id, int event, json_t *order)
         return 0;
 
     json_t *params = json_array();
+    json_array_append_new(params, json_integer(user_id));
     json_array_append_new(params, json_integer(event));
     json_array_append(params, order);
 
@@ -152,6 +153,7 @@ int order_on_update_stop(uint32_t user_id, int event, json_t *order)
         return 0;
 
     json_t *params = json_array();
+    json_array_append_new(params, json_integer(user_id));
     json_array_append_new(params, json_integer(event));
     json_array_append(params, order);
 

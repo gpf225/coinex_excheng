@@ -88,6 +88,7 @@ General error code:
             "6800.00",  lowest
             "1000.00"   volume
             "123456.00" amount
+            "BTCUSDT"   market name
         ]
         ...
     ]

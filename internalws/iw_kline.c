@@ -74,16 +74,20 @@ static void on_backend_connect(nw_ses *ses, bool result)
     }
 }
 
-static int broadcast_update(dict_t *sessions, json_t *result)
+static int broadcast_update(dict_t *sessions, char *market, json_t *result)
 {
+    json_t *params = json_array();
+    json_array_append_new(params, json_string(market));
+    json_array_append(params, result);
     dict_iterator *iter = dict_get_iterator(sessions);
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
-        ws_send_notify(entry->key, "kline.update", result);
+        ws_send_notify(entry->key, "kline.update", params);
     }
     dict_release_iterator(iter);
-    profile_inc("kline.update", dict_size(sessions));
+    json_decref(params);
 
+    profile_inc("kline.update", dict_size(sessions));
     return 0;
 }
 
@@ -102,6 +106,7 @@ static int on_market_kline_reply(struct state_data *state, json_t *result)
     dict_entry *entry = dict_find(dict_kline, &state->key);
     if (entry == NULL)
         return -__LINE__;
+
     struct kline_val *obj = entry->val;
 
     if (!json_is_array(result))
@@ -115,7 +120,7 @@ static int on_market_kline_reply(struct state_data *state, json_t *result)
             json_decref(obj->last);
         obj->last = last;
         json_incref(last);
-        return broadcast_update(obj->sessions, result);
+        return broadcast_update(obj->sessions, state->key.market, result);
     }
 
     return 0;

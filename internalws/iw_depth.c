@@ -286,6 +286,7 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
     dict_entry *entry;
     while ((entry = dict_next(iter)) != NULL) {
         json_t *params = json_array();
+        json_array_append_new(params, json_string(market));
         struct depth_session_val *ses_val = entry->val;
         if (clean || ses_val->is_full) {
             json_array_append_new(params, json_boolean(true));
@@ -294,7 +295,6 @@ static int broadcast_update(const char *market, dict_t *sessions, bool clean, js
             json_array_append_new(params, json_boolean(false));
             json_array_append(params, diff);
         }
-        json_array_append_new(params, json_string(market));
         ws_send_notify(entry->key, "depth.update", params);
         json_decref(params);
     }
