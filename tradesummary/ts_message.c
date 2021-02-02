@@ -2389,6 +2389,9 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
     st.free = trade_amount_rank_val_free;
     st.compare = trade_amount_rank_val_compare;
 
+    int total_users = dict_size(dict);
+    mpd_t *total_sell_amount = mpd_qncopy(mpd_zero);
+    mpd_t *total_buy_amount = mpd_qncopy(mpd_zero);
     skiplist_t *buy_amount_list = skiplist_create(&st);
     skiplist_t *sell_amount_list = skiplist_create(&st);
 
@@ -2403,6 +2406,7 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
             buy_rank_detail->user_id = user_id;
             buy_rank_detail->amount = mpd_qncopy(user_detail->buy_amount);
             buy_rank_detail->amount_total = mpd_qncopy(mpd_zero);
+            mpd_add(total_buy_amount, total_buy_amount, user_detail->buy_amount, &mpd_ctx);
             mpd_add(buy_rank_detail->amount_total, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
             skiplist_insert(buy_amount_list, buy_rank_detail);
         }
@@ -2413,6 +2417,7 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
             sell_rank_detail->user_id = user_id;
             sell_rank_detail->amount = mpd_qncopy(user_detail->sell_amount);
             sell_rank_detail->amount_total = mpd_qncopy(mpd_zero);
+            mpd_add(total_sell_amount, total_sell_amount, user_detail->sell_amount, &mpd_ctx);
             mpd_add(sell_rank_detail->amount_total, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
             skiplist_insert(sell_amount_list, sell_rank_detail);
         }
@@ -2468,7 +2473,11 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
     json_object_set_new(result, "sell", amount_sell);
     json_object_set_new(result, "total_buy_users", json_integer(total_buy_users));
     json_object_set_new(result, "total_sell_users", json_integer(total_sell_users));
-
+    json_object_set_new_mpd(result, "total_sell_amount", total_sell_amount);
+    json_object_set_new_mpd(result, "total_buy_amount", total_buy_amount);
+    json_object_set_new(result, "total_users", json_integer(total_users));
+    mpd_del(total_sell_amount);
+    mpd_del(total_buy_amount);
     return result;
 }
 
