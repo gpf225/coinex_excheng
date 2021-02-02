@@ -116,7 +116,6 @@ General error code:
 * params: 
 1. market name
 2. deal list
-3. user's deal, boolean, optional
 
 **Cancel subscription**
 * method: `deals.unsubscribe`
@@ -145,7 +144,6 @@ General error code:
 1. market name
 2. user_id
 3. deal
-4. user's deal, boolean, optional
 
 **Cancel subscription**
 * method: `deals.unsubscribe_user`
@@ -328,8 +326,9 @@ amount == 0 for delete
 
 * method: `order.update_stop`
 * params:
-1. event: event type，Integer, 1: PUT, 2: ACTIVE, 3: CALCEL
-2. order: order detail，Object，see HTTP protocol
+1. user_id
+2. event: event type，Integer, 1: PUT, 2: ACTIVE, 3: CALCEL
+3. order: order detail，Object，see HTTP protocol
 
 **Cancel subscription**
 * method: `order.unsubscribe`
