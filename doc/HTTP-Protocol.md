@@ -1477,7 +1477,10 @@ response:
             }
         ],
         "total_sell_users": 2,
-        "total_buy_users": 3
+        "total_buy_users": 3,
+        "total_sell_amount": "2.0",
+        "total_buy_amount": "2.0",
+        "total_users": 2
     },
     "error": null
 }
