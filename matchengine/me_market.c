@@ -2854,7 +2854,8 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
     if (ask_fee_asset == NULL) {
         ask_fee_asset = m->money;
         ask_fee_account = ask->account;
-        mpd_mul(ask_fee, amount, ask_role_trade_fee, &mpd_ctx);
+        mpd_mul(ask_fee, deal, ask_role_trade_fee, &mpd_ctx);
+        mpd_rescale(ask_fee, ask_fee, -asset_prec_save(ask_fee_account, ask_fee_asset), &mpd_ctx);
     }
 
     get_fee_price(m, bid->fee_asset, bid->fee_price);
@@ -2875,25 +2876,13 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
         }
     }
 
-    if (bid_fee_asset == NULL) {
-        if (bid_use_money_fee) {
-            bid_fee_asset = m->money;
-            bid_fee_account = bid->account;
-            mpd_mul(bid_fee, deal, bid_role_trade_fee, &mpd_ctx);
-        } else {
-            bid_fee_asset = m->stock;
-            bid_fee_account = bid->account;
-            mpd_mul(bid_fee, amount, bid_role_trade_fee, &mpd_ctx);
-        }
-    }
-
     if (bid_fee_asset == NULL && bid_use_money_fee) {
         mpd_mul(result, deal, bid_role_trade_fee, &mpd_ctx);
         mpd_rescale(result, result, -asset_prec_save(bid->account, m->money), &mpd_ctx);
         mpd_t *fee_balance = balance_get(ask->user_id, bid->account, BALANCE_TYPE_AVAILABLE, m->money);
         if (fee_balance && mpd_cmp(fee_balance, result, &mpd_ctx) >= 0) {
-            ask_fee_asset = m->money;
-            ask_fee_account = bid->account;
+            bid_fee_asset = m->money;
+            bid_fee_account = bid->account;
             mpd_copy(bid_fee, result, &mpd_ctx);
         }
     }
@@ -2902,6 +2891,7 @@ int execute_ask_bid_order_with_price(bool real, market_t *m, order_t *ask, order
         bid_fee_asset = m->stock;
         bid_fee_account = bid->account;
         mpd_mul(bid_fee, amount, bid_role_trade_fee, &mpd_ctx);
+        mpd_rescale(bid_fee, bid_fee, -asset_prec_save(bid_fee_account, bid_fee_asset), &mpd_ctx);
     }
 
     ask->update_time = bid->update_time = current_timestamp();
