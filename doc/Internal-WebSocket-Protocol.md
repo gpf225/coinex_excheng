@@ -61,7 +61,6 @@ General error code:
         "6800.00",  lowest
         "1000.00"   volume
         "123456.00" amount
-        "BTCCNY"    market name
     ]
     ...
 ]
@@ -79,17 +78,19 @@ General error code:
 
 ```
 [
+    "BTCUSDT",
     [
-        1492358400, time
-        "7000.00",  open
-        "8000.0",   close
-        "8100.00",  highest
-        "6800.00",  lowest
-        "1000.00"   volume
-        "123456.00" amount
-        "BTCCNY"    market name
+        [
+            1492358400, time
+            "7000.00",  open
+            "8000.0",   close
+            "8100.00",  highest
+            "6800.00",  lowest
+            "1000.00"   volume
+            "123456.00" amount
+        ]
+        ...
     ]
-    ...
 ]
 ```
 
@@ -110,7 +111,7 @@ General error code:
 * method: `deals.subscribe`
 * params: market list
 
-**Latest order list update**
+**Latest deal list update**
 * method: `deals.update`
 * params: 
 1. market name
@@ -137,6 +138,14 @@ General error code:
 * method: `deals.subscribe_user`
 * params:
     [[user_id, market1, market2, ...], ...]
+
+**Latest deal list update**
+* method: `deals.update_user`
+* params: 
+1. market name
+2. user_id
+3. deal
+4. user's deal, boolean, optional
 
 **Cancel subscription**
 * method: `deals.unsubscribe_user`
@@ -189,6 +198,7 @@ amount == 0 for delete
 
 ```
 [
+    "BTCUSDT",
     false,
     {
         "asks": [
@@ -202,8 +212,7 @@ amount == 0 for delete
         "last": "3.66000000",
         "time": 1562662542872,
         "checksum": 216578179
-    },
-    "BTCUSDT"
+    }
 ]
 ```
 
@@ -276,13 +285,15 @@ amount == 0 for delete
 **Order notification**
 * method: `order.update`
 * params:
-1. event: event type，Integer, 1: PUT, 2: UPDATE, 3: FINISH
-2. order: order detail，Object, last_deal_amount is the amount of the last deal, last_deal_price is the price of the last deal
+1. user_id
+2. event: event type，Integer, 1: PUT, 2: UPDATE, 3: FINISH
+3. order: order detail，Object, last_deal_amount is the amount of the last deal, last_deal_price is the price of the last deal
 * result:
 ```
 {
     "method": "order.update",
     "params": [
+        476,
         1, 
         {
             "id": 12750,
