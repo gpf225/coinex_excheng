@@ -132,6 +132,119 @@ static int on_cmd_asset_update(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return rpc_reply_success(ses, pkg);
 }
 
+static json_t* get_error_json_object(int code, const char* message)
+{
+    json_t *error = json_object();
+    json_object_set_new(error, "code", json_integer(code));
+    json_object_set_new(error, "message", json_string(message));
+
+    json_t *result = json_object();
+    json_object_set_new(result, "error", error);
+
+    return result;
+}
+
+static json_t* asset_update(json_t* params)
+{
+    if (json_array_size(params) != 7)
+        return get_error_json_object(1, "invalid argument");
+
+    // user_id
+    if (!json_is_integer(json_array_get(params, 0)))
+        return get_error_json_object(1, "invalid argument");
+    uint32_t user_id = json_integer_value(json_array_get(params, 0));
+
+    // account 
+    if (!json_is_integer(json_array_get(params, 1)))
+        return get_error_json_object(1, "invalid argument");
+    uint32_t account = json_integer_value(json_array_get(params, 1));
+
+    // asset
+    if (!json_is_string(json_array_get(params, 2)))
+        return get_error_json_object(1, "invalid argument");
+    const char *asset = json_string_value(json_array_get(params, 2));
+    int prec = asset_prec_show(account, asset);
+    if (prec < 0)
+        return get_error_json_object(1, "invalid argument");
+
+    // business
+    if (!json_is_string(json_array_get(params, 3)))
+        return get_error_json_object(1, "invalid argument");
+    const char *business = json_string_value(json_array_get(params, 3));
+
+    // business_id
+    if (!json_is_integer(json_array_get(params, 4)))
+        return get_error_json_object(1, "invalid argument");
+    uint64_t business_id = json_integer_value(json_array_get(params, 4));
+
+    // change
+    if (!json_is_string(json_array_get(params, 5)))
+        return get_error_json_object(1, "invalid argument");
+    mpd_t *change = decimal(json_string_value(json_array_get(params, 5)), prec);
+    if (change == NULL)
+        return get_error_json_object(1, "invalid argument");
+
+    // detail
+    json_t *detail = json_array_get(params, 6);
+    if (!json_is_object(detail)) {
+        mpd_del(change);
+        return get_error_json_object(1, "invalid argument");
+    }
+
+    int ret = update_user_balance(true, user_id, account, asset, business, business_id, change, detail);
+    mpd_del(change);
+    if (ret == -1) {
+        return get_error_json_object(10, "repeat update");
+    } else if (ret == -2) {
+        return get_error_json_object(11, "balance not enough");
+    } else if (ret < 0) {
+        return get_error_json_object(2, "internal error");
+    }
+
+    push_operlog("update_balance", params);
+
+    return NULL;
+}
+
+static int on_cmd_asset_update_batch(nw_ses *ses, rpc_pkg *pkg, json_t *total_params)
+{
+    // get update count
+    int update_count = json_array_size(total_params);
+    if(update_count == 0 || update_count > ORDER_LIST_MAX_LEN)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    json_t* total_result = json_array();
+    for(int index = 0; index < update_count; ++index)
+    {
+        json_t* params = json_array_get(total_params, index);
+        json_t* result = asset_update(params);
+
+        if(result != NULL)
+        {
+            json_array_append_new(total_result, result);
+            
+            // uodo update return error
+            json_t *error = get_error_json_object(2, "internal error");
+            for(int i = index + 1; i < update_count; ++i)
+            {
+                json_array_append_new(total_result, error);
+            }
+
+            int ret = rpc_reply_json(ses, pkg, total_result);
+            json_decref(total_result);
+            return ret;
+        }
+
+        result = json_object();
+        json_object_set_new(result, "status", json_string("success"));
+        json_array_append_new(total_result, result); 
+    }
+
+    int ret = rpc_reply_json(ses, pkg, total_result);
+    json_decref(total_result);
+    return ret;
+}
+
 static int on_cmd_asset_lock(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 6)
@@ -1564,6 +1677,17 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_asset_update(ses, pkg, params);
         if (ret < 0) {
             log_error("on_cmd_asset_update %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_ASSET_UPDATE_BATCH:
+        if (!is_service_available()) {
+            rpc_reply_error_service_unavailable(ses, pkg);
+            goto cleanup;
+        }
+        profile_inc("cmd_asset_update_batch", 1);
+        ret = on_cmd_asset_update_batch(ses, pkg, params);
+        if (ret < 0) {
+            log_error("on_cmd_asset_batch_update %s fail: %d", params_str, ret);
         }
         break;
     case CMD_ASSET_LOCK:
