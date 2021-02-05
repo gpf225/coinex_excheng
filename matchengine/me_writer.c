@@ -132,6 +132,14 @@ static int on_cmd_asset_update(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return rpc_reply_success(ses, pkg);
 }
 
+static json_t *get_result_json(int code, const char* message)
+{
+    json_t *result = json_object();    
+    json_object_set_new(result, "code", json_integer(code));
+    json_object_set_new(result, "message", json_string(message));
+    return result;
+}
+
 static int asset_update(json_t *params, json_t **result)
 {
     if (json_array_size(params) != 7) {
@@ -230,10 +238,9 @@ static int on_cmd_asset_update_batch(nw_ses *ses, rpc_pkg *pkg, json_t *total_pa
         int success = asset_update(params, &result);
         json_array_append_new(total_result, result);
         if(success != 0) {
-            for(int i = index + 1; i < update_count; ++i) {
+            for(index += 1; index < update_count; ++index) {
                 json_array_append_new(total_result, get_result_json(2, "internal error"));
             }
-            break;
         }
     }
 

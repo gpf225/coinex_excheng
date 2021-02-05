@@ -56,7 +56,5 @@ int http_reply_error_result_null(nw_ses *ses, int64_t id);
 int http_reply_result(nw_ses *ses, int64_t id, json_t *result);
 int http_reply_success(nw_ses *ses, int64_t id);
 
-json_t *get_result_json(int code, const char* message);
-
 # endif
 

@@ -419,12 +419,3 @@ int http_reply_success(nw_ses *ses, int64_t id)
     json_decref(result);
     return ret;
 }
-
-json_t *get_result_json(int code, const char* message)
-{
-    json_t *result = json_object();    
-    json_object_set_new(result, "code", json_integer(code));
-    json_object_set_new(result, "message", json_string(message));
-    return result;
-}
-
