@@ -414,8 +414,8 @@ asset list(optional, if no asset special, return all asset)
 10. fee_asset: String, asset to use as fee
 11. fee_discount: String, 0~1
 12. option: Integer, 0 is default
-    * bit 1: suggest use stock fee;
-    * bit 2: suggest use money fee;
+    * bit 1: suggest use stock fee
+    * bit 2: suggest use money fee
     * bit 3: unlimited min amount
     * bit 4: immediate or cancel order
     * bit 5: fill or kill order
@@ -445,10 +445,10 @@ params: [1, 0, "BTCCNY", 1, "10", "8000", "0.002", "0.001"]
 8. fee_asset: String, asset to use as fee
 9. fee_discount: String, 0~1
 10. option: Integer, 0 is default
-    * bit 1: suggest use stock fee;
-    * bit 2: suggest use money fee;
-    * bit 3: unlimited min amount;
-    * bit 5: fill or kill order;
+    * bit 1: suggest use stock fee
+    * bit 2: suggest use money fee
+    * bit 3: unlimited min amount
+    * bit 5: fill or kill order
 11. client_id: user self-define order id
 
 * result: order detail
@@ -527,8 +527,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 11. fee_asset: String, asset to use as fee
 12. fee_discount: String, 0~1
 13. option: Integer, 0 is default
-    * bit 1: suggest use stock fee;
-    * bit 2: suggest use money fee;
+    * bit 1: suggest use stock fee
+    * bit 2: suggest use money fee
     * bit 3: unlimited min amount
 14. client_id: user self-define order id
 
@@ -551,8 +551,8 @@ params: '[1, "BTCCNY", 1, "10","0.002"]'
 9. fee_asset: String, asset to use as fee
 10. fee_discount: String, 0~1
 11. option: Integer, 0 is default
-    * bit 1: suggest use stock fee;
-    * bit 2: suggest use money fee;
+    * bit 1: suggest use stock fee
+    * bit 2: suggest use money fee
     * bit 4: immediate or cancel order
     * bit 5: fill or kill order
 12. client_id: user self-define order id
