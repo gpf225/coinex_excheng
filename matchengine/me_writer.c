@@ -136,58 +136,58 @@ static int asset_update(json_t *params, json_t **result)
 {
     if (json_array_size(params) != 7) {
         *result = get_result_json(1, "invalid argument");
-        return -1;
+        return -__LINE__;
     }
 
     // user_id
     if (!json_is_integer(json_array_get(params, 0))) {
         *result = get_result_json(1, "invalid argument");
-        return -1;
+        return -__LINE__;
     }
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
     // account 
     if (!json_is_integer(json_array_get(params, 1))) {
         *result = get_result_json(1, "invalid argument");
-        return -1;
+        return -__LINE__;
     }
     uint32_t account = json_integer_value(json_array_get(params, 1));
 
     // asset
     if (!json_is_string(json_array_get(params, 2))) {
         *result = get_result_json(1, "invalid argument");
-        return -1;
+        return -__LINE__;
     }
     const char *asset = json_string_value(json_array_get(params, 2));
     int prec = asset_prec_show(account, asset);
     if (prec < 0) {
         *result = get_result_json(1, "invalid argument");
-        return -1;
+        return -__LINE__;
     }
 
     // business
     if (!json_is_string(json_array_get(params, 3))) {
         *result = get_result_json(1, "invalid argument");
-        return -1;
+        return -__LINE__;
     }
     const char *business = json_string_value(json_array_get(params, 3));
 
     // business_id
     if (!json_is_integer(json_array_get(params, 4))) {
         *result = get_result_json(1, "invalid argument");
-        return -1;
+        return -__LINE__;
     }
     uint64_t business_id = json_integer_value(json_array_get(params, 4));
 
     // change
     if (!json_is_string(json_array_get(params, 5))) {
         *result = get_result_json(1, "invalid argument");
-        return -1;
+        return -__LINE__;
     }
     mpd_t *change = decimal(json_string_value(json_array_get(params, 5)), prec);
     if (change == NULL) {
         *result = get_result_json(1, "invalid argument");
-        return -1;
+        return -__LINE__;
     }
 
     // detail
@@ -195,24 +195,24 @@ static int asset_update(json_t *params, json_t **result)
     if (!json_is_object(detail)) {
         mpd_del(change);
         *result = get_result_json(1, "invalid argument");
-        return -1;
+        return -__LINE__;
     }
 
     int ret = update_user_balance(true, user_id, account, asset, business, business_id, change, detail);
     mpd_del(change);
     if (ret == -1) {
         *result = get_result_json(10, "repeat update");
-        return -1;
+        return -__LINE__;
     } else if (ret == -2) {
         *result = get_result_json(11, "balance not enough");
-        return -1;
+        return -__LINE__;
     } else if (ret < 0) {
         *result = get_result_json(2, "internal error");
-        return -1;
+        return -__LINE__;
     }
 
     push_operlog("update_balance", params);
-    *result = get_result_json(0, "success");
+    *result = get_result_json(0, "");
     return 0;
 }
 
@@ -227,16 +227,14 @@ static int on_cmd_asset_update_batch(nw_ses *ses, rpc_pkg *pkg, json_t *total_pa
     for(int index = 0; index < update_count; ++index) {
         json_t *params = json_array_get(total_params, index);
         json_t *result;
-        if(asset_update(params, &result) != 0) {
-            json_array_append_new(total_result, result);
+        int success = asset_update(params, &result);
+        json_array_append_new(total_result, result);
+        if(success != 0) {
             for(int i = index + 1; i < update_count; ++i) {
                 json_array_append_new(total_result, get_result_json(2, "internal error"));
             }
-            int ret = rpc_reply_result(ses, pkg, total_result);
-            json_decref(total_result);
-            return ret;
+            break;
         }
-        json_array_append_new(total_result, result);
     }
 
     int ret = rpc_reply_result(ses, pkg, total_result);
