@@ -238,7 +238,7 @@ static int on_cmd_asset_update_batch(nw_ses *ses, rpc_pkg *pkg, json_t *total_pa
         int success = asset_update(params, &result);
         json_array_append_new(total_result, result);
         if(success != 0) {
-            for(index += 1; index < update_count; ++index) {
+            while(++index < update_count) {
                 json_array_append_new(total_result, get_result_json(2, "internal error"));
             }
         }
