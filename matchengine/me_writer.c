@@ -132,115 +132,137 @@ static int on_cmd_asset_update(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return rpc_reply_success(ses, pkg);
 }
 
-static json_t* get_error_json_object(int code, const char* message)
+static void fill_result_json(json_t* result, int code, const char* message)
 {
+    if(result == NULL || message == NULL)
+        return;
+
+    if(code == 0) {
+        json_object_set_new(result, "status", json_string(message));
+        return;
+    }
+
+    // other code is error
     json_t *error = json_object();
     json_object_set_new(error, "code", json_integer(code));
     json_object_set_new(error, "message", json_string(message));
-
-    json_t *result = json_object();
     json_object_set_new(result, "error", error);
-
-    return result;
+    return;
 }
 
-static json_t* asset_update(json_t* params)
+static int asset_update(json_t* params, json_t* result)
 {
-    if (json_array_size(params) != 7)
-        return get_error_json_object(1, "invalid argument");
+    if (json_array_size(params) != 7) {
+        fill_result_json(result, 1, "invalid argument");
+        return -1;
+    }
 
     // user_id
-    if (!json_is_integer(json_array_get(params, 0)))
-        return get_error_json_object(1, "invalid argument");
+    if (!json_is_integer(json_array_get(params, 0))) {
+        fill_result_json(result, 1, "invalid argument");
+        return -1;
+    }
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
     // account 
-    if (!json_is_integer(json_array_get(params, 1)))
-        return get_error_json_object(1, "invalid argument");
+    if (!json_is_integer(json_array_get(params, 1))) {
+        fill_result_json(result, 1, "invalid argument");
+        return -1;
+    }
     uint32_t account = json_integer_value(json_array_get(params, 1));
 
     // asset
-    if (!json_is_string(json_array_get(params, 2)))
-        return get_error_json_object(1, "invalid argument");
+    if (!json_is_string(json_array_get(params, 2))) {
+        fill_result_json(result, 1, "invalid argument");
+        return -1;
+    }
     const char *asset = json_string_value(json_array_get(params, 2));
     int prec = asset_prec_show(account, asset);
-    if (prec < 0)
-        return get_error_json_object(1, "invalid argument");
+    if (prec < 0) {
+        fill_result_json(result, 1, "invalid argument");
+        return -1;
+    }
 
     // business
-    if (!json_is_string(json_array_get(params, 3)))
-        return get_error_json_object(1, "invalid argument");
+    if (!json_is_string(json_array_get(params, 3))) {
+        fill_result_json(result, 1, "invalid argument");
+        return -1;
+    }
     const char *business = json_string_value(json_array_get(params, 3));
 
     // business_id
-    if (!json_is_integer(json_array_get(params, 4)))
-        return get_error_json_object(1, "invalid argument");
+    if (!json_is_integer(json_array_get(params, 4))) {
+        fill_result_json(result, 1, "invalid argument");
+        return -1;
+    }
     uint64_t business_id = json_integer_value(json_array_get(params, 4));
 
     // change
-    if (!json_is_string(json_array_get(params, 5)))
-        return get_error_json_object(1, "invalid argument");
+    if (!json_is_string(json_array_get(params, 5))) {
+        fill_result_json(result, 1, "invalid argument");
+        return -1;
+    }
     mpd_t *change = decimal(json_string_value(json_array_get(params, 5)), prec);
-    if (change == NULL)
-        return get_error_json_object(1, "invalid argument");
+    if (change == NULL) {
+        fill_result_json(result, 1, "invalid argument");
+        return -1;
+    }
 
     // detail
     json_t *detail = json_array_get(params, 6);
     if (!json_is_object(detail)) {
         mpd_del(change);
-        return get_error_json_object(1, "invalid argument");
+        fill_result_json(result, 1, "invalid argument");
+        return -1;
     }
 
     int ret = update_user_balance(true, user_id, account, asset, business, business_id, change, detail);
     mpd_del(change);
     if (ret == -1) {
-        return get_error_json_object(10, "repeat update");
+        fill_result_json(result, 10, "repeat update");
+        return -1;
     } else if (ret == -2) {
-        return get_error_json_object(11, "balance not enough");
+        fill_result_json(result, 11, "balance not enough");
+        return -1;
     } else if (ret < 0) {
-        return get_error_json_object(2, "internal error");
+        fill_result_json(result, 2, "internal error");
+        return -1;
     }
 
     push_operlog("update_balance", params);
-
-    return NULL;
+    fill_result_json(result, 0, "success");
+    return 0;
 }
 
 static int on_cmd_asset_update_batch(nw_ses *ses, rpc_pkg *pkg, json_t *total_params)
 {
     // get update count
     int update_count = json_array_size(total_params);
-    if(update_count == 0 || update_count > ORDER_LIST_MAX_LEN)
+    if(update_count == 0 || update_count > ASSET_LIST_MAX_LEN)
         return rpc_reply_error_invalid_argument(ses, pkg);
 
     json_t* total_result = json_array();
-    for(int index = 0; index < update_count; ++index)
-    {
+    for(int index = 0; index < update_count; ++index) {
         json_t* params = json_array_get(total_params, index);
-        json_t* result = asset_update(params);
-
-        if(result != NULL)
-        {
+        json_t* result = json_object();
+        if(asset_update(params, result) != 0) {
             json_array_append_new(total_result, result);
-            
-            // uodo update return error
-            json_t *error = get_error_json_object(2, "internal error");
-            for(int i = index + 1; i < update_count; ++i)
-            {
-                json_array_append_new(total_result, error);
+            if(index + 1 < update_count) {
+                json_t* error = json_object();
+                fill_result_json(error, 2, "internal error");
+                for(int i = index + 1; i < update_count; ++i) {
+                    json_array_append_new(total_result, error);
+                }
             }
-
-            int ret = rpc_reply_json(ses, pkg, total_result);
+            int ret = rpc_reply_result(ses, pkg, total_result);
             json_decref(total_result);
             return ret;
         }
 
-        result = json_object();
-        json_object_set_new(result, "status", json_string("success"));
-        json_array_append_new(total_result, result); 
+        json_array_append_new(total_result, result);
     }
 
-    int ret = rpc_reply_json(ses, pkg, total_result);
+    int ret = rpc_reply_result(ses, pkg, total_result);
     json_decref(total_result);
     return ret;
 }
