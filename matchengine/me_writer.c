@@ -210,13 +210,13 @@ static int asset_update(json_t *params, json_t **result)
     mpd_del(change);
     if (ret == -1) {
         *result = get_result_json(10, "repeat update");
-        return -__LINE__;
+        return ret;
     } else if (ret == -2) {
         *result = get_result_json(11, "balance not enough");
-        return -__LINE__;
+        return ret;
     } else if (ret < 0) {
         *result = get_result_json(2, "internal error");
-        return -__LINE__;
+        return ret;
     }
 
     push_operlog("update_balance", params);
@@ -237,7 +237,8 @@ static int on_cmd_asset_update_batch(nw_ses *ses, rpc_pkg *pkg, json_t *total_pa
         json_t *result;
         int success = asset_update(params, &result);
         json_array_append_new(total_result, result);
-        if(success != 0) {
+        // -1, repeat update is ok
+        if(success != 0 && success != -1) {
             while(++index < update_count) {
                 json_array_append_new(total_result, get_result_json(2, "internal error"));
             }
