@@ -386,6 +386,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("asset.query_all", matchengine, CMD_ASSET_QUERY_ALL));
     ERR_RET_LN(add_handler("asset.query_all_intime", matchengine, CMD_ASSET_QUERY_ALL_INTIME));
     ERR_RET_LN(add_handler("asset.update", matchengine, CMD_ASSET_UPDATE));
+    ERR_RET_LN(add_handler("asset.update_batch", matchengine, CMD_ASSET_UPDATE_BATCH));
     ERR_RET_LN(add_handler("asset.summary", matchengine, CMD_ASSET_SUMMARY));
     ERR_RET_LN(add_handler("asset.history", readhistory, CMD_ASSET_HISTORY));
     ERR_RET_LN(add_handler("asset.lock", matchengine, CMD_ASSET_LOCK));

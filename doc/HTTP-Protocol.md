@@ -81,6 +81,40 @@ General error code:
 "result": "success"
 ```
 
+**Asset change batch**
+* method: `asset.update_batch`
+* params:
+1. update params list: array of update params
+* error code:
+10. repeat update
+11. balance not enough
+* example:
+
+```
+"params": [[1, 1, "BTC", "deposit", 100, "1.2345"],[1, 1, "USDT", "deposit", 100, "1.2345"],[1, 1, "USDT", "deposit", 100, "1.2345"]]
+"result": 
+{
+    'id' : 1,
+    'result' : {
+        [
+            {
+                'code' : 0, //success
+                'message' : '' 
+            },
+            {
+                'code' : 0,
+                'message' : ''
+            }
+            {
+                'code' : 10, //fail
+                'message' : 'repeat update' 
+            }
+        ]
+    },
+    'error' : null
+}
+```
+
 **Asset lock**
 * method: `asset.lock`
 * params:

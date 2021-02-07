@@ -31,6 +31,7 @@
 # define CMD_ASSET_QUERY_ALL_INTIME     113
 # define CMD_ASSET_QUERY_LOCK_INTIME    114
 # define CMD_ASSET_QUERY_USERS_INTIME   115
+# define CMD_ASSET_UPDATE_BATCH         116
 
 // trade
 # define CMD_ORDER_PUT_LIMIT            201

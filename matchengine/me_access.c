@@ -176,6 +176,7 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 
     switch (pkg->command) {
     case CMD_ASSET_UPDATE:
+    case CMD_ASSET_UPDATE_BATCH:
     case CMD_ASSET_LOCK:
     case CMD_ASSET_UNLOCK:
     case CMD_ASSET_BACKUP:

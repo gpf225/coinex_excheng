@@ -45,6 +45,7 @@
 # define DEPTH_MAX_LIMIT        101
 # define ORDER_BOOK_MAX_LEN     101
 # define ORDER_LIST_MAX_LEN     101
+# define ASSET_LIST_MAX_LEN     101
 
 # define MAX_PENDING_OPERLOG      1000
 # define MAX_PENDING_MESSAGE      10000
