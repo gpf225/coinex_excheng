@@ -43,6 +43,30 @@ static int on_cmd_trade_net_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
     return ret;
 }
 
+static int on_cmd_trade_deal_summary(nw_ses *ses, rpc_pkg *pkg, json_t *params)
+{
+    if (json_array_size(params) != 2)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+
+    // start time
+    time_t now = time(NULL);
+    time_t start_time = json_integer_value(json_array_get(params, 0));
+    time_t end_time = json_integer_value(json_array_get(params, 1));
+    if (start_time <= 0 || end_time <= 0 || start_time > end_time)
+        return rpc_reply_error_invalid_argument(ses, pkg);
+    if (start_time < now - settings.keep_days * 86400)
+        start_time = now - settings.keep_days * 86400;
+    if (end_time > now)
+        end_time = now;
+
+    json_t *result = get_deal_summary(start_time, end_time);
+    if (result == NULL)
+        return rpc_reply_error_internal_error(ses, pkg);
+    int ret = rpc_reply_result(ses, pkg, result);
+    json_decref(result);
+    return ret;
+}
+
 static int on_cmd_trade_amount_rank(nw_ses *ses, rpc_pkg *pkg, json_t *params)
 {
     if (json_array_size(params) != 3)
@@ -148,6 +172,13 @@ static void svr_on_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
         ret = on_cmd_trade_users_volume(ses, pkg, params);
         if (ret < 0) {
             log_error("cmd_trade_users_volume %s fail: %d", params_str, ret);
+        }
+        break;
+    case CMD_TRADE_DEAL_SUMMARY:
+        profile_inc("cmd_trade_deal_summary", 1);
+        ret = on_cmd_trade_deal_summary(ses, pkg, params);
+        if (ret < 0) {
+            log_error("cmd_trade_deal_summary %s fail: %d", params_str, ret);
         }
         break;
     default:
