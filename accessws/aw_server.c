@@ -20,6 +20,7 @@
 
 static ws_svr *svr;
 static dict_t *method_map;
+static dict_t *visit_limit;
 static dict_t *backend_cache;
 static rpc_clt *listener;
 static nw_state *state_context;
@@ -43,6 +44,10 @@ struct state_data {
 struct cache_val {
     uint64_t    time_cache;
     json_t      *result;
+};
+
+struct visit_limit_value {
+    uint32_t count;
 };
 
 typedef int (*on_request_method)(nw_ses *ses, uint64_t id, struct clt_info *info, json_t *params);
@@ -908,6 +913,20 @@ static int on_message(nw_ses *ses, const char *remote, const char *url, void *me
     const char *_method = json_string_value(method);
     dict_entry *entry = dict_find(method_map, _method);
     if (entry) {
+        dict_entry *limit_entry = dict_find(visit_limit, ses);
+        if (limit_entry == NULL) {
+            struct visit_limit_value limit = {0};
+            limit_entry = dict_add(visit_limit, ses, &limit);
+        }
+        struct visit_limit_value *limit = limit_entry->val;
+        if (limit->count++ >= settings.visit_limit) {
+            ws_send_error_internal_error(ses, json_integer_value(id));
+            sdsfree(_msg);
+            json_decref(msg);
+            profile_inc("visit_limit", 1);
+            return 0;
+        }
+        
         on_request_method handler = entry->val;
         int ret = handler(ses, _id, info, params);
         if (ret < 0) {
@@ -1020,6 +1039,24 @@ static void on_release(nw_state_entry *entry)
         sdsfree(state->cache_key);
 }
 
+static void *dict_visit_value_dup(const void *value)
+{
+    struct visit_limit_value *limit = malloc(sizeof(struct visit_limit_value));
+    memcpy(limit, value, sizeof(struct visit_limit_value));
+    return limit;
+}
+
+static void dict_visit_value_free(void *value)
+{
+    struct visit_limit_value *limit = value;
+    free(limit);
+}
+
+static void on_visit_timer(nw_timer *timer, void *privdata)
+{
+    dict_clear(visit_limit);
+}
+
 static int init_svr(void)
 {
     ws_svr_type type;
@@ -1053,9 +1090,17 @@ static int init_svr(void)
     dt.key_compare = dict_method_key_compare;
     dt.key_dup = dict_method_key_dup;
     dt.key_destructor = dict_method_key_free;
-
     method_map = dict_create(&dt, 64);
     if (method_map == NULL)
+        return -__LINE__;
+
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function = ptr_dict_hash_func;
+    dt.key_compare = ptr_dict_key_compare;
+    dt.val_dup = dict_visit_value_dup;
+    dt.val_destructor = dict_visit_value_free;
+    visit_limit = dict_create(&dt, 64);
+    if (visit_limit == NULL)
         return -__LINE__;
 
     ERR_RET_LN(add_handler("server.ping",               on_method_server_ping));
@@ -1107,6 +1152,8 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("notice.subscribe",          on_method_notice_subscribe));
     ERR_RET_LN(add_handler("notice.unsubscribe",        on_method_notice_unsubscribe));
 
+    nw_timer_set(&timer, 10, true, on_visit_timer, NULL);
+    nw_timer_start(&timer);
     return 0;
 }
 
