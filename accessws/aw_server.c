@@ -909,9 +909,11 @@ static int on_message(nw_ses *ses, double timestamp, const char *remote, const c
     dict_entry *entry = dict_find(method_map, _method);
     if (entry) {
         if (timestamp - info->visit_limit_start > settings.visit_limit_interval) {
-            info->visit_limit_count = 1;
             info->visit_limit_start = timestamp;
-        } else if (info->visit_limit_count++ > settings.visit_limit_rate){
+            info->visit_limit_count = 0;
+        }
+        info->visit_limit_count += 1;
+        if (info->visit_limit_count > settings.visit_limit_rate){
             ws_send_error_too_quick(ses, json_integer_value(id));
             sdsfree(_msg);
             json_decref(msg);
