@@ -154,7 +154,8 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_real(root, "kline_interval", &settings.kline_interval, false, 0.5));
     ERR_RET_LN(read_cfg_real(root, "asset_delay", &settings.asset_delay, false, 1.0));
     ERR_RET_LN(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
-    ERR_RET_LN(read_cfg_int(root, "visit_limit", &settings.visit_limit, false, 1000));
+    ERR_RET_LN(read_cfg_int(root, "visit_limit_rate", &settings.visit_limit_rate, false, 200));
+    ERR_RET_LN(read_cfg_real(root, "visit_limit_interval", &settings.visit_limit_interval, false, 10.0));
     
     ERR_RET_LN(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET_LN(read_depth_merge_cfg(root, "depth_merge"));

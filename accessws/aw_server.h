@@ -13,6 +13,8 @@ struct clt_info {
     uint32_t    user_id;
     char        *source;
     char        *remote;
+    double      visit_limit_start;
+    int         visit_limit_count;
 };
 
 int init_server(void);
