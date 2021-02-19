@@ -663,7 +663,7 @@ static int on_method_asset_unsubscribe(nw_ses *ses, uint64_t id, struct clt_info
     return ws_send_success(ses, id);
 }
 
-static int on_message(nw_ses *ses, const char *remote, const char *url, void *message, size_t size)
+static int on_message(nw_ses *ses, double timestamp, const char *remote, const char *url, void *message, size_t size)
 {
     struct clt_info *info = ws_ses_privdata(ses);
     log_trace("new websocket message from: %"PRIu64":%s, url: %s, size: %zu", ses->id, remote, url, size);
