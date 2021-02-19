@@ -26,6 +26,7 @@ static rpc_clt *listener;
 static nw_state *state_context;
 static nw_cache *privdata_cache;
 static nw_timer timer;
+static nw_timer limit_timer;
 
 static rpc_clt *matchengine;
 static rpc_clt *marketprice;
@@ -1152,8 +1153,8 @@ static int init_svr(void)
     ERR_RET_LN(add_handler("notice.subscribe",          on_method_notice_subscribe));
     ERR_RET_LN(add_handler("notice.unsubscribe",        on_method_notice_unsubscribe));
 
-    nw_timer_set(&timer, 10, true, on_visit_timer, NULL);
-    nw_timer_start(&timer);
+    nw_timer_set(&limit_timer, 10, true, on_visit_timer, NULL);
+    nw_timer_start(&limit_timer);
     return 0;
 }
 
