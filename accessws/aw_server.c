@@ -908,10 +908,10 @@ static int on_message(nw_ses *ses, double timestamp, const char *remote, const c
     const char *_method = json_string_value(method);
     dict_entry *entry = dict_find(method_map, _method);
     if (entry) {
-        if (timestamp - info->last_visit > settings.visit_limit_interval) {
-            info->visit_count = 1;
-            info->last_visit = timestamp;
-        } else if (info->visit_count++ > settings.visit_limit){
+        if (timestamp - info->visit_limit_start > settings.visit_limit_interval) {
+            info->visit_limit_count = 1;
+            info->visit_limit_start = timestamp;
+        } else if (info->visit_limit_count++ > settings.visit_limit_rate){
             ws_send_error_too_quick(ses, json_integer_value(id));
             sdsfree(_msg);
             json_decref(msg);
