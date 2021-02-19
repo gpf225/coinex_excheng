@@ -274,6 +274,12 @@ int ws_send_error_require_auth(nw_ses *ses, uint64_t id)
     return ws_send_error(ses, id, 6, "require auth");
 }
 
+int ws_send_error_too_quick(nw_ses *ses, uint64_t id)
+{
+    profile_inc("error_too_quick", 1);
+    return ws_send_error(ses, id, 7, "too quick");
+}
+
 int ws_send_result(nw_ses *ses, uint64_t id, json_t *result)
 {
     json_t *reply = json_object();

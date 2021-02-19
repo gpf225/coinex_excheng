@@ -73,10 +73,6 @@ static int send_message(nw_ses *ses, uint8_t opcode, uint8_t rsv1, void *payload
         }
         pkg_len += payload_len;
     }
-
-    if (ses->svr) {
-        ws_ses_update_activity(ses);
-    }
     
     log_trace_hex("send buf", buf, pkg_len);
     

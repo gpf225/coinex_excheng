@@ -90,6 +90,7 @@ struct settings {
     depth_merge_cfg     full_depth_merge;
     int                 deal_max;
     int                 visit_limit;
+    double              visit_limit_interval;
 };
 
 extern struct settings settings;
