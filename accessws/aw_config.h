@@ -89,8 +89,7 @@ struct settings {
     depth_limit_cfg     full_depth_limit;
     depth_merge_cfg     full_depth_merge;
     int                 deal_max;
-    int                 visit_limit_rate;
-    double              visit_limit_interval;
+    json_t              *visit_limit;
 };
 
 extern struct settings settings;

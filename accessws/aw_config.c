@@ -138,6 +138,12 @@ static int read_config_from_json(json_t *root)
         printf("load marketindex clt config fail: %d\n", ret);
         return -__LINE__;
     }
+    settings.visit_limit = json_object_get(root, "visit_limit");
+    if (settings.visit_limit == NULL || !json_is_object(settings.visit_limit)) {
+        printf("load visit limit config fail\n");
+        return -__LINE__;
+    }
+    json_incref(settings.visit_limit);
 
     ERR_RET_LN(read_cfg_str(root, "brokers", &settings.brokers, NULL));
     ERR_RET_LN(read_cfg_str(root, "cachecenter_host", &settings.cachecenter_host, NULL));
@@ -154,8 +160,6 @@ static int read_config_from_json(json_t *root)
     ERR_RET_LN(read_cfg_real(root, "kline_interval", &settings.kline_interval, false, 0.5));
     ERR_RET_LN(read_cfg_real(root, "asset_delay", &settings.asset_delay, false, 1.0));
     ERR_RET_LN(read_cfg_int(root, "deal_max", &settings.deal_max, false, 1000));
-    ERR_RET_LN(read_cfg_int(root, "visit_limit_rate", &settings.visit_limit_rate, false, 200));
-    ERR_RET_LN(read_cfg_real(root, "visit_limit_interval", &settings.visit_limit_interval, false, 10.0));
     
     ERR_RET_LN(read_depth_limit_cfg(root, "depth_limit"));
     ERR_RET_LN(read_depth_merge_cfg(root, "depth_merge"));

@@ -878,6 +878,33 @@ static int on_method_notice_unsubscribe(nw_ses *ses, uint64_t id, struct clt_inf
     return ws_send_success(ses, id);
 }
 
+static bool visit_limit_check(struct clt_info *info, double timestamp, const char *method)
+{
+    json_t *item = json_object_get(settings.visit_limit, method);
+    if (item == NULL || !json_is_object(item)) {
+        return true;
+    }
+
+    int rate = json_integer_value(json_object_get(item, "rate"));
+    double interval = json_real_value(json_object_get(item, "interval"));
+    dict_entry *entry = dict_find(info->visit_limit, method);
+    if (entry == NULL) {
+        struct visit_limit_value limit = {0};
+        entry = dict_add(info->visit_limit, (char *)method, &limit);
+    }
+    struct visit_limit_value *value = entry->val;
+
+    if (timestamp - value->limit_start > interval) {
+        value->limit_start = timestamp;
+        value->limit_count = 0;
+    }
+    value->limit_count += 1;
+    if (value->limit_count > rate) {
+        return false;
+    }
+    return true;
+}
+
 static int on_message(nw_ses *ses, double timestamp, const char *remote, const char *url, void *message, size_t size)
 {
     struct clt_info *info = ws_ses_privdata(ses);
@@ -908,18 +935,11 @@ static int on_message(nw_ses *ses, double timestamp, const char *remote, const c
     const char *_method = json_string_value(method);
     dict_entry *entry = dict_find(method_map, _method);
     if (entry) {
-        if (strcmp(_method, "kline.query") == 0 || strcmp(_method, "deals.query") == 0) {
-            if (timestamp - info->visit_limit_start > settings.visit_limit_interval) {
-                info->visit_limit_start = timestamp;
-                info->visit_limit_count = 0;
-            }
-            info->visit_limit_count += 1;
-            if (info->visit_limit_count > settings.visit_limit_rate){
-                ws_send_error_too_quick(ses, json_integer_value(id));
-                sdsfree(_msg);
-                json_decref(msg);
-                return -__LINE__;
-            }
+        if (!visit_limit_check(info, timestamp, _method)) {
+            ws_send_error_too_quick(ses, json_integer_value(id));
+            sdsfree(_msg);
+            json_decref(msg);
+            return -__LINE__;
         }
         
         on_request_method handler = entry->val;
@@ -948,12 +968,34 @@ decode_error:
     return -__LINE__;
 }
 
+static void *dict_visit_limit_value_dup(const void *value)
+{
+    struct visit_limit_value *obj = malloc(sizeof(struct visit_limit_value));
+    memcpy(obj, value, sizeof(struct visit_limit_value));
+    return obj;
+}
+
+static void dict_visit_limit_value_free(void *value)
+{
+    free(value);
+}
+
 static void on_upgrade(nw_ses *ses, const char *remote)
 {
     log_trace("remote: %"PRIu64":%s upgrade to websocket", ses->id, remote);
     struct clt_info *info = ws_ses_privdata(ses);
     memset(info, 0, sizeof(struct clt_info));
     info->remote = strdup(remote);
+    
+    dict_types dt;
+    memset(&dt, 0, sizeof(dt));
+    dt.hash_function  = str_dict_hash_function;
+    dt.key_compare    = str_dict_key_compare;
+    dt.key_dup        = str_dict_key_dup;
+    dt.key_destructor = str_dict_key_free;
+    dt.val_dup        = dict_visit_limit_value_dup;
+    dt.val_destructor = dict_visit_limit_value_free;
+    info->visit_limit = dict_create(&dt, 64);
     profile_inc("connection_new", 1);
 }
 
@@ -988,6 +1030,8 @@ static void on_privdata_free(void *svr, void *privdata)
         free(info->source);
     if (info->remote)
         free(info->remote);
+    if (info->visit_limit)
+        dict_release(info->visit_limit);
     nw_cache_free(privdata_cache, privdata);
 }
 
