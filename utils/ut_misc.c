@@ -33,7 +33,7 @@
 
 int process_exist(const char *fmt, ...)
 {
-    char name[PATH_MAX];
+    char name[1024];
 	va_list ap;
     va_start(ap, fmt);
     vsnprintf(name, sizeof(name), fmt, ap);
