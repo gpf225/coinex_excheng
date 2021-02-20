@@ -918,7 +918,7 @@ static int on_message(nw_ses *ses, double timestamp, const char *remote, const c
                 ws_send_error_too_quick(ses, json_integer_value(id));
                 sdsfree(_msg);
                 json_decref(msg);
-                return 0;
+                return -__LINE__;
             }
         }
         
