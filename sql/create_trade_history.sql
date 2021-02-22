@@ -36,7 +36,8 @@ CREATE TABLE `order_history_example` (
     `maker_fee`     DECIMAL(40,4) NOT NULL COMMENT "maker费率",
     `deal_stock`    DECIMAL(40,8) NOT NULL COMMENT "交易币种已交易数量",
     `deal_money`    DECIMAL(40,20) NOT NULL COMMENT "定价币种已交易数量", # 由原来16位变成20位，8+12=20，如果价格扩展到20位，那么我们就做四舍五入.
-    `deal_fee`      DECIMAL(40,20) NOT NULL COMMENT "定价货币已产生的手续费",
+    `money_fee`     DECIMAL(40,20) NOT NULL COMMENT "定价币种已产生的手续费",
+    `stock_fee`     DECIMAL(40,20) NOT NULL COMMENT "交易币种已产生的手续费",
     `asset_fee`     DECIMAL(40,20) NOT NULL COMMENT "手续费币种已产生的手续费",
     INDEX `idx_order_id` (`order_id`),
     INDEX `idx_user_time` (`user_id`, `create_time`),

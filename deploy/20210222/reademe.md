@@ -1,0 +1,10 @@
+# trade_log数据库修改
+在slice_order_example表中新增stock_fee money_fee两个字段 删除deal_fee字段
+在slice_order_{最新时间戳} 表中新增stock_fee money_fee两个字段 删除deal_fee字段 并迁移deal_fee
+
+# 修改trade_history库
+在order_history_example表中新增stock_fee money_fee两个字段 删除deal_fee字段
+在order_history表中新增stock_fee money_fee两个字段 删除deal_fee字段 并迁移值
+
+
+# 需要更新matchengine readhistory historywriter
