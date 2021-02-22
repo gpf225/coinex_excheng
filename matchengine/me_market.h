@@ -59,7 +59,8 @@ typedef struct order_t {
     mpd_t           *frozen;
     mpd_t           *deal_stock;
     mpd_t           *deal_money;
-    mpd_t           *deal_fee;
+    mpd_t           *money_fee;
+    mpd_t           *stock_fee;
     mpd_t           *asset_fee;
     mpd_t           *last_deal_amount;
     mpd_t           *last_deal_price;
