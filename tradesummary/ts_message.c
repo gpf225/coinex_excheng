@@ -184,6 +184,8 @@ static void dict_daily_trade_val_free(void *val)
     struct daily_trade_val *obj = val;
     dict_release(obj->users_trade);
     dict_release(obj->fees_detail);
+    dict_release(obj->client_trade);
+    dict_release(obj->client_fees_detail);
     mpd_del(obj->deal_amount);
     mpd_del(obj->deal_volume);
     mpd_del(obj->taker_buy_amount);
@@ -932,6 +934,7 @@ static int dump_users_market_detail(MYSQL *conn, const char *market_name, time_t
         }
     }
     dict_release_iterator(iter);
+    sdsfree(sql);
     return 0;
 }
 
