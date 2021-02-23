@@ -27,7 +27,7 @@ MYSQL_DB = ["trade_history_0", "trade_history_1", "trade_history_2", "trade_hist
 
 def add_cloumn(db_conn):
     cursor = db_conn.cursor()
-    for i in range(100)
+    for i in range(100):
         alter_sql = "alter table order_history_{} ADD money_fee DECIMAL(40,20) NOT NULL DEFAULT 0;".format(i)
         print(alter_sql)
         cursor.execute(alter_sql)
@@ -41,7 +41,8 @@ def add_cloumn(db_conn):
     cursor.close()
 
 def main():
-    for i in range(5)
+    for i in range(5):
+        print("history db: {}".format(i))
         db_conn = pymysql.connect(host=MYSQL_HOST[i], port=MYSQL_PORT[i], user=MYSQL_USER[i], passwd=MYSQL_PASS[i], db=MYSQL_DB[i])
         add_cloumn(db_conn)
         db_conn.close()

@@ -276,14 +276,14 @@ int dispatch_order(json_t *msg)
     if (sdslen(sql) == 0) {
         sql = sdscatprintf(sql, "INSERT INTO `order_history_%u` (`order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, "
                 "`market`, `source`, `fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, "
-                "`deal_stock`, `deal_money`, `money_fee`, `stock_fee`, `asset_fee`, `fee_discount`, `client_id`) VALUES ", key.hash);
+                "`deal_stock`, `deal_money`, `money_fee`, `stock_fee`, `deal_fee`, `asset_fee`, `fee_discount`, `client_id`) VALUES ", key.hash);
     } else {
         sql = sdscatprintf(sql, ", ");
     }
 
     sql = sdscatprintf(sql, "(%"PRIu64", %f, %f, %u, %u, %u, '%s', '%s', '%s', %u, %u, ", order_id,
         create_time, update_time, user_id, account, option, market, source, fee_asset ? fee_asset : "", type, side);
-    sql = sdscatprintf(sql, "'%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", 
+    sql = sdscatprintf(sql, "'%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '0', '%s', '%s', '%s')", 
         price, amount, taker_fee, maker_fee, deal_stock, deal_money, money_fee, stock_fee, asset_fee, fee_discount,
         client_id ? client_id : "");
 

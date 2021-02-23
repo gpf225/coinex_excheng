@@ -22,28 +22,42 @@ MYSQL_DB = "trade_log"
 MYSQL_PORT = 3306
 '''
 
-def get_tables(db_conn):
-    query_table_str = "show tables like 'slice_order_%'"
+def get_table(db_conn):
+    query_table_str = "select time from slice_history order by time desc limit 1"
     cursor = db_conn.cursor()
     cursor.execute(query_table_str)
     res = cursor.fetchall()
-    return res
+    return "slice_order_{}".format(res[0][0])
 
-def add_cloumn(db_conn, tables):
+def add_column(db_conn, table):
     cursor = db_conn.cursor()
-    for item in tables:
-        table = item[0]
-        print(table)
+    alter_sql = "alter table {} ADD money_fee DECIMAL(40,24) NOT NULL DEFAULT 0;".format(table)
+    print(alter_sql)
+    cursor.execute(alter_sql)
+    db_conn.commit()
 
-        alter_sql = "alter table {} ADD money_fee DECIMAL(40,24) NOT NULL DEFAULT 0;".format(table)
-        print(alter_sql)
-        cursor.execute(alter_sql)
-        db_conn.commit()
+    alter_sql = "alter table {} ADD stock_fee DECIMAL(40,24) NOT NULL DEFAULT 0;".format(table)
+    print(alter_sql)
+    cursor.execute(alter_sql)
+    db_conn.commit()
 
-        alter_sql = "alter table {} ADD stock_fee DECIMAL(40,24) NOT NULL DEFAULT 0;".format(table)
-        print(alter_sql)
-        cursor.execute(alter_sql)
-        db_conn.commit()
+    alter_sql = "alter table slice_order_example ADD money_fee DECIMAL(40,24) NOT NULL DEFAULT 0;"
+    print(alter_sql)
+    cursor.execute(alter_sql)
+    db_conn.commit()
+
+    alter_sql = "alter table slice_order_example ADD stock_fee DECIMAL(40,24) NOT NULL DEFAULT 0;"
+    print(alter_sql)
+    cursor.execute(alter_sql)
+    db_conn.commit()
+    cursor.close()
+
+def del_column(db_conn):
+    cursor = db_conn.cursor()
+    alter_sql = "alter table slice_order_example drop column deal_fee;"
+    print(alter_sql)
+    cursor.execute(alter_sql)
+    db_conn.commit()
     cursor.close()
 
 def update_table(db_conn, table):
@@ -52,6 +66,12 @@ def update_table(db_conn, table):
     cursor = db_conn.cursor()
     while True:
         query_sql = "select id, option, side, deal_fee from {} order id asc limit {}, {}".format(table, query_offset, query_limit)
+        cursor.execute(query_sql)
+        res = cursor.fetchall()
+        for order in res:
+            order
+        if len(res) < query_limit:
+            break
     cursor.close()
 
 def update_tables(db_conn, tables):
@@ -61,8 +81,10 @@ def update_tables(db_conn, tables):
 
 def main():
     db_conn = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_DB)
-    tables = get_tables(db_conn)
-    add_cloumn(db_conn, tables)
+    table = get_table(db_conn)
+    #add_column(db_conn, table)
+    update_table(db_conn, table)
+    #del_column(db_conn)
     db_conn.close()
 
 if __name__ == '__main__':
