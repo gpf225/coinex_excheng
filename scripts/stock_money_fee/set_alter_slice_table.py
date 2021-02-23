@@ -65,11 +65,29 @@ def update_table(db_conn, table):
     query_offset = 0
     cursor = db_conn.cursor()
     while True:
-        query_sql = "select id, option, side, deal_fee from {} order id asc limit {}, {}".format(table, query_offset, query_limit)
+        query_sql = "select id, option, side, deal_fee, fee_asset, asset_fee from {} order id asc limit {}, {}".format(table, query_offset, query_limit)
         cursor.execute(query_sql)
         res = cursor.fetchall()
         for order in res:
-            order
+            order_id = int(order[0])
+            option = int(order[1])
+            side = int(order[2])
+            deal_fee_str = order[3]
+            deal_fee = decimal.Decimal(deal_fee_str)
+            fee_asset = order[4]
+            asset_fee_str = order[5]
+            asset_fee = decimal.Decimal(asset_fee_str)
+            money_fee = '0'
+            stock_fee = '0'
+            if deal_fee > 0:
+                if side == 1:
+                    stock_fee = deal_fee_str
+                else:
+                    money_fee = deal_fee_str
+            update_sql = "update {} set money_fee='{}' and stock_fee='{} where id={}".format(table, money_fee, stock_fee, order_id)
+            cursor.execute(update_sql)
+            db_conn.commit()
+
         if len(res) < query_limit:
             break
     cursor.close()
