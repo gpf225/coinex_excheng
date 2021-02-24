@@ -39,7 +39,6 @@ CREATE TABLE `slice_order_example` (
     `frozen`        DECIMAL(40,24) NOT NULL,
     `deal_stock`    DECIMAL(40,8) NOT NULL,
     `deal_money`    DECIMAL(40,20) NOT NULL,
-    `deal_fee`      DECIMAL(40,24) NOT NULL,
     `money_fee`     DECIMAL(40,24) NOT NULL,
     `stock_fee`     DECIMAL(40,24) NOT NULL,
     `asset_fee`     DECIMAL(40,24) NOT NULL
