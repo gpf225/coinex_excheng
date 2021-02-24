@@ -3,10 +3,10 @@
  *     History: yang@haipo.me, 2017/04/24, create
  */
 
-# ifndef _RH_READER_H_
-# define _RH_READER_H_
+# ifndef _HR_READER_H_
+# define _HR_READER_H_
 
-# include "rh_config.h"
+# include "hr_config.h"
 
 json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id, uint32_t account,
         const char *asset, const char *business, uint64_t start_time, uint64_t end_time, size_t offset, size_t limit);

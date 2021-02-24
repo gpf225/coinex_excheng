@@ -3,7 +3,7 @@
  *     History: yang@haipo.me, 2017/04/24, create
  */
 
-# include "rh_config.h"
+# include "hr_config.h"
 
 struct settings settings;
 

@@ -3,8 +3,8 @@
  *     History: yang@haipo.me, 2017/04/24, create
  */
 
-# include "rh_config.h"
-# include "rh_reader.h"
+# include "hr_config.h"
+# include "hr_reader.h"
 # include "ut_decimal.h"
 
 json_t *get_user_balance_history(MYSQL *conn, uint32_t user_id, uint32_t account,
