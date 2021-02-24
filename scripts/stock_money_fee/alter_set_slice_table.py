@@ -27,7 +27,8 @@ def get_table(db_conn):
     cursor = db_conn.cursor()
     cursor.execute(query_table_str)
     res = cursor.fetchall()
-    return "slice_order_{}".format(res[0][0])
+    #return "slice_order_{}".format(res[0][0])
+    return "slice_order_1614067819"
 
 def add_column(db_conn, table):
     cursor = db_conn.cursor()
@@ -61,35 +62,17 @@ def del_column(db_conn):
     cursor.close()
 
 def update_table(db_conn, table):
-    query_limit = 10000
-    query_offset = 0
     cursor = db_conn.cursor()
-    while True:
-        query_sql = "select id, option, side, deal_fee, fee_asset, asset_fee from {} order id asc limit {}, {}".format(table, query_offset, query_limit)
-        cursor.execute(query_sql)
-        res = cursor.fetchall()
-        for order in res:
-            order_id = int(order[0])
-            option = int(order[1])
-            side = int(order[2])
-            deal_fee_str = order[3]
-            deal_fee = decimal.Decimal(deal_fee_str)
-            fee_asset = order[4]
-            asset_fee_str = order[5]
-            asset_fee = decimal.Decimal(asset_fee_str)
-            money_fee = '0'
-            stock_fee = '0'
-            if deal_fee > 0:
-                if side == 1:
-                    stock_fee = deal_fee_str
-                else:
-                    money_fee = deal_fee_str
-            update_sql = "update {} set money_fee='{}' and stock_fee='{} where id={}".format(table, money_fee, stock_fee, order_id)
-            cursor.execute(update_sql)
-            db_conn.commit()
+    update_sql = "update {} set money_fee=deal_fee where side=1 and deal_fee>0;".format(table)
+    print(update_sql)
+    cursor.execute(update_sql)
+    db_conn.commit()
 
-        if len(res) < query_limit:
-            break
+    update_sql = "update {} set stock_fee=deal_fee where side=2 and deal_fee>0;".format(table)
+    print(update_sql)
+    cursor.execute(update_sql)
+    db_conn.commit()
+    
     cursor.close()
 
 def update_tables(db_conn, tables):
@@ -100,9 +83,9 @@ def update_tables(db_conn, tables):
 def main():
     db_conn = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_DB)
     table = get_table(db_conn)
-    #add_column(db_conn, table)
+    add_column(db_conn, table)
     update_table(db_conn, table)
-    #del_column(db_conn)
+    del_column(db_conn)
     db_conn.close()
 
 if __name__ == '__main__':
