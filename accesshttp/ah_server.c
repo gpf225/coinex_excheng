@@ -449,6 +449,7 @@ static int init_methods_handler(void)
     ERR_RET_LN(add_handler("trade.users_volume", tradesummary, CMD_TRADE_USERS_VOLUME));
     ERR_RET_LN(add_handler("trade.net_rank", tradesummary, CMD_TRADE_NET_RANK));
     ERR_RET_LN(add_handler("trade.amount_rank", tradesummary, CMD_TRADE_AMOUNT_RANK));
+    ERR_RET_LN(add_handler("trade.deal_summary", tradesummary, CMD_TRADE_DEAL_SUMMARY));
 
     ERR_RET_LN(add_handler("notice.user_message", NULL, CMD_NOTICE_USER_MESSAGE));
     return 0;
