@@ -2,7 +2,7 @@
 1. 修改手续费规则
 2. order相关接口返回的数据里，删除deal_fee, 增加money_fee stock_fee
 3. slice_order表删除deal_fee 增加money_fee stock_fee
-4. order_history表删除deal_fee 增加money_fee stock_fee
+4. order_history表增加money_fee stock_fee
 
 # 升级步骤
 1. 停止币币交易 转账
