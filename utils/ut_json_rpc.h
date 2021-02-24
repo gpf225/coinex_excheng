@@ -38,6 +38,7 @@ int ws_send_error_service_unavailable(nw_ses *ses, uint64_t id);
 int ws_send_error_service_timeout(nw_ses *ses, uint64_t id);
 int ws_send_error_unknown_method(nw_ses *ses, uint64_t id);
 int ws_send_error_require_auth(nw_ses *ses, uint64_t id);
+int ws_send_error_too_quick(nw_ses *ses, uint64_t id);
 int ws_send_result(nw_ses *ses, uint64_t id, json_t *result);
 int ws_send_success(nw_ses *ses, uint64_t id);
 int ws_send_notify(nw_ses *ses, const char *method, json_t *params);
