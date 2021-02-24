@@ -2277,7 +2277,7 @@ json_t *get_deal_summary(time_t start_time, time_t end_time)
             dict_entry *user_entry;
             dict_iterator *user_iter = dict_get_iterator(user_dict);
             while ((user_entry = dict_next(user_iter)) != NULL) {
-                uint32_t user_id = (uintptr_t)entry->key;
+                uint32_t user_id = (uintptr_t)user_entry->key;
                 uint32_set_add(user_set, user_id);
             }
             dict_release_iterator(user_iter);
@@ -2287,6 +2287,7 @@ json_t *get_deal_summary(time_t start_time, time_t end_time)
 
     json_t *result = json_object();
     json_object_set_new(result, "deal_users", json_integer(dict_size(user_set)));
+    uint32_set_release(user_set);
     return result;
 }
 
