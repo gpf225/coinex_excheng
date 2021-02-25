@@ -88,6 +88,7 @@
 # define CMD_TRADE_NET_RANK            	701
 # define CMD_TRADE_AMOUNT_RANK          702
 # define CMD_TRADE_USERS_VOLUME         703
+# define CMD_TRADE_DEAL_SUMMARY         704
 
 // push
 # define CMD_REDER_ERROR                801

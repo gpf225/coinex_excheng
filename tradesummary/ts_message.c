@@ -2260,6 +2260,37 @@ json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t sta
     return result;
 }
 
+json_t *get_deal_summary(time_t start_time, time_t end_time)
+{
+    dict_t *user_set = uint32_set_create();
+    dict_entry *entry;
+    dict_iterator *iter = dict_get_iterator(dict_market_info);
+    while ((entry = dict_next(iter)) != NULL) {
+        struct market_info_val *market_info = entry->val;
+        for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60) {
+            void *tkey = (void *)(uintptr_t)timestamp;
+            dict_entry *market_entry = dict_find(market_info->users_detail, tkey);
+            if (market_entry == NULL)
+                continue;
+
+            dict_t *user_dict = market_entry->val;
+            dict_entry *user_entry;
+            dict_iterator *user_iter = dict_get_iterator(user_dict);
+            while ((user_entry = dict_next(user_iter)) != NULL) {
+                uint32_t user_id = (uintptr_t)user_entry->key;
+                uint32_set_add(user_set, user_id);
+            }
+            dict_release_iterator(user_iter);
+        }
+    }
+    dict_release_iterator(iter);
+
+    json_t *result = json_object();
+    json_object_set_new(result, "deal_users", json_integer(dict_size(user_set)));
+    uint32_set_release(user_set);
+    return result;
+}
+
 json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_time)
 {
     dict_types dt;
