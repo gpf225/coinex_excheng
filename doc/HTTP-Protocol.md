@@ -1526,13 +1526,32 @@ response:
 }
 ```
 
+**TradeDealSummary**
+* method: `trade.deal_summary`
+* params:
+1. start_time: start time  Integer
+2. end_time: start time  Integer
+
+* example: trade.deal_summary(1557471355, 1557476355)
+* result:
+
+```
+{
+    "id": 1572834684,
+    "result": {
+        "deal_users": 1
+    },
+    "error": null
+}
+```
+
 **Users Volume**
 * method: `trade.users_volume`
 * params:
 1. market list: array
 2. user list: array
-2. start_time: start time  Integer
-3. end_time: start time  Integer
+3. start_time: start time  Integer
+4. end_time: start time  Integer
 
 * example: trade.users_volume [["BTCUSDT"], [476], 1598357836, 1598929182]
 * result:
