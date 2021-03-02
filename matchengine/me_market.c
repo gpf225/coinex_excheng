@@ -1239,7 +1239,7 @@ static int execute_limit_bid_order(bool real, market_t *m, order_t *taker)
             mpd_t *fee_balance = balance_get(taker->user_id, taker->account, BALANCE_TYPE_AVAILABLE, m->money);
             if (fee_balance && mpd_cmp(fee_balance, require, &mpd_ctx) >= 0) {
                 bid_fee_asset = m->money;
-                ask_fee_account = taker->account;
+                bid_fee_account = taker->account;
                 mpd_copy(bid_fee, result, &mpd_ctx);
             }
             mpd_del(require);
