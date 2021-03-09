@@ -49,8 +49,8 @@ enum {
 # define CLIENT_ID_MAX_LEN           32
 
 # define OPTION_CHECK_MASK              0xff
-# define OPTION_USE_STOCK_FEE_ONLY      0x1
-# define OPTION_USE_MONEY_FEE_ONLY      0x2
+# define OPTION_SUGGEST_STOCK_FEE       0x1
+# define OPTION_SUGGEST_MONEY_FEE       0x2
 # define OPTION_UNLIMITED_MIN_AMOUNT    0x4
 # define OPTION_IMMEDIATED_OR_CANCEL    0x8
 # define OPTION_FILL_OR_KILL            0x10

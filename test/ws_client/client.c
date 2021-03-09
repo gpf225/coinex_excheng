@@ -78,7 +78,9 @@ int main(int argc, char *argv[])
     ws_clt_cfg cfg;
     memset(&cfg, 0, sizeof(cfg));
     cfg.name = strdup("coinex");
-    cfg.url = strdup("wss://test2socket.coinex.com/");
+    cfg.url = strdup("ws://192.168.3.102:8646/");
+    //cfg.url = strdup("wss://socket.coinex.com/");
+    /*
     dict_types dt;
     dt.hash_function = str_dict_hash_function;
     dt.key_dup = str_dict_key_dup;
@@ -86,10 +88,13 @@ int main(int argc, char *argv[])
     dt.key_compare = str_dict_key_compare;
     dt.val_dup = str_dict_key_dup;
     dt.val_destructor = str_dict_key_free;
+    */
 
-    cfg.header = dict_create(&dt, 8);
-    dict_add(cfg.header, "Host", "test2socket.coinex.com");
-    dict_add(cfg.header, "Origin", "http://test3.coinex.com");
+    //cfg.header = dict_create(&dt, 8);
+    //dict_add(cfg.header, "Host", "testsocket.coinex.com");
+    //dict_add(cfg.header, "Host", "192.168.3.102");
+    //dict_add(cfg.header, "Origin", "http://test_coinex1.viabtc.com/");
+    //dict_add(cfg.header, "Origin", "192.168.3.102");
     cfg.max_pkg_size = 2048000;
     cfg.heartbeat_timeout = 1;
     cfg.reconnect_timeout = 1;

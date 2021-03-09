@@ -311,7 +311,9 @@ static int on_http_message_complete(http_parser *parser)
     struct ws_clt *clt = parser->data;
     int status_code = parser->status_code;
     int ret = 0;
+    printf("status code: %d", status_code);
     if (status_code != 101) {
+        printf("error status code: %d", status_code);
         goto error;
     }
     http_response_t *response = clt->svr_info->response;

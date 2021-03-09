@@ -3,8 +3,8 @@
  *     History: yang@haipo.me, 2017/04/24, create
  */
 
-# ifndef _RH_CONFIG_H_
-# define _RH_CONFIG_H_
+# ifndef _HR_CONFIG_H_
+# define _HR_CONFIG_H_
 
 # include <math.h>
 # include <stdio.h>

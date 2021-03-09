@@ -18,7 +18,7 @@ int load_orders(MYSQL *conn, const char *table)
     while (true) {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `account`, `market`, `source`, `fee_asset`, `fee_discount`, "
-                "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee`, `asset_fee`, `option`, `client_id` FROM `%s` "
+                "`price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `money_fee`, `stock_fee`, `asset_fee`, `option`, `client_id` FROM `%s` "
                 "WHERE `id` > %"PRIu64" ORDER BY `id` LIMIT %zu", table, last_id, query_limit);
         log_trace("exec sql: %s", sql);
         int ret = mysql_real_query(conn, sql, sdslen(sql));
@@ -67,9 +67,10 @@ int load_orders(MYSQL *conn, const char *table)
             order->frozen       = decimal(row[16], 0);
             order->deal_stock   = decimal(row[17], 0);
             order->deal_money   = decimal(row[18], 0);
-            order->deal_fee     = decimal(row[19], 0);
-            order->asset_fee    = decimal(row[20], 0);
-            order->option       = strtoul(row[21], NULL, 0);
+            order->money_fee    = decimal(row[19], 0);
+            order->stock_fee    = decimal(row[20], 0);
+            order->asset_fee    = decimal(row[21], 0);
+            order->option       = strtoul(row[22], NULL, 0);
             order->last_deal_amount = mpd_qncopy(mpd_zero);
             order->last_deal_price  = mpd_qncopy(mpd_zero);
             if (strlen(row[22]) == 0) {
@@ -78,8 +79,8 @@ int load_orders(MYSQL *conn, const char *table)
                 order->client_id = strdup(row[22]);
             }
 
-            if (!order->market || !order->source || !order->price || !order->amount || !order->taker_fee || !order->maker_fee ||
-                    !order->left || !order->frozen || !order->deal_stock || !order->deal_money || !order->deal_fee || !order->asset_fee) {
+            if (!order->market || !order->source || !order->price || !order->amount || !order->taker_fee || !order->maker_fee || !order->left 
+                    || !order->frozen || !order->deal_stock || !order->deal_money || !order->money_fee || !order->stock_fee || !order->asset_fee) {
                 log_error("get order detail of order id: %"PRIu64" fail", order->id);
                 mysql_free_result(result);
                 return -__LINE__;

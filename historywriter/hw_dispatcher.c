@@ -260,7 +260,8 @@ int dispatch_order(json_t *msg)
     const char *maker_fee       = json_string_value(json_object_get(msg, "maker_fee"));
     const char *deal_stock      = json_string_value(json_object_get(msg, "deal_stock"));
     const char *deal_money      = json_string_value(json_object_get(msg, "deal_money"));
-    const char *deal_fee        = json_string_value(json_object_get(msg, "deal_fee"));
+    const char *money_fee       = json_string_value(json_object_get(msg, "money_fee"));
+    const char *stock_fee       = json_string_value(json_object_get(msg, "stock_fee"));
     const char *asset_fee       = json_string_value(json_object_get(msg, "asset_fee"));
     const char *client_id       = json_string_value(json_object_get(msg, "client_id"));
 
@@ -275,15 +276,15 @@ int dispatch_order(json_t *msg)
     if (sdslen(sql) == 0) {
         sql = sdscatprintf(sql, "INSERT INTO `order_history_%u` (`order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, "
                 "`market`, `source`, `fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, "
-                "`deal_stock`, `deal_money`, `deal_fee`, `asset_fee`, `fee_discount`, `client_id`) VALUES ", key.hash);
+                "`deal_stock`, `deal_money`, `money_fee`, `stock_fee`, `deal_fee`, `asset_fee`, `fee_discount`, `client_id`) VALUES ", key.hash);
     } else {
         sql = sdscatprintf(sql, ", ");
     }
 
     sql = sdscatprintf(sql, "(%"PRIu64", %f, %f, %u, %u, %u, '%s', '%s', '%s', %u, %u, ", order_id,
         create_time, update_time, user_id, account, option, market, source, fee_asset ? fee_asset : "", type, side);
-    sql = sdscatprintf(sql, "'%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')", 
-        price, amount, taker_fee, maker_fee, deal_stock, deal_money, deal_fee, asset_fee, fee_discount,
+    sql = sdscatprintf(sql, "'%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '0', '%s', '%s', '%s')", 
+        price, amount, taker_fee, maker_fee, deal_stock, deal_money, money_fee, stock_fee, asset_fee, fee_discount,
         client_id ? client_id : "");
 
     set_sql(&key, sql);

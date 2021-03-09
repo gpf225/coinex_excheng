@@ -3,9 +3,9 @@
  *     History: yang@haipo.me, 2017/04/24, create
  */
 
-# include "rh_config.h"
-# include "rh_server.h"
-# include "rh_reader.h"
+# include "hr_config.h"
+# include "hr_server.h"
+# include "hr_reader.h"
 
 # define MAX_PENDING_JOB 10
 

@@ -3,10 +3,10 @@
  *     History: yang@haipo.me, 2017/04/24, create
  */
 
-# include "rh_config.h"
-# include "rh_server.h"
+# include "hr_config.h"
+# include "hr_server.h"
 
-const char *__process__ = "readhistory";
+const char *__process__ = "historyreader";
 const char *__version__ = "0.1.0";
 
 nw_timer cron_timer;

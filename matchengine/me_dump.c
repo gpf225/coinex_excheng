@@ -134,7 +134,7 @@ static int dump_orders_list(MYSQL *conn, const char *table, skiplist_t *list)
         order_t *order = node->value;
         if (index == 0) {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `t`, `side`, `create_time`, `update_time`, `user_id`, `account`, `option`, `market`, `source`, `fee_asset`, `client_id`, "
-                    "`fee_discount`, `price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `deal_fee`, `asset_fee`) VALUES ", table);
+                    "`fee_discount`, `price`, `amount`, `taker_fee`, `maker_fee`, `left`, `frozen`, `deal_stock`, `deal_money`, `money_fee`, `stock_fee`, `asset_fee`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
@@ -152,7 +152,8 @@ static int dump_orders_list(MYSQL *conn, const char *table, skiplist_t *list)
         sql = sql_append_mpd(sql, order->frozen, true);
         sql = sql_append_mpd(sql, order->deal_stock, true);
         sql = sql_append_mpd(sql, order->deal_money, true);
-        sql = sql_append_mpd(sql, order->deal_fee, true);
+        sql = sql_append_mpd(sql, order->money_fee, true);
+        sql = sql_append_mpd(sql, order->stock_fee, true);
         sql = sql_append_mpd(sql, order->asset_fee, false);
         sql = sdscatprintf(sql, ")");
 
