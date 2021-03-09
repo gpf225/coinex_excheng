@@ -27,8 +27,8 @@ def get_table(db_conn):
     cursor = db_conn.cursor()
     cursor.execute(query_table_str)
     res = cursor.fetchall()
-    #return "slice_order_{}".format(res[0][0])
-    return "slice_order_1614067819"
+    return "slice_order_{}".format(res[0][0])
+    #return "slice_order_1614067819"
 
 def add_column(db_conn, table):
     cursor = db_conn.cursor()

@@ -73,10 +73,10 @@ int load_orders(MYSQL *conn, const char *table)
             order->option       = strtoul(row[22], NULL, 0);
             order->last_deal_amount = mpd_qncopy(mpd_zero);
             order->last_deal_price  = mpd_qncopy(mpd_zero);
-            if (strlen(row[22]) == 0) {
+            if (strlen(row[23]) == 0) {
                 order->client_id = NULL;
             } else {
-                order->client_id = strdup(row[22]);
+                order->client_id = strdup(row[23]);
             }
 
             if (!order->market || !order->source || !order->price || !order->amount || !order->taker_fee || !order->maker_fee || !order->left 

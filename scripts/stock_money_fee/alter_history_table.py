@@ -20,7 +20,7 @@ MYSQL_DB = ["trade_history_0", "trade_history_1", "trade_history_2", "trade_hist
 '''
 MYSQL_HOST= ["coinextradehistory0.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory1.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory2.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory3.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory4.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com"]
 MYSQL_PORT = [3306, 3306, 3306, 3306, 3306]
-MYSQL_USER = ["coinex", "coinex", "coinex", "coinex", "coinex"]
+MYSQL_USER = ["root", "root", "root", "root", "root"]
 MYSQL_PASS = ["6jh7QCaj4gX8QVx4T7j6", "7BG5CWFvPAOOdx99Gytn", "lsD9idvDE0b26W6V474M", "60yQcHSNB76PQtl7HvQA", "Hs7NMTIdG58Zk7sP68vD"]
 MYSQL_DB = ["trade_history_0", "trade_history_1", "trade_history_2", "trade_history_3", "trade_history_4"]
 '''
