@@ -8,7 +8,7 @@ cd ../matchengine/ &&  make clean && make
 cd ../marketprice/ &&  make clean && make
 cd ../marketindex/ &&  make clean && make
 cd ../historywriter/ &&  make clean && make
-cd ../readhistory/ &&  make clean && make
+cd ../historyreader/ &&  make clean && make
 cd ../alertcenter/ &&  make clean && make
 cd ../cachecenter/ &&  make clean && make
 cd ../accessrest/ &&  make clean && make
