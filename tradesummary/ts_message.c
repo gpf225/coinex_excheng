@@ -99,6 +99,10 @@ struct user_detail_val {
     mpd_t   *sell_amount;
     mpd_t   *buy_volume;
     mpd_t   *sell_volume;
+    mpd_t   *taker_amount;
+    mpd_t   *maker_amount;
+    mpd_t   *taker_volume;
+    mpd_t   *maker_volume;
 };
 
 struct trade_net_rank_val {
@@ -247,6 +251,10 @@ static void dict_user_detail_val_free(void *val)
     mpd_del(obj->sell_amount);
     mpd_del(obj->buy_volume);
     mpd_del(obj->sell_volume);
+    mpd_del(obj->taker_amount);
+    mpd_del(obj->maker_amount);
+    mpd_del(obj->taker_volume);
+    mpd_del(obj->maker_volume);
     free(obj);
 }
 
@@ -454,6 +462,10 @@ struct user_detail_val *get_user_detail_info(dict_t *dict, uint32_t user_id, tim
     user_detail->sell_amount = mpd_qncopy(mpd_zero);
     user_detail->buy_volume  = mpd_qncopy(mpd_zero);
     user_detail->sell_volume = mpd_qncopy(mpd_zero);
+    user_detail->taker_amount  = mpd_qncopy(mpd_zero);
+    user_detail->maker_amount = mpd_qncopy(mpd_zero);
+    user_detail->taker_volume  = mpd_qncopy(mpd_zero);
+    user_detail->maker_volume = mpd_qncopy(mpd_zero);
     dict_add(user_dict, ukey, user_detail);
 
     return user_detail;
@@ -517,6 +529,14 @@ static int update_user_volume(dict_t *users_trade, dict_t *users_detail, uint32_
     } else {
         mpd_add(user_detail->sell_amount, user_detail->sell_amount, amount, &mpd_ctx);
         mpd_add(user_detail->sell_volume, user_detail->sell_volume, volume, &mpd_ctx);
+    }
+
+    if (is_taker) {
+        mpd_add(user_detail->taker_amount, user_detail->taker_amount, amount, &mpd_ctx);
+        mpd_add(user_detail->taker_volume, user_detail->taker_volume, volume, &mpd_ctx);
+    } else {
+        mpd_add(user_detail->maker_amount, user_detail->maker_amount, amount, &mpd_ctx);
+        mpd_add(user_detail->maker_volume, user_detail->maker_volume, volume, &mpd_ctx);
     }
 
     return 0;
@@ -906,7 +926,8 @@ static int dump_users_market_detail(MYSQL *conn, const char *market_name, time_t
         struct user_detail_val *user_detail = entry->val;
 
         if (index % insert_limit == 0) {
-            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `user_id`, `market`, `time`, `buy_amount`, `sell_amount`, `buy_volume`, `sell_volume`) VALUES ", table);
+            sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `user_id`, `market`, `time`, `buy_amount`, `sell_amount`, `buy_volume`, `sell_volume`, "
+                    "`maker_amount`, `taker_amount`, `maker_volume`, `taker_volume`) VALUES ", table);
         } else {
             sql = sdscatprintf(sql, ", ");
         }
@@ -915,13 +936,18 @@ static int dump_users_market_detail(MYSQL *conn, const char *market_name, time_t
         sql = sql_append_mpd(sql, user_detail->buy_amount, true);
         sql = sql_append_mpd(sql, user_detail->sell_amount, true);
         sql = sql_append_mpd(sql, user_detail->buy_volume, true);
-        sql = sql_append_mpd(sql, user_detail->sell_volume, false);
+        sql = sql_append_mpd(sql, user_detail->sell_volume, true);
+        sql = sql_append_mpd(sql, user_detail->maker_amount, true);
+        sql = sql_append_mpd(sql, user_detail->taker_amount, true);
+        sql = sql_append_mpd(sql, user_detail->maker_volume, true);
+        sql = sql_append_mpd(sql, user_detail->taker_volume, false);
         sql = sdscatprintf(sql, ")");
 
         index += 1;
         if (index % insert_limit == 0 || index == dict_size(user_dict)) {
             sql = sdscatprintf(sql, " on duplicate key update `buy_amount`=values(`buy_amount`), `sell_amount`=values(`sell_amount`), "
-                    "`buy_volume`=values(`buy_volume`), `sell_volume`=values(`sell_volume`)");
+                    "`buy_volume`=values(`buy_volume`), `sell_volume`=values(`sell_volume`), `maker_amount`=values(`maker_amount`), "
+                    "`taker_amount`=values(`taker_amount`), `maker_volume`=values(`maker_volume`), `taker_volume`=values(`taker_volume`)");
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
             if (ret != 0) {
@@ -977,7 +1003,8 @@ static int load_detail(MYSQL *conn, time_t timestamp)
     uint64_t last_id = 0;
     while (true) {
         sds sql = sdsempty();
-        sql = sdscatprintf(sql, "SELECT `id`, `market`, `user_id`, `buy_amount`, `sell_amount`, `buy_volume`, `sell_volume`"
+        sql = sdscatprintf(sql, "SELECT `id`, `market`, `user_id`, `buy_amount`, `sell_amount`, `buy_volume`, `sell_volume`, "
+                "maker_amount, taker_amount, maker_volume, taker_volume "
                 "FROM `%s` WHERE `time`=%ld  and `id` > %"PRIu64" ORDER BY `id` ASC LIMIT %zu", table, timestamp, last_id, query_limit);
         log_trace("exec sql: %s", sql);
 
@@ -1011,17 +1038,30 @@ static int load_detail(MYSQL *conn, time_t timestamp)
             mpd_t *sell_amount = decimal(row[4], 0);
             mpd_t *buy_volume = decimal(row[5], 0);
             mpd_t *sell_volume = decimal(row[6], 0);
-            if (!buy_amount || !sell_amount || !buy_volume || !sell_volume) {
+            mpd_t *maker_amount = decimal(row[7], 0);
+            mpd_t *taker_amount = decimal(row[8], 0);
+            mpd_t *maker_volume = decimal(row[9], 0);
+            mpd_t *taker_volume = decimal(row[10], 0);
+            if (!buy_amount || !sell_amount || !buy_volume || !sell_volume || 
+                !maker_amount || !taker_amount || !maker_volume || !taker_volume ) {
                 log_error("get detail fail, market: %s, timestamp: %ld", market, timestamp);
             }
             mpd_copy(user_detail->buy_amount, buy_amount, &mpd_ctx);
             mpd_copy(user_detail->sell_amount, sell_amount, &mpd_ctx);
             mpd_copy(user_detail->buy_volume, buy_volume, &mpd_ctx);
             mpd_copy(user_detail->sell_volume, sell_volume, &mpd_ctx);
+            mpd_copy(user_detail->maker_amount, maker_amount, &mpd_ctx);
+            mpd_copy(user_detail->taker_amount, taker_amount, &mpd_ctx);
+            mpd_copy(user_detail->maker_volume, maker_volume, &mpd_ctx);
+            mpd_copy(user_detail->taker_volume, taker_volume, &mpd_ctx);
             mpd_del(buy_amount);
             mpd_del(sell_amount);
             mpd_del(buy_volume);
             mpd_del(sell_volume);
+            mpd_del(maker_amount);
+            mpd_del(taker_amount);
+            mpd_del(maker_volume);
+            mpd_del(taker_volume);
 
             if (timestamp > last_dump_time) {
                 last_dump_time = timestamp;
@@ -2159,6 +2199,10 @@ static int update_trade_detail(dict_t *dict, time_t start_time, time_t end_time,
                 detail->sell_amount = mpd_qncopy(mpd_zero);
                 detail->buy_volume  = mpd_qncopy(mpd_zero);
                 detail->sell_volume = mpd_qncopy(mpd_zero);
+                detail->maker_amount  = mpd_qncopy(mpd_zero);
+                detail->taker_amount = mpd_qncopy(mpd_zero);
+                detail->maker_volume  = mpd_qncopy(mpd_zero);
+                detail->taker_volume = mpd_qncopy(mpd_zero);
                 result = dict_add(dict, ukey, detail);
             }
 
@@ -2204,6 +2248,10 @@ static int get_trade_users_detail(dict_t *dict, json_t *user_list, const char *m
                 detail->sell_amount = mpd_qncopy(mpd_zero);
                 detail->buy_volume  = mpd_qncopy(mpd_zero);
                 detail->sell_volume = mpd_qncopy(mpd_zero);
+                detail->maker_amount  = mpd_qncopy(mpd_zero);
+                detail->taker_amount = mpd_qncopy(mpd_zero);
+                detail->maker_volume  = mpd_qncopy(mpd_zero);
+                detail->taker_volume = mpd_qncopy(mpd_zero);
                 result = dict_add(dict, ukey, detail);
             }
 
@@ -2249,6 +2297,8 @@ json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t sta
             snprintf(user_id_str, sizeof(user_id_str), "%u", user_id);
             json_array_append_new_mpd(item, user_detail->buy_volume);
             json_array_append_new_mpd(item, user_detail->sell_volume);
+            json_array_append_new_mpd(item, user_detail->maker_volume);
+            json_array_append_new_mpd(item, user_detail->taker_volume);
             json_object_set_new(market_info, user_id_str, item);
         }
         json_object_set_new(result, market_name, market_info);
