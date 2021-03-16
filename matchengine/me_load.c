@@ -738,7 +738,7 @@ static int load_cancel_order(json_t *params)
 
     int ret = market_cancel_order(false, NULL, market, order);
     if (ret < 0) {
-        log_error("market_cancel_order id: %"PRIu64", user id: %u, market: %s", order_id, user_id, market_name);
+        log_error("market_cancel_order id: %"PRIu64", user id: %u, market: %s, fail: %d", order_id, user_id, market_name, ret);
         return -__LINE__;
     }
 
@@ -779,7 +779,7 @@ static int load_cancel_order_all(json_t *params)
 
     int ret = market_cancel_order_all(false, user_id, account, market, side);
     if (ret < 0) {
-        log_error("market_cancel_order_all user id: %u, account: %d, market: %s", user_id, account, market_name);
+        log_error("market_cancel_order_all user id: %u, account: %d, market: %s, fail: %d", user_id, account, market_name, ret);
         return -__LINE__;
     }
 
@@ -1104,7 +1104,7 @@ static int load_cancel_stop(json_t *params)
 
     int ret = market_cancel_stop(false, NULL, market, stop);
     if (ret < 0) {
-        log_error("market_cancel_order id: %"PRIu64", user id: %u, market: %s", order_id, user_id, market_name);
+        log_error("market_cancel_order id: %"PRIu64", user id: %u, market: %s, fail: %d", order_id, user_id, market_name, ret);
         return -__LINE__;
     }
 
@@ -1145,7 +1145,7 @@ static int load_cancel_stop_all(json_t *params)
 
     int ret = market_cancel_stop_all(false, user_id, account, market, side);
     if (ret < 0) {
-        log_error("market_cancel_stop_all user id: %u, account: %d, market: %s", user_id, account, market_name);
+        log_error("market_cancel_stop_all user id: %u, account: %d, market: %s, fail: %d", user_id, account, market_name, ret);
         return -__LINE__;
     }
 
