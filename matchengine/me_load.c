@@ -333,7 +333,7 @@ static int load_update_balance(json_t *params)
     mpd_del(change);
 
     if (ret < 0) {
-        log_stderr("update_user_balance failed, ret:%d", ret);
+        log_error("update_user_balance fail: %d", ret);
         return -__LINE__;
     }
 
@@ -387,6 +387,7 @@ static int load_asset_lock(json_t *params)
     int ret = update_user_lock(false, user_id, account, asset, business, business_id, amount);
     mpd_del(amount);
     if (ret < 0) {
+        log_error("update_user_lock fail: %d", ret);
         return -__LINE__;
     }
 
@@ -440,6 +441,7 @@ static int load_asset_unlock(json_t *params)
     int ret = update_user_unlock(false, user_id, account, asset, business, business_id, amount);
     mpd_del(amount);
     if (ret < 0) {
+        log_error("update_user_unlock fail: %d", ret);
         return -__LINE__;
     }
 
