@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+#encoding: utf-8
 
 import pymysql
 import requests
@@ -11,27 +13,11 @@ MYSQL_USER = "root"
 MYSQL_PASS = "shit"
 MYSQL_DB = "trade_log"
 
-'''
-MYSQL_HOST = "coinexlog.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com"
-MYSQL_USER = "coinex"
-MYSQL_PASS = "hp1sXMJftZWPO5bQ2snu"
-MYSQL_DB = "trade_log"
-MYSQL_PORT = 3306
-'''
-
 MYSQL_HOST_HIS = ["8.129.115.68", "8.129.115.68", "8.129.115.68", "8.129.115.68", "8.129.115.68"]
 MYSQL_PORT_HIS = [44444, 44444, 44444, 44444, 44444]
 MYSQL_USER_HIS = ["root", "root", "root", "root", "root"]
 MYSQL_PASS_HIS = ["shit", "shit", "shit", "shit", "shit"]
 MYSQL_DB_HIS = ["trade_history_0", "trade_history_1", "trade_history_2", "trade_history_3", "trade_history_4"]
-
-'''
-MYSQL_HOST_HIS = ["coinextradehistory0.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory1.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory2.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory3.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory4.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com"]
-MYSQL_PORT_HIS = [3306, 3306, 3306, 3306, 3306]
-MYSQL_USER_HIS = ["root", "root", "root", "root", "root"]
-MYSQL_PASS_HIS = ["6jh7QCaj4gX8QVx4T7j6", "7BG5CWFvPAOOdx99Gytn", "lsD9idvDE0b26W6V474M", "60yQcHSNB76PQtl7HvQA", "Hs7NMTIdG58Zk7sP68vD"]
-MYSQL_DB_HIS =   ["trade_history_0", "trade_history_1", "trade_history_2", "trade_history_3", "trade_history_4"]
-'''
 
 MARKET_URL = "http://8.129.115.68:8000/internal/exchange/market/list"
 TRADE_conn = ...
@@ -307,12 +293,12 @@ def main(operate):
     if operate == "check":
         diff = set(balance_frozen_dict.keys()).difference(set(order_frozen_dict.keys()))
         for key in diff:
-            print("{} no order".format(key))
+            print("{} no order, balance frozen: {}".format(key, balance_frozen_dict[key]))
 
         for key, balance in order_frozen_dict.items():
             if key not in balance_frozen_dict:
                 asset = key.split("_")[2]
-                print("{} not frozen".format(key))
+                print("{} not frozen, order frozen: {}".format(key, balance[0]))
             elif balance_frozen_dict[key] != balance[0]:
                 print("{} not equal, order frozen: {}, balance frozen: {}"
                       .format(key, balance[0], balance_frozen_dict[key]))
