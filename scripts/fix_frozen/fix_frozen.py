@@ -105,18 +105,19 @@ def get_frozen_order_info(table=ORDER_TABLE):
     limit = 10000
     offset = 0
     market_list = get_market_list_()
+    order_frozen_dict = dict()
     while True:
         sql_str = f"SELECT id, account, user_id, market, side, frozen FROM {table} WHERE frozen > 0 " \
                   f"ORDER BY user_id LIMIT {offset},{limit}"
         cursor.execute(sql_str)
         records = cursor.fetchall()
-        order_frozen_dict = dict()
+
         for record_id, account, user_id, market, side, order_frozen in records:
+            order_frozen = decimal.Decimal(order_frozen)
             if side == 1:
                 asset = market_list[market]["stock"]  # stock
             else:
                 asset = market_list[market]["money"]  # money
-
             key = f"{account}_{user_id}_{asset}"
             if key not in order_frozen_dict:
                 order_frozen_dict[key] = [order_frozen, [record_id]]
@@ -152,7 +153,7 @@ def get_balance(account, user_id, asset, t, table=BALANCE_TABLE):
     else:
         balance = cursor.fetchone()[0]
     cursor.close()
-    return balance
+    return decimal.Decimal(balance)
 
 
 def set_balance(account, user_id, asset, t, balance, table=BALANCE_TABLE):
@@ -174,8 +175,8 @@ def del_balance(account, user_id, asset, t, table=BALANCE_TABLE):
     cursor.close()
 
 
-def get_his_conn_table(user_id, db_num=5):
-    db_index = (user_id % (db_num * HISTORY_HASH_NUM)) / HISTORY_HASH_NUM
+def get_his_conn_table(user_id: int, db_num=5):
+    db_index = (user_id % (db_num * HISTORY_HASH_NUM)) // HISTORY_HASH_NUM
     table_index = user_id % HISTORY_HASH_NUM
     table = f"order_history_{table_index}"
     db = HIS_conn[db_index]
@@ -185,11 +186,11 @@ def get_his_conn_table(user_id, db_num=5):
 def get_history_order_record(id_list: list, table=ORDER_TABLE):
     global TRADE_conn
     id_total = str(id_list)
-    id_total.replace("[", "")
-    id_total.replace("]", "")
+    id_total = id_total.replace("[", "")
+    id_total = id_total.replace("]", "")
     sql_str = "SELECT `id`, `create_time`, `update_time`, `user_id`, `account`, `option`, `market`, `source`, " \
               "`fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, `deal_stock`, " \
-              "`deal_money`, `money_fee`, `stock_fee`, `deal_fee`, `asset_fee`, `fee_discount`, `client_id` " \
+              "`deal_money`, `money_fee`, `stock_fee`, 0, `asset_fee`, `fee_discount`, `client_id` " \
               f"FROM {table} WHERE id in ({id_total}) and deal_stock > 0"
     cursor = TRADE_conn.cursor()
     cursor.execute(sql_str)
@@ -197,6 +198,17 @@ def get_history_order_record(id_list: list, table=ORDER_TABLE):
 
     cursor.close()
     return record_list
+
+
+def convert_record_2_str(record: tuple):
+    result = str()
+    first = True
+    for element in record:
+        if first is True:
+            first = False
+            result = f"{element}"
+        result += f",{element}"
+    return result
 
 
 def append_order_history_batch(record_list: list, user_id):
@@ -210,9 +222,7 @@ def append_order_history_batch(record_list: list, user_id):
               "`money_fee`, `stock_fee`, `deal_fee`, `asset_fee`, `fee_discount`, `client_id`) VALUES "
     first = True
     for record in record_list:
-        record_str = str(record)
-        record_str.replace("[", "")
-        record_str.replace("]", "")
+        record_str = convert_record_2_str(record)
         if first is True:
             first = False
             sql_str += f"({record_str})"
@@ -233,10 +243,10 @@ def cancel_order_batch(id_list: list, user_id, table=ORDER_TABLE):
 
     # 取消订单
     global TRADE_conn
-    id_total = str(id_list)
-    id_total.replace("[", "")
-    id_total.replace("]", "")
-    sql_str = f"delete from {table} where id in ({id_list})"
+    id_total = id_total = str(id_list)
+    id_total = id_total.replace("[", "")
+    id_total = id_total.replace("]", "")
+    sql_str = f"delete from {table} where id in ({id_total})"
     cursor = TRADE_conn.cursor()
     cursor.execute(sql_str)
     cursor.close()
@@ -248,7 +258,7 @@ def frozen_cancel(account, user_id, asset):
     frozen_balance = get_balance(account, user_id, asset, 2)
     new_available = available_balance + frozen_balance
     set_balance(account, user_id, asset, 1, new_available.to_eng_string())
-    set_balance(account, user_id, asset, 2, ZERO.to_eng_string())
+    del_balance(account, user_id, asset, 2)
     TRADE_conn.commit()
 
 
@@ -265,9 +275,9 @@ def main(operate):
             if key not in balance_frozen_dict:
                 asset = key.split("_")[2]
                 print("{} not frozen".format(key))
-            elif balance_frozen_dict[key] != balance:
+            elif balance_frozen_dict[key] != balance[0]:
                 print("{} not equal, order frozen: {}, balance frozen: {}"
-                      .format(key, balance, balance_frozen_dict[key]))
+                      .format(key, balance[0], balance_frozen_dict[key]))
 
     if operate == "update":
         init_history_conn(HISTORY_DATABASE_NUM)
@@ -275,17 +285,23 @@ def main(operate):
         for key in diff:
             print("{} no order".format(key))
             account, user_id, asset = key.split("_")
+            account = int(account)
+            user_id = int(user_id)
             frozen_cancel(account, user_id, asset)
 
         for key, balance in order_frozen_dict.items():
             if key not in balance_frozen_dict:
                 print("{} not frozen".format(key))
                 account, user_id, _ = key.split("_")
+                account = int(account)
+                user_id = int(user_id)
                 cancel_order_batch(balance[1], user_id)
             elif balance_frozen_dict[key] != balance[0]:
                 print("{} not equal, order frozen: {}, balance frozen: {}"
                       .format(key, balance[0], balance_frozen_dict[key]))
                 account, user_id, asset = key.split("_")
+                account = int(account)
+                user_id = int(user_id)
                 cancel_order_batch(balance[1], user_id)
                 frozen_cancel(account, user_id, asset)
 
