@@ -3,6 +3,7 @@ import pymysql
 import requests
 import decimal
 import sys
+import time
 
 MYSQL_HOST = "8.129.115.68"
 MYSQL_PORT = 44444
@@ -37,8 +38,8 @@ TRADE_conn = ...
 HIS_conn = dict()
 HISTORY_DATABASE_NUM = 5
 HISTORY_HASH_NUM = 100
-ORDER_TABLE = "slice_order_1615879602"
-BALANCE_TABLE = "slice_balance_1615879602"
+ORDER_TABLE = ...
+BALANCE_TABLE = ...
 ZERO = decimal.Decimal("0")
 
 
@@ -75,7 +76,7 @@ def get_market_list_():
     return market_list
 
 
-def get_frozen_balance_info(table=BALANCE_TABLE):
+def get_frozen_balance_info():
     global TRADE_conn
     cursor = TRADE_conn.cursor()
 
@@ -83,7 +84,7 @@ def get_frozen_balance_info(table=BALANCE_TABLE):
     offset = 0
     balance_info = dict()
     while True:
-        sql_str = f"select account, user_id, asset, balance from {table} where " \
+        sql_str = f"select account, user_id, asset, balance from {BALANCE_TABLE} where " \
                   f"t = 2 and balance > 0 order by id limit {offset}, {limit}"
         cursor.execute(sql_str)
         records = cursor.fetchall()
@@ -99,7 +100,7 @@ def get_frozen_balance_info(table=BALANCE_TABLE):
     return balance_info
 
 
-def get_frozen_order_info(table=ORDER_TABLE):
+def get_frozen_order_info():
     global TRADE_conn
     cursor = TRADE_conn.cursor()
     limit = 10000
@@ -107,7 +108,7 @@ def get_frozen_order_info(table=ORDER_TABLE):
     market_list = get_market_list_()
     order_frozen_dict = dict()
     while True:
-        sql_str = f"SELECT id, account, user_id, market, side, frozen FROM {table} WHERE frozen > 0 " \
+        sql_str = f"SELECT id, account, user_id, market, side, frozen FROM {ORDER_TABLE} WHERE frozen > 0 " \
                   f"ORDER BY user_id LIMIT {offset},{limit}"
         cursor.execute(sql_str)
         records = cursor.fetchall()
@@ -132,10 +133,10 @@ def get_frozen_order_info(table=ORDER_TABLE):
     return order_frozen_dict
 
 
-def new_balance(account, user_id, asset, t, table=BALANCE_TABLE):
+def new_balance(account, user_id, asset, t):
     global TRADE_conn
     cursor = TRADE_conn.cursor()
-    sql_str = f"insert into {table} (account, user_id, asset, t, balance) values " \
+    sql_str = f"insert into {BALANCE_TABLE} (account, user_id, asset, t, balance) values " \
               f"({account}, {user_id}, '{asset}', {t}, '0')"
     print(sql_str)
     if cursor.execute(sql_str) < 1:
@@ -143,10 +144,10 @@ def new_balance(account, user_id, asset, t, table=BALANCE_TABLE):
     cursor.close()
 
 
-def get_balance(account, user_id, asset, t, table=BALANCE_TABLE):
+def get_balance(account, user_id, asset, t):
     global TRADE_conn
     cursor = TRADE_conn.cursor()
-    sql_str = f"select balance from {table} where " \
+    sql_str = f"select balance from {BALANCE_TABLE} where " \
               f"account = {account} and user_id = {user_id} and asset = '{asset}' and t = {t}"
     print(sql_str)
     if cursor.execute(sql_str) < 1:
@@ -158,20 +159,20 @@ def get_balance(account, user_id, asset, t, table=BALANCE_TABLE):
     return decimal.Decimal(balance)
 
 
-def set_balance(account, user_id, asset, t, balance, table=BALANCE_TABLE):
+def set_balance(account, user_id, asset, t, balance):
     global TRADE_conn
     cursor = TRADE_conn.cursor()
-    sql_str = f"update {table} set balance = '{balance}' where " \
+    sql_str = f"update {BALANCE_TABLE} set balance = '{balance}' where " \
               f"account = {account} and user_id = {user_id} and asset = '{asset}' and t = {t}"
     if cursor.execute(sql_str) < 1:
         raise Exception("set balance error")
     cursor.close()
 
 
-def del_balance(account, user_id, asset, t, table=BALANCE_TABLE):
+def del_balance(account, user_id, asset, t):
     global TRADE_conn
     cursor = TRADE_conn.cursor()
-    sql_str = f"DELETE FROM {table} WHERE account = {account} and user_id = {user_id} and asset = '{asset}' and t = {t}"
+    sql_str = f"DELETE FROM {BALANCE_TABLE} WHERE account = {account} and user_id = {user_id} and asset = '{asset}' and t = {t}"
     print(sql_str)
     if cursor.execute(sql_str) != 1:
         raise Exception("set balance error")
@@ -186,7 +187,7 @@ def get_his_conn_table(user_id: int, db_num=5):
     return db, table
 
 
-def get_history_order_record(id_list: list, table=ORDER_TABLE):
+def get_history_order_record(id_list: list):
     global TRADE_conn
     id_total = str(id_list)
     id_total = id_total.replace("[", "")
@@ -194,7 +195,7 @@ def get_history_order_record(id_list: list, table=ORDER_TABLE):
     sql_str = "SELECT `id`, `create_time`, `update_time`, `user_id`, `account`, `option`, `market`, `source`, " \
               "`fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, `deal_stock`, " \
               "`deal_money`, `money_fee`, `stock_fee`, `asset_fee`, `fee_discount`, `client_id` " \
-              f"FROM {table} WHERE id in ({id_total}) and deal_stock > 0"
+              f"FROM {ORDER_TABLE} WHERE id in ({id_total}) and deal_stock > 0"
     print(sql_str)
     cursor = TRADE_conn.cursor()
     cursor.execute(sql_str)
@@ -253,7 +254,7 @@ def append_order_history_batch(record_list: list, user_id):
     db_conn.commit()
 
 
-def cancel_order_batch(id_list: list, user_id, table=ORDER_TABLE):
+def cancel_order_batch(id_list: list, user_id):
     # 订单取消前插入历史表
     record_list = get_history_order_record(id_list)
     append_order_history_batch(record_list, user_id)
@@ -263,7 +264,7 @@ def cancel_order_batch(id_list: list, user_id, table=ORDER_TABLE):
     id_total = id_total = str(id_list)
     id_total = id_total.replace("[", "")
     id_total = id_total.replace("]", "")
-    sql_str = f"delete from {table} where id in ({id_total})"
+    sql_str = f"delete from {ORDER_TABLE} where id in ({id_total})"
     print(sql_str)
     cursor = TRADE_conn.cursor()
     cursor.execute(sql_str)
@@ -278,6 +279,16 @@ def frozen_cancel(account, user_id, asset):
     set_balance(account, user_id, asset, 1, new_available.to_eng_string())
     del_balance(account, user_id, asset, 2)
     TRADE_conn.commit()
+
+
+def table_backup():
+    global TRADE_conn
+    cursor = TRADE_conn.cursor()
+    sql_str = f"create table {ORDER_TABLE}_backup_{time.time()} as select * from {ORDER_TABLE}"
+    cursor.execute(sql_str)
+    sql_str = f"create table {BALANCE_TABLE}_backup_{time.time()} as select * from {BALANCE_TABLE}"
+    cursor.execute(sql_str)
+    cursor.close()
 
 
 def main(operate):
@@ -298,6 +309,7 @@ def main(operate):
                       .format(key, balance[0], balance_frozen_dict[key]))
 
     if operate == "update":
+        table_backup()
         init_history_conn(HISTORY_DATABASE_NUM)
         diff = set(balance_frozen_dict.keys()).difference(set(order_frozen_dict.keys()))
         for key in diff:
