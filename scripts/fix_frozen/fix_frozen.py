@@ -137,6 +137,7 @@ def new_balance(account, user_id, asset, t, table=BALANCE_TABLE):
     cursor = TRADE_conn.cursor()
     sql_str = f"insert into {table} (account, user_id, asset, t, balance) values " \
               f"({account}, {user_id}, '{asset}', {t}, '0')"
+    print(sql_str)
     if cursor.execute(sql_str) < 1:
         raise Exception("new_balance fail")
     cursor.close()
@@ -147,6 +148,7 @@ def get_balance(account, user_id, asset, t, table=BALANCE_TABLE):
     cursor = TRADE_conn.cursor()
     sql_str = f"select balance from {table} where " \
               f"account = {account} and user_id = {user_id} and asset = '{asset}' and t = {t}"
+    print(sql_str)
     if cursor.execute(sql_str) < 1:
         new_balance(account, user_id, asset, t)
         balance = ZERO.copy_abs()
@@ -170,6 +172,7 @@ def del_balance(account, user_id, asset, t, table=BALANCE_TABLE):
     global TRADE_conn
     cursor = TRADE_conn.cursor()
     sql_str = f"DELETE FROM {table} WHERE account = {account} and user_id = {user_id} and asset = '{asset}' and t = {t}"
+    print(sql_str)
     if cursor.execute(sql_str) != 1:
         raise Exception("set balance error")
     cursor.close()
@@ -190,8 +193,9 @@ def get_history_order_record(id_list: list, table=ORDER_TABLE):
     id_total = id_total.replace("]", "")
     sql_str = "SELECT `id`, `create_time`, `update_time`, `user_id`, `account`, `option`, `market`, `source`, " \
               "`fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, `deal_stock`, " \
-              "`deal_money`, `money_fee`, `stock_fee`, 0, `asset_fee`, `fee_discount`, `client_id` " \
+              "`deal_money`, `money_fee`, `stock_fee`, `asset_fee`, `fee_discount`, `client_id` " \
               f"FROM {table} WHERE id in ({id_total}) and deal_stock > 0"
+    print(sql_str)
     cursor = TRADE_conn.cursor()
     cursor.execute(sql_str)
     record_list = cursor.fetchall()
@@ -200,14 +204,26 @@ def get_history_order_record(id_list: list, table=ORDER_TABLE):
     return record_list
 
 
+def get_sql_element(element):
+    if isinstance(element, int):
+        return str(element)
+    elif isinstance(element, decimal.Decimal):
+        return element.to_eng_string()
+    elif isinstance(element, str):
+        return f"'{element}'"
+    else:
+        return str(element)
+
+
 def convert_record_2_str(record: tuple):
     result = str()
     first = True
     for element in record:
         if first is True:
             first = False
-            result = f"{element}"
-        result += f",{element}"
+            result = f"{get_sql_element(element)}"
+        else:
+            result += f",{get_sql_element(element)}"
     return result
 
 
@@ -219,7 +235,8 @@ def append_order_history_batch(record_list: list, user_id):
     sql_str = f"INSERT INTO `{table}` " \
               "(`order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, " \
               "`fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, " \
-              "`money_fee`, `stock_fee`, `deal_fee`, `asset_fee`, `fee_discount`, `client_id`) VALUES "
+              "`money_fee`, `stock_fee`, `asset_fee`, `fee_discount`, `client_id`) VALUES "
+    print(sql_str)
     first = True
     for record in record_list:
         record_str = convert_record_2_str(record)
@@ -247,6 +264,7 @@ def cancel_order_batch(id_list: list, user_id, table=ORDER_TABLE):
     id_total = id_total.replace("[", "")
     id_total = id_total.replace("]", "")
     sql_str = f"delete from {table} where id in ({id_total})"
+    print(sql_str)
     cursor = TRADE_conn.cursor()
     cursor.execute(sql_str)
     cursor.close()
