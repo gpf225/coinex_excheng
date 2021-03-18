@@ -387,6 +387,18 @@ static sds on_cmd_status(const char *cmd, int argc, sds *argv)
     return reply;
 }
 
+static sds on_cmd_unavailable(const char *cmd, int argc, sds *argv)
+{
+    available = false;
+    return sdsnew("OK\n");
+}
+
+static sds on_cmd_available(const char *cmd, int argc, sds *argv)
+{
+    available = true;
+    return sdsnew("OK\n");
+}
+
 static int init_cli()
 {
     svrcli = cli_svr_create(&settings.cli);
@@ -395,6 +407,8 @@ static int init_cli()
     }
 
     cli_svr_add_cmd(svrcli, "status", on_cmd_status);
+    cli_svr_add_cmd(svrcli, "unavailable", on_cmd_unavailable);
+    cli_svr_add_cmd(svrcli, "available", on_cmd_available);
     return 0;
 }
 
