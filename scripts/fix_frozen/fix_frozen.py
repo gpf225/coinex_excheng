@@ -59,6 +59,7 @@ def get_table_time():
     global TRADE_conn
     sql_str = f"select time from slice_history order by id desc limit 1"
     cursor = TRADE_conn.cursor()
+    print(sql_str)
     cursor.execute(sql_str)
     result = cursor.fetchone()[0]
 
@@ -86,6 +87,7 @@ def get_frozen_balance_info():
     while True:
         sql_str = f"select account, user_id, asset, balance from {BALANCE_TABLE} where " \
                   f"t = 2 and balance > 0 order by id limit {offset}, {limit}"
+        print(sql_str)
         cursor.execute(sql_str)
         records = cursor.fetchall()
         for account, user_id, asset, balance in records:
@@ -110,6 +112,7 @@ def get_frozen_order_info():
     while True:
         sql_str = f"SELECT id, account, user_id, market, side, frozen FROM {ORDER_TABLE} WHERE frozen > 0 " \
                   f"ORDER BY user_id LIMIT {offset},{limit}"
+        print(sql_str)
         cursor.execute(sql_str)
         records = cursor.fetchall()
 
@@ -164,6 +167,7 @@ def set_balance(account, user_id, asset, t, balance):
     cursor = TRADE_conn.cursor()
     sql_str = f"update {BALANCE_TABLE} set balance = '{balance}' where " \
               f"account = {account} and user_id = {user_id} and asset = '{asset}' and t = {t}"
+    print(sql_str)
     if cursor.execute(sql_str) < 1:
         raise Exception("set balance error")
     cursor.close()
@@ -237,7 +241,6 @@ def append_order_history_batch(record_list: list, user_id):
               "(`order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, " \
               "`fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, " \
               "`money_fee`, `stock_fee`, `asset_fee`, `fee_discount`, `client_id`) VALUES "
-    print(sql_str)
     first = True
     for record in record_list:
         record_str = convert_record_2_str(record)
@@ -248,6 +251,7 @@ def append_order_history_batch(record_list: list, user_id):
             sql_str += f", ({record_str})"
 
     cursor = db_conn.cursor()
+    print(sql_str)
     if cursor.execute(sql_str) != len(record_list):
         raise Exception("append_order_history error")
     cursor.close()
@@ -261,12 +265,12 @@ def cancel_order_batch(id_list: list, user_id):
 
     # 取消订单
     global TRADE_conn
+    cursor = TRADE_conn.cursor()
     id_total = id_total = str(id_list)
     id_total = id_total.replace("[", "")
     id_total = id_total.replace("]", "")
     sql_str = f"delete from {ORDER_TABLE} where id in ({id_total})"
     print(sql_str)
-    cursor = TRADE_conn.cursor()
     cursor.execute(sql_str)
     cursor.close()
 
@@ -284,9 +288,11 @@ def frozen_cancel(account, user_id, asset):
 def table_backup():
     global TRADE_conn
     cursor = TRADE_conn.cursor()
-    sql_str = f"create table {ORDER_TABLE}_backup_{time.time()} as select * from {ORDER_TABLE}"
+    sql_str = f"create table {ORDER_TABLE}_backup_{int(time.time())} as select * from {ORDER_TABLE}"
+    print(sql_str)
     cursor.execute(sql_str)
-    sql_str = f"create table {BALANCE_TABLE}_backup_{time.time()} as select * from {BALANCE_TABLE}"
+    sql_str = f"create table {BALANCE_TABLE}_backup_{int(time.time())} as select * from {BALANCE_TABLE}"
+    print(sql_str)
     cursor.execute(sql_str)
     cursor.close()
 
