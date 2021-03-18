@@ -198,7 +198,7 @@ def get_history_order_record(id_list: list):
     id_total = id_total.replace("]", "")
     sql_str = "SELECT `id`, `create_time`, `update_time`, `user_id`, `account`, `option`, `market`, `source`, " \
               "`fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, `deal_stock`, " \
-              "`deal_money`, `money_fee`, `stock_fee`, `asset_fee`, `fee_discount`, `client_id` " \
+              "`deal_money`, `money_fee`, `stock_fee`, `asset_fee`, `fee_discount`, `client_id`, '0' " \
               f"FROM {ORDER_TABLE} WHERE id in ({id_total}) and deal_stock > 0"
     print(sql_str)
     cursor = TRADE_conn.cursor()
@@ -240,7 +240,7 @@ def append_order_history_batch(record_list: list, user_id):
     sql_str = f"INSERT INTO `{table}` " \
               "(`order_id`, `create_time`, `finish_time`, `user_id`, `account`, `option`, `market`, `source`, " \
               "`fee_asset`, `t`, `side`, `price`, `amount`, `taker_fee`, `maker_fee`, `deal_stock`, `deal_money`, " \
-              "`money_fee`, `stock_fee`, `asset_fee`, `fee_discount`, `client_id`) VALUES "
+              "`money_fee`, `stock_fee`, `asset_fee`, `fee_discount`, `client_id`, `deal_fee`) VALUES "
     first = True
     for record in record_list:
         record_str = convert_record_2_str(record)
@@ -280,6 +280,7 @@ def frozen_cancel(account, user_id, asset):
     available_balance = get_balance(account, user_id, asset, 1)
     frozen_balance = get_balance(account, user_id, asset, 2)
     new_available = available_balance + frozen_balance
+    print(f"new_available[{new_available}] = available_balance[{available_balance}] + frozen_balance[{frozen_balance}]")
     set_balance(account, user_id, asset, 1, new_available.to_eng_string())
     del_balance(account, user_id, asset, 2)
     TRADE_conn.commit()
@@ -300,6 +301,8 @@ def table_backup():
 def main(operate):
     balance_frozen_dict = get_frozen_balance_info()
     order_frozen_dict = get_frozen_order_info()
+
+    print(f"-------order_count: {len(order_frozen_dict)}, balance_count: {len(balance_frozen_dict)}--------\n")
 
     if operate == "check":
         diff = set(balance_frozen_dict.keys()).difference(set(order_frozen_dict.keys()))
