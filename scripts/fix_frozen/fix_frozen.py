@@ -4,8 +4,8 @@ import requests
 import decimal
 import sys
 
-MYSQL_HOST = "192.168.0.95"
-MYSQL_PORT = 3306
+MYSQL_HOST = "8.129.115.68"
+MYSQL_PORT = 44444
 MYSQL_USER = "root"
 MYSQL_PASS = "shit"
 MYSQL_DB = "trade_log"
@@ -18,11 +18,11 @@ MYSQL_DB = "trade_log"
 MYSQL_PORT = 3306
 '''
 
-MYSQL_HOST_HIS = ["192.168.0.95", "192.168.0.95", "192.168.0.95", "192.168.0.95", "192.168.0.95"]
-MYSQL_PORT_HIS = [3306, 3306, 3306, 3306, 3306]
+MYSQL_HOST_HIS = ["8.129.115.68", "8.129.115.68", "8.129.115.68", "8.129.115.68", "8.129.115.68"]
+MYSQL_PORT_HIS = [44444, 44444, 44444, 44444, 44444]
 MYSQL_USER_HIS = ["root", "root", "root", "root", "root"]
 MYSQL_PASS_HIS = ["shit", "shit", "shit", "shit", "shit"]
-MYSQL_DB_HIS =   ["trade_history_0", "trade_history_1", "trade_history_2", "trade_history_3", "trade_history_4"]
+MYSQL_DB_HIS = ["trade_history_0", "trade_history_1", "trade_history_2", "trade_history_3", "trade_history_4"]
 
 '''
 MYSQL_HOST_HIS = ["coinextradehistory0.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory1.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory2.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory3.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com", "coinextradehistory4.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com"]
@@ -35,33 +35,23 @@ MYSQL_DB_HIS =   ["trade_history_0", "trade_history_1", "trade_history_2", "trad
 MARKET_URL = "http://8.129.115.68:8000/internal/exchange/market/list"
 TRADE_conn = ...
 HIS_conn = dict()
-DATABASE_NUM = 5
+HISTORY_DATABASE_NUM = 5
 HISTORY_HASH_NUM = 100
 ORDER_TABLE = "slice_order_1615879602"
 BALANCE_TABLE = "slice_balance_1615879602"
 ZERO = decimal.Decimal("0")
-exp_dict = dict()
 
 
-def init_mysql_conn(his_num=DATABASE_NUM):
-    global HIS_conn
+def init_trade_conn():
     global TRADE_conn
-
     TRADE_conn = pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER, passwd=MYSQL_PASS, db=MYSQL_DB)
 
+
+def init_history_conn(his_num=HISTORY_DATABASE_NUM):
+    global HIS_conn
     for i in range(his_num):
-        database = f"trade_history_{i}"
         HIS_conn[i] = pymysql.connect(host=MYSQL_HOST_HIS[i], port=MYSQL_PORT_HIS[i], user=MYSQL_USER_HIS[i],
                                       passwd=MYSQL_PASS_HIS[i], db=MYSQL_DB_HIS[i])
-
-
-def init_exp(count):
-    global exp_dict
-    begin = "0."
-    for i in range(count):
-        exp = begin + "1"
-        begin += "0"
-        exp_dict[i+1] = decimal.Decimal(exp)
 
 
 def get_table_time():
@@ -128,7 +118,6 @@ def get_frozen_order_info(table=ORDER_TABLE):
                 asset = market_list[market]["money"]  # money
 
             key = f"{account}_{user_id}_{asset}"
-
             if key not in order_frozen_dict:
                 order_frozen_dict[key] = [order_frozen, [record_id]]
             else:
@@ -281,7 +270,7 @@ def main(operate):
                       .format(key, balance, balance_frozen_dict[key]))
 
     if operate == "update":
-        init_mysql_conn(DATABASE_NUM)
+        init_history_conn(HISTORY_DATABASE_NUM)
         diff = set(balance_frozen_dict.keys()).difference(set(order_frozen_dict.keys()))
         for key in diff:
             print("{} no order".format(key))
@@ -302,6 +291,7 @@ def main(operate):
 
 
 if __name__ == "__main__":
+    init_trade_conn()
     timestamp = get_table_time()
     ORDER_TABLE = f"slice_order_{timestamp}"
     BALANCE_TABLE = f"slice_balance_{timestamp}"
