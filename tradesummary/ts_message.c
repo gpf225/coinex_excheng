@@ -2258,6 +2258,8 @@ static int get_trade_users_detail(dict_t *dict, json_t *user_list, const char *m
             struct user_detail_val *user_total = result->val;
             mpd_add(user_total->buy_volume, user_total->buy_volume, user_detail->buy_volume, &mpd_ctx);
             mpd_add(user_total->sell_volume, user_total->sell_volume, user_detail->sell_volume, &mpd_ctx);
+            mpd_add(user_total->maker_volume, user_total->maker_volume, user_detail->maker_volume, &mpd_ctx);
+            mpd_add(user_total->taker_volume, user_total->taker_volume, user_detail->taker_volume, &mpd_ctx);
         }
     }
 
