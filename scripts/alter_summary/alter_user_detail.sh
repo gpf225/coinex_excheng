@@ -6,12 +6,6 @@ MYSQL_USER="root"
 MYSQL_PASS="shit"
 MYSQL_DB="trade_summary"
 
-#MYSQL_HOST="coinexlog.chprmbwjfj0p.ap-northeast-1.rds.amazonaws.com"
-#MYSQL_USER="coinex"
-#MYSQL_PASS="hp1sXMJftZWPO5bQ2snu"
-#MYSQL_DB="trade_summary"
-#MYSQL_PORT=3306
-
 function alter_user_detail_example() {
     mysql -h${MYSQL_HOST} -u${MYSQL_USER} -p${MYSQL_PASS} ${MYSQL_DB} -e "alter table user_detail_example add taker_amount DECIMAL(40,20) NOT NULL;"
     mysql -h${MYSQL_HOST} -u${MYSQL_USER} -p${MYSQL_PASS} ${MYSQL_DB} -e "alter table user_detail_example add maker_amount DECIMAL(40,20) NOT NULL;"
