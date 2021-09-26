@@ -86,3 +86,7 @@ int init_config(const char *path);
 
 # endif
 
+
+#ifdef __APPLE__
+extern int error(int status, void* error, char* format,int ret);
+#endif

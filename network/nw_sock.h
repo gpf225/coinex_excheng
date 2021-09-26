@@ -89,3 +89,6 @@ int nw_sock_set_reuse_addr(int sockfd);
 
 # endif
 
+#ifndef EBADFD
+    #define EBADFD EBADF
+#endif

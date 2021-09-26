@@ -21,7 +21,7 @@
     "db_log": {
         "host": "localhost",
         "user": "root",
-        "pass": "shit",
+        "pass": "12345678",
         "name": "trade_log"
     },   
     "asset_url":  "http://120.78.203.98:8000/internal/exchange/account/asset",

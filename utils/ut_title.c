@@ -21,8 +21,18 @@ extern char **environ;
 static char *title_base;
 static char *title_tail;
 
+#ifdef __APPLE__
+char*    program_invocation_name;
+char*    program_invocation_short_name;
+#endif
+
 void process_title_init(int argc, char *argv[])
 {
+
+#ifdef __APPLE__
+    program_invocation_name = argv[0];
+    program_invocation_short_name = argv[0];
+#endif
     if (title_base)
         return;
 

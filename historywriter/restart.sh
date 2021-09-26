@@ -1,5 +1,3 @@
-#!/bin/bash
+sudo rm /tmp/historywriter.lock
+./historywriter ./config.json
 
-killall -s SIGQUIT historywriter.exe
-sleep 1
-./historywriter.exe config.json

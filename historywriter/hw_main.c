@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
         error(EXIT_FAILURE, errno, "init log fail: %d", ret);
     }
 
-    daemon(1, 1);
+    //daemon(1, 1);
     process_keepalive(settings.debug);
 
     ret = init_writer();

@@ -5,6 +5,15 @@
 
 # include "hr_config.h"
 
+#ifdef __APPLE__
+int error(int status, void* error, char* format,int ret)
+{
+    printf(format,ret);
+    return 0;
+}
+#endif
+
+
 struct settings settings;
 
 static int load_db_histories(json_t *root, const char *key)

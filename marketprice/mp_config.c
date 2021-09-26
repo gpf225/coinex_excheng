@@ -6,6 +6,17 @@
 # include "mp_config.h"
 # include "mp_message.h"
 
+#ifdef __APPLE__
+int error(int status, int error, char* format, ...)
+{
+    va_list ap;
+    va_start(ap,format);
+    vprintf(format,ap);
+    va_end(ap);
+    return 0;
+}
+#endif
+
 struct settings settings;
 
 static int read_config_from_json(json_t *root)

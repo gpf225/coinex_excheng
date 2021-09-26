@@ -5,6 +5,13 @@
 
 # include "ah_config.h"
 
+#ifdef __APPLE__
+int error(int status, void* error, char* format,int ret)
+{
+    printf(format,ret);
+    return 0;
+}
+#endif
 struct settings settings;
 
 static int read_depth_limit_cfg(json_t *root, const char *key)

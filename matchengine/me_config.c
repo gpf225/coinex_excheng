@@ -5,7 +5,19 @@
 
 # include "me_config.h"
 # include "me_request.h"
+# include "stdio.h"
+# include "stdarg.h"
 
+#ifdef __APPLE__
+int error(int status, int error, char* format, ...)
+{
+    va_list ap;
+    va_start(ap,format);
+    vprintf(format,ap);
+    va_end(ap);
+    return 0;
+}
+#endif
 struct settings settings;
 
 static void convert_fee_dict_val_free(void *val)

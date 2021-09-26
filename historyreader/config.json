@@ -22,35 +22,35 @@
          {
             "host": "localhost",
             "user": "root",
-            "pass": "shit",
+            "pass": "12345678",
             "name": "trade_history_0",
             "db"  : 0
         },
         {
             "host": "localhost",
             "user": "root",
-            "pass": "shit",
+            "pass": "12345678",
             "name": "trade_history_1",
             "db"  : 1
         },
         {
             "host": "localhost",
             "user": "root",
-            "pass": "shit",
+            "pass": "12345678",
             "name": "trade_history_2",
             "db"  : 2
         },
         {
             "host": "localhost",
             "user": "root",
-            "pass": "shit",
+            "pass": "12345678",
             "name": "trade_history_3",
             "db"  : 3
         },
         {
             "host": "localhost",
             "user": "root",
-            "pass": "shit",
+            "pass": "12345678",
             "name": "trade_history_4",
             "db"  : 4
         }

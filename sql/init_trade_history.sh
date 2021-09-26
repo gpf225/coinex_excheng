@@ -2,7 +2,7 @@
 
 MYSQL_HOST=("localhost" "localhost" "localhost" "localhost" "localhost")
 MYSQL_USER=("root" "root" "root" "root" "root")
-MYSQL_PASS=("shit" "shit" "shit" "shit" "shit")
+MYSQL_PASS=("12345678" "12345678" "12345678" "12345678" "12345678")
 MYSQL_DB=(trade_history_0 trade_history_1 trade_history_2 trade_history_3 trade_history_4)
 
 LEN=${#MYSQL_DB[@]}
@@ -70,10 +70,12 @@ function create_all_tables() {
     done
 }
 
-if [ $1 = "drop_20190331_coinex_ensure" ]; then
+if [[ $1 = "drop_20190331_coinex_ensure" ]];
+then
     echo "---drop all databases---"
     drop_all_database
-elif [ $1 = "create" ]; then   
+elif [[ $1 = "create" ]]; 
+then   
     echo "---create all databases---"
     create_all_database
     create_example_tables

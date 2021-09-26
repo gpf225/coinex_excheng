@@ -1,5 +1,5 @@
 -- 用户每日交易量统计历史表，按月分表
-CREATE TABLE `user_trade_summary_example` (
+CREATE TABLE if not exists `user_trade_summary_example` (
     `id`                    INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `trade_date`            DATE NOT NULL,
     `user_id`               INT UNSIGNED NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE `user_trade_summary_example` (
     INDEX `idx_user_date` (`user_id`, `trade_date`),
     INDEX `idx_stock_date` (`stock_asset`, `trade_date`),
     UNIQUE KEY `idx_user_market_date` (`user_id`, `market`, `trade_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- 用户每日交易费统计历史表，按月分表
 CREATE TABLE `user_fee_summary_example` (
@@ -139,6 +139,6 @@ CREATE TABLE `dump_history` (
     `trade_date`            DATE NOT NULL,
     `deals_offset`          BIGINT NOT NULL,
     `orders_offset`         BIGINT NOT NULL
-    INDEX `idx_date` (`trade_date`)
+    INDEX `idx_date` (`trade_date`),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

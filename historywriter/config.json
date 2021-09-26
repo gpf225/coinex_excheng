@@ -22,31 +22,31 @@
          {
             "host": "localhost",
             "user": "root",
-            "pass": "shit",
+            "pass": "12345678",
             "name": "trade_history_0"
         },
         {
             "host": "localhost",
             "user": "root",
-            "pass": "shit",
+            "pass": "12345678",
             "name": "trade_history_1"
         },
         {
             "host": "localhost",
             "user": "root",
-            "pass": "shit",
+            "pass": "12345678",
             "name": "trade_history_2"
         },
         {
             "host": "localhost",
             "user": "root",
-            "pass": "shit",
+            "pass": "12345678",
             "name": "trade_history_3"
         },
         {
             "host": "localhost",
             "user": "root",
-            "pass": "shit",
+            "pass": "12345678",
             "name": "trade_history_4"
         }
     ],

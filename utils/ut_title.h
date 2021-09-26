@@ -14,3 +14,6 @@ void process_title_set(const char *fmt, ...);
 
 # endif
 
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__)
+#define clearenv() 0
+#endif

@@ -31,6 +31,12 @@
 # include "ut_misc.h"
 # include "ut_signal.h"
 
+#ifdef __APPLE__
+char*    program_invocation_name;
+char*    program_invocation_short_name;
+#endif
+
+
 int process_exist(const char *fmt, ...)
 {
     char name[1024];

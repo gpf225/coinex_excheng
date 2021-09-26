@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < settings.worker_num; ++i) {
         int pid = fork();
         if (pid < 0) {
-            error(EXIT_FAILURE, errno, "fork error");
+            error(EXIT_FAILURE, errno, "fork error %d",ret);
         } else if (pid == 0) {
             process_title_set("%s_worker_%d", __process__, i);
             daemon(1, 1);

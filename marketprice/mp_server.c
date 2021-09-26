@@ -32,7 +32,7 @@ static int reply_result(nw_ses *ses, rpc_pkg *pkg, json_t *result, double ttl)
 
 static bool process_cache(nw_ses *ses, rpc_pkg *pkg, sds *cache_key)
 {
-    sds key = sdsempty();
+    sds key = sdsempty();         
     key = sdscatprintf(key, "%u", pkg->command);
     key = sdscatlen(key, pkg->body, pkg->body_size);
     dict_entry *entry = dict_find(dict_cache, key);

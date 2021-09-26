@@ -1,3 +1,3 @@
 #!/bin/bash
 
-killall -s SIGQUIT matchengine.exe
+sudo killall -9 matchengine

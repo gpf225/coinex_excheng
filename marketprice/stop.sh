@@ -1,3 +1,2 @@
-#!/bin/bash
-
-killall -s SIGQUIT marketprice.exe
+sudo killall -9 marketprice
+sudo rm /tmp/marketprice.lock
