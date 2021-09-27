@@ -5,10 +5,14 @@
 
 # include "ah_config.h"
 
+
 #ifdef __APPLE__
-int error(int status, void* error, char* format,int ret)
+int error(int status, int* error, char* format, ...)
 {
-    printf(format,ret);
+    va_list ap;
+    va_start(ap,format);
+    vprintf(format,ap);
+    va_end(ap);
     return 0;
 }
 #endif

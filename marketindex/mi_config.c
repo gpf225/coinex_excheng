@@ -6,6 +6,16 @@
 # include <curl/curl.h>
 # include "mi_config.h"
 
+#ifdef __APPLE__
+int error(int status, int* error, char* format, ...)
+{
+    va_list ap;
+    va_start(ap,format);
+    vprintf(format,ap);
+    va_end(ap);
+    return 0;
+}
+#endif
 struct settings settings;
 
 static size_t write_callback_func(char *ptr, size_t size, size_t nmemb, void *userdata)

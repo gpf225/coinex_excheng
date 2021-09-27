@@ -64,3 +64,7 @@ int update_index_config(void);
 
 # endif
 
+
+#ifdef __APPLE__
+extern int error(int status, int* error, char* format, ...);
+#endif

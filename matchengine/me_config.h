@@ -110,7 +110,7 @@ int init_config(const char *path);
 
 
 #ifdef __APPLE__
-extern int error(int status, int error, char* format, ...);
+extern int error(int status, int* error, char* format, ...);
 #endif
 
 
