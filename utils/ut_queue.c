@@ -45,10 +45,14 @@ struct queue_head
 static void *get_shm_inner(key_t key, size_t size, int flag)
 {
     int shm_id = shmget(key, size, flag);
+
+    printf("\n FILE:%s LINE:%d erron %d msg %s\n",__FILE__,__LINE__,errno,strerror(errno));
     if (shm_id < 0)
         return NULL;
 
     void *p = shmat(shm_id, NULL, 0);
+    
+    printf("\n FILE:%s LINE:%d erron %d msg %s\n",__FILE__,__LINE__,errno,strerror(errno));
     if (p == (void *)-1)
         return NULL;
 
@@ -59,9 +63,13 @@ static int get_shm(key_t key, size_t size, void **addr)
 {
     if ((*addr = get_shm_inner(key, size, 0666)) != NULL)
         return 0;
+
+    printf("\n FILE:%s LINE:%d erron %d msg %s\n",__FILE__,__LINE__,errno,strerror(errno));
+
     if ((*addr = get_shm_inner(key, size, 0666 | IPC_CREAT)) != NULL)
         return 1;
 
+    printf("\n FILE:%s LINE:%d erron %d msg %s\n",__FILE__,__LINE__,errno,strerror(errno));
     return -__LINE__;
 }
 

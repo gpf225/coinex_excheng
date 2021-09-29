@@ -28,11 +28,6 @@ char*    program_invocation_short_name;
 
 void process_title_init(int argc, char *argv[])
 {
-
-#ifdef __APPLE__
-    program_invocation_name = argv[0];
-    program_invocation_short_name = argv[0];
-#endif
     if (title_base)
         return;
 
@@ -45,11 +40,14 @@ void process_title_init(int argc, char *argv[])
             continue;
         tail = envp[i] + strlen(envp[i]) + 1;
     }
-
+#ifdef __APPLE__
+    program_invocation_name = strdup(argv[0]);
+    program_invocation_short_name = strdup(argv[0]);
+#else
     /* dup program name */
     program_invocation_name = strdup(program_invocation_name);
     program_invocation_short_name = strdup(program_invocation_short_name);
-
+#endif
     /* dup argv */
     for (int i = 0; i < argc; ++i) {
         argv[i] = strdup(argv[i]);

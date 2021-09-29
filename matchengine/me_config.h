@@ -52,8 +52,8 @@
 # define MAX_PENDING_HISTORY      100000
 # define MAX_QUERY_ASSET_USER_NUM 2000
 
-# define QUEUE_MEM_SIZE         5000000
-# define QUEUE_MEM_MIN          1000000
+# define QUEUE_MEM_SIZE         500
+# define QUEUE_MEM_MIN          100
 # define QUEUE_SHMKEY_START     0x26120802
 # define QUEUE_NAME             "matchengine_queue"
 # define QUEUE_PIPE_PATH        "/tmp/matchengine_queue_pipe"

@@ -1,3 +1,3 @@
 #!/bin/bash
-
-killall -s SIGQUIT cachecenter.exe
+sudo rm /tmp/cachecenter.lock
+sudo killall -9 cachecenter

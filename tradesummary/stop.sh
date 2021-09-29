@@ -1,3 +1,3 @@
 #!/bin/bash
 
-killall -s SIGQUIT tradesummary.exe
+sudo killall -9  tradesummary

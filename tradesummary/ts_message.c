@@ -3,12 +3,12 @@
  *     History: ouxiangyang, 2019/03/27, create
  */
 
-# include "ts_config.h"
-# include "ts_market.h"
-# include "ts_message.h"
+#include "ts_config.h"
+#include "ts_market.h"
+#include "ts_message.h"
 
-# define KAFKA_ORDERS_DELAY 200
-# define KAFKA_DEALS_DELAY  200
+#define KAFKA_ORDERS_DELAY 200
+#define KAFKA_DEALS_DELAY 200
 
 static nw_timer dump_timer;
 static nw_timer clear_timer;
@@ -20,101 +20,111 @@ static kafka_consumer_t *kafka_orders;
 static int64_t kafka_deals_offset = 0;
 static int64_t kafka_orders_offset = 0;
 
-static time_t  last_dump_date = 0;
-static time_t  last_dump_time = 0;
+static time_t last_dump_date = 0;
+static time_t last_dump_time = 0;
 
 static dict_t *dict_market_info;
 
-struct market_info_val {
+struct market_info_val
+{
     dict_t *daily_trade;
     dict_t *users_detail;
 };
 
-struct fee_key {
+struct fee_key
+{
     uint32_t user_id;
     char asset[ASSET_NAME_MAX_LEN + 1];
 };
 
-struct client_fee_key {
+struct client_fee_key
+{
     uint32_t user_id;
     char client_id[CLIENT_ID_MAX_LEN + 1];
     char asset[ASSET_NAME_MAX_LEN + 1];
 };
 
-struct fee_val {
+struct fee_val
+{
     mpd_t *value;
     mpd_t *taker_fee;
     mpd_t *maker_fee;
 };
 
-struct daily_trade_val {
-    dict_t  *users_trade;
-    dict_t  *fees_detail;
+struct daily_trade_val
+{
+    dict_t *users_trade;
+    dict_t *fees_detail;
 
-    dict_t  *client_trade;
-    dict_t  *client_fees_detail;
+    dict_t *client_trade;
+    dict_t *client_fees_detail;
 
-    mpd_t   *deal_amount;
-    mpd_t   *deal_volume;
-    mpd_t   *taker_buy_amount;
-    mpd_t   *taker_sell_amount;
+    mpd_t *deal_amount;
+    mpd_t *deal_volume;
+    mpd_t *taker_buy_amount;
+    mpd_t *taker_sell_amount;
 
-    int     deal_count;
-    int     taker_buy_count;
-    int     taker_sell_count;
-    int     limit_buy_order;
-    int     limit_sell_order;
-    int     market_buy_order;
-    int     market_sell_order;
+    int deal_count;
+    int taker_buy_count;
+    int taker_sell_count;
+    int limit_buy_order;
+    int limit_sell_order;
+    int market_buy_order;
+    int market_sell_order;
 };
 
-struct client_user_trade_key {
+struct client_user_trade_key
+{
     uint32_t user_id;
     char client_id[CLIENT_ID_MAX_LEN + 1];
 };
 
-struct users_trade_val {
-    mpd_t   *deal_amount;
-    mpd_t   *deal_volume;
-    mpd_t   *buy_amount;
-    mpd_t   *buy_volume;
-    mpd_t   *sell_amount;
-    mpd_t   *sell_volume;
-    mpd_t   *taker_amount;
-    mpd_t   *taker_volume;
-    mpd_t   *maker_amount;
-    mpd_t   *maker_volume;
+struct users_trade_val
+{
+    mpd_t *deal_amount;
+    mpd_t *deal_volume;
+    mpd_t *buy_amount;
+    mpd_t *buy_volume;
+    mpd_t *sell_amount;
+    mpd_t *sell_volume;
+    mpd_t *taker_amount;
+    mpd_t *taker_volume;
+    mpd_t *maker_amount;
+    mpd_t *maker_volume;
 
-    int     deal_count;
-    int     deal_buy_count;
-    int     deal_sell_count;
-    int     limit_buy_order;
-    int     limit_sell_order;
-    int     market_buy_order;
-    int     market_sell_order;
+    int deal_count;
+    int deal_buy_count;
+    int deal_sell_count;
+    int limit_buy_order;
+    int limit_sell_order;
+    int market_buy_order;
+    int market_sell_order;
 };
 
-struct user_detail_val {
-    mpd_t   *buy_amount;
-    mpd_t   *sell_amount;
-    mpd_t   *buy_volume;
-    mpd_t   *sell_volume;
-    mpd_t   *taker_amount;
-    mpd_t   *maker_amount;
-    mpd_t   *taker_volume;
-    mpd_t   *maker_volume;
+struct user_detail_val
+{
+    mpd_t *buy_amount;
+    mpd_t *sell_amount;
+    mpd_t *buy_volume;
+    mpd_t *sell_volume;
+    mpd_t *taker_amount;
+    mpd_t *maker_amount;
+    mpd_t *taker_volume;
+    mpd_t *maker_volume;
 };
 
-struct trade_net_rank_val {
+struct trade_net_rank_val
+{
     uint32_t user_id;
-    mpd_t    *amount;
-    mpd_t    *amount_net;
+    mpd_t *amount;
+    mpd_t *amount_net;
 };
 
-struct trade_amount_rank_val {
+struct trade_amount_rank_val
+{
     uint32_t user_id;
-    mpd_t    *amount;
-    mpd_t    *amount_total;
+    mpd_t *amount;
+    mpd_t *amount_total;
 };
 
 // fee key
@@ -313,17 +323,17 @@ static struct market_info_val *get_market_info(char *market)
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = time_dict_key_hash_func;
-    dt.key_compare      = time_dict_key_compare;
-    dt.val_destructor   = dict_daily_trade_val_free;
+    dt.hash_function = time_dict_key_hash_func;
+    dt.key_compare = time_dict_key_compare;
+    dt.val_destructor = dict_daily_trade_val_free;
     market_info->daily_trade = dict_create(&dt, 64);
     if (market_info->daily_trade == NULL)
         return NULL;
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = time_dict_key_hash_func;
-    dt.key_compare      = time_dict_key_compare;
-    dt.val_destructor   = dict_user_detail_dict_free;
+    dt.hash_function = time_dict_key_hash_func;
+    dt.key_compare = time_dict_key_compare;
+    dt.val_destructor = dict_user_detail_dict_free;
     market_info->users_detail = dict_create(&dt, 64);
     if (market_info->users_detail == NULL)
         return NULL;
@@ -345,24 +355,24 @@ struct daily_trade_val *get_daily_trade_info(dict_t *dict, time_t timestamp)
         return NULL;
     memset(trade_info, 0, sizeof(struct daily_trade_val));
 
-    trade_info->deal_amount         = mpd_qncopy(mpd_zero);
-    trade_info->deal_volume         = mpd_qncopy(mpd_zero);
-    trade_info->taker_buy_amount    = mpd_qncopy(mpd_zero);
-    trade_info->taker_sell_amount   = mpd_qncopy(mpd_zero);
+    trade_info->deal_amount = mpd_qncopy(mpd_zero);
+    trade_info->deal_volume = mpd_qncopy(mpd_zero);
+    trade_info->taker_buy_amount = mpd_qncopy(mpd_zero);
+    trade_info->taker_sell_amount = mpd_qncopy(mpd_zero);
 
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = uint32_dict_hash_func; 
-    dt.key_compare    = uint32_dict_key_compare;
+    dt.hash_function = uint32_dict_hash_func;
+    dt.key_compare = uint32_dict_key_compare;
     dt.val_destructor = dict_users_trade_val_free;
     trade_info->users_trade = dict_create(&dt, 1024);
     if (trade_info->users_trade == NULL)
         return NULL;
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = dict_client_trade_key_hash_func; 
-    dt.key_compare    = dict_client_trade_key_compare;
-    dt.key_dup        = dict_client_trade_key_dup;
+    dt.hash_function = dict_client_trade_key_hash_func;
+    dt.key_compare = dict_client_trade_key_compare;
+    dt.key_dup = dict_client_trade_key_dup;
     dt.key_destructor = dict_client_trade_key_free;
     dt.val_destructor = dict_users_trade_val_free;
     trade_info->client_trade = dict_create(&dt, 1024);
@@ -370,21 +380,21 @@ struct daily_trade_val *get_daily_trade_info(dict_t *dict, time_t timestamp)
         return NULL;
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = dict_fee_key_hash_func;
-    dt.key_compare      = dict_fee_key_compare;
-    dt.key_dup          = dict_fee_key_dup;
-    dt.key_destructor   = dict_fee_key_free;
-    dt.val_destructor   = dict_fee_val_free;
+    dt.hash_function = dict_fee_key_hash_func;
+    dt.key_compare = dict_fee_key_compare;
+    dt.key_dup = dict_fee_key_dup;
+    dt.key_destructor = dict_fee_key_free;
+    dt.val_destructor = dict_fee_val_free;
     trade_info->fees_detail = dict_create(&dt, 1024);
     if (trade_info->fees_detail == NULL)
         return NULL;
 
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = dict_client_fee_key_hash_func;
-    dt.key_compare      = dict_client_fee_key_compare;
-    dt.key_dup          = dict_client_fee_key_dup;
-    dt.key_destructor   = dict_client_fee_key_free;
-    dt.val_destructor   = dict_fee_val_free;
+    dt.hash_function = dict_client_fee_key_hash_func;
+    dt.key_compare = dict_client_fee_key_compare;
+    dt.key_dup = dict_client_fee_key_dup;
+    dt.key_destructor = dict_client_fee_key_free;
+    dt.val_destructor = dict_fee_val_free;
     trade_info->client_fees_detail = dict_create(&dt, 1024);
     if (trade_info->client_fees_detail == NULL)
         return NULL;
@@ -397,7 +407,8 @@ struct users_trade_val *get_user_trade_info(dict_t *dict, uint32_t user_id, cons
 {
     void *key = (void *)(uintptr_t)user_id;
     struct client_fee_key client_key;
-    if (client_id != NULL) {
+    if (client_id != NULL)
+    {
         memset(&client_key, 0, sizeof(client_key));
         client_key.user_id = user_id;
         sstrncpy(client_key.client_id, client_id, sizeof(client_key.client_id));
@@ -405,7 +416,8 @@ struct users_trade_val *get_user_trade_info(dict_t *dict, uint32_t user_id, cons
     }
 
     dict_entry *entry = dict_find(dict, key);
-    if (entry != NULL) {
+    if (entry != NULL)
+    {
         return entry->val;
     }
 
@@ -414,8 +426,8 @@ struct users_trade_val *get_user_trade_info(dict_t *dict, uint32_t user_id, cons
 
     user_info->deal_amount = mpd_qncopy(mpd_zero);
     user_info->deal_volume = mpd_qncopy(mpd_zero);
-    user_info->buy_amount  = mpd_qncopy(mpd_zero);
-    user_info->buy_volume  = mpd_qncopy(mpd_zero);
+    user_info->buy_amount = mpd_qncopy(mpd_zero);
+    user_info->buy_volume = mpd_qncopy(mpd_zero);
     user_info->sell_amount = mpd_qncopy(mpd_zero);
     user_info->sell_volume = mpd_qncopy(mpd_zero);
     user_info->taker_amount = mpd_qncopy(mpd_zero);
@@ -433,16 +445,20 @@ struct user_detail_val *get_user_detail_info(dict_t *dict, uint32_t user_id, tim
     dict_t *user_dict = NULL;
     void *tkey = (void *)(uintptr_t)(timestamp / 60 * 60);
     dict_entry *entry = dict_find(dict, tkey);
-    if (entry != NULL) {
+    if (entry != NULL)
+    {
         user_dict = entry->val;
-    } else {
+    }
+    else
+    {
         dict_types dt;
         memset(&dt, 0, sizeof(dt));
-        dt.hash_function   = uint32_dict_hash_func; 
-        dt.key_compare     = uint32_dict_key_compare;
-        dt.val_destructor  = dict_user_detail_val_free;
+        dt.hash_function = uint32_dict_hash_func;
+        dt.key_compare = uint32_dict_key_compare;
+        dt.val_destructor = dict_user_detail_val_free;
         user_dict = dict_create(&dt, 1024);
-        if (user_dict == NULL) {
+        if (user_dict == NULL)
+        {
             return NULL;
         }
         dict_add(dict, tkey, user_dict);
@@ -450,7 +466,8 @@ struct user_detail_val *get_user_detail_info(dict_t *dict, uint32_t user_id, tim
 
     void *ukey = (void *)(uintptr_t)user_id;
     entry = dict_find(user_dict, ukey);
-    if (entry != NULL) {
+    if (entry != NULL)
+    {
         return entry->val;
     }
 
@@ -458,13 +475,13 @@ struct user_detail_val *get_user_detail_info(dict_t *dict, uint32_t user_id, tim
     if (user_detail == NULL)
         return NULL;
     memset(user_detail, 0, sizeof(struct user_detail_val));
-    user_detail->buy_amount  = mpd_qncopy(mpd_zero);
+    user_detail->buy_amount = mpd_qncopy(mpd_zero);
     user_detail->sell_amount = mpd_qncopy(mpd_zero);
-    user_detail->buy_volume  = mpd_qncopy(mpd_zero);
+    user_detail->buy_volume = mpd_qncopy(mpd_zero);
     user_detail->sell_volume = mpd_qncopy(mpd_zero);
-    user_detail->taker_amount  = mpd_qncopy(mpd_zero);
+    user_detail->taker_amount = mpd_qncopy(mpd_zero);
     user_detail->maker_amount = mpd_qncopy(mpd_zero);
-    user_detail->taker_volume  = mpd_qncopy(mpd_zero);
+    user_detail->taker_volume = mpd_qncopy(mpd_zero);
     user_detail->maker_volume = mpd_qncopy(mpd_zero);
     dict_add(user_dict, ukey, user_detail);
 
@@ -477,10 +494,13 @@ static int update_market_volume(struct daily_trade_val *trade_info, int side, mp
     mpd_add(trade_info->deal_amount, trade_info->deal_amount, amount, &mpd_ctx);
     mpd_add(trade_info->deal_volume, trade_info->deal_volume, volume, &mpd_ctx);
 
-    if (side == MARKET_TRADE_SIDE_BUY) {
+    if (side == MARKET_TRADE_SIDE_BUY)
+    {
         trade_info->taker_buy_count += 1;
         mpd_add(trade_info->taker_buy_amount, trade_info->taker_buy_amount, amount, &mpd_ctx);
-    } else {
+    }
+    else
+    {
         trade_info->taker_sell_count += 1;
         mpd_add(trade_info->taker_sell_amount, trade_info->taker_sell_amount, amount, &mpd_ctx);
     }
@@ -493,20 +513,26 @@ static void update_trade_info(struct users_trade_val *user_info, int side, bool 
     user_info->deal_count += 1;
     mpd_add(user_info->deal_amount, user_info->deal_amount, amount, &mpd_ctx);
     mpd_add(user_info->deal_volume, user_info->deal_volume, volume, &mpd_ctx);
-    if (side == MARKET_TRADE_SIDE_BUY) {
+    if (side == MARKET_TRADE_SIDE_BUY)
+    {
         user_info->deal_buy_count += 1;
         mpd_add(user_info->buy_amount, user_info->buy_amount, amount, &mpd_ctx);
         mpd_add(user_info->buy_volume, user_info->buy_volume, volume, &mpd_ctx);
-    } else {
+    }
+    else
+    {
         user_info->deal_sell_count += 1;
         mpd_add(user_info->sell_amount, user_info->sell_amount, amount, &mpd_ctx);
         mpd_add(user_info->sell_volume, user_info->sell_volume, volume, &mpd_ctx);
     }
 
-    if (is_taker) {
+    if (is_taker)
+    {
         mpd_add(user_info->taker_amount, user_info->taker_amount, amount, &mpd_ctx);
         mpd_add(user_info->taker_volume, user_info->taker_volume, volume, &mpd_ctx);
-    } else {
+    }
+    else
+    {
         mpd_add(user_info->maker_amount, user_info->maker_amount, amount, &mpd_ctx);
         mpd_add(user_info->maker_volume, user_info->maker_volume, volume, &mpd_ctx);
     }
@@ -523,18 +549,24 @@ static int update_user_volume(dict_t *users_trade, dict_t *users_detail, uint32_
     if (user_detail == NULL)
         return -__LINE__;
 
-    if (side == MARKET_TRADE_SIDE_BUY) {
+    if (side == MARKET_TRADE_SIDE_BUY)
+    {
         mpd_add(user_detail->buy_amount, user_detail->buy_amount, amount, &mpd_ctx);
         mpd_add(user_detail->buy_volume, user_detail->buy_volume, volume, &mpd_ctx);
-    } else {
+    }
+    else
+    {
         mpd_add(user_detail->sell_amount, user_detail->sell_amount, amount, &mpd_ctx);
         mpd_add(user_detail->sell_volume, user_detail->sell_volume, volume, &mpd_ctx);
     }
 
-    if (is_taker) {
+    if (is_taker)
+    {
         mpd_add(user_detail->taker_amount, user_detail->taker_amount, amount, &mpd_ctx);
         mpd_add(user_detail->taker_volume, user_detail->taker_volume, volume, &mpd_ctx);
-    } else {
+    }
+    else
+    {
         mpd_add(user_detail->maker_amount, user_detail->maker_amount, amount, &mpd_ctx);
         mpd_add(user_detail->maker_volume, user_detail->maker_volume, volume, &mpd_ctx);
     }
@@ -560,23 +592,32 @@ static int update_fee(dict_t *fees_detail, uint32_t user_id, const char *asset, 
     sstrncpy(key.asset, asset, sizeof(key.asset));
 
     dict_entry *entry = dict_find(fees_detail, &key);
-    if (entry == NULL) {
+    if (entry == NULL)
+    {
         struct fee_val *val = malloc(sizeof(struct fee_val));
         val->value = mpd_qncopy(fee);
-        if (is_taker){
+        if (is_taker)
+        {
             val->taker_fee = mpd_qncopy(fee);
             val->maker_fee = mpd_qncopy(mpd_zero);
-        } else {
+        }
+        else
+        {
             val->taker_fee = mpd_qncopy(mpd_zero);
             val->maker_fee = mpd_qncopy(fee);
         }
         entry = dict_add(fees_detail, &key, val);
-    } else {
+    }
+    else
+    {
         struct fee_val *val = entry->val;
         mpd_add(val->value, val->value, fee, &mpd_ctx);
-        if (is_taker){
+        if (is_taker)
+        {
             mpd_add(val->taker_fee, val->taker_fee, fee, &mpd_ctx);
-        } else {
+        }
+        else
+        {
             mpd_add(val->maker_fee, val->maker_fee, fee, &mpd_ctx);
         }
     }
@@ -594,11 +635,14 @@ static int update_client_fee(dict_t *client_fees_detail, const char *client_id, 
     sstrncpy(key.client_id, client_id, sizeof(key.client_id));
 
     dict_entry *entry = dict_find(client_fees_detail, &key);
-    if (entry == NULL) {
+    if (entry == NULL)
+    {
         struct fee_val *val = malloc(sizeof(struct fee_val));
         val->value = mpd_qncopy(fee);
         entry = dict_add(client_fees_detail, &key, val);
-    } else {
+    }
+    else
+    {
         struct fee_val *val = entry->val;
         mpd_add(val->value, val->value, fee, &mpd_ctx);
     }
@@ -608,16 +652,25 @@ static int update_client_fee(dict_t *client_fees_detail, const char *client_id, 
 
 static int update_market_orders(struct daily_trade_val *trade_info, int order_type, int order_side)
 {
-    if (order_type == MARKET_ORDER_TYPE_LIMIT) {
-        if (order_side == MARKET_TRADE_SIDE_BUY) {
+    if (order_type == MARKET_ORDER_TYPE_LIMIT)
+    {
+        if (order_side == MARKET_TRADE_SIDE_BUY)
+        {
             trade_info->limit_buy_order += 1;
-        } else {
+        }
+        else
+        {
             trade_info->limit_sell_order += 1;
         }
-    } else {
-        if (order_side == MARKET_TRADE_SIDE_BUY) {
+    }
+    else
+    {
+        if (order_side == MARKET_TRADE_SIDE_BUY)
+        {
             trade_info->market_buy_order += 1;
-        } else {
+        }
+        else
+        {
             trade_info->market_sell_order += 1;
         }
     }
@@ -627,16 +680,25 @@ static int update_market_orders(struct daily_trade_val *trade_info, int order_ty
 
 static void update_order_info(struct users_trade_val *user_info, int order_type, int order_side)
 {
-    if (order_type == MARKET_ORDER_TYPE_LIMIT) {
-        if (order_side == MARKET_TRADE_SIDE_BUY) {
+    if (order_type == MARKET_ORDER_TYPE_LIMIT)
+    {
+        if (order_side == MARKET_TRADE_SIDE_BUY)
+        {
             user_info->limit_buy_order += 1;
-        } else {
+        }
+        else
+        {
             user_info->limit_sell_order += 1;
         }
-    } else {
-        if (order_side == MARKET_TRADE_SIDE_BUY) {
+    }
+    else
+    {
+        if (order_side == MARKET_TRADE_SIDE_BUY)
+        {
             user_info->market_buy_order += 1;
-        } else {
+        }
+        else
+        {
             user_info->market_sell_order += 1;
         }
     }
@@ -667,7 +729,8 @@ static bool check_client_id(const char *client_id)
     if (strlen(client_id) == 0)
         return false;
 
-    for (size_t i = 0; i < settings.client_id_count; i++) {
+    for (size_t i = 0; i < settings.client_id_count; i++)
+    {
         if (strcmp(client_id, settings.client_ids[i]) == 0)
             return true;
     }
@@ -676,10 +739,11 @@ static bool check_client_id(const char *client_id)
 
 static void on_deals_message(sds message, int64_t offset)
 {
-    log_trace("deals message: %s, offset: %"PRIi64, message, offset);
+    log_trace("deals message: %s, offset: %" PRIi64, message, offset);
     json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
-    if (obj == NULL) {
-        log_error("invalid message: %s, offset: %"PRIi64, message, offset);
+    if (obj == NULL)
+    {
+        log_error("invalid message: %s, offset: %" PRIi64, message, offset);
         return;
     }
 
@@ -687,7 +751,8 @@ static void on_deals_message(sds message, int64_t offset)
 
     uint32_t ask_user_id = json_integer_value(json_object_get(obj, "ask_user_id"));
     uint32_t bid_user_id = json_integer_value(json_object_get(obj, "bid_user_id"));
-    if (ask_user_id == 0 || bid_user_id == 0) {
+    if (ask_user_id == 0 || bid_user_id == 0)
+    {
         json_decref(obj);
         return;
     }
@@ -708,10 +773,11 @@ static void on_deals_message(sds message, int64_t offset)
     const char *bid_fee_str = json_string_value(json_object_get(obj, "bid_fee"));
     const char *ask_client_id = json_string_value(json_object_get(obj, "ask_client_id"));
     const char *bid_client_id = json_string_value(json_object_get(obj, "bid_client_id"));
-    if (timestamp == 0 || market == NULL || side == 0 || amount_str == NULL || volume_str == NULL || \
-            ask_fee_asset == NULL || bid_fee_asset == NULL || ask_fee_str == NULL || bid_fee_str == NULL || \
-            ask_client_id == NULL || bid_client_id == NULL) {
-        log_error("invalid message: %s, offset: %"PRIi64, message, offset);
+    if (timestamp == 0 || market == NULL || side == 0 || amount_str == NULL || volume_str == NULL ||
+        ask_fee_asset == NULL || bid_fee_asset == NULL || ask_fee_str == NULL || bid_fee_str == NULL ||
+        ask_client_id == NULL || bid_client_id == NULL)
+    {
+        log_error("invalid message: %s, offset: %" PRIi64, message, offset);
         goto cleanup;
     }
 
@@ -719,57 +785,69 @@ static void on_deals_message(sds message, int64_t offset)
     volume = decimal(volume_str, 0);
     ask_fee = decimal(ask_fee_str, 0);
     bid_fee = decimal(bid_fee_str, 0);
-    if (amount == NULL || volume == NULL || ask_fee == NULL || bid_fee == NULL) {
-        log_error("invalid message: %s, offset: %"PRIi64, message, offset);
+    if (amount == NULL || volume == NULL || ask_fee == NULL || bid_fee == NULL)
+    {
+        log_error("invalid message: %s, offset: %" PRIi64, message, offset);
         goto cleanup;
     }
 
     struct market_info_val *market_info = get_market_info((char *)market);
-    if (market_info == NULL) {
+    if (market_info == NULL)
+    {
         log_error("get_market_info: %s fail", market);
         goto cleanup;
     }
     struct daily_trade_val *trade_info = get_daily_trade_info(market_info->daily_trade, (time_t)timestamp);
-    if (trade_info == NULL) {
+    if (trade_info == NULL)
+    {
         log_error("get_daily_trade_info: %s fail", market);
         goto cleanup;
     }
 
     bool ask_is_taker = false;
     bool bid_is_taker = false;
-    if (side == MARKET_TRADE_SIDE_SELL) {
+    if (side == MARKET_TRADE_SIDE_SELL)
+    {
         ask_is_taker = true;
-    } else {
+    }
+    else
+    {
         bid_is_taker = true;
     }
 
     update_market_volume(trade_info, side, amount, volume);
     update_user_volume(trade_info->users_trade, market_info->users_detail, ask_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_SELL, amount, volume, ask_is_taker);
     bool is_ask_client = false;
-    if (check_client_id(ask_client_id)) {
+    if (check_client_id(ask_client_id))
+    {
         log_info("update client volume: %s", ask_client_id);
         is_ask_client = true;
         update_client_volume(trade_info->client_trade, ask_client_id, ask_user_id, MARKET_TRADE_SIDE_SELL, amount, volume, ask_is_taker);
     }
 
-    update_user_volume(trade_info->users_trade, market_info->users_detail, bid_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_BUY,  amount, volume, bid_is_taker);
+    update_user_volume(trade_info->users_trade, market_info->users_detail, bid_user_id, (time_t)timestamp, MARKET_TRADE_SIDE_BUY, amount, volume, bid_is_taker);
     bool is_bid_client = false;
-    if (check_client_id(bid_client_id)) {
+    if (check_client_id(bid_client_id))
+    {
         log_info("update client volume: %s", bid_client_id);
         is_bid_client = true;
         update_client_volume(trade_info->client_trade, bid_client_id, bid_user_id, MARKET_TRADE_SIDE_BUY, amount, volume, bid_is_taker);
     }
 
-    if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0) {
+    if (mpd_cmp(ask_fee, mpd_zero, &mpd_ctx) > 0)
+    {
         update_fee(trade_info->fees_detail, ask_user_id, ask_fee_asset, ask_fee, ask_is_taker);
-        if (is_ask_client) {
+        if (is_ask_client)
+        {
             update_client_fee(trade_info->client_fees_detail, ask_client_id, ask_user_id, ask_fee_asset, ask_fee);
         }
     }
 
-    if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0) {
+    if (mpd_cmp(bid_fee, mpd_zero, &mpd_ctx) > 0)
+    {
         update_fee(trade_info->fees_detail, bid_user_id, bid_fee_asset, bid_fee, bid_is_taker);
-        if (is_bid_client) {
+        if (is_bid_client)
+        {
             update_client_fee(trade_info->client_fees_detail, bid_client_id, bid_user_id, bid_fee_asset, bid_fee);
         }
     }
@@ -790,30 +868,35 @@ static void on_orders_message(sds message, int64_t offset)
 {
     static int64_t max_order_id;
 
-    log_trace("orders message: %s, offset: %"PRIi64, message, offset);
+    log_trace("orders message: %s, offset: %" PRIi64, message, offset);
     json_t *obj = json_loadb(message, sdslen(message), 0, NULL);
-    if (obj == NULL) {
-        log_error("invalid message: %s, offset: %"PRIi64, message, offset);
+    if (obj == NULL)
+    {
+        log_error("invalid message: %s, offset: %" PRIi64, message, offset);
         return;
     }
 
     kafka_orders_offset = offset;
 
     json_t *order = json_object_get(obj, "order");
-    if (order == NULL) {
-        log_error("invalid message: %s, offset: %"PRIi64, message, offset);
+    if (order == NULL)
+    {
+        log_error("invalid message: %s, offset: %" PRIi64, message, offset);
         goto cleanup;
     }
     int64_t order_id = json_integer_value(json_object_get(order, "id"));
 
     int event = json_integer_value(json_object_get(obj, "event"));
-    if (event != ORDER_EVENT_PUT && event != ORDER_EVENT_FINISH) {
+    if (event != ORDER_EVENT_PUT && event != ORDER_EVENT_FINISH)
+    {
         json_decref(obj);
         return;
     }
 
-    if (event == ORDER_EVENT_FINISH) {
-        if (order_id <= max_order_id || max_order_id == 0) {
+    if (event == ORDER_EVENT_FINISH)
+    {
+        if (order_id <= max_order_id || max_order_id == 0)
+        {
             json_decref(obj);
             return;
         }
@@ -826,25 +909,29 @@ static void on_orders_message(sds message, int64_t offset)
     uint32_t order_type = json_integer_value(json_object_get(order, "type"));
     uint32_t order_side = json_integer_value(json_object_get(order, "side"));
     const char *client_id = json_string_value(json_object_get(order, "client_id"));
-    if (market == NULL || timestamp == 0 || user_id == 0 || order_type == 0 || order_side == 0 || client_id == NULL) {
-        log_error("invalid message: %s, offset: %"PRIi64, message, offset);
+    if (market == NULL || timestamp == 0 || user_id == 0 || order_type == 0 || order_side == 0 || client_id == NULL)
+    {
+        log_error("invalid message: %s, offset: %" PRIi64, message, offset);
         goto cleanup;
     }
 
     struct market_info_val *market_info = get_market_info((char *)market);
-    if (market_info == NULL) {
+    if (market_info == NULL)
+    {
         log_error("get_market_info: %s fail", market);
         goto cleanup;
     }
     struct daily_trade_val *trade_info = get_daily_trade_info(market_info->daily_trade, (time_t)timestamp);
-    if (trade_info == NULL) {
+    if (trade_info == NULL)
+    {
         log_error("get_daily_trade_info: %s fail", market);
         goto cleanup;
     }
 
     update_market_orders(trade_info, order_type, order_side);
     update_user_orders(trade_info->users_trade, user_id, order_type, order_side);
-    if (check_client_id(client_id)) {
+    if (check_client_id(client_id))
+    {
         update_client_orders(trade_info->client_trade, client_id, user_id, order_type, order_side);
     }
 
@@ -876,7 +963,7 @@ static time_t get_utc_time_from_date(const char *date)
     struct tm dt;
     memset(&dt, 0, sizeof(dt));
     dt.tm_year = year - 1900;
-    dt.tm_mon  = mon - 1;
+    dt.tm_mon = mon - 1;
     dt.tm_mday = mday;
     time_t timestamp = mktime(&dt);
     return timestamp + timeinfo->tm_gmtoff;
@@ -894,7 +981,8 @@ static sds sql_append_mpd(sds sql, mpd_t *val, bool comma)
 {
     char *str = mpd_to_sci(val, 0);
     sql = sdscatprintf(sql, "'%s'", str);
-    if (comma) {
+    if (comma)
+    {
         sql = sdscatprintf(sql, ", ");
     }
     free(str);
@@ -910,7 +998,8 @@ static int dump_users_market_detail(MYSQL *conn, const char *market_name, time_t
     sql = sdscatprintf(sql, "CREATE TABLE IF NOT EXISTS `%s` LIKE `user_detail_example`", table);
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
+    if (ret != 0)
+    {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
         return -__LINE__;
@@ -921,14 +1010,19 @@ static int dump_users_market_detail(MYSQL *conn, const char *market_name, time_t
     size_t insert_limit = 1000;
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(user_dict);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         uint32_t user_id = (uintptr_t)entry->key;
         struct user_detail_val *user_detail = entry->val;
 
-        if (index % insert_limit == 0) {
+        if (index % insert_limit == 0)
+        {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `user_id`, `market`, `time`, `buy_amount`, `sell_amount`, `buy_volume`, `sell_volume`, "
-                    "`maker_amount`, `taker_amount`, `maker_volume`, `taker_volume`) VALUES ", table);
-        } else {
+                                    "`maker_amount`, `taker_amount`, `maker_volume`, `taker_volume`) VALUES ",
+                               table);
+        }
+        else
+        {
             sql = sdscatprintf(sql, ", ");
         }
 
@@ -944,13 +1038,15 @@ static int dump_users_market_detail(MYSQL *conn, const char *market_name, time_t
         sql = sdscatprintf(sql, ")");
 
         index += 1;
-        if (index % insert_limit == 0 || index == dict_size(user_dict)) {
+        if (index % insert_limit == 0 || index == dict_size(user_dict))
+        {
             sql = sdscatprintf(sql, " on duplicate key update `buy_amount`=values(`buy_amount`), `sell_amount`=values(`sell_amount`), "
-                    "`buy_volume`=values(`buy_volume`), `sell_volume`=values(`sell_volume`), `maker_amount`=values(`maker_amount`), "
-                    "`taker_amount`=values(`taker_amount`), `maker_volume`=values(`maker_volume`), `taker_volume`=values(`taker_volume`)");
+                                    "`buy_volume`=values(`buy_volume`), `sell_volume`=values(`sell_volume`), `maker_amount`=values(`maker_amount`), "
+                                    "`taker_amount`=values(`taker_amount`), `maker_volume`=values(`maker_volume`), `taker_volume`=values(`taker_volume`)");
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
-            if (ret != 0) {
+            if (ret != 0)
+            {
                 log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
                 dict_release_iterator(iter);
                 sdsfree(sql);
@@ -969,13 +1065,15 @@ static int dump_users_detail(MYSQL *conn)
     time_t max_timestamp = last_dump_time;
     dict_entry *market_entry;
     dict_iterator *market_iter = dict_get_iterator(dict_market_info);
-    while ((market_entry = dict_next(market_iter)) != NULL) {
+    while ((market_entry = dict_next(market_iter)) != NULL)
+    {
         const char *market_name = market_entry->key;
         struct market_info_val *market_info = market_entry->val;
 
         dict_entry *time_entry;
         dict_iterator *time_iter = dict_get_iterator(market_info->users_detail);
-        while ((time_entry = dict_next(time_iter))) {
+        while ((time_entry = dict_next(time_iter)))
+        {
             time_t timestamp = (uintptr_t)time_entry->key;
             if (timestamp < last_dump_time)
                 continue;
@@ -1001,15 +1099,18 @@ static int load_detail(MYSQL *conn, time_t timestamp)
     snprintf(table, sizeof(table), "user_detail_%s", get_utc_date_from_time(timestamp, "%Y%m"));
     size_t query_limit = 1000;
     uint64_t last_id = 0;
-    while (true) {
+    while (true)
+    {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `market`, `user_id`, `buy_amount`, `sell_amount`, `buy_volume`, `sell_volume`, "
-                "maker_amount, taker_amount, maker_volume, taker_volume "
-                "FROM `%s` WHERE `time`=%ld  and `id` > %"PRIu64" ORDER BY `id` ASC LIMIT %zu", table, timestamp, last_id, query_limit);
+                                "maker_amount, taker_amount, maker_volume, taker_volume "
+                                "FROM `%s` WHERE `time`=%ld  and `id` > %" PRIu64 " ORDER BY `id` ASC LIMIT %zu",
+                           table, timestamp, last_id, query_limit);
         log_trace("exec sql: %s", sql);
 
         int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret != 0) {
+        if (ret != 0)
+        {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             sdsfree(sql);
             return -__LINE__;
@@ -1018,13 +1119,15 @@ static int load_detail(MYSQL *conn, time_t timestamp)
 
         MYSQL_RES *result = mysql_store_result(conn);
         size_t num_rows = mysql_num_rows(result);
-        for (size_t i = 0; i < num_rows; ++i) {
+        for (size_t i = 0; i < num_rows; ++i)
+        {
             MYSQL_ROW row = mysql_fetch_row(result);
             last_id = strtoull(row[0], NULL, 0);
             char *market = row[1];
 
             struct market_info_val *market_info = get_market_info(market);
-            if (market_info == NULL) {
+            if (market_info == NULL)
+            {
                 log_error("get_market_info: %s fail", market);
                 return -__LINE__;
             }
@@ -1042,8 +1145,9 @@ static int load_detail(MYSQL *conn, time_t timestamp)
             mpd_t *taker_amount = decimal(row[8], 0);
             mpd_t *maker_volume = decimal(row[9], 0);
             mpd_t *taker_volume = decimal(row[10], 0);
-            if (!buy_amount || !sell_amount || !buy_volume || !sell_volume || 
-                !maker_amount || !taker_amount || !maker_volume || !taker_volume ) {
+            if (!buy_amount || !sell_amount || !buy_volume || !sell_volume ||
+                !maker_amount || !taker_amount || !maker_volume || !taker_volume)
+            {
                 log_error("get detail fail, market: %s, timestamp: %ld", market, timestamp);
             }
             mpd_copy(user_detail->buy_amount, buy_amount, &mpd_ctx);
@@ -1063,7 +1167,8 @@ static int load_detail(MYSQL *conn, time_t timestamp)
             mpd_del(maker_volume);
             mpd_del(taker_volume);
 
-            if (timestamp > last_dump_time) {
+            if (timestamp > last_dump_time)
+            {
                 last_dump_time = timestamp;
             }
         }
@@ -1078,9 +1183,11 @@ static int load_detail(MYSQL *conn, time_t timestamp)
 static int load_users_detail(MYSQL *conn)
 {
     time_t now = time(NULL) / 60 * 60;
-    for (time_t timestamp = now - settings.keep_days * 86400; timestamp <= now; timestamp += 60) {
+    for (time_t timestamp = now - settings.keep_days * 86400; timestamp <= now; timestamp += 60)
+    {
         int ret = load_detail(conn, timestamp);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             log_error("load detail fail, timestamp: %ld, ret: %d", timestamp, ret);
             return -__LINE__;
         }
@@ -1093,10 +1200,12 @@ static int dump_market_info(MYSQL *conn, const char *market_name, const char *st
     json_t *user_list = json_array();
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(trade_info->users_trade);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         uint32_t user_id = (uintptr_t)entry->key;
         struct users_trade_val *val = entry->val;
-        if (mpd_cmp(val->deal_volume, mpd_zero, &mpd_ctx) > 0) {
+        if (mpd_cmp(val->deal_volume, mpd_zero, &mpd_ctx) > 0)
+        {
             json_array_append_new(user_list, json_integer(user_id));
         }
     }
@@ -1110,25 +1219,26 @@ static int dump_market_info(MYSQL *conn, const char *market_name, const char *st
     sds date_day = sdsnew(get_utc_date_from_time(timestamp, "%Y-%m-%d"));
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "INSERT INTO `coin_trade_summary` (`id`, `trade_date`, `market`, `stock_asset`, `money_asset`, `deal_amount`, `deal_volume`, "
-            "`deal_count`, `deal_user_count`, `deal_user_list`, `taker_buy_amount`, `taker_sell_amount`, `taker_buy_count`, `taker_sell_count`, "
-            "`limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order`) VALUES ");
+                            "`deal_count`, `deal_user_count`, `deal_user_list`, `taker_buy_amount`, `taker_sell_amount`, `taker_buy_count`, `taker_sell_count`, "
+                            "`limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order`) VALUES ");
     sql = sdscatprintf(sql, "(NULL, '%s', '%s', '%s', '%s', ", date_day, market_name, stock, money);
     sql = sql_append_mpd(sql, trade_info->deal_amount, true);
     sql = sql_append_mpd(sql, trade_info->deal_volume, true);
     sql = sdscatprintf(sql, "%d, %zu, '%s', ", trade_info->deal_count, json_array_size(user_list), _user_list_string);
     sql = sql_append_mpd(sql, trade_info->taker_buy_amount, true);
     sql = sql_append_mpd(sql, trade_info->taker_sell_amount, true);
-    sql = sdscatprintf(sql, "%d, %d, %d, %d, %d, %d)", trade_info->taker_buy_count, trade_info->taker_sell_count, \
-            trade_info->limit_buy_order, trade_info->limit_sell_order, trade_info->market_buy_order, trade_info->market_sell_order);
+    sql = sdscatprintf(sql, "%d, %d, %d, %d, %d, %d)", trade_info->taker_buy_count, trade_info->taker_sell_count,
+                       trade_info->limit_buy_order, trade_info->limit_sell_order, trade_info->market_buy_order, trade_info->market_sell_order);
     sql = sdscatprintf(sql, "on duplicate key update `deal_count`=values(`deal_count`), `deal_user_count`=values(`deal_user_count`), "
-            "`deal_user_list`=values(`deal_user_list`), `taker_buy_count`=values(`taker_buy_count`), `taker_sell_count`=values(`taker_sell_count`), "
-            "`limit_buy_order`=values(`limit_buy_order`), `limit_sell_order`=values(`limit_sell_order`), `market_buy_order`=values(`market_buy_order`), "
-            "`market_sell_order`=values(`market_sell_order`), `deal_amount`=values(`deal_amount`), `deal_volume`=values(`deal_volume`), "
-            "`taker_buy_amount`=values(`taker_buy_amount`), `taker_sell_amount`=values(`taker_sell_amount`)");
+                            "`deal_user_list`=values(`deal_user_list`), `taker_buy_count`=values(`taker_buy_count`), `taker_sell_count`=values(`taker_sell_count`), "
+                            "`limit_buy_order`=values(`limit_buy_order`), `limit_sell_order`=values(`limit_sell_order`), `market_buy_order`=values(`market_buy_order`), "
+                            "`market_sell_order`=values(`market_sell_order`), `deal_amount`=values(`deal_amount`), `deal_volume`=values(`deal_volume`), "
+                            "`taker_buy_amount`=values(`taker_buy_amount`), `taker_sell_amount`=values(`taker_sell_amount`)");
 
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
+    if (ret != 0)
+    {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         ret = -__LINE__;
     }
@@ -1146,15 +1256,18 @@ static int load_market_info(MYSQL *conn, time_t timestamp)
     size_t query_limit = 1000;
     uint64_t last_id = 0;
     sds date_day = sdsnew(get_utc_date_from_time(timestamp, "%Y-%m-%d"));
-    while (true) {
+    while (true)
+    {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `market`, `deal_amount`, `deal_volume`, `taker_buy_amount`, `taker_sell_amount`, `deal_count`, "
-                "`taker_buy_count`, `taker_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order` "
-                "FROM `coin_trade_summary` WHERE `trade_date`= '%s' and `id` > %"PRIu64" ORDER BY `id` ASC LIMIT %zu", date_day, last_id, query_limit);
+                                "`taker_buy_count`, `taker_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order` "
+                                "FROM `coin_trade_summary` WHERE `trade_date`= '%s' and `id` > %" PRIu64 " ORDER BY `id` ASC LIMIT %zu",
+                           date_day, last_id, query_limit);
         log_trace("exec sql: %s", sql);
 
         int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret != 0) {
+        if (ret != 0)
+        {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             sdsfree(sql);
             sdsfree(date_day);
@@ -1164,28 +1277,32 @@ static int load_market_info(MYSQL *conn, time_t timestamp)
 
         MYSQL_RES *result = mysql_store_result(conn);
         size_t num_rows = mysql_num_rows(result);
-        for (size_t i = 0; i < num_rows; ++i) {
+        for (size_t i = 0; i < num_rows; ++i)
+        {
             MYSQL_ROW row = mysql_fetch_row(result);
             last_id = strtoull(row[0], NULL, 0);
 
             char *market = row[1];
             struct market_info_val *market_info = get_market_info(market);
-            if (market_info == NULL) {
+            if (market_info == NULL)
+            {
                 log_error("get_market_info: %s fail", market);
                 return -__LINE__;
             }
 
             struct daily_trade_val *trade_info = get_daily_trade_info(market_info->daily_trade, timestamp);
-            if (trade_info == NULL) {
+            if (trade_info == NULL)
+            {
                 log_error("get_daily_trade_info: %s fail", market);
                 return -__LINE__;
             }
 
             mpd_t *deal_amount = decimal(row[2], 0);
             mpd_t *deal_volume = decimal(row[3], 0);
-            mpd_t *taker_buy_amount  = decimal(row[4], 0);
+            mpd_t *taker_buy_amount = decimal(row[4], 0);
             mpd_t *taker_sell_amount = decimal(row[5], 0);
-            if (!deal_amount || !deal_volume || !taker_buy_amount || !taker_sell_amount) {
+            if (!deal_amount || !deal_volume || !taker_buy_amount || !taker_sell_amount)
+            {
                 log_error("trade_info: %s fail", market);
                 return -__LINE__;
             }
@@ -1224,7 +1341,8 @@ static int dump_client_dict_info(MYSQL *conn, const char *market_name, const cha
     sql = sdscatprintf(sql, "CREATE TABLE IF NOT EXISTS `%s` LIKE `client_trade_summary_example`", table);
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
+    if (ret != 0)
+    {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
         return -__LINE__;
@@ -1235,15 +1353,20 @@ static int dump_client_dict_info(MYSQL *conn, const char *market_name, const cha
     size_t index = 0;
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(client_trade);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         struct client_user_trade_key *key = (struct client_user_trade_key *)entry->key;
         struct users_trade_val *user_info = entry->val;
 
-        if (index % insert_limit == 0) {
+        if (index % insert_limit == 0)
+        {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `client_id`, `user_id`, `market`, `stock_asset`, `money_asset`, `deal_amount`, `deal_volume`, "
-                    "`buy_amount`, `buy_volume`, `sell_amount`, `sell_volume`, `taker_amount`, `taker_volume`, `maker_amount`, `maker_volume`, `deal_count`, "
-                    "`deal_buy_count`, `deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order`) VALUES ", table);
-        } else {
+                                    "`buy_amount`, `buy_volume`, `sell_amount`, `sell_volume`, `taker_amount`, `taker_volume`, `maker_amount`, `maker_volume`, `deal_count`, "
+                                    "`deal_buy_count`, `deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order`) VALUES ",
+                               table);
+        }
+        else
+        {
             sql = sdscatprintf(sql, ", ");
         }
 
@@ -1259,20 +1382,22 @@ static int dump_client_dict_info(MYSQL *conn, const char *market_name, const cha
         sql = sql_append_mpd(sql, user_info->maker_amount, true);
         sql = sql_append_mpd(sql, user_info->maker_volume, true);
         sql = sdscatprintf(sql, "%d, %d, %d, %d, %d, %d, %d)", user_info->deal_count, user_info->deal_buy_count, user_info->deal_sell_count,
-                user_info->limit_buy_order, user_info->limit_sell_order, user_info->market_buy_order, user_info->market_sell_order);
+                           user_info->limit_buy_order, user_info->limit_sell_order, user_info->market_buy_order, user_info->market_sell_order);
 
         index += 1;
-        if (index % insert_limit == 0 || index == dict_size(client_trade)) {
+        if (index % insert_limit == 0 || index == dict_size(client_trade))
+        {
             sql = sdscatprintf(sql, " on duplicate key update `deal_count`=values(`deal_count`), `deal_buy_count`=values(`deal_buy_count`), "
-                "`deal_sell_count`=values(`deal_sell_count`), `limit_buy_order`=values(`limit_buy_order`), `limit_sell_order`=values(`limit_sell_order`), "
-                "`market_buy_order`=values(`market_buy_order`), `market_sell_order`=values(`market_sell_order`), `deal_amount`=values(`deal_amount`), "
-                "`deal_volume`=values(`deal_volume`), `buy_amount`=values(`buy_amount`), `buy_volume`=values(`buy_volume`), `sell_amount`=values(`sell_amount`), "
-                "`sell_volume`=values(`sell_volume`), `taker_amount`=values(`taker_amount`), `taker_volume`=values(`taker_volume`), "
-                "`maker_amount`=values(`maker_amount`), `maker_volume`=values(`maker_volume`)");
+                                    "`deal_sell_count`=values(`deal_sell_count`), `limit_buy_order`=values(`limit_buy_order`), `limit_sell_order`=values(`limit_sell_order`), "
+                                    "`market_buy_order`=values(`market_buy_order`), `market_sell_order`=values(`market_sell_order`), `deal_amount`=values(`deal_amount`), "
+                                    "`deal_volume`=values(`deal_volume`), `buy_amount`=values(`buy_amount`), `buy_volume`=values(`buy_volume`), `sell_amount`=values(`sell_amount`), "
+                                    "`sell_volume`=values(`sell_volume`), `taker_amount`=values(`taker_amount`), `taker_volume`=values(`taker_volume`), "
+                                    "`maker_amount`=values(`maker_amount`), `maker_volume`=values(`maker_volume`)");
 
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
-            if (ret != 0) {
+            if (ret != 0)
+            {
                 log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
                 dict_release_iterator(iter);
                 sdsfree(sql);
@@ -1294,16 +1419,19 @@ static int load_client_info(MYSQL *conn, time_t timestamp)
     size_t query_limit = 1000;
     uint64_t last_id = 0;
     sds date_day = sdsnew(get_utc_date_from_time(timestamp, "%Y-%m-%d"));
-    while (true) {
+    while (true)
+    {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `market`, `client_id`, `user_id`, `deal_amount`, `deal_volume`, `buy_amount`, `buy_volume`, "
-                "`sell_amount`, `sell_volume`, `maker_volume`, `maker_amount`, `taker_volume`, `taker_amount`, `deal_count`, `deal_buy_count`, "
-                "`deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order` "
-                "FROM `%s` WHERE `trade_date`= '%s' and `id` > %"PRIu64" ORDER BY `id` ASC LIMIT %zu", table, date_day, last_id, query_limit);
+                                "`sell_amount`, `sell_volume`, `maker_volume`, `maker_amount`, `taker_volume`, `taker_amount`, `deal_count`, `deal_buy_count`, "
+                                "`deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order` "
+                                "FROM `%s` WHERE `trade_date`= '%s' and `id` > %" PRIu64 " ORDER BY `id` ASC LIMIT %zu",
+                           table, date_day, last_id, query_limit);
         log_trace("exec sql: %s", sql);
 
         int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret != 0) {
+        if (ret != 0)
+        {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             sdsfree(sql);
             sdsfree(date_day);
@@ -1313,19 +1441,22 @@ static int load_client_info(MYSQL *conn, time_t timestamp)
 
         MYSQL_RES *result = mysql_store_result(conn);
         size_t num_rows = mysql_num_rows(result);
-        for (size_t i = 0; i < num_rows; ++i) {
+        for (size_t i = 0; i < num_rows; ++i)
+        {
             MYSQL_ROW row = mysql_fetch_row(result);
             last_id = strtoull(row[0], NULL, 0);
-    
+
             char *market = row[1];
             struct market_info_val *market_info = get_market_info(market);
-            if (market_info == NULL) {
+            if (market_info == NULL)
+            {
                 log_error("get_market_info: %s fail", market);
                 return -__LINE__;
             }
 
             struct daily_trade_val *trade_info = get_daily_trade_info(market_info->daily_trade, timestamp);
-            if (trade_info == NULL) {
+            if (trade_info == NULL)
+            {
                 log_error("get_daily_trade_info: %s fail", market);
                 return -__LINE__;
             }
@@ -1333,23 +1464,24 @@ static int load_client_info(MYSQL *conn, time_t timestamp)
             char *client_id = row[2];
             uint32_t user_id = strtoull(row[3], NULL, 0);
             struct users_trade_val *user_info = get_user_trade_info(trade_info->users_trade, user_id, client_id);
-            if (user_info == NULL) {
+            if (user_info == NULL)
+            {
                 log_error("get_user_trade_info: %s fail", market);
                 return -__LINE__;
             }
 
             mpd_t *deal_amount = decimal(row[4], 0);
             mpd_t *deal_volume = decimal(row[5], 0);
-            mpd_t *buy_amount  = decimal(row[6], 0);
-            mpd_t *buy_volume  = decimal(row[7], 0);
+            mpd_t *buy_amount = decimal(row[6], 0);
+            mpd_t *buy_volume = decimal(row[7], 0);
             mpd_t *sell_amount = decimal(row[8], 0);
             mpd_t *sell_volume = decimal(row[9], 0);
             mpd_t *maker_volume = decimal(row[10], 0);
             mpd_t *maker_amount = decimal(row[11], 0);
             mpd_t *taker_volume = decimal(row[12], 0);
             mpd_t *taker_amount = decimal(row[13], 0);
-            if (!deal_amount || !deal_volume || !buy_amount || !buy_volume || !sell_amount 
-                || !sell_volume || !taker_amount || !taker_volume || !maker_amount || !maker_volume) {
+            if (!deal_amount || !deal_volume || !buy_amount || !buy_volume || !sell_amount || !sell_volume || !taker_amount || !taker_volume || !maker_amount || !maker_volume)
+            {
                 log_error("user_info: %s fail", market);
                 return -__LINE__;
             }
@@ -1400,7 +1532,8 @@ static int dump_user_dict_info(MYSQL *conn, const char *market_name, const char 
     sql = sdscatprintf(sql, "CREATE TABLE IF NOT EXISTS `%s` LIKE `user_trade_summary_example`", table);
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
+    if (ret != 0)
+    {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
         return -__LINE__;
@@ -1411,15 +1544,20 @@ static int dump_user_dict_info(MYSQL *conn, const char *market_name, const char 
     size_t index = 0;
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(users_trade);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         uint32_t user_id = (uintptr_t)entry->key;
         struct users_trade_val *user_info = entry->val;
 
-        if (index % insert_limit == 0) {
+        if (index % insert_limit == 0)
+        {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `user_id`, `market`, `stock_asset`, `money_asset`, `deal_amount`, `deal_volume`, "
-                    "`buy_amount`, `buy_volume`, `sell_amount`, `sell_volume`, `taker_amount`, `taker_volume`, `maker_amount`, `maker_volume`, `deal_count`, "
-                    "`deal_buy_count`, `deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order`) VALUES ", table);
-        } else {
+                                    "`buy_amount`, `buy_volume`, `sell_amount`, `sell_volume`, `taker_amount`, `taker_volume`, `maker_amount`, `maker_volume`, `deal_count`, "
+                                    "`deal_buy_count`, `deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order`) VALUES ",
+                               table);
+        }
+        else
+        {
             sql = sdscatprintf(sql, ", ");
         }
 
@@ -1435,19 +1573,21 @@ static int dump_user_dict_info(MYSQL *conn, const char *market_name, const char 
         sql = sql_append_mpd(sql, user_info->maker_amount, true);
         sql = sql_append_mpd(sql, user_info->maker_volume, true);
         sql = sdscatprintf(sql, "%d, %d, %d, %d, %d, %d, %d)", user_info->deal_count, user_info->deal_buy_count, user_info->deal_sell_count,
-                user_info->limit_buy_order, user_info->limit_sell_order, user_info->market_buy_order, user_info->market_sell_order);
+                           user_info->limit_buy_order, user_info->limit_sell_order, user_info->market_buy_order, user_info->market_sell_order);
 
         index += 1;
-        if (index % insert_limit == 0 || index == dict_size(users_trade)) {
+        if (index % insert_limit == 0 || index == dict_size(users_trade))
+        {
             sql = sdscatprintf(sql, " on duplicate key update `deal_count`=values(`deal_count`), `deal_buy_count`=values(`deal_buy_count`), "
-                "`deal_sell_count`=values(`deal_sell_count`), `limit_buy_order`=values(`limit_buy_order`), `limit_sell_order`=values(`limit_sell_order`), "
-                "`market_buy_order`=values(`market_buy_order`), `market_sell_order`=values(`market_sell_order`), `deal_amount`=values(`deal_amount`), "
-                "`deal_volume`=values(`deal_volume`), `buy_amount`=values(`buy_amount`), `buy_volume`=values(`buy_volume`), `sell_amount`=values(`sell_amount`), "
-                "`sell_volume`=values(`sell_volume`), `taker_amount`=values(`taker_amount`), `taker_volume`=values(`taker_volume`), "
-                "`maker_amount`=values(`maker_amount`), `maker_volume`=values(`maker_volume`)");
+                                    "`deal_sell_count`=values(`deal_sell_count`), `limit_buy_order`=values(`limit_buy_order`), `limit_sell_order`=values(`limit_sell_order`), "
+                                    "`market_buy_order`=values(`market_buy_order`), `market_sell_order`=values(`market_sell_order`), `deal_amount`=values(`deal_amount`), "
+                                    "`deal_volume`=values(`deal_volume`), `buy_amount`=values(`buy_amount`), `buy_volume`=values(`buy_volume`), `sell_amount`=values(`sell_amount`), "
+                                    "`sell_volume`=values(`sell_volume`), `taker_amount`=values(`taker_amount`), `taker_volume`=values(`taker_volume`), "
+                                    "`maker_amount`=values(`maker_amount`), `maker_volume`=values(`maker_volume`)");
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
-            if (ret != 0) {
+            if (ret != 0)
+            {
                 log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
                 dict_release_iterator(iter);
                 sdsfree(sql);
@@ -1469,16 +1609,19 @@ static int load_users_info(MYSQL *conn, time_t timestamp)
     size_t query_limit = 1000;
     uint64_t last_id = 0;
     sds date_day = sdsnew(get_utc_date_from_time(timestamp, "%Y-%m-%d"));
-    while (true) {
+    while (true)
+    {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `market`, `user_id`, `deal_amount`, `deal_volume`, `buy_amount`, `buy_volume`, `sell_amount`, "
-                "`sell_volume`, `maker_volume`, `maker_amount`, `taker_volume`, `taker_amount`, `deal_count`, `deal_buy_count`, "
-                "`deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order` "
-                "FROM `%s` WHERE `trade_date`= '%s' and `id` > %"PRIu64" ORDER BY `id` ASC LIMIT %zu", table, date_day, last_id, query_limit);
+                                "`sell_volume`, `maker_volume`, `maker_amount`, `taker_volume`, `taker_amount`, `deal_count`, `deal_buy_count`, "
+                                "`deal_sell_count`, `limit_buy_order`, `limit_sell_order`, `market_buy_order`, `market_sell_order` "
+                                "FROM `%s` WHERE `trade_date`= '%s' and `id` > %" PRIu64 " ORDER BY `id` ASC LIMIT %zu",
+                           table, date_day, last_id, query_limit);
         log_trace("exec sql: %s", sql);
 
         int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret != 0) {
+        if (ret != 0)
+        {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             sdsfree(sql);
             sdsfree(date_day);
@@ -1488,42 +1631,46 @@ static int load_users_info(MYSQL *conn, time_t timestamp)
 
         MYSQL_RES *result = mysql_store_result(conn);
         size_t num_rows = mysql_num_rows(result);
-        for (size_t i = 0; i < num_rows; ++i) {
+        for (size_t i = 0; i < num_rows; ++i)
+        {
             MYSQL_ROW row = mysql_fetch_row(result);
             last_id = strtoull(row[0], NULL, 0);
-    
+
             char *market = row[1];
             struct market_info_val *market_info = get_market_info(market);
-            if (market_info == NULL) {
+            if (market_info == NULL)
+            {
                 log_error("get_market_info: %s fail", market);
                 return -__LINE__;
             }
 
             struct daily_trade_val *trade_info = get_daily_trade_info(market_info->daily_trade, timestamp);
-            if (trade_info == NULL) {
+            if (trade_info == NULL)
+            {
                 log_error("get_daily_trade_info: %s fail", market);
                 return -__LINE__;
             }
 
             uint32_t user_id = strtoull(row[2], NULL, 0);
             struct users_trade_val *user_info = get_user_trade_info(trade_info->users_trade, user_id, NULL);
-            if (user_info == NULL) {
+            if (user_info == NULL)
+            {
                 log_error("get_user_trade_info: %s fail", market);
                 return -__LINE__;
             }
 
             mpd_t *deal_amount = decimal(row[3], 0);
             mpd_t *deal_volume = decimal(row[4], 0);
-            mpd_t *buy_amount  = decimal(row[5], 0);
-            mpd_t *buy_volume  = decimal(row[6], 0);
+            mpd_t *buy_amount = decimal(row[5], 0);
+            mpd_t *buy_volume = decimal(row[6], 0);
             mpd_t *sell_amount = decimal(row[7], 0);
             mpd_t *sell_volume = decimal(row[8], 0);
             mpd_t *maker_volume = decimal(row[9], 0);
             mpd_t *maker_amount = decimal(row[10], 0);
             mpd_t *taker_volume = decimal(row[11], 0);
             mpd_t *taker_amount = decimal(row[12], 0);
-            if (!deal_amount || !deal_volume || !buy_amount || !buy_volume || !sell_amount 
-                || !sell_volume || !taker_amount || !taker_volume || !maker_amount || !maker_volume) {
+            if (!deal_amount || !deal_volume || !buy_amount || !buy_volume || !sell_amount || !sell_volume || !taker_amount || !taker_volume || !maker_amount || !maker_volume)
+            {
                 log_error("user_info: %s fail", market);
                 return -__LINE__;
             }
@@ -1574,7 +1721,8 @@ static int dump_client_fee_dict_info(MYSQL *conn, const char *market_name, time_
     sql = sdscatprintf(sql, "CREATE TABLE IF NOT EXISTS `%s` LIKE `client_fee_summary_example`", table);
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
+    if (ret != 0)
+    {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
         return -__LINE__;
@@ -1585,13 +1733,17 @@ static int dump_client_fee_dict_info(MYSQL *conn, const char *market_name, time_
     size_t index = 0;
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(fees_detail);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         struct client_fee_key *fkey = entry->key;
         struct fee_val *fval = entry->val;
 
-        if (index % insert_limit == 0) {
+        if (index % insert_limit == 0)
+        {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `client_id`, `user_id`, `market`, `asset`, `fee`) VALUES ", table);
-        } else {
+        }
+        else
+        {
             sql = sdscatprintf(sql, ", ");
         }
 
@@ -1600,11 +1752,13 @@ static int dump_client_fee_dict_info(MYSQL *conn, const char *market_name, time_
         sql = sdscatprintf(sql, ")");
 
         index += 1;
-        if (index % insert_limit == 0 || index == dict_size(fees_detail)) {
+        if (index % insert_limit == 0 || index == dict_size(fees_detail))
+        {
             sql = sdscatprintf(sql, " on duplicate key update `fee`=values(`fee`)");
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
-            if (ret != 0) {
+            if (ret != 0)
+            {
                 log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
                 dict_release_iterator(iter);
                 sdsfree(sql);
@@ -1626,14 +1780,17 @@ static int load_client_fee_info(MYSQL *conn, time_t timestamp)
     size_t query_limit = 1000;
     uint64_t last_id = 0;
     sds date_day = sdsnew(get_utc_date_from_time(timestamp, "%Y-%m-%d"));
-    while (true) {
+    while (true)
+    {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `market`, `asset`, `client_id`, `user_id`, `fee`"
-                "FROM `%s` WHERE `trade_date`= '%s' and `id` > %"PRIu64" ORDER BY `id` ASC LIMIT %zu", table, date_day, last_id, query_limit);
+                                "FROM `%s` WHERE `trade_date`= '%s' and `id` > %" PRIu64 " ORDER BY `id` ASC LIMIT %zu",
+                           table, date_day, last_id, query_limit);
         log_trace("exec sql: %s", sql);
 
         int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret != 0) {
+        if (ret != 0)
+        {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             sdsfree(sql);
             sdsfree(date_day);
@@ -1643,19 +1800,22 @@ static int load_client_fee_info(MYSQL *conn, time_t timestamp)
 
         MYSQL_RES *result = mysql_store_result(conn);
         size_t num_rows = mysql_num_rows(result);
-        for (size_t i = 0; i < num_rows; ++i) {
+        for (size_t i = 0; i < num_rows; ++i)
+        {
             MYSQL_ROW row = mysql_fetch_row(result);
             last_id = strtoull(row[0], NULL, 0);
-    
+
             char *market = row[1];
             struct market_info_val *market_info = get_market_info(market);
-            if (market_info == NULL) {
+            if (market_info == NULL)
+            {
                 log_error("get_market_info: %s fail", market);
                 return -__LINE__;
             }
 
             struct daily_trade_val *trade_info = get_daily_trade_info(market_info->daily_trade, timestamp);
-            if (trade_info == NULL) {
+            if (trade_info == NULL)
+            {
                 log_error("get_daily_trade_info: %s fail", market);
                 return -__LINE__;
             }
@@ -1664,7 +1824,8 @@ static int load_client_fee_info(MYSQL *conn, time_t timestamp)
             char *client_id = row[3];
             uint32_t user_id = strtoul(row[4], NULL, 0);
             mpd_t *fee = decimal(row[5], 0);
-            if (!fee) {
+            if (!fee)
+            {
                 log_error("get fee: %s fail", market);
                 return -__LINE__;
             }
@@ -1689,7 +1850,8 @@ static int dump_fee_dict_info(MYSQL *conn, const char *market_name, time_t times
     sql = sdscatprintf(sql, "CREATE TABLE IF NOT EXISTS `%s` LIKE `user_fee_summary_example`", table);
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
+    if (ret != 0)
+    {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
         return -__LINE__;
@@ -1700,13 +1862,17 @@ static int dump_fee_dict_info(MYSQL *conn, const char *market_name, time_t times
     size_t index = 0;
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(fees_detail);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         struct fee_key *fkey = entry->key;
         struct fee_val *fval = entry->val;
 
-        if (index % insert_limit == 0) {
+        if (index % insert_limit == 0)
+        {
             sql = sdscatprintf(sql, "INSERT INTO `%s` (`id`, `trade_date`, `user_id`, `market`, `asset`, `fee`, `taker_fee`, `maker_fee`) VALUES ", table);
-        } else {
+        }
+        else
+        {
             sql = sdscatprintf(sql, ", ");
         }
 
@@ -1717,11 +1883,13 @@ static int dump_fee_dict_info(MYSQL *conn, const char *market_name, time_t times
         sql = sdscatprintf(sql, ")");
 
         index += 1;
-        if (index % insert_limit == 0 || index == dict_size(fees_detail)) {
+        if (index % insert_limit == 0 || index == dict_size(fees_detail))
+        {
             sql = sdscatprintf(sql, " on duplicate key update `fee`=values(`fee`), `taker_fee`=values(`taker_fee`), `maker_fee`=values(`maker_fee`)");
             log_trace("exec sql: %s", sql);
             int ret = mysql_real_query(conn, sql, sdslen(sql));
-            if (ret != 0) {
+            if (ret != 0)
+            {
                 log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
                 dict_release_iterator(iter);
                 sdsfree(sql);
@@ -1743,14 +1911,17 @@ static int load_users_fee_info(MYSQL *conn, time_t timestamp)
     size_t query_limit = 1000;
     uint64_t last_id = 0;
     sds date_day = sdsnew(get_utc_date_from_time(timestamp, "%Y-%m-%d"));
-    while (true) {
+    while (true)
+    {
         sds sql = sdsempty();
         sql = sdscatprintf(sql, "SELECT `id`, `market`, `asset`, `user_id`, `fee`, `taker_fee`, `maker_fee`"
-                "FROM `%s` WHERE `trade_date`= '%s' and `id` > %"PRIu64" ORDER BY `id` ASC LIMIT %zu", table, date_day, last_id, query_limit);
+                                "FROM `%s` WHERE `trade_date`= '%s' and `id` > %" PRIu64 " ORDER BY `id` ASC LIMIT %zu",
+                           table, date_day, last_id, query_limit);
         log_trace("exec sql: %s", sql);
 
         int ret = mysql_real_query(conn, sql, sdslen(sql));
-        if (ret != 0) {
+        if (ret != 0)
+        {
             log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
             sdsfree(sql);
             sdsfree(date_day);
@@ -1760,19 +1931,22 @@ static int load_users_fee_info(MYSQL *conn, time_t timestamp)
 
         MYSQL_RES *result = mysql_store_result(conn);
         size_t num_rows = mysql_num_rows(result);
-        for (size_t i = 0; i < num_rows; ++i) {
+        for (size_t i = 0; i < num_rows; ++i)
+        {
             MYSQL_ROW row = mysql_fetch_row(result);
             last_id = strtoull(row[0], NULL, 0);
-    
+
             char *market = row[1];
             struct market_info_val *market_info = get_market_info(market);
-            if (market_info == NULL) {
+            if (market_info == NULL)
+            {
                 log_error("get_market_info: %s fail", market);
                 return -__LINE__;
             }
 
             struct daily_trade_val *trade_info = get_daily_trade_info(market_info->daily_trade, timestamp);
-            if (trade_info == NULL) {
+            if (trade_info == NULL)
+            {
                 log_error("get_daily_trade_info: %s fail", market);
                 return -__LINE__;
             }
@@ -1782,7 +1956,8 @@ static int load_users_fee_info(MYSQL *conn, time_t timestamp)
             mpd_t *fee = decimal(row[4], 0);
             mpd_t *taker_fee = decimal(row[5], 0);
             mpd_t *maker_fee = decimal(row[6], 0);
-            if (!fee || !taker_fee || !maker_fee) {
+            if (!fee || !taker_fee || !maker_fee)
+            {
                 log_error("get fee: %s fail", market);
                 return -__LINE__;
             }
@@ -1811,7 +1986,8 @@ static int dump_market(MYSQL *conn, json_t *markets, time_t timestamp)
 {
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market_info);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         const char *market_name = entry->key;
         json_t *attr = json_object_get(markets, market_name);
         if (attr == NULL)
@@ -1828,27 +2004,32 @@ static int dump_market(MYSQL *conn, json_t *markets, time_t timestamp)
         int ret;
         struct daily_trade_val *trade_info = result->val;
         ret = dump_market_info(conn, market_name, stock, money, timestamp, trade_info);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             log_error("dump_market_info: %s timestamp: %ld fail", market_name, timestamp);
             return -__LINE__;
         }
         ret = dump_user_dict_info(conn, market_name, stock, money, timestamp, trade_info->users_trade);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             log_error("dump_users_info: %s timestamp: %ld fail", market_name, timestamp);
             return -__LINE__;
         }
         ret = dump_client_dict_info(conn, market_name, stock, money, timestamp, trade_info->client_trade);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             log_error("dump_client_trade_info: %s timestamp: %ld fail", market_name, timestamp);
             return -__LINE__;
         }
         ret = dump_fee_dict_info(conn, market_name, timestamp, trade_info->fees_detail);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             log_error("dump_fee_info: %s timestamp: %ld fail", market_name, timestamp);
             return -__LINE__;
         }
         ret = dump_client_fee_dict_info(conn, market_name, timestamp, trade_info->client_fees_detail);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             log_error("dump_client_fee_info: %s timestamp: %ld fail", market_name, timestamp);
             return -__LINE__;
         }
@@ -1861,31 +2042,36 @@ static int dump_market(MYSQL *conn, json_t *markets, time_t timestamp)
 static int load_market(MYSQL *conn, time_t date)
 {
     int ret = load_market_info(conn, date);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_error("load_market_info fail: %d", ret);
         return -__LINE__;
     }
 
     ret = load_users_info(conn, date);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_error("load_users_info fail: %d", ret);
         return -__LINE__;
     }
 
     ret = load_users_fee_info(conn, date);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_error("load_users_fee_info fail: %d", ret);
         return -__LINE__;
     }
 
     ret = load_client_info(conn, date);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_error("load_client_info fail: %d", ret);
         return -__LINE__;
     }
 
     ret = load_client_fee_info(conn, date);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_error("load_client_info fail: %d", ret);
         return -__LINE__;
     }
@@ -1897,10 +2083,12 @@ static int update_dump_history(MYSQL *conn, time_t date, time_t timestamp)
 {
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "INSERT INTO `dump_history` (`id`, `time`, `trade_date`, `deals_offset`, `orders_offset`)"
-          " VALUES (NULL, %ld, '%s', %"PRIi64", %"PRIi64")", timestamp, get_utc_date_from_time(date, "%Y-%m-%d"), kafka_deals_offset, kafka_orders_offset);
+                            " VALUES (NULL, %ld, '%s', %" PRIi64 ", %" PRIi64 ")",
+                       timestamp, get_utc_date_from_time(date, "%Y-%m-%d"), kafka_deals_offset, kafka_orders_offset);
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
+    if (ret != 0)
+    {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
         return -__LINE__;
@@ -1912,12 +2100,13 @@ static int update_dump_history(MYSQL *conn, time_t date, time_t timestamp)
 }
 
 static int get_last_dump(MYSQL *conn, int64_t *orders_offset, int64_t *deals_offset)
-{    
+{
     sds sql = sdsempty();
     sql = sdscatprintf(sql, "SELECT `trade_date`, `time`, `orders_offset`, `deals_offset` from dump_history order by `id` desc limit 1");
     log_trace("exec sql: %s", sql);
     int ret = mysql_real_query(conn, sql, sdslen(sql));
-    if (ret != 0) {
+    if (ret != 0)
+    {
         log_error("exec sql: %s fail: %d %s", sql, mysql_errno(conn), mysql_error(conn));
         sdsfree(sql);
         return -__LINE__;
@@ -1926,7 +2115,8 @@ static int get_last_dump(MYSQL *conn, int64_t *orders_offset, int64_t *deals_off
 
     MYSQL_RES *result = mysql_store_result(conn);
     size_t num_rows = mysql_num_rows(result);
-    if (num_rows == 1) {
+    if (num_rows == 1)
+    {
         MYSQL_ROW row = mysql_fetch_row(result);
         last_dump_date = get_utc_time_from_date(row[0]);
         last_dump_time = strtoull(row[1], NULL, 0) - 600;
@@ -1942,35 +2132,41 @@ static int get_last_dump(MYSQL *conn, int64_t *orders_offset, int64_t *deals_off
 static int dump_to_db()
 {
     json_t *markets = get_market_dict();
-    if (markets == NULL) {
+    if (markets == NULL)
+    {
         log_error("get market list fail");
         return -__LINE__;
     }
 
     MYSQL *conn = mysql_connect(&settings.db_summary);
-    if (conn == NULL) {
+    if (conn == NULL)
+    {
         log_error("connect mysql fail");
         json_decref(markets);
         return -__LINE__;
     }
 
     int ret = get_last_dump(conn, NULL, NULL);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_error("get_last_dump fail: %d", ret);
         return -__LINE__;
     }
 
     time_t now = time(NULL);
     time_t today_start = get_utc_day_start(now);
-    if (last_dump_date == 0) {
+    if (last_dump_date == 0)
+    {
         last_dump_date = today_start;
     }
     log_info("last_dump_date: %zd, today_start: %zd", last_dump_date, today_start);
 
     time_t date;
-    for (date = last_dump_date; date <= today_start; date += 86400) {
+    for (date = last_dump_date; date <= today_start; date += 86400)
+    {
         ret = dump_market(conn, markets, date);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             mysql_close(conn);
             json_decref(markets);
             log_error("dump_market fail: %d", ret);
@@ -1981,14 +2177,16 @@ static int dump_to_db()
     json_decref(markets);
 
     ret = dump_users_detail(conn);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         mysql_close(conn);
         log_error("dump_users_detail fail: %d", ret);
         return -__LINE__;
     }
 
     ret = update_dump_history(conn, last_dump_date, now);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         mysql_close(conn);
         log_error("update_dump_history fail: %d", ret);
         return -__LINE__;
@@ -2001,33 +2199,38 @@ static int dump_to_db()
 static int load_from_db(int64_t *orders_offset, int64_t *deals_offset)
 {
     MYSQL *conn = mysql_connect(&settings.db_summary);
-    if (conn == NULL) {
+    if (conn == NULL)
+    {
         log_error("connect mysql fail");
         return -__LINE__;
     }
 
     int ret = get_last_dump(conn, orders_offset, deals_offset);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_error("get_last_dump fail: %d", ret);
         mysql_close(conn);
         return -__LINE__;
     }
 
-    if (last_dump_date == 0) {
+    if (last_dump_date == 0)
+    {
         log_info("there is no data");
         mysql_close(conn);
         return 0;
     }
 
     ret = load_market(conn, last_dump_date);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_error("load_market fail: %d", ret);
         mysql_close(conn);
         return -__LINE__;
     }
 
     ret = load_users_detail(conn);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_error("load_users_detail fail: %d", ret);
         mysql_close(conn);
         return -__LINE__;
@@ -2046,26 +2249,32 @@ static void on_dump_timer(nw_timer *timer, void *privdata)
         return;
     if (last_dump_hour == curr_hour) // already dump
         return;
-
-    if (!is_kafka_synced()) {
-        log_info("kafka is not synced");
-        return;
+    if (now % 3600 > 3000)  // force a write within 50 minutes
+    {
+        if (!is_kafka_synced())
+        {
+            log_info("kafka is not synced");
+            return;
+        }
     }
-    
     last_dump_hour = curr_hour;
     log_info("try to dump");
     dlog_flush_all();
 
     int pid = fork();
-    if (pid < 0) {
+    if (pid < 0)
+    {
         log_fatal("fork fail: %d", pid);
         return;
-    } else if (pid > 0) {
+    }
+    else if (pid > 0)
+    {
         return;
     }
 
     int ret = dump_to_db();
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_fatal("dump_to_db fail, ret: %d", ret);
         exit(0);
     }
@@ -2080,18 +2289,22 @@ static void clear_market(struct market_info_val *market_info, time_t end)
     dict_iterator *iter;
 
     iter = dict_get_iterator(market_info->daily_trade);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         time_t key_time = (uintptr_t)entry->key;
-        if (key_time < end) {
+        if (key_time < end)
+        {
             dict_delete(market_info->daily_trade, entry->key);
         }
     }
     dict_release_iterator(iter);
 
     iter = dict_get_iterator(market_info->users_detail);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         time_t key_time = (uintptr_t)entry->key;
-        if (key_time < end) {
+        if (key_time < end)
+        {
             dict_delete(market_info->users_detail, entry->key);
         }
     }
@@ -2104,7 +2317,8 @@ static void on_clear_timer(nw_timer *timer, void *privdata)
     time_t end = now / 86400 * 86400 - settings.keep_days * 86400;
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market_info);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         clear_market(entry->val, end);
     }
     dict_release_iterator(iter);
@@ -2113,11 +2327,14 @@ static void on_clear_timer(nw_timer *timer, void *privdata)
 static void report_kafka_offset(kafka_consumer_t *consumer, int64_t current_offset)
 {
     int64_t high = 0;
-    if (kafka_query_offset(consumer, NULL, &high) < 0) {
+    if (kafka_query_offset(consumer, NULL, &high) < 0)
+    {
         log_error("kafka_query_offset %s fail", consumer->topic);
-    } else {
-        log_info("topic: %s hightest offset: %"PRIi64", currently: %"PRIi64", gap: %"PRIi64, \
-                consumer->topic, high, current_offset, high - current_offset);
+    }
+    else
+    {
+        log_info("topic: %s hightest offset: %" PRIi64 ", currently: %" PRIi64 ", gap: %" PRIi64,
+                 consumer->topic, high, current_offset, high - current_offset);
     }
 }
 
@@ -2131,11 +2348,11 @@ int init_message(void)
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function    = str_dict_hash_function;
-    dt.key_compare      = str_dict_key_compare;
-    dt.key_dup          = str_dict_key_dup;
-    dt.key_destructor   = str_dict_key_free;
-    dt.val_destructor   = dict_market_info_val_free;
+    dt.hash_function = str_dict_hash_function;
+    dt.key_compare = str_dict_key_compare;
+    dt.key_dup = str_dict_key_dup;
+    dt.key_destructor = str_dict_key_free;
+    dt.val_destructor = dict_market_info_val_free;
 
     dict_market_info = dict_create(&dt, 64);
     if (dict_market_info == NULL)
@@ -2143,12 +2360,13 @@ int init_message(void)
 
     int64_t offset = 0, orders_offset = 0, deals_offset = 0;
     int ret = load_from_db(&orders_offset, &deals_offset);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         log_error("load_from_db fail: %d", ret);
         log_stderr("load_from_db fail: %d", ret);
         return -__LINE__;
     }
-    log_info("orders_offset: %"PRIi64", deals_offset: %"PRIi64", last_dump_time: %ld, last_dump_date: %ld", orders_offset, deals_offset, last_dump_time, last_dump_date);
+    log_info("orders_offset: %" PRIi64 ", deals_offset: %" PRIi64 ", last_dump_time: %ld, last_dump_date: %ld", orders_offset, deals_offset, last_dump_time, last_dump_date);
 
     offset = deals_offset == 0 ? RD_KAFKA_OFFSET_END : deals_offset + 1;
     kafka_deals = kafka_consumer_create(settings.brokers, TOPIC_DEAL, 0, offset, on_deals_message);
@@ -2179,7 +2397,8 @@ static int update_trade_detail(dict_t *dict, time_t start_time, time_t end_time,
         return 0;
     struct market_info_val *market_info = entry->val;
 
-    for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60) {
+    for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60)
+    {
         void *tkey = (void *)(uintptr_t)timestamp;
         entry = dict_find(market_info->users_detail, tkey);
         if (entry == NULL)
@@ -2187,21 +2406,23 @@ static int update_trade_detail(dict_t *dict, time_t start_time, time_t end_time,
 
         dict_t *user_dict = entry->val;
         dict_iterator *iter = dict_get_iterator(user_dict);
-        while ((entry = dict_next(iter)) != NULL) {
+        while ((entry = dict_next(iter)) != NULL)
+        {
             void *ukey = entry->key;
             struct user_detail_val *user_detail = entry->val;
 
             dict_entry *result = dict_find(dict, ukey);
-            if (result == NULL) {
+            if (result == NULL)
+            {
                 struct user_detail_val *detail = malloc(sizeof(struct user_detail_val));
                 memset(detail, 0, sizeof(struct user_detail_val));
-                detail->buy_amount  = mpd_qncopy(mpd_zero);
+                detail->buy_amount = mpd_qncopy(mpd_zero);
                 detail->sell_amount = mpd_qncopy(mpd_zero);
-                detail->buy_volume  = mpd_qncopy(mpd_zero);
+                detail->buy_volume = mpd_qncopy(mpd_zero);
                 detail->sell_volume = mpd_qncopy(mpd_zero);
-                detail->maker_amount  = mpd_qncopy(mpd_zero);
+                detail->maker_amount = mpd_qncopy(mpd_zero);
                 detail->taker_amount = mpd_qncopy(mpd_zero);
-                detail->maker_volume  = mpd_qncopy(mpd_zero);
+                detail->maker_volume = mpd_qncopy(mpd_zero);
                 detail->taker_volume = mpd_qncopy(mpd_zero);
                 result = dict_add(dict, ukey, detail);
             }
@@ -2223,34 +2444,38 @@ static int get_trade_users_detail(dict_t *dict, json_t *user_list, const char *m
         return 0;
     struct market_info_val *market_info = entry->val;
 
-    for (time_t timestamp = start_time / 60 * 60; timestamp < end_time; timestamp += 60) {
+    for (time_t timestamp = start_time / 60 * 60; timestamp < end_time; timestamp += 60)
+    {
         void *tkey = (void *)(uintptr_t)timestamp;
         dict_entry *entry_users = dict_find(market_info->users_detail, tkey);
         if (entry_users == NULL)
             continue;
         dict_t *user_dict = entry_users->val;
-        
-        for (size_t i = 0; i < json_array_size(user_list); i++) {
+
+        for (size_t i = 0; i < json_array_size(user_list); i++)
+        {
             uint32_t user_id = json_integer_value(json_array_get(user_list, i));
             void *key = (void *)(uintptr_t)user_id;
             dict_entry *entry_user = dict_find(user_dict, key);
-            if (entry_user == NULL) {
+            if (entry_user == NULL)
+            {
                 continue;
             }
 
             void *ukey = entry_user->key;
             struct user_detail_val *user_detail = entry_user->val;
             dict_entry *result = dict_find(dict, ukey);
-            if (result == NULL) {
+            if (result == NULL)
+            {
                 struct user_detail_val *detail = malloc(sizeof(struct user_detail_val));
                 memset(detail, 0, sizeof(struct user_detail_val));
-                detail->buy_amount  = mpd_qncopy(mpd_zero);
+                detail->buy_amount = mpd_qncopy(mpd_zero);
                 detail->sell_amount = mpd_qncopy(mpd_zero);
-                detail->buy_volume  = mpd_qncopy(mpd_zero);
+                detail->buy_volume = mpd_qncopy(mpd_zero);
                 detail->sell_volume = mpd_qncopy(mpd_zero);
-                detail->maker_amount  = mpd_qncopy(mpd_zero);
+                detail->maker_amount = mpd_qncopy(mpd_zero);
                 detail->taker_amount = mpd_qncopy(mpd_zero);
-                detail->maker_volume  = mpd_qncopy(mpd_zero);
+                detail->maker_volume = mpd_qncopy(mpd_zero);
                 detail->taker_volume = mpd_qncopy(mpd_zero);
                 result = dict_add(dict, ukey, detail);
             }
@@ -2266,16 +2491,17 @@ static int get_trade_users_detail(dict_t *dict, json_t *user_list, const char *m
     return 0;
 }
 
-json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t start_time, time_t end_time)
+json_t *get_trade_users_volume(json_t *market_list, json_t *user_list, time_t start_time, time_t end_time)
 {
-    if (!is_kafka_synced()) {
+    if (!is_kafka_synced())
+    {
         return NULL;
     }
-    
+
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = uint32_dict_hash_func; 
-    dt.key_compare    = uint32_dict_key_compare;
+    dt.hash_function = uint32_dict_hash_func;
+    dt.key_compare = uint32_dict_key_compare;
     dt.val_destructor = dict_user_detail_val_free;
 
     dict_t *dict = dict_create(&dt, 1024);
@@ -2285,12 +2511,14 @@ json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t sta
     json_t *result = json_object();
     dict_entry *entry;
     dict_iterator *diter;
-    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+    for (size_t i = 0; i < json_array_size(market_list); ++i)
+    {
         const char *market_name = json_string_value(json_array_get(market_list, i));
         get_trade_users_detail(dict, user_list, market_name, start_time, end_time);
         diter = dict_get_iterator(dict);
         json_t *market_info = json_object();
-        while ((entry = dict_next(diter)) != NULL) {
+        while ((entry = dict_next(diter)) != NULL)
+        {
             uint32_t user_id = (uintptr_t)entry->key;
             struct user_detail_val *user_detail = entry->val;
 
@@ -2307,7 +2535,7 @@ json_t *get_trade_users_volume(json_t *market_list, json_t *user_list,time_t sta
         dict_release_iterator(diter);
         dict_clear(dict);
     }
-    
+
     dict_release(dict);
     return result;
 }
@@ -2317,9 +2545,11 @@ json_t *get_deal_summary(time_t start_time, time_t end_time)
     dict_t *user_set = uint32_set_create();
     dict_entry *entry;
     dict_iterator *iter = dict_get_iterator(dict_market_info);
-    while ((entry = dict_next(iter)) != NULL) {
+    while ((entry = dict_next(iter)) != NULL)
+    {
         struct market_info_val *market_info = entry->val;
-        for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60) {
+        for (time_t timestamp = start_time / 60 * 60; timestamp <= end_time; timestamp += 60)
+        {
             void *tkey = (void *)(uintptr_t)timestamp;
             dict_entry *market_entry = dict_find(market_info->users_detail, tkey);
             if (market_entry == NULL)
@@ -2328,7 +2558,8 @@ json_t *get_deal_summary(time_t start_time, time_t end_time)
             dict_t *user_dict = market_entry->val;
             dict_entry *user_entry;
             dict_iterator *user_iter = dict_get_iterator(user_dict);
-            while ((user_entry = dict_next(user_iter)) != NULL) {
+            while ((user_entry = dict_next(user_iter)) != NULL)
+            {
                 uint32_t user_id = (uintptr_t)user_entry->key;
                 uint32_set_add(user_set, user_id);
             }
@@ -2347,15 +2578,16 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function   = uint32_dict_hash_func; 
-    dt.key_compare     = uint32_dict_key_compare;
-    dt.val_destructor  = dict_user_detail_val_free;
+    dt.hash_function = uint32_dict_hash_func;
+    dt.key_compare = uint32_dict_key_compare;
+    dt.val_destructor = dict_user_detail_val_free;
 
     dict_t *dict = dict_create(&dt, 1024);
     if (dict == NULL)
         return NULL;
 
-    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+    for (size_t i = 0; i < json_array_size(market_list); ++i)
+    {
         const char *market_name = json_string_value(json_array_get(market_list, i));
         update_trade_detail(dict, start_time, end_time, market_name);
     }
@@ -2373,7 +2605,8 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
 
     dict_entry *entry;
     dict_iterator *diter = dict_get_iterator(dict);
-    while ((entry = dict_next(diter)) != NULL) {
+    while ((entry = dict_next(diter)) != NULL)
+    {
         uint32_t user_id = (uintptr_t)entry->key;
         struct user_detail_val *user_detail = entry->val;
 
@@ -2382,11 +2615,14 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
         rank_detail->amount = mpd_qncopy(mpd_zero);
         rank_detail->amount_net = mpd_qncopy(mpd_zero);
         mpd_add(rank_detail->amount, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
-        if (mpd_cmp(user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx) >= 0) {
+        if (mpd_cmp(user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx) >= 0)
+        {
             mpd_sub(rank_detail->amount_net, user_detail->buy_amount, user_detail->sell_amount, &mpd_ctx);
             skiplist_insert(buy_list, rank_detail);
             mpd_add(total_net, total_net, rank_detail->amount_net, &mpd_ctx);
-        } else {
+        }
+        else
+        {
             mpd_sub(rank_detail->amount_net, user_detail->sell_amount, user_detail->buy_amount, &mpd_ctx);
             skiplist_insert(sell_list, rank_detail);
         }
@@ -2406,12 +2642,13 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
     count = 0;
     json_t *net_buy = json_array();
     siter = skiplist_get_iterator(buy_list);
-    while ((node = skiplist_next(siter)) != NULL) {
+    while ((node = skiplist_next(siter)) != NULL)
+    {
         struct trade_net_rank_val *val = node->value;
         json_t *item = json_object();
         json_object_set_new_mpd(item, "total", val->amount);
         json_object_set_new_mpd(item, "net", val->amount_net);
-        json_object_set_new    (item, "user_id", json_integer(val->user_id));
+        json_object_set_new(item, "user_id", json_integer(val->user_id));
         json_array_append_new(net_buy, item);
 
         count += 1;
@@ -2423,12 +2660,13 @@ json_t *get_trade_net_rank(json_t *market_list, time_t start_time, time_t end_ti
     count = 0;
     json_t *net_sell = json_array();
     siter = skiplist_get_iterator(sell_list);
-    while ((node = skiplist_next(siter)) != NULL) {
+    while ((node = skiplist_next(siter)) != NULL)
+    {
         struct trade_net_rank_val *val = node->value;
         json_t *item = json_object();
         json_object_set_new_mpd(item, "total", val->amount);
         json_object_set_new_mpd(item, "net", val->amount_net);
-        json_object_set_new    (item, "user_id", json_integer(val->user_id));
+        json_object_set_new(item, "user_id", json_integer(val->user_id));
         json_array_append_new(net_sell, item);
 
         count += 1;
@@ -2457,15 +2695,16 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
 {
     dict_types dt;
     memset(&dt, 0, sizeof(dt));
-    dt.hash_function  = uint32_dict_hash_func; 
-    dt.key_compare    = uint32_dict_key_compare;
+    dt.hash_function = uint32_dict_hash_func;
+    dt.key_compare = uint32_dict_key_compare;
     dt.val_destructor = dict_user_detail_val_free;
 
     dict_t *dict = dict_create(&dt, 1024);
     if (dict == NULL)
         return NULL;
 
-    for (size_t i = 0; i < json_array_size(market_list); ++i) {
+    for (size_t i = 0; i < json_array_size(market_list); ++i)
+    {
         const char *market_name = json_string_value(json_array_get(market_list, i));
         update_trade_detail(dict, start_time, end_time, market_name);
     }
@@ -2483,10 +2722,12 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
 
     dict_entry *entry;
     dict_iterator *diter = dict_get_iterator(dict);
-    while ((entry = dict_next(diter)) != NULL) {
+    while ((entry = dict_next(diter)) != NULL)
+    {
         uint32_t user_id = (uintptr_t)entry->key;
         struct user_detail_val *user_detail = entry->val;
-        if (mpd_cmp(user_detail->buy_amount, mpd_zero, &mpd_ctx) != 0) {
+        if (mpd_cmp(user_detail->buy_amount, mpd_zero, &mpd_ctx) != 0)
+        {
             struct trade_amount_rank_val *buy_rank_detail = malloc(sizeof(struct trade_amount_rank_val));
             memset(buy_rank_detail, 0, sizeof(struct trade_amount_rank_val));
             buy_rank_detail->user_id = user_id;
@@ -2497,7 +2738,8 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
             skiplist_insert(buy_amount_list, buy_rank_detail);
         }
 
-        if (mpd_cmp(user_detail->sell_amount, mpd_zero, &mpd_ctx) != 0) {
+        if (mpd_cmp(user_detail->sell_amount, mpd_zero, &mpd_ctx) != 0)
+        {
             struct trade_amount_rank_val *sell_rank_detail = malloc(sizeof(struct trade_amount_rank_val));
             memset(sell_rank_detail, 0, sizeof(struct trade_amount_rank_val));
             sell_rank_detail->user_id = user_id;
@@ -2521,12 +2763,13 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
     count = 0;
     json_t *amount_buy = json_array();
     siter = skiplist_get_iterator(buy_amount_list);
-    while ((node = skiplist_next(siter)) != NULL) {
+    while ((node = skiplist_next(siter)) != NULL)
+    {
         struct trade_amount_rank_val *val = node->value;
         json_t *item = json_object();
         json_object_set_new_mpd(item, "amount", val->amount);
         json_object_set_new_mpd(item, "total_amount", val->amount_total);
-        json_object_set_new    (item, "user_id", json_integer(val->user_id));
+        json_object_set_new(item, "user_id", json_integer(val->user_id));
         json_array_append_new(amount_buy, item);
 
         count += 1;
@@ -2538,12 +2781,13 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
     count = 0;
     json_t *amount_sell = json_array();
     siter = skiplist_get_iterator(sell_amount_list);
-    while ((node = skiplist_next(siter)) != NULL) {
+    while ((node = skiplist_next(siter)) != NULL)
+    {
         struct trade_amount_rank_val *val = node->value;
         json_t *item = json_object();
         json_object_set_new_mpd(item, "amount", val->amount);
         json_object_set_new_mpd(item, "total_amount", val->amount_total);
-        json_object_set_new    (item, "user_id", json_integer(val->user_id));
+        json_object_set_new(item, "user_id", json_integer(val->user_id));
         json_array_append_new(amount_sell, item);
 
         count += 1;
@@ -2566,4 +2810,3 @@ json_t *get_trade_amount_rank(json_t *market_list, time_t start_time, time_t end
     mpd_del(total_buy_amount);
     return result;
 }
-

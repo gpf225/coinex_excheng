@@ -20,7 +20,7 @@
     "db_summary": {
         "host": "localhost",
         "user": "root",
-        "pass": "shit",
+        "pass": "12345678",
         "name": "trade_summary"
     },
     "redis": {

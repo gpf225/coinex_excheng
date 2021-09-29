@@ -435,8 +435,10 @@ dlog_t *dlog_init(const char *base_name, int flag, size_t max_size, int log_num,
 
     if (!log->remote_log) {
         int fd = open(get_log_name(log, &now), O_WRONLY | O_APPEND | O_CREAT, 0664);
-        if (fd < 0)
+        if (fd < 0){
+            printf("error %d ,msg %s\n",errno,strerror(errno));
             return dlog_free(log);
+        }
         close(fd);
     }
 
