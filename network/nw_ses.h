@@ -49,6 +49,8 @@ typedef struct nw_ses {
     bool is_ssl;
     nw_ssl_ctx *ssl_ctx;
 
+    bool is_apple; 
+
     struct nw_ses *prev;
     struct nw_ses *next;
 

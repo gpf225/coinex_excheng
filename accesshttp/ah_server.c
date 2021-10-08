@@ -327,6 +327,14 @@ static void on_listener_connect(nw_ses *ses, bool result)
 
 static void on_listener_recv_pkg(nw_ses *ses, rpc_pkg *pkg)
 {
+        log_error("on_listener_recv_pkg, peer: %s \n socket_fd %d", nw_sock_human_addr(&ses->peer_addr),*(int*)pkg->body);
+    if (nw_svr_add_clt_fd(svr->raw_svr, *(int*)pkg->body) < 0) {
+        log_error("nw_svr_add_clt_fd: %d fail: %s", *(int*)pkg->body, strerror(errno));
+        close((int)pkg->body);
+        profile_inc("new_connection_fail", 1);
+    } else {
+        profile_inc("new_connection_success", 1);
+    }
     return;
 }
 
@@ -362,6 +370,8 @@ static int init_listener_clt(void)
     listener = rpc_clt_create(&cfg, &type);
     if (listener == NULL)
         return -__LINE__;
+
+    listener->raw_clt->ses.is_apple = true;
     if (rpc_clt_start(listener) < 0)
         return -__LINE__;
 
@@ -528,12 +538,12 @@ int init_server(void)
     if (rpc_clt_start(marketprice) < 0)
         return -__LINE__;
 
-    marketindex = rpc_clt_create(&settings.marketindex, &ct);
+/*    marketindex = rpc_clt_create(&settings.marketindex, &ct);
     if (marketindex == NULL)
         return -__LINE__;
     if (rpc_clt_start(marketindex) < 0)
         return -__LINE__;
-
+*/
     tradesummary = rpc_clt_create(&settings.tradesummary, &ct);
     if (tradesummary == NULL)
         return -__LINE__;
@@ -546,12 +556,12 @@ int init_server(void)
     if (rpc_clt_start(readhistory) < 0)
         return -__LINE__;
 
-    monitorcenter = rpc_clt_create(&settings.monitorcenter, &ct);
+ /*   monitorcenter = rpc_clt_create(&settings.monitorcenter, &ct);
     if (monitorcenter == NULL)
         return -__LINE__;
     if (rpc_clt_start(monitorcenter) < 0)
         return -__LINE__;
-
+*/
     if (init_cache_backend(&ct) < 0)
         return -__LINE__;
 

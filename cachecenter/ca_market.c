@@ -269,7 +269,7 @@ int init_market(bool is_index)
     on_market_timer(NULL, NULL);
 
     if (is_index) {
-        marketindex = rpc_clt_create(&settings.marketindex, &ct);
+      /*  marketindex = rpc_clt_create(&settings.marketindex, &ct);
         if (marketindex == NULL)
             return __LINE__;
         if (rpc_clt_start(marketindex) < 0)
@@ -278,6 +278,7 @@ int init_market(bool is_index)
         nw_timer_set(&index_timer, settings.index_interval, true, on_index_timer, NULL);
         nw_timer_start(&index_timer);
         on_index_timer(NULL, NULL);
+      */
     }
 
     return 0;

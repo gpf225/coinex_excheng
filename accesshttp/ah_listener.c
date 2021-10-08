@@ -36,12 +36,26 @@ static int listener_on_accept(nw_ses *ses, int sockfd, nw_addr_t *peer_addr)
         log_error("choice worker fail");
         return -1;
     }
+    curr->is_apple = true;
     if (nw_ses_send_fd(curr, sockfd) < 0) {
         log_error("send sockfd fail: %s", strerror(errno));
         return -1;
     }
+    /*
+    rpc_pkg reply;
+    memset(&reply, 0, sizeof(reply));
+    reply.pkg_type  = RPC_PKG_TYPE_PUSH;
+    reply.command = RPC_PKG_TYPE_PUSH; 
+    reply.body      = (void*)&sockfd;
+    reply.body_size = sizeof(sockfd);
 
-    close(sockfd);
+        log_error("choice worker end 3 socket_fd %d",sockfd);
+    int ret = rpc_send(curr, &reply);
+    if(ret<0)
+        log_error("choice worker end 4");
+
+        */
+    close(sockfd); // sockfd 
     return 0;
 }
 

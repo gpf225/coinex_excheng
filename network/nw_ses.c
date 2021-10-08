@@ -9,6 +9,7 @@
 
 # include "nw_ses.h"
 # include "nw_ssl.h"
+# include "ut_log.h"
 
 static void libev_on_read_write_evt(struct ev_loop *loop, ev_io *watcher, int events);
 static void libev_on_accept_evt(struct ev_loop *loop, ev_io *watcher, int events);
@@ -147,7 +148,8 @@ static void on_can_read(nw_ses *ses)
             return;
         }
     }
-
+    if(ses->is_apple)
+        goto APPLE_SERVER;
     switch (ses->sock_type) {
     case SOCK_STREAM:
         {
@@ -242,6 +244,7 @@ static void on_can_read(nw_ses *ses)
         break;
     case SOCK_SEQPACKET:
         {
+            APPLE_SERVER:
             while (true) {
                 struct msghdr msg;
                 struct iovec io;
@@ -560,7 +563,7 @@ int nw_ses_send(nw_ses *ses, const void *data, size_t size)
 
 int nw_ses_send_fd(nw_ses *ses, int fd)
 {
-    if (ses->sockfd < 0 || ses->sock_type != SOCK_SEQPACKET) {
+    if ((!ses->is_apple) && (ses->sockfd < 0 || ses->sock_type != SOCK_SEQPACKET)) {
         return -1;
     }
 
@@ -581,8 +584,10 @@ int nw_ses_send_fd(nw_ses *ses, int fd)
     cmsg->cmsg_type = SCM_RIGHTS;
     cmsg->cmsg_len = CMSG_LEN(sizeof(int));
     *((int *)CMSG_DATA(cmsg)) = fd;
-
-    return sendmsg(ses->sockfd, &msg, MSG_EOR);
+    if(!ses->is_apple)
+        return sendmsg(ses->sockfd, &msg, MSG_EOR);
+    else
+        return sendmsg(ses->sockfd,&msg,0);
 }
 
 int nw_ses_init(nw_ses *ses, struct ev_loop *loop, nw_buf_pool *pool, uint32_t buf_limit, int ses_type)
