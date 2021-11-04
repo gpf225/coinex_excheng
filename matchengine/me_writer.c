@@ -143,58 +143,59 @@ static json_t *get_result_json(int code, const char* message)
 static int asset_update(json_t *params, json_t **result)
 {
     if (json_array_size(params) != 7) {
-        *result = get_result_json(1, "invalid argument");
+        *result = get_result_json(1, "invalid argument1");
+        printf("nvalid argument1");
         return -__LINE__;
     }
 
     // user_id
     if (!json_is_integer(json_array_get(params, 0))) {
-        *result = get_result_json(1, "invalid argument");
+        *result = get_result_json(1, "invalid argument2");
         return -__LINE__;
     }
     uint32_t user_id = json_integer_value(json_array_get(params, 0));
 
     // account 
     if (!json_is_integer(json_array_get(params, 1))) {
-        *result = get_result_json(1, "invalid argument");
+        *result = get_result_json(1, "invalid argument3");
         return -__LINE__;
     }
     uint32_t account = json_integer_value(json_array_get(params, 1));
 
     // asset
     if (!json_is_string(json_array_get(params, 2))) {
-        *result = get_result_json(1, "invalid argument");
+        *result = get_result_json(1, "invalid argument4");
         return -__LINE__;
     }
     const char *asset = json_string_value(json_array_get(params, 2));
     int prec = asset_prec_show(account, asset);
     if (prec < 0) {
-        *result = get_result_json(1, "invalid argument");
+        *result = get_result_json(1, "invalid argument5");
         return -__LINE__;
     }
 
     // business
     if (!json_is_string(json_array_get(params, 3))) {
-        *result = get_result_json(1, "invalid argument");
+        *result = get_result_json(1, "invalid argument6");
         return -__LINE__;
     }
     const char *business = json_string_value(json_array_get(params, 3));
 
     // business_id
     if (!json_is_integer(json_array_get(params, 4))) {
-        *result = get_result_json(1, "invalid argument");
+        *result = get_result_json(1, "invalid argument7");
         return -__LINE__;
     }
     uint64_t business_id = json_integer_value(json_array_get(params, 4));
 
     // change
     if (!json_is_string(json_array_get(params, 5))) {
-        *result = get_result_json(1, "invalid argument");
+        *result = get_result_json(1, "invalid argument8");
         return -__LINE__;
     }
     mpd_t *change = decimal(json_string_value(json_array_get(params, 5)), prec);
     if (change == NULL) {
-        *result = get_result_json(1, "invalid argument");
+        *result = get_result_json(1, "invalid argument9");
         return -__LINE__;
     }
 
@@ -202,7 +203,7 @@ static int asset_update(json_t *params, json_t **result)
     json_t *detail = json_array_get(params, 6);
     if (!json_is_object(detail)) {
         mpd_del(change);
-        *result = get_result_json(1, "invalid argument");
+        *result = get_result_json(1, "invalid argument10");
         return -__LINE__;
     }
 

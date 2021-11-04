@@ -184,7 +184,7 @@ int nw_sock_cfg_parse(const char *cfg, nw_addr_t *addr, int *sock_type)
     } else if (strcasecmp(type, "dgram") == 0) {
         *sock_type = SOCK_DGRAM;
     } else if (strcasecmp(type, "seqpacket") == 0) {
-        *sock_type = SOCK_STREAM;
+        *sock_type = SOCK_STREAM;//mac 中seqpacket不能和unix域套接字一起使用,如果是ubuntu等linux系统应该改成 SOCK_SPACKET
     } else {
         free(s);
         return -2;

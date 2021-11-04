@@ -1,0 +1,79 @@
+{
+	"log": {
+		"path": "./log/init_migration",
+		"flag": "fatal,error,warn,info,debug,trace"
+	},
+
+
+	"src_db": {
+		"host": "127.0.0.1",
+        "port":33051,
+		"user": "admin",
+		"pass": "WSrc0ghEqhoUKuYsbPTj",
+		"name": "new_coin_cash_innovate"
+	},
+
+	"db_history": [{
+			"host": "127.0.0.1",
+			"user": "admin",
+            "port": 33053,
+			"pass": "WSrc0ghEqhoUKuYsbPTj",
+			"name": "trade_history_0",
+			"db": 0
+		},
+		{
+			"host": "127.0.0.1",
+            "port": 33053,
+			"user": "admin",
+			"pass": "WSrc0ghEqhoUKuYsbPTj",
+			"name": "trade_history_1",
+			"db": 1
+		},
+		{
+			"host": "127.0.0.1",
+            "port": 33053,
+			"user": "admin",
+			"pass": "WSrc0ghEqhoUKuYsbPTj",
+			"name": "trade_history_2",
+			"db": 2
+		},
+		{
+			"host": "127.0.0.1",
+            "port": 33053,
+			"user": "admin",
+			"pass": "WSrc0ghEqhoUKuYsbPTj",
+			"name": "trade_history_3",
+			"db": 3
+		},
+		{
+			"host": "127.0.0.1",
+            "port": 33053,
+			"user": "admin",
+			"pass": "WSrc0ghEqhoUKuYsbPTj",
+			"name": "trade_history_4",
+			"db": 4
+		}
+	],
+	"db_log": {
+		"host": "127.0.0.1",
+        "port": 33053,
+		"user": "admin",
+		"pass": "WSrc0ghEqhoUKuYsbPTj",
+		"name": "trade_log"
+	},
+	"db_summary": {
+		"host": "127.0.0.1",
+        "port": 33053,
+		"user": "admin",
+		"pass": "WSrc0ghEqhoUKuYsbPTj",
+		"name": "trade_summary"
+	},
+    "redis": {
+        "host": "eth-spot-matchengine-redis.ryrsaz.ng.0001.apne1.cache.amazonaws.com",
+        "port": 6379
+    },
+   "row_limit":1000,
+   "mode":7,
+   "pipeline_len_max":1000,
+   "deal_summary_max":10000
+}

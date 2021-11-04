@@ -5,7 +5,7 @@
         "core_limit": 1000000000
     },
     "log": {
-        "path": "/var/log/trade/readhistory",
+        "path": "/Users/danta/log/readhistory",
         "flag": "fatal,error,warn,info,debug,trace",
         "num": 10
     },

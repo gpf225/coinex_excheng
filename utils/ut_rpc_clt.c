@@ -45,7 +45,7 @@ static void on_connect(nw_ses *ses, bool result)
 static int on_close(nw_ses *ses)
 {
     rpc_clt *clt = ses->privdata;
-    log_error("connection %s -> %s close", clt->name, nw_sock_human_addr(&ses->peer_addr));
+    //log_error("connection %s -> %s close", clt->name, nw_sock_human_addr(&ses->peer_addr));
     if (clt->addr_count == 1)
         return 0;
 

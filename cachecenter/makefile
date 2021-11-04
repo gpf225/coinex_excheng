@@ -1,4 +1,4 @@
-TARGET  := cachecenter.exe
+TARGET  := cachecenter
 INCS = -I ../network -I ../utils
-LIBS = -L ../utils -lutils -L ../network -lnetwork -Wl,-Bstatic -lev -ljansson -lmpdec -lrdkafka -lhiredis -lcurl -lssl -lcrypto -lz -Wl,-Bdynamic -lm -lpthread -ldl
+LIBS = -L ../utils -lutils -L ../network -lnetwork -lev -ljansson -lmpdec -lrdkafka -lhiredis -lcurl -lssl -lcrypto -lz -lm -lpthread -ldl
 include ../makefile.inc

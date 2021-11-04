@@ -5,7 +5,7 @@
         "core_limit": 1000000000
     },
     "log": {
-        "path": "/var/log/trade/tradesummary",
+        "path": "/Users/danta/log/tradesummary",
         "flag": "fatal,error,warn,info,debug,trace",
         "num": 10
     },

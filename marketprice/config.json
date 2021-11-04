@@ -5,7 +5,7 @@
         "core_limit": 1000000000
     },
     "log": {
-        "path": "/var/log/trade/marketprice",
+        "path": "/Users/danta/log/marketprice",
         "flag": "fatal,error,warn,info,debug,trace",
         "num": 10
     },
@@ -28,7 +28,7 @@
         "name": "trade_log"
     },
     "brokers": "127.0.0.1:9092",
-    "accesshttp": "http://127.0.0.1:8080",
+    "accesshttp": "http://127.0.0.1:9190",
     "worker_num": 4,
     "deal_summary_max": 1000,
     "pipeline_len_max": 1000

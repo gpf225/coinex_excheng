@@ -5,7 +5,7 @@
         "core_limit": 1000000000
     },
     "log": {
-        "path":  "/var/log/trade/marketindex",
+        "path":  "/Users/danta/log/marketindex",
         "flag":  "fatal,error,warn,info,debug,trace",
         "shift": "day",
         "num":   30
