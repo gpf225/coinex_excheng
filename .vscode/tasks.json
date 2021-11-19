@@ -1,0 +1,362 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+	{
+			"type": "cppbuild",
+			"label": "cachecenter",
+			"command": "/usr/bin/gcc",
+			"args": [
+				"-Wall",
+				"-Wno-strict-aliasing",
+				"-Wno-uninitialized",
+				"-g",
+				"-rdynamic",
+				"-std=gnu99",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-lutils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-lnetwork",
+				"-lev",
+				"-ljansson",
+				"-lmpdec",
+				"-lmysqlclient",
+				"-lz",
+				"-lrdkafka",
+				"-lhiredis",
+				"-lcurl",
+				"-lssl",
+				"-lcrypto",
+				"-lz",
+				"-lm",
+				"-lpthread",
+				"-ldl",
+				"-lstdc++",
+				"${fileDirname}/*.c",
+				"-o",
+				"${relativeFileDirname}"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "编译器: /usr/bin/gcc"
+		},
+	{
+			"type": "cppbuild",
+			"label": "tradesummary",
+			"command": "/usr/bin/gcc",
+			"args": [
+				"-Wall",
+				"-Wno-strict-aliasing",
+				"-Wno-uninitialized",
+				"-g",
+				"-rdynamic",
+				"-std=gnu99",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-lutils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-lnetwork",
+				"-lev",
+				"-ljansson",
+				"-lmpdec",
+				"-lmysqlclient",
+				"-lz",
+				"-lrdkafka",
+				"-lhiredis",
+				"-lcurl",
+				"-lssl",
+				"-lcrypto",
+				"-lz",
+				"-lm",
+				"-lpthread",
+				"-ldl",
+				"-lstdc++",
+				"${fileDirname}/*.c",
+				"-o",
+				"${relativeFileDirname}"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "编译器: /usr/bin/gcc"
+		},
+	{
+			"type": "cppbuild",
+			"label": "marketprice",
+			"command": "/usr/bin/gcc",
+			"args": [
+				"-Wall",
+				"-Wno-strict-aliasing",
+				"-Wno-uninitialized",
+				"-g",
+				"-rdynamic",
+				"-std=gnu99",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-lutils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-lnetwork",
+				"-lev",
+				"-ljansson",
+				"-lmpdec",
+				"-lmysqlclient",
+				"-lz",
+				"-lrdkafka",
+				"-lhiredis",
+				"-lcurl",
+				"-lssl",
+				"-lcrypto",
+				"-lz",
+				"-lm",
+				"-lpthread",
+				"-ldl",
+				"-lstdc++",
+				"${fileDirname}/*.c",
+				"-o",
+				"${relativeFileDirname}"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "编译器: /usr/bin/gcc"
+		},
+		{
+			"type": "cppbuild",
+			"label": "matchengine",
+			"command": "/usr/bin/gcc",
+			"args": [
+				"-Wall",
+				"-Wno-strict-aliasing",
+				"-Wno-uninitialized",
+				"-g",
+				"-rdynamic",
+				"-std=gnu99",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-lutils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-lnetwork",
+				"-lev",
+				"-ljansson",
+				"-lmpdec",
+				"-lmysqlclient",
+				"-lrdkafka",
+				"-lhiredis",
+				"-lcurl",
+				"-lssl",
+				"-lcrypto",
+				"-lz",
+				"-lm",
+				"-lpthread",
+				"-ldl",
+				"-lstdc++",
+				"${fileDirname}/*.c",
+				"-o",
+				"${relativeFileDirname}"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "编译器: /usr/bin/gcc"
+		},
+		{
+			"type": "cppbuild",
+			"label": "historywrite",
+			"command": "/usr/bin/gcc",
+			"args": [
+				"-Wall",
+				"-Wno-strict-aliasing",
+				"-Wno-uninitialized",
+				"-g",
+				"-rdynamic",
+				"-std=gnu99",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-lutils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-lnetwork",
+				"-lev",
+				"-ljansson",
+				"-lmpdec",
+				"-lmysqlclient",
+				"-lrdkafka",
+				"-lhiredis",
+				"-lcurl",
+				"-lssl",
+				"-lcrypto",
+				"-lz",
+				"-lm",
+				"-lpthread",
+				"-ldl",
+				"-lstdc++",
+				"${fileDirname}/*.c",
+				"-o",
+				"${relativeFileDirname}"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "编译器: /usr/bin/gcc"
+		},
+		{
+			"type": "cppbuild",
+			"label": "historyreader",
+			"command": "/usr/bin/gcc",
+			"args": [
+				"-Wall",
+				"-Wno-strict-aliasing",
+				"-Wno-uninitialized",
+				"-g",
+				"-rdynamic",
+				"-std=gnu99",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-lutils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-lnetwork",
+				"-lev",
+				"-ljansson",
+				"-lmpdec",
+				"-lmysqlclient",
+				"-lhiredis",
+				"-lcurl",
+				"-lssl",
+				"-lcrypto",
+				"-lz",
+				"-lm",
+				"-lpthread",
+				"-ldl",
+				"-lstdc++",
+				"${fileDirname}/*.c",
+				"-o",
+				"${relativeFileDirname}"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "编译器: /usr/bin/gcc"
+		},
+		{
+			"type": "cppbuild",
+			"label": "accesshttp",
+			"command": "/usr/bin/gcc",
+			"args": [
+				"-Wall",
+				"-Wno-strict-aliasing",
+				"-Wno-uninitialized",
+				"-g",
+				"-rdynamic",
+				"-std=gnu99",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-I",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/utils",
+				"-lutils",
+				"-L",
+				"/Users/django/Project/coinex_exchange_server/network",
+				"-lnetwork",
+				"-lev",
+				"-ljansson",
+				"-lmpdec",
+				"-lrdkafka",
+				"-lz",
+				"-lssl",
+				"-lcrypto",
+				"-lhiredis",
+				"-lm",
+				"-lpthread",
+				"-ldl",
+				"-lstdc++",
+				"${fileDirname}/*.c",
+				"-o",
+				"${relativeFileDirname}"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "编译器: /usr/bin/gcc"
+		}
+	]
+}

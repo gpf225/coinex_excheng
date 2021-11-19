@@ -1,0 +1,105 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "cachecenter_debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/${relativeFileDirname}",
+            "args": ["${fileDirname}/config.json"],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb",
+            "preLaunchTask": "cachecenter",
+            
+        },
+        {
+            "name": "tradesummary_debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/${relativeFileDirname}",
+            "args": ["${fileDirname}/config.json"],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb",
+            "preLaunchTask": "marketprice",
+            
+        },
+        {
+            "name": "marketprice_debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/${relativeFileDirname}",
+            "args": ["${fileDirname}/config.json"],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb",
+            "preLaunchTask": "marketprice",
+            
+        },
+        {
+            "name": "matchengine_debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/${relativeFileDirname}",
+            "args": ["${fileDirname}/config.json"],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "preLaunchTask": "matchengine",
+            
+        },
+        {
+            "name": "historywriter_debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/${relativeFileDirname}",
+            "args": ["${fileDirname}/config.json"],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb",
+            "preLaunchTask": "historywrite",
+            
+        },
+        {
+            "name": "historyread_debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/${relativeFileDirname}",
+            "args": ["${fileDirname}/config.json"],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb",
+            "preLaunchTask": "historyreader",
+            
+        },
+        {
+            "name": "accesshttp_debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${fileDirname}/${relativeFileDirname}",
+            "args": ["${fileDirname}/config.json"],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            // printf("\n"),\n才会输出
+            "MIMode":"lldb",
+            "preLaunchTask": "accesshttp",
+        }
+    ]
+}
