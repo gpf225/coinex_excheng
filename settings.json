@@ -1,0 +1,78 @@
+{
+    "workbench.colorTheme": "Visual Studio Dark - C++",
+    "editor.minimap.enabled": false,
+    "workbench.colorCustomizations": {
+    "editor.selectionBackground": "#216833",
+    "editor.selectionHighlightBackground": "#69373e"
+    },
+    "security.workspace.trust.untrustedFiles": "open",
+    "leek-fund.stocks": [
+        "hk03690",
+        "hk00700",
+        "usr_ixic",
+        "usr_dji",
+        "usr_inx",
+        "sz300120",
+        "sz300185",
+        "sz300046",
+        "sz300626",
+        "sh000001"
+    ],
+    "leek-fund.stockSort": -1,
+    "files.exclude": {
+        "**/.gitignore": true,
+        "**/*.exe": true,
+        "**/*.o": true,
+        "**/accessrest": true,
+        "**/accessws": true,
+        "**/alertcenter": true,
+        "**/internalws": true,
+        "**/logwriter": true,
+        "**/monitoragent": true,
+        "**/monitorcenter": true,
+        "**/scripts": true,
+        "**/sql": true,
+        "**/unittest": true
+    },
+    "editor.fontSize": 13,
+    "diffEditor.ignoreTrimWhitespace": false,
+    "terminal.integrated.profiles.osx": {
+        "bash": {
+            "path": "bash",
+            "args": [
+                "-l"
+            ],
+            "icon": "terminal-bash"
+        },
+        "zsh": {
+            "path": "zsh",
+            "args": [
+                "-l"
+            ]
+        },
+        "fish": {
+            "path": "fish",
+            "args": [
+                "-l"
+            ]
+        },
+        "tmux": {
+            "path": "tmux",
+            "icon": "terminal-tmux"
+        },
+        "pwsh": {
+            "path": "pwsh",
+            "icon": "terminal-powershell"
+        },
+        "sh": {
+            "path": "/bin/sh"
+        }
+    },
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "diffEditor.renderSideBySide": false,
+    "search.exclude": {
+        "system/": true,
+        "!/system/**/*.ps*": true,
+    },
+    "cmake.configureOnOpen": true,
+}
