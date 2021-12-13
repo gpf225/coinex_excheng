@@ -69,9 +69,9 @@ int process_keepalive(bool debug)
         if (pid < 0) {
             log_error("fork error: %d: %s", pid, strerror(errno));
             return -1;
-        } else if (pid == 0 ) {
+        } else if (pid == 0 ) { // 子进程初始化信号后继续执行程序,父进程等待回收子进程把子进程退出情况反馈给操作系统
             init_signal();
-            return 0;
+            return 0;//return 是函数的结束,返回此函数的调用处
         } else {
             init_signal();
             signal(SIGCHLD, SIG_DFL);
@@ -79,7 +79,7 @@ int process_keepalive(bool debug)
             signal(SIGTTIN, SIG_IGN);
             signal(SIGTTOU, SIG_IGN);
             int status = 0;
-            int ret = waitpid(pid, &status, 0);
+            int ret = waitpid(pid, &status, 0);// 阻塞等待回收子进程
             if (ret < 0) {
                 if (signal_exit) {
                     exit(EXIT_SUCCESS);
@@ -89,7 +89,7 @@ int process_keepalive(bool debug)
                 }
             }
             if (WIFEXITED(status)) {
-                exit(EXIT_SUCCESS);
+                exit(EXIT_SUCCESS); // exit()退出程序,当子进程退出后父进程也推出
             } else if (WIFSIGNALED(status)) {
                 log_fatal("process: %d, name: %s terminated by signal: '%s'", \
                         pid, program_invocation_short_name, strsignal(WTERMSIG(status)));
